@@ -19,7 +19,8 @@
  *            scroll left / right, a drift); the voices drawn where they are
  *   FX       KNOB 1..4      STRUCTURE, BRIGHTNESS, DAMPING, MIX of the resonators (resonator.c: Rings' models, 4 voices;
  *            and the waveguides of waveguide.c: THROAT (KNOB 1 the ANIMAL, SELECT the VOWEL), FLUTE (JET, BREATH),
- *            SYRINX (CHIRP, TWO VOICE));
+ *            SYRINX (CHIRP, TWO VOICE), HAWK (SCREAM, RASP), BRASS (LIP, MUTE), BOW (PRESSURE, BOW AT),
+ *            REED (REED, BORE));
  *            ALGORITHM the model (MODAL, SYMP STRING, STRING), SELECT the POSITION; its resonances and output drawn
  *   FX (2nd) KNOB 1..4      SIZE, DECAY, SHIMMER, MIX of the shimmer reverb (shimmer.c); ALGORITHM the INTERVAL,
  *            SELECT the TONE; the tail's level over the last seconds drawn (the riser building)
@@ -81,9 +82,8 @@ typedef struct {
 #define NOFX 0, 0, 0, 0, 0, 0
 #define NOSH 0, 0, 0, 0, 0, 0
 /* 128 in all, in the order of General MIDI (program change 0..127 = GM program 1..128): each GM sound as near as
- * the circuit, the noise programs, the resonators and the waveguides get. Without a model of their own (no lip
- * reed, no bow, no reed: brass, bowed strings, saxes and double reeds) they are approximations: a saw or a pulse
- * through the low pass gate, or a resonator held by a sustained tone (as a bowed Rings). */
+ * the circuit, the noise programs, the resonators and the waveguides get (brass, bowed strings and reeds:
+ * the BRASS, BOW and REED waveguides). */
 #define CYC 6, 64, 64                            /* the pure cycle, Y: near a sine (a resonator's exciter) */
 #define NZK 85, 76, 0                            /* (a noise program: the circuit's knobs kept for going back) */
 #define ROOM 90, 85, 0, 45, SI_OCT, 70           /* the shimmer as a plain room (SHIMMER 0) */
@@ -106,7 +106,7 @@ static const preset_t PRESETS[] = {
     {"VIBRAPHONE", CYC, 0, 90, 0, 96, 40, RZ_MODAL, 92, 90, 112, 24, 110, ROOM},
     {"MARIMBA", 30, 100, 32, 0, 64, 0, 64, 100, RZ_MODAL, 90, 70, 80, 24, 60},
     {"XYLOPHONE", CYC, 0, 56, 0, 58, 80, RZ_MODAL, 116, 110, 64, 20, 100},
-    {"TUBULAR BELLS", 6, 64, 64, 0, 90, 0, 94, 40, RZ_MODAL, 110, 90, 115, 30, 100},
+    {"TUBULAR BELLS", 54, 90, 64, 0, 96, 0, 96, 50, RZ_MODAL, 104, 100, 112, 16, 127},
     {"DULCIMER", CYC, 0, 60, 0, 70, 60, RZ_SYMP, 4, 100, 110, 60, 90},
     /* ORGAN 17-24 */
     {"DRAWBAR ORGAN", NZK, 2, 64, 127, 50, 0, NOFX, NOSH, NZ(1, 9), 0, 12},
@@ -135,11 +135,11 @@ static const preset_t PRESETS[] = {
     {"SLAP BASS 2", 38, 70, 32, 0, 56, 20, 52, 120},
     {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30},
     {"SYNTH BASS 2", 54, 70, 16, 0, 60, 40, 54, 120},
-    /* STRINGS 41-48: no bow; a saw holds a string resonator (as a bowed Rings) */
-    {"VIOLIN", NZK, 50, 80, 115, 70, 20, RZ_STRING, 50, 90, 120, 40, 80, ROOM, NZ(1, 8), 0, 70},
-    {"VIOLA", NZK, 50, 80, 115, 70, 20, RZ_STRING, 50, 70, 120, 40, 80, ROOM, NZ(1, 8), 0, 55},
-    {"CELLO", NZK, 54, 80, 115, 72, 20, RZ_STRING, 50, 55, 120, 40, 80, ROOM, NZ(1, 8), 0, 45},
-    {"CONTRABASS", NZK, 56, 80, 115, 72, 20, RZ_STRING, 50, 40, 120, 40, 80, ROOM, NZ(1, 8), 0, 35},
+    /* STRINGS 41-48: the BOW waveguide */
+    {"VIOLIN", CYC, 44, 80, 118, 70, 20, RZ_BOW, 110, 90, 100, 60, 127, ROOM},
+    {"VIOLA", CYC, 46, 80, 118, 70, 20, RZ_BOW, 110, 75, 100, 64, 127, ROOM},
+    {"CELLO", CYC, 48, 80, 118, 72, 20, RZ_BOW, 115, 60, 105, 70, 127, ROOM},
+    {"CONTRABASS", CYC, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 105, 74, 127, ROOM},
     {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, NOFX, ROOM, NZ(1, 9), 40, 127},
     {"PIZZICATO", CYC, 0, 54, 0, 56, 70, RZ_STRING, 40, 70, 50, 40, 100, ROOM},
     {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 60, 50, 90, 60, 60, 20, 60, SI_OCT, 70},
@@ -153,24 +153,24 @@ static const preset_t PRESETS[] = {
     {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 60, 60, 4, 110, HALL, NZ(1, 0), 8, 40},
     {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_THROAT, 40, 90, 60, 90, 100, AIR, NZ(1, 1), 10, 80},
     {"ORCHESTRA HIT", NZK, 0, 70, 0, 74, 40, NOFX, HALL, NZ(1, 0), 40, 127},
-    /* BRASS 57-64: no lip reed; a saw that opens with the gate (the LPG: brighter as it gets louder) */
-    {"TRUMPET", NZK, 30, 80, 105, 60, 30, NOFX, ROOM, NZ(1, 8), 0, 90},
-    {"TROMBONE", NZK, 40, 80, 105, 64, 30, NOFX, ROOM, NZ(1, 8), 0, 55},
-    {"TUBA", NZK, 40, 80, 105, 64, 20, NOFX, NOSH, NZ(1, 8), 0, 30},
-    {"MUTED TRUMPET", NZK, 24, 76, 100, 60, 40, RZ_THROAT, 40, 90, 50, 110, 60, NOSH, NZ(1, 1), 0, 30},
-    {"FRENCH HORN", NZK, 50, 84, 105, 76, 20, NOFX, HALL, NZ(1, 8), 0, 25},
-    {"BRASS SECTION", NZK, 30, 80, 105, 64, 40, NOFX, ROOM, NZ(1, 0), 6, 64},
+    /* BRASS 57-64: the BRASS waveguide (the synth brass: saws) */
+    {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 80, 0, 127, ROOM},
+    {"TROMBONE", CYC, 34, 80, 112, 64, 20, RZ_BRASS, 70, 80, 85, 0, 127, ROOM},
+    {"TUBA", CYC, 36, 80, 112, 64, 20, RZ_BRASS, 30, 55, 90, 0, 127},
+    {"MUTED TRUMPET", CYC, 24, 76, 110, 60, 20, RZ_BRASS, 90, 100, 80, 110, 127, ROOM},
+    {"FRENCH HORN", CYC, 44, 84, 112, 76, 20, RZ_BRASS, 20, 50, 95, 0, 127, HALL},
+    {"BRASS SECTION", CYC, 30, 80, 112, 64, 30, RZ_BRASS, 90, 95, 80, 0, 127, ROOM},
     {"SYNTH BRASS 1", NZK, 20, 70, 90, 60, 80, NOFX, NOSH, NZ(1, 0), 10, 40},
     {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, NOFX, ROOM, NZ(1, 0), 16, 80},
-    /* REED 65-72: no reed; a pulse (or the squares, the clarinet) through a throat */
-    {"SOPRANO SAX", NZK, 20, 76, 110, 60, 30, RZ_THROAT, 40, 90, 60, 30, 60, ROOM, NZ(1, 1), 0, 110},
-    {"ALTO SAX", NZK, 20, 76, 110, 60, 30, RZ_THROAT, 40, 80, 60, 30, 70, ROOM, NZ(1, 1), 0, 90},
-    {"TENOR SAX", NZK, 24, 76, 110, 62, 30, RZ_THROAT, 40, 60, 60, 30, 80, ROOM, NZ(1, 8), 0, 60},
-    {"BARITONE SAX", NZK, 24, 76, 110, 62, 30, RZ_THROAT, 40, 40, 60, 20, 80, NOSH, NZ(1, 8), 0, 40},
-    {"OBOE", NZK, 20, 76, 110, 60, 20, NOFX, ROOM, NZ(1, 1), 0, 0},
-    {"ENGLISH HORN", NZK, 24, 76, 110, 62, 20, RZ_THROAT, 40, 60, 60, 26, 50, ROOM, NZ(1, 1), 0, 20},
-    {"BASSOON", NZK, 24, 76, 110, 62, 20, RZ_THROAT, 40, 50, 60, 4, 50, NOSH, NZ(1, 1), 0, 50},
-    {"CLARINET", NZK, 30, 76, 115, 60, 0, NOFX, ROOM, NZ(1, 9), 0, 0},
+    /* REED 65-72: the REED waveguide (BORE: a cone, the clarinet a cylinder) */
+    {"SOPRANO SAX", CYC, 20, 76, 115, 60, 20, RZ_REED, 70, 100, 90, 40, 127, ROOM},
+    {"ALTO SAX", CYC, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 90, 60, 127, ROOM},
+    {"TENOR SAX", CYC, 24, 76, 115, 62, 20, RZ_REED, 55, 80, 90, 80, 127, ROOM},
+    {"BARITONE SAX", CYC, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 90, 100, 127},
+    {"OBOE", CYC, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 90, 120, 127, ROOM},
+    {"ENGLISH HORN", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 90, 110, 127, ROOM},
+    {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 95, 105, 127},
+    {"CLARINET", CYC, 30, 76, 118, 60, 20, RZ_REED, 40, 80, 95, 0, 127, ROOM},
     /* PIPE 73-80: the FLUTE waveguide */
     {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 90, 40, 127, ROOM},
     {"FLUTE", CYC, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 90, 50, 127, ROOM},
@@ -216,9 +216,9 @@ static const preset_t PRESETS[] = {
     {"SHAMISEN", CYC, 0, 54, 0, 56, 80, RZ_STRING, 10, 110, 50, 30, 100},
     {"KOTO", 6, 64, 64, 0, 66, 0, 66, 60, RZ_STRING, 60, 70, 96, 20, 85, ROOM},
     {"KALIMBA", 6, 64, 64, 0, 62, 0, 62, 70, RZ_MODAL, 40, 90, 80, 30, 100},
-    {"BAGPIPE", NZK, 10, 70, 120, 60, 20, RZ_SYMP, 20, 90, 115, 100, 70, ROOM, NZ(1, 1), 6, 80},
-    {"FIDDLE", NZK, 40, 76, 115, 66, 30, RZ_STRING, 50, 110, 115, 30, 80, NOSH, NZ(1, 8), 0, 90},
-    {"SHANAI", NZK, 20, 76, 110, 60, 20, RZ_THROAT, 40, 100, 60, 110, 60, ROOM, NZ(1, 1), 0, 0},
+    {"BAGPIPE", CYC, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 100, 120, 127, ROOM},
+    {"FIDDLE", CYC, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 95, 45, 127},
+    {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 85, 125, 127, ROOM},
     /* PERCUSSIVE 113-120 */
     {"TINKLE BELL", 54, 90, 64, 0, 76, 0, 76, 60, RZ_MODAL, 70, 120, 110, 12, 120, ROOM},
     {"AGOGO", CYC, 0, 54, 0, 56, 80, RZ_MODAL, 116, 100, 80, 40, 110},
@@ -254,6 +254,11 @@ static const fx_preset_t FX_PRESETS[] = {
     {"NIGHT FLUTE", RZ_FLUTE, 30, 70, 90, 50, 127}, {"OVERBLOWN", RZ_FLUTE, 115, 90, 100, 20, 120},
     {"BIRD", RZ_SYRINX, 90, 70, 60, 15, 127},      {"TWO BIRDS", RZ_SYRINX, 60, 90, 70, 110, 127},
     {"HAWK", RZ_HAWK, 70, 90, 70, 70, 127},
+    {"TRUMPET", RZ_BRASS, 100, 100, 80, 0, 127},   {"HORN", RZ_BRASS, 20, 50, 95, 0, 127},
+    {"HARMON MUTE", RZ_BRASS, 90, 100, 80, 110, 127}, {"VIOLIN", RZ_BOW, 110, 90, 100, 60, 127},
+    {"CELLO", RZ_BOW, 115, 60, 105, 70, 127},      {"SUL PONTICELLO", RZ_BOW, 100, 110, 95, 8, 127},
+    {"CLARINET", RZ_REED, 40, 80, 95, 0, 127},     {"SAX", RZ_REED, 60, 90, 90, 60, 127},
+    {"OBOE", RZ_REED, 110, 100, 90, 120, 127},
 };
 #define NFX_PRESETS (sizeof FX_PRESETS / sizeof FX_PRESETS[0])
 /* the SHIMMER page's own presets */
@@ -1085,8 +1090,8 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
 {
     uint32_t md = sys.fx_model % RZ_COUNT, p = sys.fx_pos & 127u;
     char v[12];
-    static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP"};
-    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP"};
+    static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP", "MUTE", "BOW AT", "BORE"};
+    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE"};
     str_cpy(d, brief ? S[md] : L[md], n);
     ui_cat(d, n, " ");
     if (md == RZ_THROAT) {                       /* the vowel: U O A E I, or between two */
@@ -1101,6 +1106,25 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
             ui_cat(d, n, WG_VOWEL[k]);
             ui_cat(d, n, ">");
             ui_cat(d, n, WG_VOWEL[k + 1u]);
+        }
+        return;
+    }
+    if (md == RZ_REED) {                         /* the bore: the clarinet's cylinder, or the cone's reed place */
+        if (p < 16u)
+            ui_cat(d, n, brief ? "CYL" : "CYLINDER");
+        else {
+            ui_cat(d, n, brief ? "CONE " : "CONE ");
+            fmt_int(v, (int32_t)(6u + (p - 16u) * 39u / 111u));
+            ui_cat(d, n, v);
+            ui_cat(d, n, "%");
+        }
+        return;
+    }
+    if (md == RZ_BOW) {                          /* where the bow is: by the bridge .. over the fingerboard */
+        ui_cat(d, n, p < 24u ? (brief ? "PONT" : "PONTICELLO") : p > 100u ? (brief ? "TASTO" : "SUL TASTO") : "");
+        if (p >= 24u && p <= 100u) {
+            fmt_int(v, (int32_t)p);
+            ui_cat(d, n, v);
         }
         return;
     }
@@ -1364,7 +1388,8 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
-        static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 ANIMAL", "1 JET", "1 CHIRP", "1 SCREAM"};
+        static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 ANIMAL", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
+                                                   "1 PRESSURE", "1 REED"};
         if (md == RZ_SYMP)
             str_cpy(b, RZ_CHORD_NAME[(sys.fx_struct & 127u) >> 4], sizeof b);
         else if (md == RZ_THROAT)

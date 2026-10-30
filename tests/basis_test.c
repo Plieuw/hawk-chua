@@ -1508,11 +1508,15 @@ int main(int argc, char **argv)
         uint32_t okk = 1, q, w2;
         struct { uint32_t md; uint8_t st, pos; double lo, hi; } T[] = {
             {RZ_FLUTE, 0, 30, 0.96, 1.04}, {RZ_FLUTE, 100, 30, 1.9, 2.1}, {RZ_FLUTE, 127, 30, 2.85, 4.15},
-            {RZ_SYRINX, 0, 0, 3.5, 9}, {RZ_SYRINX, 127, 0, 5.0, 20},
+            {RZ_SYRINX, 0, 0, 3.5, 9}, {RZ_SYRINX, 127, 0, 5.0, 25},
+            {RZ_BRASS, 0, 0, 1.96, 2.04}, {RZ_BOW, 120, 60, 0.96, 1.04}, {RZ_REED, 40, 0, 0.96, 1.04},
+            {RZ_REED, 60, 70, 1.96, 2.04},   /* (brass and the cone: their second harmonic the strongest, in tune) */
         };
         double fsy[2] = {0, 0};
         sys.osc = 11; sys.np_x = sys.np_y = 64; sys.np_level = 64;   /* (CLUSTER SAW: a steady breath) */
         sys.attack = 0; sys.sustain = 127; sys.release = 20; sys.fx_bright = 70; sys.fx_damp = 90; sys.sh_mix = 0;
+        synth_kill(); memset(voice, 0, sizeof voice); rng_state = 0x1234567u; voice_clock = 0;   /* (the same
+                                                  * voices and noise whatever ran before) */
         sys.basis = 0;
         for (q = 0; q < sizeof T / sizeof T[0]; q++) {
             double best = 0, f = 0;
@@ -1537,8 +1541,23 @@ int main(int argc, char **argv)
                 e = re * re + im * im;
                 if (e > best) { best = e; f = k2; }
             }
+            if (T[q].md == RZ_SYRINX) {                    /* (the whistle: its period, by autocorrelation; the
+                                                            * strongest peak is whichever harmonic the beak lifts) */
+                uint32_t L, bl = 5;
+                double bc = -1e300;
+                for (L = 5; L < 70u; L++) {
+                    double c = 0, e0 = 1;
+                    uint32_t i2;
+                    for (i2 = 0; i2 + L < sizeof o / sizeof o[0]; i2++) {
+                        c += (double)o[i2] * o[i2 + L];
+                        e0 += (double)o[i2] * o[i2];
+                    }
+                    if (c / e0 > bc) { bc = c / e0; bl = L; }
+                }
+                f = (double)FS / bl;
+            }
             printf("   (%s STRUCTURE %u: strongest %.0f Hz, %.2f x the note)\n", RZ_NAME[T[q].md], T[q].st, f, f / 220.0);
-            if (T[q].md == RZ_SYRINX)                      /* (the whistle or the harmonic the beak lifts: up there) */
+            if (T[q].md == RZ_SYRINX)
                 fsy[T[q].st ? 1 : 0] = f;
             okk &= f / 220.0 >= T[q].lo && f / 220.0 <= T[q].hi;
         }

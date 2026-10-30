@@ -16,6 +16,9 @@
  *   SYRINX   the trachea down to the syrinx, the two bronchi forking, the labia beating each with its own voice;
  *            (TWO VOICE: the second apart)
  *   HAWK     the same, the labia rasping (RASP)
+ *   BRASS    a trumpet, its valves; the lips' puffs running along it; a mute in the bell (MUTE)
+ *   BOW      a violin, its strings, the bow where POSITION puts it; the Helmholtz corner running on a string
+ *   REED     a clarinet (BORE: the cylinder) or a saxophone (the cone), the reed beating, the standing wave
  *
  * Integer only (np_sin, Q8 coordinates, Wu's lines). Nothing here touches the audio. */
 
@@ -820,6 +823,198 @@ static void art_tape(void)
     art_title(ICON_TAPE, "TAPE");
 }
 
+/* ------------------------------------------------------- BRASS, BOW, REED --- */
+/* a ring of n segments in the y-z plane at x (Q8), radius r (Q8) */
+static void a3_xring(int32_t x, int32_t y, int32_t r, uint32_t nseg, uint16_t c)
+{
+    uint32_t k;
+    int32_t ox = 0, oy = 0, sx, sy;
+    for (k = 0; k <= nseg; k++) {
+        uint32_t th = k * (0xFFFFFFFFu / nseg);
+        a3_proj(a3_rot(x, y + (r >> 8) * (art_cos(th) >> 7), (r >> 8) * (art_sin(th) >> 7)), &sx, &sy);
+        if (k)
+            art_ln(ox, oy, sx, sy, c, 0);
+        ox = sx; oy = sy;
+    }
+}
+
+/* BRASS: a trumpet turning (the leadpipe, two bends, the bell flaring), the three valves; puffs of air from the
+ * buzzing lips running along the tube a period apart, as narrow as the lips make them (LIP and the breath); a mute
+ * in the bell as MUTE turns */
+static void art_brass(void)
+{
+    int32_t px[40], py[40], pr[40], n = 0, k, sx, sy, sx2, sy2;
+    uint32_t i;
+    a3_view((uint32_t)ART_DEG(-20) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(26), 122, 78);
+    for (k = 0; k <= 4; k++) { px[n] = Q8(-100 + 32 * k); py[n] = 0; pr[n++] = Q8(k ? 3 : 5); }   /* the leadpipe */
+    for (k = 1; k <= 5; k++) {                                   /* the first bend */
+        uint32_t a = (uint32_t)k * (0x80000000u / 6u);
+        px[n] = Q8(28) + 11 * (art_sin(a) >> 7); py[n] = Q8(-11) + 11 * (art_cos(a) >> 7); pr[n++] = Q8(3);
+    }
+    for (k = 0; k <= 3; k++) { px[n] = Q8(28 - 24 * k); py[n] = Q8(-22); pr[n++] = Q8(3); }
+    for (k = 1; k <= 5; k++) {                                   /* the second bend */
+        uint32_t a = (uint32_t)k * (0x80000000u / 6u);
+        px[n] = Q8(-44) - 11 * (art_sin(a) >> 7); py[n] = Q8(-33) + 11 * (art_cos(a) >> 7); pr[n++] = Q8(3);
+    }
+    for (k = 0; k <= 3; k++) { px[n] = Q8(-44 + 30 * k); py[n] = Q8(-44); pr[n++] = Q8(3 + k / 2); }
+    for (k = 1; k <= 8; k++) {                                   /* the bell: an exponential flare */
+        px[n] = Q8(46 + 6 * k); py[n] = Q8(-44);
+        pr[n++] = Q8(4) + Q8(1) * (k * k * k) / 24;
+    }
+    a3_tube(px, py, pr, (uint32_t)n, 2, art_c, art_c2);
+    for (k = 0; k < 3; k++) {                                    /* the valves */
+        int32_t vx = Q8(-16 + 12 * k), d = (k == 1 ? art_lv / 40 : 0);
+        a3_xring(vx, Q8(10) - d * 256, Q8(4), 10, art_c2);
+        a3_l(vx - Q8(4), Q8(10) - d * 256, 0, vx - Q8(4), Q8(-26), 0, art_c2, 0);
+        a3_l(vx + Q8(4), Q8(10) - d * 256, 0, vx + Q8(4), Q8(-26), 0, art_c2, 0);
+        a3_l(vx, Q8(10) - d * 256, 0, vx, Q8(16) - d * 256, 0, art_c, 0);
+    }
+    {   /* the puffs: a pulse a period, its width the lips' (LIP, the breath) */
+        int32_t w = 6 - (int32_t)(sys.fx_struct & 127u) * art_lv / (127 * 64);
+        uint32_t ph = art_t * 0x0A000000u;
+        w = w < 1 ? 1 : w;
+        if (art_lv > 6)
+            for (i = 0; i < 6u; i++) {
+                int32_t idx = (int32_t)((i * 0x2AAAAAAAu + ph) >> 27) % (n - 1);   /* along the path */
+                a3_proj(a3_rot(px[idx], py[idx], 0), &sx, &sy);
+                art_ln(sx - Q8(w), sy, sx + Q8(w), sy, art_c, 0);
+                art_ring(sx, sy, 1, art_c);
+            }
+    }
+    {   /* the lips at the mouthpiece, buzzing */
+        int32_t g = art_lv * (art_sin(art_t * 0x50000000u) + 32768) / 65536 / 24;
+        a3_proj(a3_rot(Q8(-108), Q8(-6), 0), &sx, &sy);
+        a3_proj(a3_rot(Q8(-108), -Q8(g), 0), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c, 0);
+        a3_proj(a3_rot(Q8(-108), Q8(6), 0), &sx, &sy);
+        a3_proj(a3_rot(Q8(-108), Q8(g), 0), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c, 0);
+    }
+    if ((sys.fx_pos & 127u) > 8u) {                              /* the mute: a cone in the bell */
+        int32_t depth = Q8(4) + (int32_t)(sys.fx_pos & 127u) * Q8(14) / 127, bx = px[n - 1];
+        a3_xring(bx - depth, py[n - 1], Q8(14), 12, art_c);
+        a3_l(bx - depth, py[n - 1] - Q8(14), 0, bx - depth - Q8(16), py[n - 1], 0, art_c, 0);
+        a3_l(bx - depth, py[n - 1] + Q8(14), 0, bx - depth - Q8(16), py[n - 1], 0, art_c, 0);
+    }
+    art_title(ICON_TRUMPET, "BRASS");
+}
+
+/* BOW: a violin lying on its back, turning: its outline front and back, the f-holes, the bridge, four strings and
+ * the bow across them where POSITION puts it, moving along its hair; on the second string the Helmholtz motion:
+ * the string two straight lines, their corner running round between the nut and the bridge (the slip and the
+ * stick), as high as the sound */
+static void art_bow(void)
+{
+    static const int8_t BX[] = {-34, -30, -18, -2, 10, 22, 34, 50, 66, 76, 80};
+    static const int8_t BW[] = {0, 18, 26, 25, 16, 15, 20, 31, 30, 20, 0};
+    int32_t sx, sy, sx2, sy2, k, bxp, ylast[2] = {0, 0}, xlast[2] = {0, 0};
+    uint32_t i;
+    a3_view((uint32_t)ART_DEG(-18) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(40), 120, 66);
+    for (k = 0; k < 2; k++) {                                    /* the body: its outline, front (z 0) and back */
+        int32_t z = k ? Q8(9) : 0, side;
+        for (side = -1; side <= 1; side += 2) {
+            for (i = 0; i < sizeof BX; i++) {
+                v3_t p = a3_rot(Q8(BX[i]), side * Q8(BW[i]), z);
+                a3_proj(p, &sx, &sy);
+                if (i) {
+                    v3_t q = a3_rot(Q8(BX[i - 1]), side * Q8(BW[i - 1]), z);
+                    a3_seg(q, p, k ? -Q8(400) : Q8(400), k ? art_c2 : art_c);
+                }
+                if (k && (i == 2u || i == 4u || i == 7u))        /* the ribs */
+                    a3_l(Q8(BX[i]), side * Q8(BW[i]), 0, Q8(BX[i]), side * Q8(BW[i]), Q8(9), art_c3, 0);
+            }
+        }
+    }
+    (void)ylast; (void)xlast;
+    for (k = -1; k <= 1; k += 2) {                               /* the f-holes */
+        a3_l(Q8(18), k * Q8(9), 0, Q8(36), k * Q8(11), 0, art_c2, 0);
+        a3_proj(a3_rot(Q8(18), k * Q8(9), 0), &sx, &sy); art_ring(sx, sy, 1, art_c2);
+        a3_proj(a3_rot(Q8(36), k * Q8(11), 0), &sx, &sy); art_ring(sx, sy, 1, art_c2);
+    }
+    a3_l(Q8(30), Q8(-12), -Q8(1), Q8(30), Q8(12), -Q8(1), art_c, 0);   /* the bridge */
+    a3_l(Q8(-34), Q8(-4), -Q8(1), Q8(-120), Q8(-3), -Q8(4), art_c2, 0);  /* the neck's edges */
+    a3_l(Q8(-34), Q8(4), -Q8(1), Q8(-120), Q8(3), -Q8(4), art_c2, 0);
+    for (k = 0; k < 4; k++) {                                    /* the strings (the second: Helmholtz) */
+        int32_t yy = Q8(-6 + 4 * k);
+        if (k != 1)
+            a3_l(Q8(-120), yy * 3 / 4, -Q8(5), Q8(30), yy, -Q8(5), art_c2, 0);
+        else {
+            uint32_t ph = art_t * 0x06000000u, u = ph < 0x80000000u ? ph : 0xFFFFFFFFu - ph;   /* the corner */
+            int32_t c = (int32_t)(u >> 15), A = art_lv / 8;      /* 0..65536 along; the height */
+            int32_t hgt = (int32_t)((int64_t)A * c / 65536 * (65536 - c) / 65536) * (ph < 0x80000000u ? 1 : -1);
+            int32_t xc = Q8(-120) + (int32_t)((int64_t)Q8(150) * c / 65536);
+            a3_l(Q8(-120), yy * 3 / 4, -Q8(5), xc, yy, -Q8(5) - Q8(hgt) / 4, art_c, 0);
+            a3_l(xc, yy, -Q8(5) - Q8(hgt) / 4, Q8(30), yy, -Q8(5), art_c, 0);
+        }
+    }
+    bxp = Q8(26) - (int32_t)(sys.fx_pos & 127u) * Q8(40) / 127;  /* the bow: by the bridge .. over the fingerboard */
+    {
+        int32_t slide = art_sin(art_t * 0x01800000u) / 1024;    /* along its hair */
+        a3_l(bxp, Q8(-60 + slide), -Q8(7), bxp - Q8(6), Q8(60 + slide), -Q8(7), art_c, 0);   /* the hair */
+        a3_l(bxp + Q8(4), Q8(-60 + slide), -Q8(13), bxp - Q8(2), Q8(60 + slide), -Q8(13), art_c, 0);   /* the stick */
+        a3_l(bxp, Q8(-60 + slide), -Q8(7), bxp + Q8(4), Q8(-60 + slide), -Q8(13), art_c, 0);
+        a3_l(bxp - Q8(6), Q8(60 + slide), -Q8(7), bxp - Q8(2), Q8(60 + slide), -Q8(13), art_c, 0);
+        a3_proj(a3_rot(bxp - Q8(1), Q8(-2), -Q8(5)), &sx, &sy);   /* where it grips: pressed as hard as PRESSURE */
+        a3_proj(a3_rot(bxp - Q8(1), Q8(-2), -Q8(7) - (int32_t)(sys.fx_struct & 127u) * 4), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c3, 1u | 2u << 8);
+    }
+    art_title(ICON_VIOLIN, "BOW");
+}
+
+/* REED: a clarinet (BORE a cylinder) or a saxophone (a cone), turning; the reed on the mouthpiece beating against
+ * it; inside, dashed, the pressure's standing wave: a quarter wave and its odd partners in the cylinder, a half
+ * wave in the cone */
+static void art_reed(void)
+{
+    int32_t px[40], py[40], pr[40], n = 0, k, sx, sy, sx2, sy2;
+    uint32_t i, cyl = (sys.fx_pos & 127u) < 16u;
+    int32_t cw = art_cos(art_t * 0x30000000u);
+    a3_view((uint32_t)ART_DEG(-22) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(22), 132, cyl ? 64 : 74);
+    if (cyl) {
+        for (k = 0; k <= 12; k++) { px[n] = Q8(-104 + 14 * k); py[n] = 0; pr[n++] = Q8(k ? 5 : 3); }
+        for (k = 1; k <= 6; k++) { px[n] = Q8(64 + 6 * k); py[n] = 0; pr[n++] = Q8(5) + Q8(k * k) / 4; }
+    } else {
+        for (k = 0; k <= 4; k++) { px[n] = Q8(-104 + 8 * k); py[n] = Q8(-36 + 3 * k); pr[n++] = Q8(2) + Q8(k) / 3; }
+        for (k = 1; k <= 10; k++) { px[n] = Q8(-72 + 12 * k); py[n] = Q8(-24 + k); pr[n++] = Q8(3) + Q8(k) / 3; }
+        for (k = 1; k <= 5; k++) {                               /* the bow */
+            uint32_t a = (uint32_t)k * (0x80000000u / 6u);
+            px[n] = Q8(48) + 15 * (art_sin(a) >> 7); py[n] = Q8(1) - 15 * (art_cos(a) >> 7); pr[n++] = Q8(7);
+        }
+        for (k = 0; k <= 2; k++) { px[n] = Q8(48 - 9 * k); py[n] = Q8(16); pr[n++] = Q8(7); }
+        for (k = 1; k <= 6; k++) {                               /* the bell, turned up */
+            px[n] = Q8(30 - 2 * k); py[n] = Q8(14 - 7 * k);
+            pr[n++] = Q8(7) + Q8(k * k) / 4;
+        }
+    }
+    a3_tube(px, py, pr, (uint32_t)n, 2, art_c, art_c2);
+    for (k = 0; k < 6; k++) {                                    /* the keys */
+        int32_t j = cyl ? 3 + k * 1 + 1 : 6 + k;
+        a3_proj(a3_rot(px[j], py[j] - pr[j], 0), &sx, &sy);
+        art_ring(sx, sy, 2, art_c2);
+    }
+    {   /* the reed under the mouthpiece, beating */
+        int32_t g = art_lv * (art_sin(art_t * 0x58000000u) + 32768) / 65536 / 32;
+        a3_proj(a3_rot(px[0] - Q8(8), py[0] + Q8(3), 0), &sx, &sy);
+        a3_proj(a3_rot(px[0] + Q8(10), py[0] + Q8(4 + g), 0), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c, 0);
+        a3_proj(a3_rot(px[0] - Q8(8), py[0] - Q8(3), 0), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c, 0);
+    }
+    {   /* the pressure inside: cos over a quarter wave (the cylinder's first mode) or a half (the cone's) */
+        int32_t ox = 0, oy = 0, last = cyl ? n - 7 : 14;
+        for (i = 0; i <= 24u; i++) {
+            int32_t x = px[0] + (px[last] - px[0]) / 24 * (int32_t)i, yb = py[0] + (py[last] - py[0]) / 24 * (int32_t)i;
+            uint32_t a = i * ((cyl ? 0x40000000u : 0x80000000u) / 24u);
+            int32_t d = 6 * art_lv * cw / 32768 * art_cos(a) / 32768;
+            a3_proj(a3_rot(x, yb + d, 0), &sx, &sy);
+            if (i)
+                art_ln(ox, oy, sx, sy, art_c, 2u | 2u << 8);
+            ox = sx; oy = sy;
+        }
+    }
+    art_title(ICON_SAX, cyl ? "REED  CLARINET" : "REED  CONE");
+}
+
 /* the FX page's picture */
 static void art_draw(void)
 {
@@ -845,6 +1040,9 @@ static void art_draw(void)
     case RZ_THROAT: art_throat(); break;
     case RZ_FLUTE: art_flute(); break;
     case RZ_SYRINX: art_syrinx(0); break;
+    case RZ_BRASS: art_brass(); break;
+    case RZ_BOW: art_bow(); break;
+    case RZ_REED: art_reed(); break;
     default: art_syrinx(1); break;
     }
     if (!sys.fx_mix)

@@ -358,3 +358,245 @@ static void wg_hawk_run(wg_syrinx_t *S, const int32_t *in, int32_t *y, uint32_t 
     }
     S->t = S->t < 0x7FFFFFFFu ? S->t + n : S->t;
 }
+
+/* ------------------------------------------------------- the level (AGC) --- */
+/* a slow automatic gain (~0.1 s), as the THROAT's: the output held at 3.6 x the input's level (the dry's, out of the
+ * FX: RZ_GAIN), x 1/8 .. 24 (a self-oscillating model's level hangs on its breath and register, not on its input) */
+static void wg_level(int32_t *iav, int32_t *oav, int32_t *ag, const int32_t *in, int32_t *y, uint32_t n)
+{
+    uint32_t si = 0, so = 0, i;
+    int32_t gt;
+    for (i = 0; i < n; i++) {
+        si += (uint32_t)(in[i] < 0 ? -in[i] : in[i]) >> 6;
+        so += (uint32_t)(y[i] < 0 ? -y[i] : y[i]) >> 6;
+    }
+    *iav += ((int32_t)(si / n) - *iav) / 8;
+    *oav += ((int32_t)(so / n) - *oav) / 8;
+    gt = *oav > 0 ? (int32_t)((uint32_t)*iav * 14746u / (uint32_t)(*oav > 0 ? *oav : 1)) : 4096;   /* Q12 */
+    gt = gt < 512 ? 512 : gt > 98304 ? 98304 : gt;
+    *ag += (gt - *ag) / 16;
+    for (i = 0; i < n; i++)
+        y[i] = px_clamp(px_m(y[i], *ag, 12), -64 * PX_ONE, 64 * PX_ONE);
+}
+
+/* the half-rate period of the note (Q16 samples), folded up by octaves until it fits in max samples */
+static __attribute__((noinline)) uint32_t wg_per(uint32_t f0, uint32_t max)   /* (one division, not three) */
+{
+    uint32_t per = f0 < 65536u ? 0xFFFFFFFFu : px_period(f0 > 0x40000000u ? 0x40000000u : f0) >> 1;
+    while (per > max << 16)
+        per >>= 1;
+    return per;
+}
+
+/* ------------------------------------------------------------------- BRASS --- */
+/* Lips buzzing into a bore. The lips (after the measured lip-reed waveforms: a short pulse of air a period, the
+ * shorter the harder they are blown, so a loud note is a bright note: brass's own sound) are a pulse at the note,
+ * its width 0.5 of a period at a breath and down to ~0.1 at full breath x LIP (STRUCTURE: loose, mellow, a horn
+ * .. tight, brassy, a trumpet); the bore a tube a period long that the pulse rings (a feedback comb: its modes the
+ * harmonics; DAMPING its loss, BRIGHTNESS its walls' loss of the highs and the bell's radiation); MUTE
+ * (POSITION): open bell .. a harmon mute (a narrow band-pass, the nasal "wah"). The voices' loudness is the
+ * breath, their sound on it. (A hybrid: STK's lip-reed loop, tried first, drifted in pitch and jumped registers
+ * at this rate; the pulse keeps every note in tune and the bore and the bell keep the brass.) */
+#define WG_BR 1024u
+typedef struct {
+    int32_t bore[WG_BR];
+    uint32_t w, ph, rng;
+    int32_t lp, env, jit;
+    int32_t bell, prv, mlo, mbd;                 /* the bell's low-pass; the mute's band-pass (Chamberlin) */
+    int32_t ox, oy, iav, oav, ag, yp;
+} wg_brass_t;
+
+static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t lip,
+                         int32_t mute, int32_t bright, int32_t damp)
+{
+    uint32_t i, per = wg_per(f0, WG_BR - 8u), bd = per > (3u << 16) ? per - (1u << 15) : 2u << 16;
+    uint32_t inc = f0 > 0x20000000u ? 0x40000000u : f0 * 2u, wq;   /* (the half rate's increment) */
+    int32_t env = wg_follow(&B->env, in, n), pr, br, R, g, gb, mf;
+    pr = env * 16 > PX_ONE ? PX_ONE : env * 16;  /* the breath, 0..1 */
+    br = pr >> 5;                                /* 0..32768 */
+    wq = 0x80000000u - (uint32_t)((((int64_t)br * (9830 + lip * 128)) >> 15) << 16);   /* the pulse's width: a turn
+                                                  * x 0.5 .. ~0.1 */
+    R = 16000 + (int32_t)(((int64_t)damp * 13000) >> 16);   /* the bore's feedback: 0.49 .. 0.89 */
+    g = wg_half(9000 + bright / 4);              /* the walls' low-pass in the loop */
+    gb = wg_half(7000 + bright / 4);             /* the bell */
+    mf = 9000;                                   /* the mute: 2 sin(pi f / FS_half), ~1 kHz */
+    for (i = 0; i < n; i += 2u) {
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], lips, b, o, t;
+        uint32_t ph = B->ph;
+        B->ph += inc + (uint32_t)(B->jit >> 4);  /* (a little jitter: the lips are not a clock) */
+        if (B->ph < ph)                          /* (a new period: the jitter's next value) */
+            B->jit = (int32_t)(px_rand(&B->rng) >> 20) - 2048;
+        lips = 0;
+        if (ph < wq) {                           /* the puff: a raised cosine over wq */
+            uint32_t q = (ph / (wq >> 16)) << 16;   /* (32 bits: ph < wq) */
+            lips = (PX_ONE - (px_sin(q + 0x40000000u) >> 10)) >> 1;
+        }
+        lips = px_m(lips, pr, 20) + (x >> 3);
+        b = wg_read(B->bore, WG_BR - 1u, B->w, bd);
+        B->lp += px_m(g, b - B->lp, 15);
+        o = lips + px_m(B->lp, R, 15);
+        B->bore[B->w & (WG_BR - 1u)] = px_clamp(o, -8 * PX_ONE, 8 * PX_ONE);
+        B->w++;
+        B->bell += px_m(gb, o - B->bell, 15);    /* out: the bell, radiating the change more the brighter */
+        o = B->bell / 2 + (B->bell - B->prv) * (1 + bright / 8192);
+        B->prv = B->bell;
+        {   /* the mute: a band-pass (Q ~4) mixed in as MUTE turns, the open bell out */
+            int32_t hi;
+            B->mlo += px_m(mf, B->mbd, 15);
+            hi = o - B->mlo - px_m(8192, B->mbd, 15);
+            B->mbd = px_clamp(B->mbd + px_m(mf, hi, 15), -16 * PX_ONE, 16 * PX_ONE);
+            B->mlo = px_clamp(B->mlo, -16 * PX_ONE, 16 * PX_ONE);
+            o = (o * (127 - mute) + B->mbd * mute * 2) / 127;
+        }
+        t = o - B->ox + px_m(B->oy, 32440, 15);
+        B->ox = o;
+        B->oy = t;
+        y[i] = (B->yp + t) >> 1;
+        if (i + 1u < n)
+            y[i + 1u] = t;
+        B->yp = t;
+    }
+    wg_level(&B->iav, &B->oav, &B->ag, in, y, n);
+}
+
+/* --------------------------------------------------------------------- BOW --- */
+/* A bowed string (after STK's Bowed, Smith): the string two delay lines, the bow between them (POSITION: near the
+ * bridge, sul ponticello .. over the fingerboard, sul tasto), the nut's and the bridge's reflections (the bridge's
+ * low-passed: BRIGHTNESS; their loss: DAMPING); at the bow the friction of the hair on the string, the bow table
+ * (x slope + 0.75)^-4 (PRESSURE, STRUCTURE: light and airy .. pressed, scratching): stick, slip. The voices'
+ * loudness is the bow's speed, their sound the rosin's grain on it; the bridge's wave through a body: a low
+ * resonance an octave and a half over the note (the air and the top plate, between 140 and 560 Hz) and the
+ * bridge hill (~2.5 kHz) */
+#define WG_BW 512u
+typedef struct {
+    int32_t neck[WG_BW], brid[WG_BW];
+    uint32_t w;
+    int32_t sf, env;                             /* the bridge's filter */
+    int32_t l1, d1, l2, d2;                      /* the body's two resonances (Chamberlin) */
+    int32_t ox, oy, iav, oav, ag, yp;
+} wg_bow_t;
+
+static void wg_bow_run(wg_bow_t *W, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t press,
+                       int32_t pos, int32_t bright, int32_t damp)
+{
+    uint32_t i, per = wg_per(f0, WG_BW - 8u), base = per > (4u << 16) ? per - (294u << 9) : 2u << 16, bdl, ndl;   /* (less the filters' lag:
+                                                  * 2.3 samples, measured) */
+    int32_t env = wg_follow(&W->env, in, n), vb, slope, g, loss, f1, f2;
+    bdl = (uint32_t)(((uint64_t)base * (uint32_t)(2000 + pos * 128)) >> 16);   /* the bow: 0.03 .. 0.28 of the string */
+    bdl = bdl < (1u << 16) ? 1u << 16 : bdl;
+    ndl = base - bdl > (1u << 16) ? base - bdl : 1u << 16;
+    vb = env * 3 > PX_ONE / 4 ? PX_ONE / 4 : env * 3;   /* the bow's speed (STK: up to ~0.23) */
+    slope = 5 * 65536 - press * 2064;            /* STK: 5 - 4 pressure, Q16 */
+    g = wg_half(9000 + bright / 6);              /* the bridge's one-pole (STK: 1 - pole 0.55 at this rate) */
+    loss = 29500 + (int32_t)(((int64_t)damp * 3100) >> 16);   /* 0.90 .. 0.995 */
+    {   /* the body: f1 the note x 2.8 between 140 and 560 Hz; f2 the bridge hill (2 sin(pi f / FS_half), Q15) */
+        uint32_t fb = (uint32_t)(((uint64_t)f0 * 183501u) >> 16);   /* x 2.8 (cycles Q32, the full rate) */
+        fb = fb < 13636u * 1000u ? 13636u * 1000u : fb > 54545u * 1000u ? 54545u * 1000u : fb;   /* (140 .. 560 Hz) */
+        f1 = (int32_t)(fb >> 15) * 25 / 8;       /* 2 sin(pi f / FS_half) ~ 4 pi f / FS, Q15 */
+        f2 = 20000 + bright / 12;                /* ~2.2 .. 2.5 kHz */
+    }
+    for (i = 0; i < n; i += 2u) {
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i];
+        int32_t bo = wg_read(W->brid, WG_BW - 1u, W->w, bdl), no = wg_read(W->neck, WG_BW - 1u, W->w, ndl);
+        int32_t bref, nref, vd, s, t, t4, f, nv, o, hi;
+        W->sf += px_m(g, bo - W->sf, 15);
+        bref = -px_m(W->sf, loss, 15);
+        nref = -no;
+        vd = vb + (x >> 5) - (bref + nref);      /* the bow against the string (the rosin's grain on it) */
+        s = px_m(vd, slope, 16);                 /* the bow table */
+        t = (s < 0 ? -s : s) + PX_ONE * 3 / 4;
+        t = t > 6 * PX_ONE ? 6 * PX_ONE : t;
+        t4 = px_m(t, t, 20);
+        t4 = px_m(t4, t4, 20);
+        f = t4 > PX_ONE ? (int32_t)((1u << 30) / ((uint32_t)t4 >> 10)) : PX_ONE;
+        nv = px_m(vd, f, 20);
+        W->neck[W->w & (WG_BW - 1u)] = px_clamp(bref + nv, -5 * PX_ONE, 5 * PX_ONE);
+        W->brid[W->w & (WG_BW - 1u)] = px_clamp(nref + nv, -5 * PX_ONE, 5 * PX_ONE);
+        W->w++;
+        W->l1 += px_m(f1, W->d1, 15);            /* the body */
+        hi = bo - W->l1 - px_m(6554, W->d1, 15);
+        W->d1 = px_clamp(W->d1 + px_m(f1, hi, 15), -16 * PX_ONE, 16 * PX_ONE);
+        W->l1 = px_clamp(W->l1, -16 * PX_ONE, 16 * PX_ONE);
+        W->l2 += px_m(f2, W->d2, 15);
+        hi = bo - W->l2 - px_m(16384, W->d2, 15);
+        W->d2 = px_clamp(W->d2 + px_m(f2, hi, 15), -16 * PX_ONE, 16 * PX_ONE);
+        W->l2 = px_clamp(W->l2, -16 * PX_ONE, 16 * PX_ONE);
+        o = bo / 2 + W->d1 / 4 + W->d2 / 2;
+        t = o - W->ox + px_m(W->oy, 32440, 15);
+        W->ox = o;
+        W->oy = t;
+        y[i] = (W->yp + t) >> 1;
+        if (i + 1u < n)
+            y[i + 1u] = t;
+        W->yp = t;
+    }
+    wg_level(&W->iav, &W->oav, &W->ag, in, y, n);
+}
+
+/* -------------------------------------------------------------------- REED --- */
+/* A single or double reed on a bore (after STK's Clarinet and Saxofony, Cook / Scavone): the reed a valve, its
+ * opening offset + slope x the pressure across it (REED, STRUCTURE: soft .. hard: dark .. bright, buzzing). BORE
+ * (POSITION): below 16 a cylinder half a period long (the clarinet: closed at the reed, odd harmonics); above, a
+ * cone a period long (sax, oboe, bassoon: all the harmonics), the reed blowing into it at 0.06 .. 0.45 of its
+ * length (the conical bore's shape: low, a sax; high, the narrow double reeds). The voices' loudness is the
+ * breath, their sound on it; BRIGHTNESS the bell; DAMPING the bore's loss */
+#define WG_RD 512u
+typedef struct {
+    int32_t d0[WG_RD], d1[WG_RD];
+    uint32_t w, rng;
+    int32_t lp, env, bell, prv;
+    int32_t ox, oy, iav, oav, ag, yp;
+} wg_reed_t;
+
+static void wg_reed_run(wg_reed_t *D, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t reed,
+                        int32_t bore, int32_t bright, int32_t damp)
+{
+    uint32_t i, cyl = bore < 16, per = wg_per(f0, WG_RD - 8u), base, l0, l1;
+    int32_t env = wg_follow(&D->env, in, n), pr, R, g, gb, slope;
+    base = cyl ? per / 2u : per;
+    base = base > (4u << 16) ? base - (cyl ? 1u << 16 : 269u << 9) : 2u << 16;   /* (less the filters' lag:
+                                                  * measured) */
+    l1 = cyl ? 0u : (uint32_t)(((uint64_t)base * (uint32_t)(4000 + (bore - 16) * 233)) >> 16);   /* 0.06 .. 0.45 */
+    l1 = !cyl && l1 < (1u << 16) ? 1u << 16 : l1;
+    l0 = base - l1;
+    pr = env * 16 > PX_ONE ? PX_ONE : env * 16;
+    pr = pr * (cyl ? 12 : 10) / 16;             /* (STK blows them at 0.55 .. 0.85) */
+    slope = (cyl ? -1 : 1) * (int32_t)(PX_ONE * 22 / 100 + (uint32_t)reed * (PX_ONE / 700));   /* 0.22 .. 0.4 */
+    R = 30000 + (int32_t)(((int64_t)damp * 2600) >> 16);   /* 0.92 .. 0.995 (STK: 0.95) */
+    g = wg_half(22000 + bright / 10);             /* the reflection's low-pass */
+    gb = wg_half(9000 + bright / 4);             /* the bell */
+    for (i = 0; i < n; i += 2u) {
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i];
+        int32_t noise = px_m((int32_t)(px_rand(&D->rng) >> 11) - (1 << 20), pr, 24);   /* (the breath: 1/16) */
+        int32_t p = pr + noise + (x >> 3), b = wg_read(D->d0, WG_RD - 1u, D->w, l0), o, pd, rt, t;
+        D->lp += px_m(g, b - D->lp, 15);
+        if (cyl) {                               /* STK Clarinet */
+            pd = -px_m(D->lp, R, 15) - p;
+            rt = px_clamp(PX_ONE * 7 / 10 + px_m(slope, pd, 20), -PX_ONE, PX_ONE);
+            D->d0[D->w & (WG_RD - 1u)] = px_clamp(p + px_m(pd, rt, 20), -5 * PX_ONE, 5 * PX_ONE);
+            o = b;
+        } else {                                 /* STK Saxofony */
+            int32_t tmp = -px_m(D->lp, R, 15);
+            o = tmp - wg_read(D->d1, WG_RD - 1u, D->w, l1);
+            pd = p - o;
+            rt = px_clamp(PX_ONE * 7 / 10 + px_m(slope, pd, 20), -PX_ONE, PX_ONE);
+            D->d1[D->w & (WG_RD - 1u)] = px_clamp(tmp, -5 * PX_ONE, 5 * PX_ONE);
+            D->d0[D->w & (WG_RD - 1u)] = px_clamp(p - px_m(pd, rt, 20) - tmp, -5 * PX_ONE, 5 * PX_ONE);
+        }
+        D->w++;
+        t = o - D->prv;                          /* the bell radiates the pressure's change (a high-pass: the
+                                                  * reed's square wave's harmonics heard) */
+        D->prv = o;
+        o = t * 4;
+        D->bell += px_m(gb, o - D->bell, 15);
+        o = D->bell;
+        t = o - D->ox + px_m(D->oy, 32440, 15);
+        D->ox = o;
+        D->oy = t;
+        y[i] = (D->yp + t) >> 1;
+        if (i + 1u < n)
+            y[i + 1u] = t;
+        D->yp = t;
+    }
+    wg_level(&D->iav, &D->oav, &D->ag, in, y, n);
+}

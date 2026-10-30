@@ -10,6 +10,7 @@
  * Rings). A resonator that has had no input and gone quiet is not run (the cost is per resonator sounding); the
  * second core runs every other one of those sounding.
  *
+ *   (and the waveguides of waveguide.c: THROAT, FLUTE, SYRINX, HAWK, BRASS, BOW, REED)
  *   MODAL        a bank of 12 tuned band-pass modes: bells, bars, plates (Rings' "modal resonator")
  *   SYMP STRING  a string with three sympathetic strings tuned to a chord above the note (Rings' "sympathetic
  *                strings": STRUCTURE picks the chord: OCT, 5TH, 4TH, MAJ, MIN, SUS, 7TH, OCTAVES)
@@ -30,8 +31,8 @@
 #include "phys_symp.c"
 #include "waveguide.c"                           /* THROAT, FLUTE, SYRINX, HAWK: this firmware's own waveguides */
 
-enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_THROAT, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_COUNT };
-static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "THROAT", "FLUTE", "SYRINX", "HAWK"};
+enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_THROAT, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_COUNT };
+static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "THROAT", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED"};
 static const char *const RZ_CHORD_NAME[8] = {"OCT", "5TH", "4TH", "MAJ", "MIN", "SUS", "7TH", "OCTAVES"};
 static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Felucca's PHYS chords) */
     {-12, 12, 24}, {7, 12, 19}, {5, 12, 17}, {4, 7, 12}, {3, 7, 12}, {2, 7, 14}, {4, 7, 10}, {12, 24, 36},
@@ -39,9 +40,9 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600};   /* (THROAT: per animal, too) */
-static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
-static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
+static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 6000, 6000, 6000};   /* (THROAT: per animal, too) */
+static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
+static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
 
 #define RZ_POLY 4                                /* resonators (Rings: 1, 2 or 4) */
@@ -55,6 +56,9 @@ typedef struct {
         wg_throat_t t;                           /* waveguide.c */
         wg_flute_t f;
         wg_syrinx_t x;
+        wg_brass_t br;                           /* BRASS, BOW, REED */
+        wg_bow_t bw;
+        wg_reed_t rd;
     } u;
     uint8_t held;                                /* the model its state is for + 1 (0: nothing: reset at the next use) */
     uint8_t note;                                /* the note it is tuned to */
@@ -88,7 +92,15 @@ static void rz_reset(rz_t *R, uint32_t md)
         R->u.x.quiet = 1;
     }
     else if (md == RZ_THROAT)
-        R->u.t.ag = 4096;                        /* (the automatic gain at 1) */
+        R->u.t.ag = 4096;
+    else if (md == RZ_BRASS)
+        R->u.br.ag = 4096;
+    else if (md == RZ_BOW)
+        R->u.bw.ag = 4096;
+    else if (md == RZ_REED) {
+        R->u.rd.ag = 4096;
+        R->u.rd.rng = 0x9E3779B9u;
+    }                        /* (the automatic gain at 1) */
     else {
         R->u.s.rng = 0x9E3779B9u;
         R->u.s.src = 1u << 30;
@@ -224,6 +236,25 @@ static void rz_run(uint32_t r, uint32_t n)
             rz_view.f[1] = b < 0x7F000000u ? (uint32_t)b : 0u;
             rz_view.a[1] = -1;
             rz_view.n = 2;
+        }
+        break;
+    case RZ_BRASS:
+    case RZ_BOW:
+    case RZ_REED:
+        if (md == RZ_BRASS)
+            wg_brass_run(&R->u.br, in, y, n, f0, strc / 516, pos, brit, damp);
+        else if (md == RZ_BOW)
+            wg_bow_run(&R->u.bw, in, y, n, f0, strc / 516, pos, brit, damp);
+        else
+            wg_reed_run(&R->u.rd, in, y, n, f0, strc / 516, pos, brit, damp);
+        if (view) {                              /* (the harmonics: odd ones only in the clarinet's cylinder) */
+            uint32_t odd = md == RZ_REED && pos < 16, m = 0;
+            for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++)
+                if (!odd || !(i & 1u)) {
+                    rz_view.f[m] = f0 * (i + 1u);
+                    rz_view.a[m++] = (int16_t)(32767 / (int32_t)(i + 1u));
+                }
+            rz_view.n = m;
         }
         break;
     default: {                                   /* SYMP: the string, then the strings it drives */

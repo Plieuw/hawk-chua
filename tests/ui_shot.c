@@ -371,14 +371,20 @@ int main(int argc, char **argv)
     frames(3);
     bad |= shot(dir, "f_fx_off");
     for (i = 0; i < RZ_COUNT; i++) {
-        static const uint8_t PI_[RZ_COUNT] = {11, 104, 0, 52, 73, 123, 101};   /* VIBRAPHONE, SITAR, GRAND PIANO, */
-        preset_load(PI_[i]);                                             /* CHOIR AAHS, FLUTE, BIRD TWEET, GOBLINS */
+        static const uint8_t PI_[RZ_COUNT] = {11, 104, 0, 52, 73, 123, 101, 56, 40, 71};   /* VIBRAPHONE, SITAR, */
+        preset_load(PI_[i]);                                             /* GRAND PIANO, CHOIR AAHS, FLUTE, BIRD TWEET,
+                                                                          * GOBLINS, TRUMPET, VIOLIN, CLARINET */
         synth_note_on(48, 100);
         frames(14);
         snprintf(name, sizeof name, "f_fx_%u", i);
         bad |= shot(dir, name);
         synth_kill();
     }
+    preset_load(65);                     /* ALTO SAX (REED: the cone) */
+    synth_note_on(48, 110);
+    frames(14);
+    bad |= shot(dir, "f_fx_sax");
+    synth_kill();
     preset_load(101);                    /* GOBLINS (HAWK) */
     synth_note_on(48, 110);
     frames(14);
