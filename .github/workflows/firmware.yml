@@ -11,6 +11,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      release:
+        description: "make a release of this commit: its version X.Y (e.g. 1.0); the tag vX.Y is made with it"
+        required: false
+        default: ""
       crash_addrs:
         description: "a CRASH screen's addresses (hex, spaces between): their functions as annotations"
         required: false
@@ -75,7 +79,10 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          if [ -n "${{ github.event.inputs.release }}" ]; then
+            echo "release=${{ github.event.inputs.release }}" >> "$GITHUB_OUTPUT"
+            echo "label=v${{ github.event.inputs.release }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "release=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
             echo "label=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           else
@@ -148,7 +155,7 @@ jobs:
           path: site
 
       - name: Release files
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release != ''
         uses: actions/upload-artifact@v4
         with:
           name: release
@@ -170,7 +177,7 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -184,6 +191,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tar -czf release/LICENSES.tar.gz -C release LICENSES
-          gh release create "$GITHUB_REF_NAME" $(find release -maxdepth 1 -type f) --repo "$GITHUB_REPOSITORY" \
-            --title "HAWK CHUA $GITHUB_REF_NAME" \
+          TAG="${GITHUB_REF_NAME}"
+          [ -n "${{ github.event.inputs.release }}" ] && TAG="v${{ github.event.inputs.release }}"
+          gh release create "$TAG" $(find release -maxdepth 1 -type f) --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "HAWK CHUA $TAG" \
             --notes "Install: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/ in Chrome or Edge, connect the FM-1 by USB and press Install. Or: python3 tools/fm1_install.py hawk-chua.fwsc"
