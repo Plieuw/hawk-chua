@@ -49,7 +49,7 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-PRODUCT = "FM-1_900"                # package identity; release builds are FM-1_9XY
+PRODUCT = "FM-1_007"                # HAWK CHUA's package identity, every build and release (the hub's rule)
 VERSION = None                      # FELUCCA_VERSION for release builds (default: firmware/src/felucca.c)
 _V = os.environ.get("FELUCCA_VERSION", "")      # (CI: the version string shown on the screen, e.g. v0.1-c904597)
 if re.fullmatch(r"[A-Za-z0-9._+-]{1,16}", _V):
@@ -371,7 +371,7 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_9XY, version string vX.Y")
+    ap.add_argument("--release", metavar="X.Y", help="release build: version string vX.Y (the identity stays FM-1_007)")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
     name = "hawk-chua.fwsc"
@@ -379,7 +379,6 @@ def main():
         m = re.fullmatch(r"(\d)\.(\d)(?:\.\d){0,2}(-[A-Za-z0-9]+)?", a.release)
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y, X.Y.Z, X.Y.Z.W or X.Y-suffix, one digit each")
-        PRODUCT = "FM-1_9" + m[1] + m[2]
         VERSION = "v" + a.release.lower()      # e.g. v1.0, v1.1-rc1
         name = f"hawk-chua-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk
@@ -413,10 +412,11 @@ def main():
         shutil.rmtree(rel, ignore_errors=True)
         (rel / "LICENSES").mkdir(parents=True)
         app = f"hawk-chua-{a.release}-app.bin"
-        (rel / name).write_bytes(pkg)
+        asset = "hawk-chua.fwsc"     # (the release's package: the same name every release, as the hub asks)
+        (rel / asset).write_bytes(pkg)
         (rel / app).write_bytes(img)
         (rel / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(b).hexdigest()}  {n}\n"
-                                                for n, b in ((name, pkg), (app, bytes(img)))))
+                                                for n, b in ((asset, pkg), (app, bytes(img)))))
         for f in sorted((SRC / "LICENSES").glob("*.txt")):
             shutil.copy(f, rel / "LICENSES" / f.name)
         for doc in ("LICENSE", "LICENSING.md"):

@@ -183,6 +183,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" \
-            --title "CHUA $GITHUB_REF_NAME" \
-            --notes "Install: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/ in Chrome or Edge, connect the FM-1 by USB and press Install. Or: python3 tools/fm1_install.py hawk-chua-${GITHUB_REF_NAME#v}.fwsc"
+          tar -czf release/LICENSES.tar.gz -C release LICENSES
+          gh release create "$GITHUB_REF_NAME" $(find release -maxdepth 1 -type f) --repo "$GITHUB_REPOSITORY" \
+            --title "HAWK CHUA $GITHUB_REF_NAME" \
+            --notes "Install: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/ in Chrome or Edge, connect the FM-1 by USB and press Install. Or: python3 tools/fm1_install.py hawk-chua.fwsc"
