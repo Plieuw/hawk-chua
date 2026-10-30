@@ -451,7 +451,7 @@ int main(int argc, char **argv)
         sys.page = 3; sh_pre = 0;
         enc_steps[panel.enc[EN_PRESET]] = 3;
         ui_input();
-        if (sys.preset != pr || sys.sh_interval != SI_FIFTH || sys.sh_space != SS_TEMPLE || sys.sh_mix != 85u) {
+        if (sys.preset != pr || sys.sh_interval != SI_FIFTH || sys.sh_space != SS_TEMPLE || sys.sh_mix != 68u) {
             printf("PRESETS on SHIMMER: not ORACLE CHAMBER\n"); bad = 1;
         }
         sys.sh_mix = 0;

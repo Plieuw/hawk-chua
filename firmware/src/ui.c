@@ -88,9 +88,9 @@ typedef struct {
  * the BRASS, BOW and REED waveguides). */
 #define CYC 6, 64, 64                            /* the pure cycle, Y: near a sine (a resonator's exciter) */
 #define NZK 85, 76, 0                            /* (a noise program: the circuit's knobs kept for going back) */
-#define ROOM 90, 85, 0, 45, SI_OCT, 70           /* the shimmer as a plain room (SHIMMER 0) */
-#define HALL 120, 108, 0, 60, SI_OCT, 80         /* a big plain hall */
-#define AIR 110, 110, 60, 70, SI_OCT, 90         /* a hall that rises a little */
+#define ROOM 85, 72, 0, 30, SI_OCT, 70           /* the shimmer as a plain room (SHIMMER 0) */
+#define HALL 115, 96, 0, 40, SI_OCT, 80          /* a big plain hall */
+#define AIR 110, 100, 60, 45, SI_OCT, 90         /* a hall that sinks a little */
 static const preset_t PRESETS[] = {
     /* PIANO 1-8 */
     {"GRAND PIANO", 30, 76, 64, 0, 64, 40, 74, 50, RZ_STRING, 100, 70, 72, 20, 85, ROOM},
@@ -98,13 +98,13 @@ static const preset_t PRESETS[] = {
     {"ELECTRIC GRAND", 30, 90, 64, 0, 66, 50, 70, 40, RZ_STRING, 90, 85, 67, 30, 70},
     {"HONKY-TONK", NZK, 0, 64, 40, 70, 40, RZ_STRING, 100, 80, 67, 20, 70, ROOM, NZ(1, 0), 10, 0},
     {"E.PIANO 1", NZK, 0, 92, 0, 84, 20, NOFX, ROOM, NZ(1, 3), 2, 18},
-    {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 90, 40, 40, SI_OCT, 90, NZ(1, 3), 8, 45},
+    {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8, 45},
     {"HARPSICHORD", 85, 100, 96, 0, 62, 0, 62, 70, RZ_STRING, 40, 90, 45, 50, 90},
     {"CLAVINET", 38, 100, 32, 0, 54, 0, 54, 110},
     /* CHROMATIC PERCUSSION 9-16 */
     {"CELESTA", 54, 90, 64, 0, 76, 0, 76, 70, RZ_MODAL, 100, 120, 84, 30, 127},
     {"GLOCKENSPIEL", 54, 90, 64, 0, 72, 0, 74, 60, RZ_MODAL, 104, 127, 81, 28, 127, ROOM},
-    {"MUSIC BOX", 6, 64, 64, 0, 70, 0, 70, 40, RZ_MODAL, 100, 127, 90, 40, 80, 60, 60, 20, 60, SI_OCT, 70},
+    {"MUSIC BOX", 6, 64, 64, 0, 70, 0, 70, 40, RZ_MODAL, 100, 127, 90, 40, 80, 60, 48, 20, 39, SI_OCT, 70},
     {"VIBRAPHONE", CYC, 0, 90, 0, 96, 40, RZ_MODAL, 92, 90, 84, 24, 110, ROOM},
     {"MARIMBA", 30, 100, 32, 0, 64, 0, 64, 100, RZ_MODAL, 90, 70, 60, 24, 60},
     {"XYLOPHONE", CYC, 0, 56, 0, 58, 80, RZ_MODAL, 116, 110, 48, 20, 100},
@@ -144,7 +144,7 @@ static const preset_t PRESETS[] = {
     {"CONTRABASS", CYC, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 93, 74, 127, ROOM},
     {"TREMOLO STR.", CYC, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 88, 60, 127, HALL},
     {"PIZZICATO", CYC, 0, 54, 0, 56, 70, RZ_STRING, 40, 70, 37, 40, 100, ROOM},
-    {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 45, 50, 90, 60, 60, 20, 60, SI_OCT, 70},
+    {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 45, 50, 90, 60, 48, 20, 39, SI_OCT, 70},
     {"TIMPANI", 6, 40, 0, 0, 84, 0, 86, 60, RZ_MODAL, 30, 40, 72, 8, 100, ROOM},
     /* ENSEMBLE 49-56 */
     {"STRINGS", CYC, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 93, 64, 110, HALL},
@@ -188,29 +188,29 @@ static const preset_t PRESETS[] = {
     {"CALLIOPE", NZK, 20, 70, 110, 60, 20, RZ_FLUTE, 60, 100, 78, 80, 100, ROOM, NZ(1, 9), 0, 4},
     {"CHIFF LEAD", CYC, 0, 70, 110, 60, 40, RZ_FLUTE, 40, 100, 88, 90, 110},
     {"CHARANG", 120, 50, 96, 2, 66, 110, 60, 60},
-    {"VOICE LEAD", NZK, 10, 70, 110, 64, 40, RZ_THROAT, 40, 90, 48, 64, 110, 60, 60, 20, 60, SI_OCT, 70,
+    {"VOICE LEAD", NZK, 10, 70, 110, 64, 40, RZ_THROAT, 40, 90, 48, 64, 110, 60, 48, 20, 39, SI_OCT, 70,
      NZ(1, 0), 4, 20},
     {"FIFTHS LEAD", NZK, 4, 70, 110, 64, 50, RZ_SYMP, 20, 90, 75, 110, 80, NOSH, NZ(1, 0), 4, 0},
     {"BASS + LEAD", 85, 76, 0, 6, 80, 110, 70, 50},
     /* SYNTH PAD 89-96 */
-    {"NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 90, 40, 60, 110, 110, 100, 96, SI_OCT, 100},
+    {"NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 90, 40, 60, 110, 98, 100, 62, SI_OCT, 100},
     {"WARM PAD", 6, 30, 64, 92, 100, 115, 104, 20, NOFX, ROOM},
     {"POLYSYNTH", NZK, 20, 90, 80, 80, 60, NOFX, ROOM, NZ(1, 0), 8, 40},
-    {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 80, 48, 64, 90, 110, 110, 60, 80, SI_OCT, 90,
+    {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 80, 48, 64, 90, 110, 98, 60, 52, SI_OCT, 90,
      NZ(1, 0), 8, 30},
     {"BOWED PAD", CYC, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 98, 100, 110, AIR},
-    {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 125, 80, 90, SI_OCT5, 90, NZ(1, 5), 30, 20},
-    {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 60, 48, 20, 90, 127, 127, 90, 90, SI_OCT, 90,
+    {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 113, 80, 58, SI_OCT5, 90, NZ(1, 5), 30, 20},
+    {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 60, 48, 20, 90, 127, 115, 90, 58, SI_OCT, 90,
      NZ(1, 0), 6, 20},
-    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 110, 40, 70, SI_OCT, 80},
+    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 98, 40, 45, SI_OCT, 80},
     /* SYNTH EFFECTS 97-104 */
-    {"RAIN", NZK, 0, 70, 60, 80, 30, NOFX, 110, 110, 100, 96, SI_OCT, 100, NZ(0, 7), 90, 50},
-    {"SOUNDTRACK", 85, 100, 127, 110, 110, 120, 115, 60, NOFX, 127, 127, 60, 100, SI_OCT, 70},
-    {"CRYSTAL", 6, 100, 64, 0, 84, 0, 86, 20, RZ_MODAL, 100, 127, 90, 40, 80, 90, 110, 120, 100, SI_FIFTH, 110},
-    {"ATMOSPHERE", CYC, 0, 80, 0, 90, 40, RZ_STRING, 40, 90, 75, 40, 90, 127, 120, 50, 80, SI_OCT, 80},
-    {"BRIGHTNESS", NZK, 40, 90, 110, 96, 40, NOFX, 120, 115, 90, 80, SI_2OCT, 100, NZ(1, 9), 8, 60},
-    {"GOBLINS", 6, 64, 64, 40, 90, 100, 90, 30, RZ_HAWK, 70, 90, 58, 70, 127, 110, 100, 40, 35, SI_OCT, 90},
-    {"ECHOES", 54, 90, 64, 0, 70, 0, 80, 40, RZ_MODAL, 70, 100, 82, 12, 80, 127, 127, 0, 90, SI_OCT, 70},
+    {"RAIN", NZK, 0, 70, 60, 80, 30, NOFX, 110, 98, 100, 62, SI_OCT, 100, NZ(0, 7), 90, 50},
+    {"SOUNDTRACK", 85, 100, 127, 110, 110, 120, 115, 60, NOFX, 127, 115, 60, 65, SI_OCT, 70},
+    {"CRYSTAL", 6, 100, 64, 0, 84, 0, 86, 20, RZ_MODAL, 100, 127, 90, 40, 80, 90, 98, 120, 65, SI_FIFTH, 110},
+    {"ATMOSPHERE", CYC, 0, 80, 0, 90, 40, RZ_STRING, 40, 90, 75, 40, 90, 127, 108, 50, 52, SI_OCT, 80},
+    {"BRIGHTNESS", NZK, 40, 90, 110, 96, 40, NOFX, 120, 103, 90, 52, SI_2OCT, 100, NZ(1, 9), 8, 60},
+    {"GOBLINS", 6, 64, 64, 40, 90, 100, 90, 30, RZ_HAWK, 70, 90, 58, 70, 127, 110, 88, 40, 22, SI_OCT, 90},
+    {"ECHOES", 54, 90, 64, 0, 70, 0, 80, 40, RZ_MODAL, 70, 100, 82, 12, 80, 127, 115, 0, 58, SI_OCT, 70},
     {"SCI-FI", NZK, 10, 80, 100, 90, 30, NOFX, AIR, NZ(2, 1), 50, 30, 100, 127, 60},
     /* ETHNIC 105-112 */
     {"SITAR", 85, 64, 32, 0, 74, 0, 74, 40, RZ_SYMP, 16, 80, 78, 70, 90},
@@ -234,7 +234,7 @@ static const preset_t PRESETS[] = {
     {"GTR FRET NOISE", NZK, 0, 40, 0, 44, 60, RZ_STRING, 40, 90, 45, 40, 60, NOSH, NZ(0, 6), 40, 40, 30, 0, 50},
     {"BREATH NOISE", NZK, 40, 70, 60, 70, 10, RZ_FLUTE, 30, 60, 78, 127, 70, NOSH, NZ(1, 6), 127, 127},
     {"SEASHORE", NZK, 110, 110, 100, 115, 10, NOFX, HALL, NZ(1, 6), 127, 127},
-    {"BIRD TWEET", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 90, 70, 48, 15, 127, 100, 90, 30, 40, SI_OCT, 100},
+    {"BIRD TWEET", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 90, 70, 48, 15, 127, 100, 78, 30, 26, SI_OCT, 100},
     {"TELEPHONE", NZK, 0, 64, 127, 40, 30, NOFX, NOSH, NZ(0, 2), 30, 20},
     {"HELICOPTER", NZK, 20, 80, 120, 80, 30, NOFX, NOSH, NZ(0, 9), 20, 40},
     {"APPLAUSE", NZK, 40, 80, 110, 90, 10, NOFX, HALL, NZ(0, 8), 100, 80},
@@ -267,15 +267,15 @@ static const fx_preset_t FX_PRESETS[] = {
 typedef struct { const char *name; uint8_t size, decay, shimmer, mix, interval, tone, space; } sh_preset_t;
 static const sh_preset_t SH_PRESETS[] = {
     {"SHIMMER OFF", 100, 90, 70, 0, SI_OCT, 80, SS_HALL},
-    {"UNDERWORLD", 110, 110, 100, 96, SI_OCT, 100, SS_HALL},
-    {"STONE TEMPLE", 70, 95, 15, 70, SI_OCT, 50, SS_TEMPLE},
-    {"ORACLE CHAMBER", 90, 110, 40, 85, SI_FIFTH, 40, SS_TEMPLE},
-    {"CATHEDRAL", 127, 122, 30, 80, SI_OCT, 70, SS_CATHEDRAL},
-    {"GOTHIC CHOIR", 120, 118, 90, 90, SI_OCT5, 80, SS_CATHEDRAL},
-    {"MOSQUE DOME", 110, 112, 25, 75, SI_FIFTH, 100, SS_MOSQUE},
-    {"DOME DEPTHS", 115, 120, 100, 90, SI_2OCT, 110, SS_MOSQUE},
-    {"SUB HAZE", 127, 120, 50, 80, SI_OCT, 80, SS_HALL},
-    {"SMALL ROOM", 60, 60, 20, 60, SI_OCT, 70, SS_HALL},
+    {"UNDERWORLD", 110, 110, 100, 76, SI_OCT, 100, SS_HALL},
+    {"STONE TEMPLE", 70, 95, 15, 56, SI_OCT, 50, SS_TEMPLE},
+    {"ORACLE CHAMBER", 90, 110, 40, 68, SI_FIFTH, 40, SS_TEMPLE},
+    {"CATHEDRAL", 127, 122, 30, 64, SI_OCT, 70, SS_CATHEDRAL},
+    {"GOTHIC CHOIR", 120, 118, 90, 72, SI_OCT5, 80, SS_CATHEDRAL},
+    {"MOSQUE DOME", 110, 112, 25, 60, SI_FIFTH, 100, SS_MOSQUE},
+    {"DOME DEPTHS", 115, 120, 100, 72, SI_2OCT, 110, SS_MOSQUE},
+    {"SUB HAZE", 127, 120, 50, 64, SI_OCT, 80, SS_HALL},
+    {"SMALL ROOM", 60, 60, 20, 48, SI_OCT, 70, SS_HALL},
 };
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
 static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not saved: the knobs are) */
