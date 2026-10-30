@@ -77,10 +77,12 @@ typedef struct {
     uint8_t sh_size, sh_decay, sh_shimmer, sh_mix, sh_interval, sh_tone;   /* SHIMMER; MIX 0 (left out): off */
     uint8_t osc, np_x, np_y;                     /* the oscillator: 0 (left out) the circuit, 1..30 a noise program */
     uint8_t menv_len, menv_skew, menv_height;    /* its AD envelope (HEIGHT 0, left out: none) */
+    uint8_t scream;                              /* SCREAM: the voices on the waveguides' breath (0, left out) */
 } preset_t;
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
 #define NOSH 0, 0, 0, 0, 0, 0
+#define NOOSC 0, 0, 0, 0, 0, 0                   /* (the circuit, no MOD ENV: to reach SCREAM) */
 /* 128 in all, in the order of General MIDI (program change 0..127 = GM program 1..128): each GM sound as near as
  * the circuit, the noise programs, the resonators and the waveguides get (brass, bowed strings and reeds:
  * the BRASS, BOW and REED waveguides). */
@@ -100,8 +102,8 @@ static const preset_t PRESETS[] = {
     {"HARPSICHORD", 85, 100, 96, 0, 62, 0, 62, 70, RZ_STRING, 40, 90, 60, 50, 90},
     {"CLAVINET", 38, 100, 32, 0, 54, 0, 54, 110},
     /* CHROMATIC PERCUSSION 9-16 */
-    {"CELESTA", 54, 90, 64, 0, 72, 0, 72, 60, RZ_MODAL, 100, 120, 110, 30, 120},
-    {"GLOCKENSPIEL", CYC, 0, 66, 0, 70, 50, RZ_MODAL, 104, 127, 105, 28, 110, ROOM},
+    {"CELESTA", 54, 90, 64, 0, 76, 0, 76, 70, RZ_MODAL, 100, 120, 112, 30, 127},
+    {"GLOCKENSPIEL", 54, 90, 64, 0, 72, 0, 74, 60, RZ_MODAL, 104, 127, 108, 28, 127, ROOM},
     {"MUSIC BOX", 6, 64, 64, 0, 70, 0, 70, 40, RZ_MODAL, 100, 127, 120, 40, 80, 60, 60, 20, 60, SI_OCT, 70},
     {"VIBRAPHONE", CYC, 0, 90, 0, 96, 40, RZ_MODAL, 92, 90, 112, 24, 110, ROOM},
     {"MARIMBA", 30, 100, 32, 0, 64, 0, 64, 100, RZ_MODAL, 90, 70, 80, 24, 60},
@@ -113,10 +115,10 @@ static const preset_t PRESETS[] = {
     {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, NOSH, NZ(1, 9), 2, 20},
     {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, ROOM, NZ(1, 9), 6, 70},
     {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, HALL, NZ(1, 9), 2, 8},
-    {"REED ORGAN", NZK, 20, 64, 120, 60, 10, NOFX, NOSH, NZ(1, 1), 4, 100},
-    {"ACCORDION", NZK, 20, 64, 120, 56, 10, NOFX, NOSH, NZ(1, 1), 30, 110},
-    {"HARMONICA", NZK, 24, 64, 115, 56, 30, NOFX, NOSH, NZ(1, 1), 2, 70},
-    {"TANGO ACCORD.", NZK, 16, 64, 120, 56, 20, NOFX, ROOM, NZ(1, 1), 20, 127},
+    {"REED ORGAN", CYC, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 100, 110, 110, ROOM},
+    {"ACCORDION", CYC, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 100, 115, 120, ROOM},
+    {"HARMONICA", CYC, 24, 64, 115, 56, 30, RZ_REED, 90, 110, 95, 100, 127, NOSH, NOOSC, 15},
+    {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 100, 120, 127, ROOM},
     /* GUITAR 25-32 */
     {"NYLON GUITAR", CYC, 0, 60, 0, 66, 60, RZ_STRING, 40, 60, 90, 40, 100},
     {"STEEL GUITAR", CYC, 0, 60, 0, 66, 60, RZ_STRING, 40, 100, 100, 30, 100, ROOM},
@@ -140,33 +142,33 @@ static const preset_t PRESETS[] = {
     {"VIOLA", CYC, 46, 80, 118, 70, 20, RZ_BOW, 110, 75, 100, 64, 127, ROOM},
     {"CELLO", CYC, 48, 80, 118, 72, 20, RZ_BOW, 115, 60, 105, 70, 127, ROOM},
     {"CONTRABASS", CYC, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 105, 74, 127, ROOM},
-    {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, NOFX, ROOM, NZ(1, 9), 40, 127},
+    {"TREMOLO STR.", CYC, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 100, 60, 127, HALL},
     {"PIZZICATO", CYC, 0, 54, 0, 56, 70, RZ_STRING, 40, 70, 50, 40, 100, ROOM},
     {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 60, 50, 90, 60, 60, 20, 60, SI_OCT, 70},
     {"TIMPANI", 6, 40, 0, 0, 84, 0, 86, 60, RZ_MODAL, 30, 40, 96, 8, 100, ROOM},
     /* ENSEMBLE 49-56 */
-    {"STRINGS", NZK, 80, 96, 115, 96, 20, NOFX, HALL, NZ(1, 0), 12, 80},
-    {"SLOW STRINGS", NZK, 96, 100, 115, 100, 20, NOFX, HALL, NZ(1, 0), 10, 70},
+    {"STRINGS", CYC, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 105, 64, 110, HALL},
+    {"SLOW STRINGS", CYC, 96, 100, 115, 100, 20, RZ_BOW, 110, 70, 105, 70, 110, HALL},
     {"SYNTH STRINGS 1", NZK, 60, 90, 110, 90, 40, NOFX, AIR, NZ(1, 0), 20, 100},
     {"SYNTH STRINGS 2", NZK, 70, 90, 110, 94, 30, NOFX, AIR, NZ(1, 9), 6, 40},
     {"CHOIR AAHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 80, 60, 60, 110, HALL, NZ(1, 0), 8, 40},
     {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 60, 60, 4, 110, HALL, NZ(1, 0), 8, 40},
     {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_THROAT, 40, 90, 60, 90, 100, AIR, NZ(1, 1), 10, 80},
-    {"ORCHESTRA HIT", NZK, 0, 70, 0, 74, 40, NOFX, HALL, NZ(1, 0), 40, 127},
+    {"ORCHESTRA HIT", CYC, 0, 70, 0, 74, 40, RZ_BRASS, 110, 110, 80, 0, 110, HALL},
     /* BRASS 57-64: the BRASS waveguide (the synth brass: saws) */
-    {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 80, 0, 127, ROOM},
+    {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 80, 0, 127, ROOM, NOOSC, 10},
     {"TROMBONE", CYC, 34, 80, 112, 64, 20, RZ_BRASS, 70, 80, 85, 0, 127, ROOM},
     {"TUBA", CYC, 36, 80, 112, 64, 20, RZ_BRASS, 30, 55, 90, 0, 127},
     {"MUTED TRUMPET", CYC, 24, 76, 110, 60, 20, RZ_BRASS, 90, 100, 80, 110, 127, ROOM},
     {"FRENCH HORN", CYC, 44, 84, 112, 76, 20, RZ_BRASS, 20, 50, 95, 0, 127, HALL},
-    {"BRASS SECTION", CYC, 30, 80, 112, 64, 30, RZ_BRASS, 90, 95, 80, 0, 127, ROOM},
-    {"SYNTH BRASS 1", NZK, 20, 70, 90, 60, 80, NOFX, NOSH, NZ(1, 0), 10, 40},
-    {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, NOFX, ROOM, NZ(1, 0), 16, 80},
+    {"BRASS SECTION", CYC, 30, 80, 112, 64, 30, RZ_BRASS, 90, 95, 80, 0, 127, ROOM, NOOSC, 10},
+    {"SYNTH BRASS 1", NZK, 20, 70, 90, 60, 80, RZ_BRASS, 110, 120, 75, 0, 90, NOSH, NZ(1, 0), 10, 40},
+    {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, RZ_BRASS, 80, 100, 80, 40, 90, ROOM, NZ(1, 0), 16, 80},
     /* REED 65-72: the REED waveguide (BORE: a cone, the clarinet a cylinder) */
-    {"SOPRANO SAX", CYC, 20, 76, 115, 60, 20, RZ_REED, 70, 100, 90, 40, 127, ROOM},
-    {"ALTO SAX", CYC, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 90, 60, 127, ROOM},
-    {"TENOR SAX", CYC, 24, 76, 115, 62, 20, RZ_REED, 55, 80, 90, 80, 127, ROOM},
-    {"BARITONE SAX", CYC, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 90, 100, 127},
+    {"SOPRANO SAX", CYC, 20, 76, 115, 60, 20, RZ_REED, 70, 100, 90, 40, 127, ROOM, NOOSC, 10},
+    {"ALTO SAX", CYC, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 90, 60, 127, ROOM, NOOSC, 15},
+    {"TENOR SAX", CYC, 24, 76, 115, 62, 20, RZ_REED, 55, 80, 90, 80, 127, ROOM, NOOSC, 25},
+    {"BARITONE SAX", CYC, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 90, 100, 127, NOSH, NOOSC, 30},
     {"OBOE", CYC, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 90, 120, 127, ROOM},
     {"ENGLISH HORN", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 90, 110, 127, ROOM},
     {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 95, 105, 127},
@@ -196,7 +198,7 @@ static const preset_t PRESETS[] = {
     {"POLYSYNTH", NZK, 20, 90, 80, 80, 60, NOFX, ROOM, NZ(1, 0), 8, 40},
     {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 80, 60, 64, 90, 110, 110, 60, 80, SI_OCT, 90,
      NZ(1, 0), 8, 30},
-    {"BOWED PAD", NZK, 96, 100, 115, 104, 20, RZ_MODAL, 100, 90, 120, 40, 90, HALL, NZ(1, 8), 0, 40},
+    {"BOWED PAD", CYC, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 110, 100, 110, AIR},
     {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 125, 80, 90, SI_OCT5, 90, NZ(1, 5), 30, 20},
     {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 60, 60, 20, 90, 127, 127, 90, 90, SI_OCT, 90,
      NZ(1, 0), 6, 20},
@@ -217,12 +219,12 @@ static const preset_t PRESETS[] = {
     {"KOTO", 6, 64, 64, 0, 66, 0, 66, 60, RZ_STRING, 60, 70, 96, 20, 85, ROOM},
     {"KALIMBA", 6, 64, 64, 0, 62, 0, 62, 70, RZ_MODAL, 40, 90, 80, 30, 100},
     {"BAGPIPE", CYC, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 100, 120, 127, ROOM},
-    {"FIDDLE", CYC, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 95, 45, 127},
-    {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 85, 125, 127, ROOM},
+    {"FIDDLE", CYC, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 95, 45, 127, NOSH, NOOSC, 12},
+    {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 85, 125, 127, ROOM, NOOSC, 20},
     /* PERCUSSIVE 113-120 */
     {"TINKLE BELL", 54, 90, 64, 0, 76, 0, 76, 60, RZ_MODAL, 70, 120, 110, 12, 120, ROOM},
     {"AGOGO", CYC, 0, 54, 0, 56, 80, RZ_MODAL, 116, 100, 80, 40, 110},
-    {"STEEL DRUMS", 54, 90, 64, 0, 68, 0, 68, 60, RZ_MODAL, 90, 100, 100, 40, 120},
+    {"STEEL DRUMS", 54, 90, 64, 0, 78, 0, 78, 80, RZ_MODAL, 90, 110, 108, 40, 127},
     {"WOODBLOCK", 6, 64, 64, 0, 40, 0, 40, 100, RZ_MODAL, 30, 70, 50, 20, 90},
     {"TAIKO", NZK, 0, 62, 0, 64, 30, NOFX, HALL, NZ(1, 3), 0, 0, 50, 0, 50},
     {"MELODIC TOM", NZK, 0, 56, 0, 56, 40, NOFX, NOSH, NZ(1, 3), 10, 10, 50, 0, 60},
@@ -318,6 +320,7 @@ static void preset_load(uint32_t i)
         sys.menv_height = p->menv_height;
         sys.menv_bend = 64;
     }
+    sys.scream = p->scream;
 }
 static int preset_edited(void)
 {
@@ -330,7 +333,7 @@ static int preset_edited(void)
            sys.sh_shimmer != p->sh_shimmer || sys.sh_interval != p->sh_interval || sys.sh_tone != p->sh_tone)) ||
            sys.osc != p->osc || (p->osc && (sys.np_x != p->np_x || sys.np_y != p->np_y || sys.np_level != 64u ||
            sys.menv_height != p->menv_height || (p->menv_height && (sys.menv_len != p->menv_len ||
-           sys.menv_skew != p->menv_skew || sys.menv_bend != 64u))));
+           sys.menv_skew != p->menv_skew || sys.menv_bend != 64u)))) || sys.scream != p->scream;
 }
 
 /* ------------------------------------------------------------ settings --- */
