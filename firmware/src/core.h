@@ -59,6 +59,9 @@ static volatile struct {
     uint8_t k_on, k_ge, k_latch, k_m[4];
     uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */
     uint8_t mw_seen;
+    uint8_t at, at_seen, scream;   /* keys.c: MIDI aftertouch (channel pressure; poly per note: at_poly), one has come
+                                  * (from then on it is the breath: resonator.c); SCREAM (feg.c's list): the voices' own
+                                  * sound driving the waveguides' breath */
     uint8_t tape_lv[4], tape_len, tape_arm, tape_spd;   /* tape.c: the tracks' levels, LENGTH (1 2 4 8 16 beats), the armed track */             /* a mod wheel has sent (until then it leaves FREE EG's depth alone) */
     uint8_t vel_to, vel_amt;     /* synth.c: velocity also on the sound: 0 off, 1 BRIGHT (the gate), 2 FM, 3 both; how much */   /* karma.c: KARMA (SEQ): on, the GE, LATCH, its four realtime controls */
     uint16_t menv_view;          /* the newest voice's MOD ENV pitch sweep now, 0..32767 = 3 octaves (ui.c) */

@@ -379,6 +379,13 @@ static void wg_level(int32_t *iav, int32_t *oav, int32_t *ag, const int32_t *in,
         y[i] = px_clamp(px_m(y[i], *ag, 12), -64 * PX_ONE, 64 * PX_ONE);
 }
 
+/* SCREAM (the VL1's): the voices' own sound on the breath, from a touch (1/8) to driving it (x 2): with the CHUA circuit
+ * chaotic, chaos blows the instrument */
+static inline int32_t wg_scream(int32_t x, int32_t sh)
+{
+    return (int32_t)(((int64_t)x * (16 + (int32_t)(sys.scream & 127u) * 2)) >> (7 + sh));
+}
+
 /* the half-rate period of the note (Q16 samples), folded up by octaves until it fits in max samples */
 static __attribute__((noinline)) uint32_t wg_per(uint32_t f0, uint32_t max)   /* (one division, not three) */
 {
@@ -431,7 +438,7 @@ static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t 
             uint32_t q = (ph / (wq >> 16)) << 16;   /* (32 bits: ph < wq) */
             lips = (PX_ONE - (px_sin(q + 0x40000000u) >> 10)) >> 1;
         }
-        lips = px_m(lips, pr, 20) + (x >> 3);
+        lips = px_m(lips, pr, 20) + wg_scream(x, 0);
         b = wg_read(B->bore, WG_BR - 1u, B->w, bd);
         B->lp += px_m(g, b - B->lp, 15);
         o = lips + px_m(B->lp, R, 15);
@@ -502,7 +509,7 @@ static void wg_bow_run(wg_bow_t *W, const int32_t *in, int32_t *y, uint32_t n, u
         W->sf += px_m(g, bo - W->sf, 15);
         bref = -px_m(W->sf, loss, 15);
         nref = -no;
-        vd = vb + (x >> 5) - (bref + nref);      /* the bow against the string (the rosin's grain on it) */
+        vd = vb + wg_scream(x, 2) - (bref + nref);   /* the bow against the string (the rosin's grain on it) */
         s = px_m(vd, slope, 16);                 /* the bow table */
         t = (s < 0 ? -s : s) + PX_ONE * 3 / 4;
         t = t > 6 * PX_ONE ? 6 * PX_ONE : t;
@@ -568,7 +575,7 @@ static void wg_reed_run(wg_reed_t *D, const int32_t *in, int32_t *y, uint32_t n,
     for (i = 0; i < n; i += 2u) {
         int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i];
         int32_t noise = px_m((int32_t)(px_rand(&D->rng) >> 11) - (1 << 20), pr, 24);   /* (the breath: 1/16) */
-        int32_t p = pr + noise + (x >> 3), b = wg_read(D->d0, WG_RD - 1u, D->w, l0), o, pd, rt, t;
+        int32_t p = pr + noise + wg_scream(x, 0), b = wg_read(D->d0, WG_RD - 1u, D->w, l0), o, pd, rt, t;
         D->lp += px_m(g, b - D->lp, 15);
         if (cyl) {                               /* STK Clarinet */
             pd = -px_m(D->lp, R, 15) - p;

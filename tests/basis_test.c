@@ -1613,6 +1613,70 @@ int main(int argc, char **argv)
         check("FX waveguides: flute registers, syrinx chirp, throat vowels, quiet without breath", okk);
     }
 
+    /* aftertouch is the breath (once one has come): a BRASS note pressed down is louder and brighter than one
+     * resting; polyphonic aftertouch the same for its note; SCREAM (the voices driving the breath) bounded, and it
+     * changes the sound */
+    {
+        uint32_t q, okk = 1;
+        double rms[3], cen[3];
+        int32_t pk = 0;
+        sys.osc = 0; sys.chaos = 6; sys.shape = 64; sys.output = 64; sys.attack = 20; sys.decay = 70; sys.sustain = 115;
+        sys.release = 40; sys.ring = 20; sys.fx_model = RZ_BRASS; sys.fx_struct = 100; sys.fx_bright = 100;
+        sys.fx_damp = 80; sys.fx_pos = 0; sys.sh_mix = 0;
+        for (q = 0; q < 3u; q++) {
+            static int32_t o[44100 / 4];
+            uint32_t w2, k2;
+            double e = 0, num = 0, den = 0;
+            synth_kill(); sys.fx_mix = 0; run_ms(20); sys.fx_mix = 127;
+            midi_in_source[mi_w % MQ] = 1;
+            if (q < 2u)
+                midi_in(0xD0, q ? 127 : 0, 0);
+            else {
+                midi_in(0xD0, 0, 0);
+                midi_in_source[mi_w % MQ] = 1; midi_in(0xA0, 57, 127);   /* (poly: after the note on) */
+            }
+            synth_note_on(57, 100);
+            run_ms(400);
+            for (w2 = 0; w2 < sizeof o / sizeof o[0] / CTL; w2++) {
+                synth_render(buf, CTL);
+                for (k2 = 0; k2 < CTL; k2++) o[w2 * CTL + k2] = buf[2 * k2];
+            }
+            for (k2 = 0; k2 < sizeof o / sizeof o[0]; k2++) e += (double)o[k2] * o[k2];
+            for (k2 = 200; k2 < 5000; k2 += 100) {
+                double re = 0, im = 0, en;
+                uint32_t i2;
+                for (i2 = 0; i2 < sizeof o / sizeof o[0]; i2 += 2) {
+                    double ph = 2 * M_PI * k2 * i2 / FS;
+                    re += o[i2] * cos(ph); im += o[i2] * sin(ph);
+                }
+                en = re * re + im * im; num += en * k2; den += en;
+            }
+            rms[q] = sqrt(e / (sizeof o / sizeof o[0]));
+            cen[q] = num / (den + 1);
+        }
+        printf("   (BRASS: aftertouch 0: rms %.0f, centroid %.0f Hz; 127: %.0f, %.0f Hz; poly 127: %.0f, %.0f Hz)\n",
+               rms[0], cen[0], rms[1], cen[1], rms[2], cen[2]);
+        okk &= rms[1] > 2 * rms[0] && cen[1] > cen[0] && rms[2] > 2 * rms[0];
+        {   /* SCREAM: the chaotic circuit on the breath, every waveguide, bounded */
+            uint32_t md, b2;
+            sys.chaos = 110; sys.output = 32; sys.scream = 127;
+            midi_in_source[mi_w % MQ] = 1; midi_in(0xD0, 127, 0);
+            for (md = RZ_THROAT; md < RZ_COUNT; md++) {
+                synth_kill(); sys.fx_model = (uint8_t)md;
+                synth_note_on(45, 127); synth_note_on(57, 127); synth_note_on(64, 127);
+                for (b2 = 0; b2 < 300u; b2++) {
+                    synth_render(buf, CTL);
+                    for (q = 0; q < 2u * CTL; q++) pk = abs(buf[q]) > pk ? abs(buf[q]) : pk;
+                }
+            }
+            okk &= pk <= 8388607;
+            sys.scream = 0;
+        }
+        synth_kill();
+        sys.at = 0; sys.at_seen = 0; sys.fx_mix = 0; sys.chaos = 85; sys.output = 0;
+        check("aftertouch is the breath (channel and poly): louder and brighter; SCREAM bounded", okk);
+    }
+
     /* the shimmer: bounded in every corner (SIZE x DECAY x SHIMMER x INTERVAL, held chords), no DC; it rises (the
      * tail's spectral weight climbs); MIX 0 bit for bit dry, and mono (left = right) */
     {

@@ -44,6 +44,7 @@ static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 26
 static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
 static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
+static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
 #define RZ_POLY 4                                /* resonators (Rings: 1, 2 or 4) */
 #define RZ_QUIET 64                              /* blocks of no input and a quiet output (~46 ms): not run */
@@ -163,10 +164,19 @@ static void rz_run(uint32_t r, uint32_t n)
     uint32_t f0 = note_inc(note);
     if (R->held != md + 1u)
         rz_reset(R, md);
-    for (i = 0; i < n; i++) {
-        int32_t a = rz_bus[r][i];
-        pk_in |= a;
-        in[i] = a * (1 << RZ_IN_SHIFT);
+    {   /* aftertouch, once a keyboard has sent it, is the breath (the VL1's PRESSURE): the voices into the model
+         * x 0.35 (not pressed) .. 1.35 (pressed down); the waveguides' breath, bow speed, loudness and timbre follow */
+        int32_t fq = 256;
+        if (sys.at_seen) {
+            uint32_t p = sys.at & 127u, pp = at_poly[note & 127u];
+            p = pp > p ? pp : p;
+            fq = 90 + (int32_t)(p * 256u / 127u);
+        }
+        for (i = 0; i < n; i++) {
+            int32_t a = rz_bus[r][i];
+            pk_in |= a;
+            in[i] = ((a * fq) >> 8) * (1 << RZ_IN_SHIFT);
+        }
     }
     switch (md) {
     case RZ_MODAL: {

@@ -263,6 +263,14 @@ De luidheid van de stemmen is de "adem": de fluit en de syrinx blazen alleen zol
 | BOW | een strijkstok op een snaar (naar STK Bowed / Smith): twee vertragingslijnen, de wrijving van het haar (stick-slip), de kam en een klankkast (een lage resonantie en de 'bridge hill' rond 2,5 kHz); de luidheid van de stemmen is de snelheid van de stok | PRESSURE: licht en luchtig (flageolet) .. gedrukt en krassend | BOW AT: sul ponticello (bij de kam) .. sul tasto (boven de toets) |
 | REED | een riet op een buis (naar STK Clarinet / Saxofony): het riet als klep, een cilinder (klarinet: oneven boventonen) of een kegel (sax, hobo, fagot: alle boventonen) | REED: zacht en donker .. hard en schetterend | BORE: onder 16 de cilinder (klarinet), daarboven de kegel, het riet op 6 .. 45 % van de lengte (laag een sax, hoog de dubbelrieten) |
 
+**Blaasdruk op aftertouch.** Zodra er aftertouch binnenkomt (channel pressure of polyfonische aftertouch, via USB- of
+TRS-MIDI van een keyboard dat het stuurt; het eigen klavier van de FM-1 heeft het niet), is aftertouch de adem (de
+PRESSURE van een Yamaha VL1): niet ingedrukt klinkt een noot zacht en donker (0,35 x), helemaal ingedrukt luid en helder
+(1,35 x). Voor BRASS, BOW en REED is dat de blaasdruk of stoksnelheid, voor de andere FX-modellen hoe hard ze aangeslagen
+worden. **SCREAM** (een doel van de modwheel en FREE EG, onderaan de lijst op de EDIT-pagina) legt het eigen geluid
+van de stemmen op de adem, van een vleugje tot het instrument erdoor gedreven: met het CHUA-circuit op hoge CHAOS
+blaast de chaos het instrument (de "scream" van de VL1).
+
 KNOB 2 BRIGHTNESS (mondopening/snavel/demping van de hoogte), KNOB 3 DAMPING (hoe lang de buis naklinkt), KNOB 4 MIX.
 Combineer gerust: een noise-programma als adem in de FLUTE (PAN NOISE FLUTE), de pure cyclus in een kattenkeel (CAT
 MEOW), een wolf met shimmer (WOLF HOWL). Nieuwe presets: CAT MEOW, COW MOO, WOLF HOWL, TALKING CHAOS, ELEPHANT, NIGHT

@@ -48,6 +48,7 @@ static void note_start(uint32_t note, uint32_t vel)
 
 static void note_end(uint32_t note)
 {
+    at_poly[note & 127u] = 0;
     if (!note_held[note])
         return;
     if (--note_held[note] == 0u) {
@@ -166,6 +167,14 @@ static void midi_in_block(void)
         else if (st == 0xB0u && d1 == 1u) {      /* the mod wheel: its parameter (feg.c mw_block, the EDIT page) */
             sys.mw = (uint8_t)d2;
             sys.mw_seen = 1;
+        }
+        else if (st == 0xD0u) {                  /* aftertouch (channel pressure): the breath (resonator.c) */
+            sys.at = (uint8_t)d1;
+            sys.at_seen = 1;
+        }
+        else if (st == 0xA0u) {                  /* polyphonic aftertouch: that note's breath */
+            at_poly[d1] = (uint8_t)d2;
+            sys.at_seen = 1;
         }
         else if (st == 0xC0u)                    /* program change: the preset (ui.c, the main loop) */
             keys_prog_req = (uint8_t)(d1 + 1u);
