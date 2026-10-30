@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""fm1_remote: look at and play the FM-1 (CHUA firmware) from a computer over USB-MIDI (firmware/src/remote.c).
+"""fm1_remote: look at and play the FM-1 (HAWK CHUA firmware) from a computer over USB-MIDI (firmware/src/remote.c).
 
     python3 tools/fm1_remote.py ping                 the firmware's identity
     python3 tools/fm1_remote.py state                the page, the screen's text, preset, BPM, load, tape, FX ...

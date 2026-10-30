@@ -4,13 +4,13 @@
 """Make the site (GitHub Pages):
 
   index.html                  redirect to the installer (the old URL keeps working)
-  firmware/felucca-VER.fwsc   the package (+ LICENSE, LICENSING.md, LICENSES/: the package holds
+  firmware/hawk-chua-VER.fwsc   the package (+ LICENSE, LICENSING.md, LICENSES/: the package holds
                               JieLi SDK files under Apache-2.0, see LICENSING.md)
   webapp/installer/index.html index_pkg.html, self-contained (fm1pkg.js, fm1ota.js, metadata inlined)
   webapp/remote/index.html    remote.html: the FM-1 over Web MIDI (firmware/src/remote.c) and its USB audio
   src/                        not touched
 
-  web/make_site.py build/felucca-X.Y.fwsc X.Y OUT_DIR
+  web/make_site.py build/hawk-chua-X.Y.fwsc X.Y OUT_DIR
 
   chua.html                   docs/chua.html: how CHUA works (interactive)
   SOURCE_URL (environment)    the source repository, linked from the installer (GitHub Actions: the repository's URL)
@@ -53,7 +53,7 @@ def main(pkg, version, out):
     lib = strip_module((HERE / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
         strip_module((HERE / "fm1ota.js").read_text(encoding="utf-8")) + "\n" + \
         strip_module((HERE / "fm1backup.js").read_text(encoding="utf-8"))
-    name = f"felucca-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
+    name = f"hawk-chua-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
     meta = json.dumps({"version": version, "product": product, "pkg": "../../firmware/" + name,
                        "source": os.environ.get("SOURCE_URL", "")})
     for mark in ("/*LIB*/", "/*META*/"):
@@ -63,7 +63,7 @@ def main(pkg, version, out):
     inst, fw = out / "webapp" / "installer", out / "firmware"
     for d in (inst, fw):
         d.mkdir(parents=True, exist_ok=True)
-    for old in fw.glob("felucca-*.fwsc"):          # one package: the current one
+    for old in fw.glob("hawk-chua-*.fwsc"):          # one package: the current one
         old.unlink()
     (inst / "index.html").write_text(html, encoding="utf-8")
     rem = out / "webapp" / "remote"                # the remote: the screen, the state, the panel, the audio
@@ -83,7 +83,7 @@ def main(pkg, version, out):
     for doc in ("LICENSE", "LICENSING.md"):
         shutil.copy(HERE.parent / doc, fw / doc)
     (out / "index.html").write_text(
-        '<!doctype html><meta charset="utf-8"><title>CHUA</title>'
+        '<!doctype html><meta charset="utf-8"><title>HAWK CHUA</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
         '<a href="webapp/installer/">CHUA installer</a>\n', encoding="utf-8")
     explainer = HERE.parent / "docs" / "chua.html"

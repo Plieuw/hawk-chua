@@ -391,9 +391,9 @@ tools/get_toolchain.sh                 # JieLi-toolchain (eenmalig)
 git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
     https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK
 pip3 install Pillow fonttools mido python-rtmidi
-./build.sh                             # -> build/felucca.fwsc
+./build.sh                             # -> build/hawk-chua.fwsc
 tests/run_tests.sh                     # host-tests, geen FM-1 nodig (+ build/host/ui/sheet.png en basis.wav)
-python3 tools/fm1_install.py build/felucca.fwsc
+python3 tools/fm1_install.py build/hawk-chua.fwsc
 ```
 
 Op macOS draait de toolchain in Docker (zie BUILDING.md); op Linux x86-64 direct.

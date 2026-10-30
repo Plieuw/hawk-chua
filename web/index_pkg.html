@@ -5,7 +5,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CHUA installer</title>
+<title>HAWK CHUA installer</title>
 <style>
   :root { --bg: #edf0f2; --fg: #1a2330; --dim: #5b6878; --acc: #c0620c; --line: #c9d1da; }
   @media (prefers-color-scheme: dark) {
@@ -36,7 +36,7 @@
 <body>
 <main>
   <button class="lang" id="lang"></button>
-  <h1>CHUA</h1>
+  <h1>HAWK CHUA</h1>
   <p class="ver" id="ver"></p>
   <p data-t="intro"></p>
   <ol>
@@ -62,7 +62,7 @@
 
   <details>
     <summary data-t="aboutTitle"></summary>
-    <p class="small">CHUA: a synthesizer whose oscillator is Chua's circuit. Built on Felucca by Leo Kuroshita (@kurogedelic),
+    <p class="small">HAWK CHUA: a synthesizer whose oscillator is Chua's circuit. Built on Felucca by Leo Kuroshita (@kurogedelic),
       <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
       Font: Inter Tight (The Inter Project Authors, SIL OFL 1.1). The package also holds three JieLi AC79 SDK files,
       uboot.boot, cfg_tool.bin and eq_cfg_hw.bin (JieLi Technology, Apache-2.0).
@@ -79,7 +79,7 @@ const $ = (id) => document.getElementById(id);
 const TEXT = {
   nl: {
     other: "English",
-    intro: "Zet CHUA op je M-VAVE FM-1, rechtstreeks vanuit de browser.",
+    intro: "Zet HAWK CHUA op je M-VAVE FM-1, rechtstreeks vanuit de browser.",
     s1: "Open deze pagina in Chrome of Edge op een computer.",
     s2: "Sluit de FM-1 aan met een USB-datakabel, rechtstreeks op de computer, en zet hem aan.",
     s3: "Druk op Installeren en sta MIDI-toegang toe. Laat de kabel zitten tot er Klaar staat (ongeveer een minuut).",
@@ -90,10 +90,10 @@ const TEXT = {
     back: "Download de officiële FM-1 V15 bij M-VAVE en kies het ongewijzigde FM-1.fwsc. De browser controleert het bestand op deze computer; het wordt nergens naartoe gestuurd.",
     stockFile: "Officieel FM-1.fwsc", stockGo: "Officiële V15 installeren", stockValid: "Officiële V15 gecontroleerd. ",
     stockError: "Dit is niet het ongewijzigde officiële bestand: ",
-    aboutTitle: "Over deze firmware", explain: "Hoe CHUA werkt (interactief)",
+    aboutTitle: "Over deze firmware", explain: "Hoe HAWK CHUA werkt (interactief)",
     nomidi: "Deze browser kan dit niet. Open de pagina in Chrome of Edge.", loadfail: "Firmware niet geladen: ",
     start: "Starten", verify: "Controleren", loader: "Naar update-modus", write: "Schrijven",
-    reboot: "Herstarten", done: "Klaar. CHUA staat op je FM-1.", stopped: "Gestopt. Steek de USB-kabel opnieuw in en druk nog eens op Installeren.",
+    reboot: "Herstarten", done: "Klaar. HAWK CHUA staat op je FM-1.", stopped: "Gestopt. Steek de USB-kabel opnieuw in en druk nog eens op Installeren.",
     error: "Fout: ",
     denied: "MIDI (SysEx) is niet toegestaan. Sta MIDI toe via het slotje in de adresbalk en druk nog eens op Installeren.",
     notfound: "Geen FM-1 gevonden. Controleer de kabel (een datakabel), sluit andere programma's die MIDI gebruiken en probeer opnieuw.",
@@ -108,7 +108,7 @@ const TEXT = {
   },
   en: {
     other: "Nederlands",
-    intro: "Put CHUA on your M-VAVE FM-1, straight from the browser.",
+    intro: "Put HAWK CHUA on your M-VAVE FM-1, straight from the browser.",
     s1: "Open this page in Chrome or Edge on a computer.",
     s2: "Connect the FM-1 with a USB data cable, directly to the computer, and switch it on.",
     s3: "Press Install and allow MIDI access. Keep the cable in until it says Done (about a minute).",
@@ -119,10 +119,10 @@ const TEXT = {
     back: "Download the official FM-1 V15 from M-VAVE and select the unmodified FM-1.fwsc. The browser checks it on this computer; it is not sent anywhere.",
     stockFile: "Official FM-1.fwsc", stockGo: "Install official V15", stockValid: "Official V15 verified. ",
     stockError: "This is not the unmodified official file: ",
-    aboutTitle: "About this firmware", explain: "How CHUA works (interactive)",
+    aboutTitle: "About this firmware", explain: "How HAWK CHUA works (interactive)",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load the firmware: ",
     start: "Starting", verify: "Verifying", loader: "Switching to update mode", write: "Writing",
-    reboot: "Restarting", done: "Done. CHUA is on your FM-1.", stopped: "Stopped. Replug the USB cable and press Install again.",
+    reboot: "Restarting", done: "Done. HAWK CHUA is on your FM-1.", stopped: "Stopped. Replug the USB cable and press Install again.",
     error: "Error: ",
     denied: "MIDI (SysEx) access was not allowed. Allow MIDI in the site settings (address bar) and press Install again.",
     notfound: "FM-1 not found. Check the USB cable (a data cable), close other apps that use MIDI, and press Install again.",
@@ -166,7 +166,7 @@ window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault
     const pkg = new Uint8Array(await r.arrayBuffer());
     if (productOf(pkg) !== meta.product) { sayK("badpkg"); return; }
     image = logicalImage(pkg);
-    sayK("ready", "CHUA " + meta.version);
+    sayK("ready", "HAWK CHUA " + meta.version);
     $("go").disabled = false;
   } catch (e) { sayK("loadfail", e.message); }
 })();

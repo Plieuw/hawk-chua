@@ -3,7 +3,7 @@
 # Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
 # Host tests of the sources (no hardware). Run from the repo root:
 #   tests/run_tests.sh
-# Without build/felucca.fwsc (no ./build.sh yet) the two tests that need the package are skipped.
+# Without build/hawk-chua.fwsc (no ./build.sh yet) the two tests that need the package are skipped.
 #   basis        the keyboard and the CHUA synth (keys.c, synth.c): notes, octave, MIDI in / out, voices; the circuit in
 #                fixed point against double precision, every regime x shape x note range in range, pitch in the CYCLE
 #                regime; also with ASan / UBSan; writes build/host/basis.wav (every preset, to listen to)
@@ -115,15 +115,15 @@ done
 
 run "installer CLI (fm1_install.py) against a simulated FM-1" python3 tests/install_test.py
 
-if [ -f build/felucca.fwsc ]; then
+if [ -f build/hawk-chua.fwsc ]; then
     $CC -DOWN_PKG=1 -o "$OUT/ota_test" tests/ota_test.c
-    run "M-UPGRADE entry (own loader)" "$OUT/ota_test" build/felucca.fwsc
+    run "M-UPGRADE entry (own loader)" "$OUT/ota_test" build/hawk-chua.fwsc
     head -c 200000 build/felucca.bin > "$OUT/old_app.bin"
     python3 tools/fm1pkg_make.py "$OUT/old_app.bin" build/loader/ota.bin "$OUT/old.fwsc" >/dev/null
     $CC -o "$OUT/ldr_test" tests/ldr_test.c
-    run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+    run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" build/hawk-chua.fwsc
 else
-    echo "== skip the update entry and loader tests (no build/felucca.fwsc: run ./build.sh first)"
+    echo "== skip the update entry and loader tests (no build/hawk-chua.fwsc: run ./build.sh first)"
 fi
 
 [ "$fail" = 0 ] && echo "all tests passed" || { echo "SOME TESTS FAILED"; exit 1; }

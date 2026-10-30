@@ -94,10 +94,9 @@ jobs:
           }
           if [ -n "${{ steps.ver.outputs.release }}" ]; then
             ./build.sh --release "${{ steps.ver.outputs.release }}" 2>&1 | tee build-log.txt || report
-            cp "build/felucca-${{ steps.ver.outputs.release }}.fwsc" build/chua.fwsc
+            cp "build/hawk-chua-${{ steps.ver.outputs.release }}.fwsc" build/hawk-chua.fwsc
           else
             FELUCCA_VERSION="${{ steps.ver.outputs.label }}" ./build.sh 2>&1 | tee build-log.txt || report
-            cp build/felucca.fwsc build/chua.fwsc
           fi
           grep -E "^  (ok|FAIL) " build-log.txt | sed 's/^/::notice title=build check::/' || true
 
@@ -107,14 +106,14 @@ jobs:
       - name: Installer site
         env:
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
-        run: python3 web/make_site.py build/chua.fwsc "${{ steps.ver.outputs.label }}" site
+        run: python3 web/make_site.py build/hawk-chua.fwsc "${{ steps.ver.outputs.label }}" site
 
       - name: Firmware file
         uses: actions/upload-artifact@v4
         with:
-          name: chua-${{ steps.ver.outputs.label }}
+          name: hawk-chua-${{ steps.ver.outputs.label }}
           path: |
-            build/chua.fwsc
+            build/hawk-chua.fwsc
             build/host/ui/sheet.png
             build/host/basis.wav
 
@@ -186,4 +185,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" \
             --title "CHUA $GITHUB_REF_NAME" \
-            --notes "Install: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/ in Chrome or Edge, connect the FM-1 by USB and press Install. Or: python3 tools/fm1_install.py felucca-${GITHUB_REF_NAME#v}.fwsc"
+            --notes "Install: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/ in Chrome or Edge, connect the FM-1 by USB and press Install. Or: python3 tools/fm1_install.py hawk-chua-${GITHUB_REF_NAME#v}.fwsc"
