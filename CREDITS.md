@@ -1,0 +1,36 @@
+# Credits
+
+This firmware is built on **[Felucca](https://github.com/hugelton/Felucca)** by Leo Kuroshita
+([@kurogedelic](https://github.com/kurogedelic), [Hügelton Instruments](https://hugelton.com)): the HAL (keys, LEDs,
+encoders, display, audio, USB, flash, second core), the boot and safety code, the USB-MIDI and USB audio driver, the
+TRS MIDI input, the flash store, the M-UPGRADE update entry, the update loader, the package builder, the installers
+and the drawing code all come from Felucca. Each part keeps its own licence (see [LICENSE](LICENSE),
+[LICENSING.md](LICENSING.md) and [LICENSES/](LICENSES/)).
+
+- FX resonators: the models of [Rings](https://github.com/pichenettes/eurorack) by Emilie Gillet (Mutable Instruments) and
+  [DaisySP](https://github.com/electro-smith/DaisySP) by Electrosmith and Emilie Gillet ([MIT](LICENSES/MIT-Rings.txt),
+  [MIT](LICENSES/MIT-DaisySP.txt)), in Felucca's fixed-point port
+- Noise oscillators: after the programs of [Befaco](https://www.befaco.org)'s **Noise Plethora** (designed by Jeremy
+  Bernstein, Julia Mugica and Ivan Paz with Befaco), written from the descriptions in its
+  [manual](https://www.befaco.org/docs/Noise_Plethora/Noise_Plethora.pdf); this firmware's own code (`firmware/src/noise.c`),
+  no code of the module's
+- Waveguides (`firmware/src/waveguide.c`): this firmware's own code after the published models: J. L. Kelly and
+  C. Lochbaum's vocal tract (1962), P. Cook's slide flute and the Flute of the
+  [Synthesis ToolKit](https://github.com/thestk/stk) (Cook and Scavone): the jet's x (x^2 - 1), no code of STK's
+- KARMA (`firmware/src/karma.c`): after the architecture of Korg's KARMA (Kay Algorithmic Realtime Music Architecture,
+  Stephen Kay; KARMA is a trademark of Stephen Kay / Karma-Lab) as its Basic Guide describes it: Generated Effects
+  made of rhythm, note series, index, cluster, melodic repeat and envelopes, realtime controls, latch, quantized
+  triggers. This firmware's own code and its own GEs, none of KARMA's
+- [fm1_open](https://github.com/m-vave/fm1_open) by M-VAVE (GPL-3.0 with a linking exception): the LCD's barrier
+  before a DMA and its SPI reset after a timeout (`firmware/hal/fm1_lcd_hw.h`), the knobs' acceleration
+  (`firmware/src/ui.c` knob_accel), the plot sent only where it changed (`firmware/src/gfx.c` cv_blit), the audio
+  copied into the DMA's half only while it is free (`firmware/src/audio.c`), after its board files and screen.c
+- Font: [Inter Tight](https://github.com/rsms/inter-tight) by The Inter Project Authors, [SIL OFL 1.1](LICENSES/OFL-InterTight.txt)
+- Second core: its start, mailbox and guards from [X0X](https://github.com/charlesvestal/fm1-x0x) by
+  [charlesvestal](https://github.com/charlesvestal) with the dual-core findings of [Melodee](https://github.com/keremimo/melodee)
+  by [keremimo](https://github.com/keremimo) and the hardening of [Jangada](https://github.com/zednaked/jangada) by
+  [zednaked](https://github.com/zednaked) (all GPL-3.0)
+- Package format and boot files: [JieLi AC79 SDK](https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK)
+  ([Apache-2.0](LICENSES/Apache-2.0.txt); three of its files are in every package, none in this tree)
+- Felucca's contributors to the parts kept here: [ChanceTheMaker](https://github.com/ChanceTheMaker) (TRS MIDI),
+  [gospodindilly-ops](https://github.com/gospodindilly-ops) (the second core), and everyone listed in Felucca's own CREDITS.md

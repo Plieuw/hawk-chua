@@ -1,0 +1,414 @@
+# HAWK CHUA — een chaotische synthesizer voor de M-VAVE FM-1
+
+Firmware voor de FM-1 waarvan de oscillator **Chua's circuit** is: het eenvoudigste elektronische circuit dat chaotisch
+gedrag vertoont. Elke stem is een eigen circuit; het scherm tekent live de attractor die de stem doorloopt. Gebouwd op
+een uitgeklede [Felucca](https://github.com/hugelton/Felucca) van Hügelton Instruments (hardwarelaag, USB, update-pad).
+
+## Het circuit
+
+Twee condensatoren (C1, C2), een spoel (L), een weerstand (R) en één niet-lineair element: de **Chua-diode**, een
+negatieve weerstand met een stuksgewijs lineaire karakteristiek. Dimensieloos:
+
+```
+dx/dt = α (y − x − g(x))      x: spanning over C1
+dy/dt = x − y + z             y: spanning over C2
+dz/dt = −β y                  z: stroom door L
+```
+
+g(x) heeft helling −8/7 binnen |x| < 1, −5/7 tot |x| < 3 en +2 daarbuiten (daar verzadigen de op-amps van de diode,
+zoals in een echt circuit; zo blijft elke instelling begrensd). Rond x = ±1,5 liggen twee evenwichtspunten waar de
+toestand omheen spiraleert; de energie die de diode bij x = 0 toevoegt, gooit hem van de ene spiraal naar de andere.
+
+Draai je α op, dan doorloopt het circuit de klassieke route naar chaos: rust → een zuivere **limietcyclus** (Hopf) →
+**periodeverdubbeling** → een chaotische **spiraal** rond één evenwicht → de **dubbele scroll** (beide evenwichten) →
+een **grote buitenste cyclus** (het verzadigde circuit). Waar die overgangen precies liggen hangt af van β; dat is
+offline uitgerekend (`tools/gen_chua_tables.c` → `firmware/src/chua_tables.h`), zodat de CHAOS-knop voor elke SHAPE
+hetzelfde regime betekent.
+
+**Toonhoogte** is de tijdschaal van het circuit: per sample schuift de solver h = f_noot × periode / 44100 tijdseenheden
+op, met de omlooptijd uit dezelfde tabellen. In het cycle-regime klinkt een noot binnen 2 % op zijn toonhoogte (getest);
+in de chaotische regimes rond die toonhoogte, met de typische subharmonische ruis van het scrollen.
+
+## Bediening
+
+| Bediening | Functie |
+| --- | --- |
+| 27 toetsen | spelen (4 stemmen, elk een eigen circuit en een eigen resonator/waveguide), sturen USB-MIDI uit (kanaal 1) |
+| KNOB 1 — CHAOS | α: CYCLE 0 · PERIOD 2 32 · SPIRAL 48 · DBL SCROLL 60 · OUTER 112 |
+| KNOB 2 — SHAPE | β 10..34: lage waarden trage, ronde spiralen; hoge waarden snelle, strakke |
+| KNOB 3 — OUTPUT | welke spanning je hoort: X (het scrollen, diep), X+Y, Y (de spiraal, helder), Y+Z, Z (rond) |
+| KNOB 4 — RING | resonantie van de low pass gate: 0 geen, 127 Q 6 (een korte, houtachtige ring) |
+| HOME | de oscillator: het circuit (CHAOS, SHAPE, OUTPUT, RING en de attractor) of een noise-programma (X, Y, LEVEL, RING) |
+| ENV | 1× de ENV-pagina, 2× de MOD ENV (een AD-envelope direct op de toonhoogte), 3× terug naar HOME. ENV-pagina: KNOB 1–4 = ATTACK, DECAY, SUSTAIN, RELEASE (0,5 ms .. 10 s), met de envelope getekend |
+| FX | de FX-pagina's: 1× de resonatoren van Mutable Instruments Rings en de waveguides (THROAT, FLUTE, SYRINX, HAWK), 2× de shimmer reverb, 3× terug naar HOME |
+| SELECT | weergave op HOME: 3D (draaiend), X-Y, X-Z, Y-Z, TIME · POSITION (resonator) · TONE (shimmer) |
+| ALGORITHM | op HOME de oscillator: CHUA of een van de 30 noise-programma's A0..C9 · het model (resonator of waveguide) · het interval (shimmer) |
+| PRESETS | 128 presets (program change 0..127 kiest ze). circuit, noise, dieren en FX: DOUBLE SCROLL, RING PLUCK, PURE CYCLE, PERIOD TWO, SPIRAL, BONGO GATE, CRISIS EDGE, OUTER LOOP, SLOW BLOOM, GRIT BASS, RINGS BELL, SITAR DRONE, CHAOS PIANO, BURIED BAR, HEAVEN RISER, OCTAVE CLOUD, FIFTH ASCENT, RADIO OH NO, GRAIN SHOWER, PRIME HATS, FIBONACCI PAD, CLUSTER BELL, SATAN WORKOUT, BITCRUSH WALK, CAT MEOW, COW MOO, WOLF HOWL, TALKING CHAOS, ELEPHANT, NIGHT FLUTE, OVERBLOWN, PAN NOISE FLUTE, BIRD SONG, TWO BIRDS, HAWK CRY, PING BELL, PITCH ZAP; bas: SUB SCROLL, DEEP SWITCH, RUBBER BASS, GROWL BASS, OUTER BASS, PLUCK BASS, CYCLE SUB, FM BASS, SQUARE BASS, ZAP BASS, WOOD BASS, ACID SPIRAL; lead: SCROLL LEAD, CRISIS LEAD, PURE LEAD, SPIRAL LEAD, RASP LEAD, SYNC SCREAM, RADIO LEAD, ATARI LEAD, WHISTLE LEAD, OVERDRIVE, GLIDE BIRD, SHIMMER LEAD; pad: CHAOS PAD, PERIOD PAD, GLASS PAD, STRING PAD, DARK PAD, FIFTH PAD, CLUSTER PAD, PARTIAL PAD, PHASE PAD, PRIME PAD, WARM CYCLE PAD, CHOIR CHAOS, FROZEN SCROLL, NIGHT SKY; keys en plucks: CHAOS KEYS, E-PIANO SCROLL, HARPSI CHAOS, CLAV GATE, KOTO, HARP, MARIMBA, KALIMBA, MUSIC BOX, CELESTA, STEEL DRUM, SITAR PLUCK; bellen en metaal: TEMPLE BELL, TUBULAR, GONG, CRYSTAL, METAL CLUSTER, FM BELLS, PING CHIME, BROKEN BELL; drums: CHAOS KICK, NOISE SNARE, CLOSED HAT, OPEN HAT, TOM DROP, RIM CLICK, CONGA, COWBELL, CLAP, ZAP DRUM, WOOD BLOCK, 808 BOOM; texturen: RWALK FLANGE, CROSS MOD, RESONOISE, GLITCH RAIN, GRAIN STORM, BASURILLA, LFSR DUST, WAKING, PSH BLIPS, ARRAY ROCKS, EXISTENTIAL, WHO KNOWS, RWALK DRIFT; dieren: KITTEN, LION ROAR, CROW, OWL HOOT, DOVE COO, EAGLE, WHALE SONG, SIREN RISE |
+| PRESETS op FX / SHIMMER | op de FX-pagina gaat de PRESETS-knop door FX-presets (FX OFF, BELL, TUNED BAR, GLASS, SITAR, DRONE STRINGS, PIANO STRING, PLUCKED STRING, CAT, COW, WOLF, TALKING, ELEPHANT, NIGHT FLUTE, OVERBLOWN, BIRD, TWO BIRDS, HAWK), op de SHIMMER-pagina door shimmer-presets (SHIMMER OFF, HEAVEN, OCTAVE HAZE, FIFTHS, SMALL ROOM, VALLEY, TWO OCTAVES, OCT + 5TH CLOUD); de klank zelf blijft staan |
+| ARP | de ARP-pagina; nog een keer: terug naar HOME (het lampje brandt zolang de arpeggiator speelt) |
+| REC | de TAPE-pagina (bandrecorder); daar: opnemen. Op de FREE EG-pagina neemt REC FREE EG op (bij NOTE nog een keer om te stoppen) |
+| SCL | de PAN-pagina (nog een keer: terug naar HOME): KNOB 1 BASIS (stereo-spreiding per noot), KNOB 2 ORBIT (de stemmen bewegen mee met hun plaatje); de stemmen staan getekend waar ze in het stereobeeld klinken |
+| SEQ | de KARMA-pagina (de frasegenerator); nog een keer: terug naar HOME (het lampje brandt zolang KARMA speelt) |
+| PLAY | start en stopt de ARP of KARMA: op de ARP-pagina de ARP, op de SEQ-pagina KARMA, op andere pagina's de laatste van de twee die je opende. Brandt (ook groen) zolang er een speelt |
+| OCT- / OCT+ | octaaf −3..+3 |
+| SAVE | alle instellingen in flash (terug na herstart) |
+| (blokjes rechtsonder) | knoppen met twee pagina's (ENV + MOD ENV, FX + SHIMMER) tonen rechtsonder twee blokjes: de pagina waar je bent oranje gevuld, de andere een leeg vakje |
+| LFO | de FREE EG-pagina (nog een keer: terug naar HOME); daar neemt REC op |
+| EDIT | de EDIT-pagina (nog een keer: terug naar HOME): KNOB 1 welke parameter het MOD WHEEL (MIDI CC 1) beweegt (de lijst van FREE EG), KNOB 2 hoe ver (DEPTH; wiel omhoog = tot 127, wiel omlaag = de oude waarde terug; speelt FREE EG op dezelfde parameter, dan regelt het wiel de diepte van FREE EG: wiel omlaag = stil, omhoog = FREE EG's DEPTH; pas zodra er een mod wheel binnenkomt), KNOB 3 VELOCITY op de klank (OFF, BRIGHT: zacht = donkerder, SWEEP: zacht = minder MOD ENV-sweep, BRIGHT + SWEEP), KNOB 4 hoeveel |
+| GLO | de MIDI-pagina (nog een keer: terug naar HOME): KNOB 1 TRS MIDI IN aan/uit, KNOB 2 USB MIDI (OFF, IN, OUT, IN + OUT), KNOB 3 RX-kanaal (OMNI, 1..16), KNOB 4 TX-kanaal (1..16); SELECT de tweede core aan/uit (vanaf de volgende start) |
+| Snel draaien | elke knop en encoder (KNOB 1–4, SELECT, ALGORITHM, PRESETS) versnelt tot 4×, net als BPM (van 0 naar 127 in één zwaai); één klik blijft één stap |
+| MASTER | volume |
+| MIDI in (USB en TRS) | note on/off op het RX-kanaal (of elk: OMNI), CC 1 = mod wheel (zie EDIT), CC 123 = all notes off, program change = preset (program 1 = de eerste); clock voor de arpeggiator |
+| USB | class-compliant MIDI + USB-audio-ingang (opnemen in je DAW) |
+| OCT- + OCT+ 5 s ingedrukt | UBOOT (update-modus) |
+
+**De noise-oscillators.** Draai op HOME aan ALGORITHM: na CHUA komen 30 noise-programma's naar de Noise Plethora
+van Befaco (drie banken van tien, zoals op de module). Het zijn eigen fixed-point versies van wat de handleiding per
+programma beschrijft, gemaakt voor een keyboard: de noot zet de hoofdfrequentie, KNOB 1 en 2 zijn X en Y van het
+programma (de cel toont wat ze doen), KNOB 3 het niveau, KNOB 4 de RING van de gate. Elke stem draait een eigen kopie,
+door dezelfde ADSR en low pass gate (en de FX) als het circuit. Het scherm tekent de uitgang tegen zichzelf een paar
+samples eerder, een "attractor" van de ruis; met SELECT op TIME zie je de golfvorm.
+
+| Bank | Programma's (X / Y) |
+| --- | --- |
+| A — textures | A0 RADIO OH NO (osc 2 / PWM) · A1 RWALK FLANGE (loopsnelheid / flanger) · A2 XMOD RING SQR · A3 XMOD RING SINE (osc 2 / FM) · A4 CROSS MOD RING (verhoudingen / FM) · A5 RESONOISE (mod-verhouding / fold) · A6–A8 GRAIN GLITCH 1–3 (korrel / FM) · A9 BASURILLA (LFO-snelheid / breedte) |
+| B — HH clusters | B0 CLUSTER SAW (spreiding / aantal stemmen) · B1 PW CLUSTER (ontstemming / pulsbreedte) · B2 CR CLUSTER · B3 SINE FM CLUST · B4 TRI FM CLUST (ontstemming / FM) · B5 PRIME CLUSTER (spreiding / FM) · B6 PRIME C NOISE (spreiding / ruis-FM) · B7 FIBONACCI · B8 PARTIAL CLUST (spreiding / toon) · B9 PHASING CLUST (spreiding / drift) |
+| C — harsh & wild | C0 BASURA TOTAL (LFSR / galm) · C1 ATARI · C2 WAKING FILOM. (osc 2 of box / FM) · C3 P S H (snelheid / galm) · C4 ARRAY ROCKS (mod-verhouding / husselen) · C5 EXIST. PAIN · C6 WHO KNOWS (sweep-snelheid / diepte) · C7 SATAN WORKOUT (FM / crush) · C8 RWALK BITCRUSH · C9 RWALK LFREE (box / galm) |
+
+Ze zijn op hetzelfde niveau gezet als het circuit (bij X = Y = 64, gemeten in de test) en blijven in elke hoek van X en
+Y begrensd en zonder DC.
+
+**De MOD ENV (ENV, tweede keer).** Druk op ENV terwijl je al op de ENV-pagina staat: een AD-envelope die
+direct op de toonhoogte van het noise-programma zit (geen oscillator, geen VCA ertussen): de noot begint hoger en
+zakt naar zijn toon (of zwelt omhoog, met SKEW), gestart door elke noot (hij loopt zijn vorm af, ook als je de toets eerder loslaat).
+
+| Bediening | Functie |
+| --- | --- |
+| KNOB 1 LENGTH | de hele duur, 0,5 ms .. 10 s |
+| KNOB 2 SKEW | waar de piek valt: 0 = meteen (FALL: een aanslag die wegvalt), 64 = in het midden, 127 = aan het eind (RISE: aanzwellen, dan weg) |
+| KNOB 3 HEIGHT | hoe ver de toon op de piek omhoog gaat, tot +36 halve tonen (3 octaven); 0 = geen envelope |
+| KNOB 4 BEND | de kromming, twee kanten op: in het midden STRAIGHT (recht); rechtsom (+) exponentieel: traag omhoog en dan snel, snel omlaag met een lange staart (een kick- of zap-achtige sweep); linksom (−) logaritmisch: snel omhoog en lang bovenin, dan pas omlaag |
+
+Er is geen aparte FM-oscillator meer: de MOD ENV is de FM, direct op de toon
+(SKEW 0 en een korte LENGTH: een zap of kick, zie PITCH ZAP; SKEW hoog: een toon die omhoog zwelt). Het scherm toont
+de vorm en rechts hoe ver de nieuwste stem nu omhoog staat.
+Nog een keer ENV: terug naar HOME.
+
+**BASIS (SCL, KNOB 1).** De stereo-spreiding van de stemmen. Elk van de vier stemmen heeft een vaste plek:
+links, rechts, half links, half rechts. De noten lopen de stemmen rond (elke nieuwe noot neemt de volgende vrije stem),
+dus ook de plekken, en een stem staat altijd op dezelfde plek. BASIS schaalt die plekken: 0 is mono (precies zoals voorheen), 127 de volle breedte.
+Ook noten die al klinken schuiven mee als je draait. De resonator van een noot klinkt op dezelfde plek als die noot; de
+shimmer krijgt het midden en maakt er zijn eigen stereo van. De pan-wet is een balans: het midden blijft op vol niveau,
+de andere kant gaat zachter (bij volle breedte uit).
+
+**ORBIT (SCL, KNOB 2).** De tweede stereo-parameter naast BASIS: de fase van elke stem beweegt mee met zijn eigen
+plaatje. Twee all-pass filters per stem verschuiven de fase; waar ze samen 180° draaien gaat dat deel van de klank
+wijd uit elkaar (links en rechts in tegenfase), de rest blijft in het midden. Dat punt volgt de x van de attractor:
+in de double scroll springt het mee van de ene lus (~150 Hz) naar de andere (~3 kHz), in één lus (SPIRAL) blijft het
+op één plek, een noise-programma zwerft elke ~0,2 s naar een nieuw punt. ORBIT bepaalt hoe sterk. Mono (links +
+rechts) blijft de stem zelf, dus niets valt weg op een mono-speaker. ORBIT werkt ook met BASIS op 0. De PAN-pagina
+tekent het stereobeeld van links naar rechts: de plekken van BASIS (de volgende noot krijgt de hoge streep) en de
+stemmen die klinken, met hun noot.
+
+**De arpeggiator (ARP).** ARP opent de ARP-pagina; PLAY zet hem aan of uit (het lampje brandt zolang
+hij aan staat). Aan: de noten die je vasthoudt (toetsen en MIDI in) klinken niet zelf, de arpeggiator speelt ze.
+Zolang er MIDI clock binnenkomt (USB of TRS, 24 per kwartnoot) loopt hij daarop mee (START begint het patroon
+opnieuw); komt er 0,5 s geen clock, dan loopt hij op zijn eigen BPM. Naar de arpeggiators van de Yamaha AN1x en DJX.
+Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) staan nooit tegelijk aan.
+
+| Bediening | Functie |
+| --- | --- |
+| KNOB 1 BPM | 40..250 (onder MIDI clock staat er EXT en het gemeten tempo) |
+| KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 |
+| KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap |
+| KNOB 4 SWING | 50 % (geen) .. 83 % (de meeste), zoals de AN1x: elke tweede stap later |
+| ALGORITHM | het patroon (zie hieronder) |
+| SELECT | HOLD: rechtsom aan (de noten blijven spelen als je loslaat, een nieuw akkoord vervangt ze), linksom uit |
+
+De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,
+UPDW A (de uitersten één keer), UPDW B (de uitersten twee keer) en RANDOM, elk over 1, 2 of 4 octaven. 16–30: TECHNO-A
+(Euro), TECHNO-B (UK, met velocity), TECHNO-C (Japans), TECHNO-D (Duits), DA HOUSE (bas links, akkoorden rechts),
+SYNCOPA A, SYNCOPA B (grote octaafsprongen), SYNCO ECHO, TEKK ECHO A en B, PULSE LINE, BASSLINE A–D. Daarna ECHO en
+SWEEP van de DJX. De Data List geeft van 16–30 alleen de naam en één regel commentaar, de handleidingen geen noten: die
+stappen zijn mijn invulling van die beschrijvingen ("moving filter" bij TEKK ECHO als een velocity-zwaai). Het scherm
+toont de laatste 32 stappen als een rol.
+
+**FREE EG (LFO).** Neemt een knopbeweging op en speelt die af op een parameter, zoals de Free EG van de AN1x. LFO
+opent de pagina; daar zet KNOB 4 het doel (TARGET: CHAOS, SHAPE, RING, NOISE X/Y, MOD ENV HEIGHT, FX STRUCTURE/BRIGHTNESS/
+DAMPING/MIX, SHIMMER, BASIS, ORBIT, ARP GATE/SWING, KARMA K1..K4, ...), KNOB 2 de lengte en KNOB 3 de diepte. Druk REC en draai aan
+KNOB 1: de beweging wordt opgenomen (128 punten) en je hoort hem meteen op het doel. SELECT rechtsom speelt hem af
+(linksom uit: de parameter krijgt zijn oude waarde terug).
+
+| LENGTH | Wat |
+| --- | --- |
+| NOTE | elke noot (ook van de arpeggiator en KARMA) start hem opnieuw; hij speelt één keer, zo lang als je opnam (REC nog een keer stopt, max ~6 s), en houdt dan de laatste waarde |
+| 1..8 STEPS | een lus van 1 tot 8 zestiende noten |
+| 1..4 BARS | een lus van 1 tot 4 maten (4/4) |
+| PHRASE | precies zo lang als de frase van KARMA (5/4, 6/8, 3 tegen 4: wat de GE ook is) en elke keer dat de frase opnieuw begint begint hij mee; zonder KARMA één maat |
+
+STEPS en BARS lopen op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de lus opnieuw);
+de opname begint aan het begin van een lus en stopt vanzelf na één lengte. DEPTH 127 speelt de opname precies af, lager
+schaalt hij rond de waarde die de parameter had; zolang hij speelt neemt hij de eigen knop van die parameter over.
+
+**KARMA (SEQ).** Een frasegenerator naar KARMA van Korg (Kay Algorithmic Realtime Music Architecture, Stephen
+Kay; de KARMA Basic Guide). De noten die je vasthoudt klinken niet zelf: een *Generated Effect* (GE) maakt er een
+muzikale frase van, in de maat, zolang je ze vasthoudt (of met LATCH). Speel een ander akkoord en de frase volgt het
+meteen. De architectuur is die van KARMA, de code en de frases zijn nieuw (KARMA's eigen GE's zijn niet openbaar).
+
+Een GE is, zoals bij KARMA, een paar kleine generatoren die samenwerken:
+
+| Generator | Wat hij doet |
+| --- | --- |
+| RHYTHM | een patroon van stappen: zware, lichte en spook-aanslagen, rusten, overbindingen, lange noten; in 1/32, 1/16, 1/8-triolen, 1/8 of 1/4 |
+| NOTE SERIES | waar de frase van gemaakt is: het akkoord, het akkoord met de grondtoon erboven, of de toonladder die het akkoord suggereert (majeur of mineur, diatonisch of pentatonisch), over 1–4 octaven |
+| INDEX | de weg door die noten: op, neer, op en neer, willekeurig, een *random walk*, een spiraal (laag, hoog, steeds meer naar het midden) of *Direct Index* (elke stap noemt zijn noot) |
+| CLUSTER + STRUM | hoeveel noten per aanslag (een akkoordstoot), uitgespreid als een gitaar: omlaag, dan omhoog |
+| MELODIC REPEAT | elke noot echoot een paar keer, getransponeerd en zachter (cascades, echo's in toonhoogte), afwisselend links en rechts |
+| VELOCITY / GATE | een accentpatroon en een lengte per GE |
+| PAN | per noot: afwisselend, willekeurig, een zwaai over de frase, of naar toonhoogte (laag links); BASIS (SCL) zet hoe breed |
+| ENV | een vorm over de frase (op, neer, op-en-neer) op een parameter van de klank: RING, FX BRIGHTNESS, CHAOS, OUTPUT, SHIMMER MIX ...; als hij stopt krijgt de parameter zijn waarde terug |
+
+| Bediening (SEQ-pagina) | Functie |
+| --- | --- |
+| PLAY | KARMA aan/uit |
+| ALGORITHM | de GE (24, zie hieronder) |
+| KNOB 1..4 | de vier *Realtime Controls* van die GE; de cellen tonen wat ze doen. 64 is de GE zoals hij geschreven is |
+| SELECT | LATCH: rechtsom aan (de frase loopt door als je loslaat, een nieuw akkoord vervangt het oude), linksom uit |
+| PRESETS | het tempo (BPM 40..250, hetzelfde als KNOB 1 op de ARP-pagina); op deze pagina kies je dus geen preset |
+
+De Realtime Controls: DENSITY (0 niets, laag alleen de zware aanslagen, 64 het patroon, hoger ook de spooknoten en
+boven 96 noten in de rusten), RANGE (−3..+3 octaven), REPEAT (meer of minder echo's), ACCENT (dynamiek, boven 96 ook
+toeval), GATE, RANDOM (af en toe een andere noot, boven 96 octaafsprongen), CLUSTER, TRANSPOSE (octaven), ENV (diepte
+van de envelope) en STRUM.
+
+De GE's: PULSE ARP (de klassieke 16e-arp met accenten en spooknoten), CASCADE (dalende kwarten die echoën), HARP GLISS
+(een glissando door de toonladder), STRUM GUITAR, FINGERPICK (Travis-achtig: bas, dan de akkoordtonen), TECHNO STAB
+(akkoordstoten, RING zwelt over de frase), ACID LINE (303-achtig, met overbindingen en octaven), BASS WALK (een
+wandelende bas door de toonladder), OCTAVE BASS, TRANCE GATE, RAIN DROPS (pentatonisch, willekeurig, met echo's),
+SPIRAL, BROKEN 6/8, GAMELAN (een kotekan-achtig pentatonisch patroon met echo een octaaf hoger), ECHO CANYON (twee
+noten, vier echo's), FUNK CLAV, POLY 3 OVER 4 (een figuur van drie zestienden tegen de maat), SWELL PAD (lange
+akkoorden, SHIMMER MIX zwelt), CHAOS MACHINE (de toonladder over vier octaven terwijl CHAOS oploopt: het circuit raakt
+steeds verder uit zijn baan), SCROLL HOPPER (OUTPUT golft over de frase: van de scroll naar de spiraal en terug), NOISE
+PERC (voor de noise-programma's: korte tikken laag en hoog), BIRD CALLS (trillers in 1/32 en stilte: mooi met de
+SYRINX-waveguide), MINIMAL 5/4 (Reich-achtig, 20 zestienden, met echo een octaaf hoger) en LULLABY. De GE's met een
+envelope (TECHNO STAB, ACID LINE, TRANCE GATE, SWELL PAD, CHAOS MACHINE, SCROLL HOPPER, MINIMAL 5/4) spelen dus ook
+met de klank, niet alleen met de noten.
+
+Het scherm toont het ritme van de GE (hoogte = gewicht, het spelende stapje licht op) en eronder de laatste 32 noten
+als een rol; onderin de klok en de lengte ("20 x 1/16").
+
+**KARMA, de ARP en FREE EG samen.**
+- *Eén tegelijk.* KARMA en de ARP pakken allebei de noten die je vasthoudt; zet je de een aan, dan gaat de ander uit
+  en de vastgehouden noten gaan mee over. Zet je hem uit, dan klinkt het akkoord gewoon.
+- *Eén tempo.* KARMA loopt op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de frase
+  opnieuw), en neemt de SWING van de ARP-pagina over voor zijn zestienden (of achtsten). Een nieuwe frase begint op
+  de volgende zestiende (KARMA's *Quantize Trigger*); vanuit stilte meteen.
+- *FREE EG.* LENGTH PHRASE loopt precies met de frase van KARMA mee (opnemen begint aan het begin van de frase) en de
+  TARGETs KARMA K1..K4 zijn de vier Realtime Controls. Zo neem je bijvoorbeeld een DENSITY-beweging op die over de
+  frase opbouwt, of een REPEAT die alleen aan het eind uitwaaiert. FREE EG NOTE start bij elke noot die KARMA maakt
+  opnieuw: een eigen envelope per noot van de frase. Als FREE EG en de envelope van een GE dezelfde parameter willen,
+  wint FREE EG.
+- *MIDI uit.* Wat KARMA en de ARP maken gaat over USB-MIDI naar buiten op het TX-kanaal (als USB OUT aan staat op de
+  GLO-pagina), zoals KARMA zijn gegenereerde noten uitstuurt; de toetsen zelf dan niet.
+
+**Elke parameter op één plek.** RING staat alleen op HOME (KNOB 4), BASIS en ORBIT alleen op de PAN-pagina (SCL), de
+oscillator kies je alleen met ALGORITHM op HOME.
+
+**De low pass gate.** Op de ENV-pagina is de gate een rond rood lampje (het LED van een vactrol): het brandt fel als de gate open staat en dimt mee met de envelope; ernaast de cutoff. De ADSR stuurt per stem een low pass gate aan, zoals een vactrol dat doet: de stuurspanning volgt
+de envelope snel omhoog (~2 ms) en trager omlaag (~30 ms), en zet zowel het volume als de cutoff (25 Hz .. 15 kHz). Het
+filter is een resonant state-variable low pass (zero-delay feedback, stabiel bij elke cutoff en resonantie). Met RING
+hoog rinkelt het: een "ping" als de gate opengaat, en een staart die doorklinkt terwijl hij dichtgaat. Probeer RING
+PLUCK of BONGO GATE (sustain 0: elke noot is een aanslag).
+
+**De resonatoren (FX).** De resonatormodellen van Mutable Instruments Rings, gevoed door de oscillators zoals de
+IN-ingang van Rings zijn resonatoren voedt. Polyfoon, zoals Rings op polyfonie 4: vier resonatoren, elk gestemd op een
+noot. Elke stem voedt alleen de resonator van zijn eigen noot, dus een akkoord klinkt als akkoord. Een nieuwe noot
+neemt de resonator die die noot al heeft, anders een vrije (de langst ongebruikte), anders de oudste; die klinkt dan
+verder op de nieuwe toonhoogte, net als bij Rings. Resonatoren die stil zijn rekenen niet mee, en de tweede core neemt
+de helft van de klinkende voor zijn rekening. Het scherm toont de resonator van de nieuwste noot. De DSP is de fixed-point port van
+Rings en DaisySP (Emilie Gillet, Electrosmith; MIT) die Felucca al had (`phys_dsp.c`, `phys_symp.c`).
+
+| Model (ALGORITHM) | Wat | KNOB 1 STRUCTURE | SELECT |
+| --- | --- | --- | --- |
+| MODAL | 12 gestemde modes: klokken, staven, platen | rek van de boventonen (34 harmonisch, 70 klok, 116 staaf) | aanslagpositie |
+| SYMP STRING | een snaar met drie meeresonerende snaren | het akkoord: OCT 5TH 4TH MAJ MIN SUS 7TH OCTAVES | hoeveel ze meenemen |
+| STRING | een Karplus-Strong-snaar | onder ~32 een gebogen kam (sitar), daarboven dispersie (piano) | — |
+
+KNOB 2 BRIGHTNESS, KNOB 3 DAMPING (zoals Rings: rechtsom langer), KNOB 4 MIX (0 = uit, dan rekent er niets). Het
+scherm tekent het model als één 3D-draadmodel in vectorstijl, in het midden (dunne lijnen in perspectief, langzaam
+draaiend, de achterkant gestippeld), met linksboven een pictogram en de naam (de klok, de snaar, de sitar, de fluit,
+de zangvogel, de havik, en bij THROAT het dier: kat, aap, mens, hond, wolf, koe, leeuw, olifant). Wat het model doet
+zit in de animatie zelf: MODAL een draaiende klok waarvan de wand beweegt in de modes (2,0), (3,0) en (4,0), elk zo
+sterk als de echte partial van de resonator; SYMP de bespeelde snaar met daarachter elke resonantie als snaar van zijn
+lengte (1/f); STRING de eigentrillingen n = 1..4 achter elkaar en hun som vooraan; THROAT het spraakkanaal als buis
+met de echte oppervlaktefunctie van de VOWEL en de lengte van het dier; FLUTE de fluit zelf (kopstuk, middenstuk,
+voetstuk, kleppen, lipplaat) met de staande golf en zijn knopen erin en de luchtstraal over het mondgat; SYRINX en HAWK
+de luchtpijp met de syrinx en de twee bronchiën als buizen, de labia trillend, elk met zijn eigen stem.
+
+**De waveguides (FX, achter de resonatoren).** Draai op de FX-pagina verder met ALGORITHM: na MODAL, SYMP STRING en
+STRING komen drie waveguides, eigen code (naar de klassieke modellen: het vocal tract van Kelly en Lochbaum, de fluit
+van Cook / STK). Net als de resonatoren polyfoon (één per noot) en gevoed door de stemmen: de oscillator is de bron.
+De luidheid van de stemmen is de "adem": de fluit en de syrinx blazen alleen zolang je speelt.
+
+| Model | Wat | KNOB 1 | SELECT |
+| --- | --- | --- | --- |
+| THROAT | een strottenhoofd/keel: een buis van tot 24 secties met de oscillator als stembanden. De lengte geeft de formanten van het dier, de mond gaat open met de luidheid (miauw, boe) | ANIMAL: CAT, MONKEY, HUMAN, DOG, WOLF, COW, LION, ELEPHANT | VOWEL: U, O, A, E, I (morphend) |
+| FLUTE | een luchtstraal over een buis op de toonhoogte van de noot | JET: laag = grondtoon (buigt iets omhoog), hoger = overblazen naar octaaf en duodecime | BREATH: de ruis in de adem |
+| SYRINX | het stemorgaan van een vogel: twee fluitjes twee octaven boven de noot, door de snavel | CHIRP: hoeveel de toon stijgt met de adem | TWO VOICE: de tweede fluit 0..7 halve tonen hoger (zweven .. kwint) |
+| HAWK | de schreeuw van een roofvogel ("kee-eeee-arr"), gebouwd op SYRINX: twee fluitjes een kwarttoon uit elkaar (ze zweven: de ruwheid), 2,5 octaaf boven de noot, de toon stijgt eerst iets en zakt dan een half octaaf over de schreeuw; ruisiger adem en een hogere, wijdere snavel | SCREAM: hoe lang de schreeuw duurt (0,1 .. 2,7 s, vanaf het moment dat er na stilte weer geluid binnenkomt) | RASP: hoe rauw (een snelle, willekeurige tremolo) |
+
+KNOB 2 BRIGHTNESS (mondopening/snavel/demping van de hoogte), KNOB 3 DAMPING (hoe lang de buis naklinkt), KNOB 4 MIX.
+Combineer gerust: een noise-programma als adem in de FLUTE (PAN NOISE FLUTE), de pure cyclus in een kattenkeel (CAT
+MEOW), een wolf met shimmer (WOLF HOWL). Nieuwe presets: CAT MEOW, COW MOO, WOLF HOWL, TALKING CHAOS, ELEPHANT, NIGHT
+FLUTE, OVERBLOWN, PAN NOISE FLUTE, BIRD SONG, TWO BIRDS, HAWK CRY.
+
+**TAPE (REC).** Een 4-sporen bandrecorder met een tapelus, opgenomen van de eigen uitgang van de synth en eronder
+afgespeeld. De band loopt op het tempo waarop hij is opgenomen: verander je de BPM (of het MIDI-clocktempo), dan loopt
+hij sneller of langzamer en gaat de toonhoogte mee, zoals bij varispeed op een echte bandrecorder; de lus blijft
+hetzelfde aantal tellen. Lo-fi zoals tape: 11 kHz, 8-bit mu-law, de hoogte rolt af rond 5 kHz.
+
+| Bediening | Functie |
+| --- | --- |
+| KNOB 1..4 | een leeg spoor: draaien = dat spoor armen (ARMED); een opgenomen spoor: zijn volume (de fader) |
+| ALGORITHM | ook armen, voor een spoor dat al is opgenomen (om het opnieuw op te nemen) |
+| SELECT | wisselt tussen de twee menu's: TAPE (links) en SPEED (rechts) |
+| PRESETS | de BPM (dezelfde als ARP en KARMA): snelheid en toonhoogte van de band volgen |
+| PLAY | de band starten (vanaf het begin van de lus) / stoppen |
+| REC | één ronde opnemen op het ARM-spoor (de band start als hij stilstaat); nog een keer: stoppen. Met PLAY ingedrukt: het ARM-spoor wissen |
+
+**SPEED (REC, SELECT rechtsom).** Draai SELECT rechtsom op de TAPE-pagina: het SPEED-menu (linksom: terug naar TAPE;
+REC en PLAY werken hier ook). KNOB 1 de globale BPM (40..250; ARP, KARMA en de band volgen; vrije varispeed). KNOB 2 SPEED: de snelheid van de
+band in verhoudingen uit de boventoonreeks (reine stemming), elk op een stap van de chromatische toonladder: 1/2 (half
+speed, -12), 8/15, 9/16, 3/5, 5/8, 2/3 (-7), 45/64, 3/4 (-5), 4/5, 5/6, 9/10, 15/16, 1/1, 16/15, 9/8, 6/5, 5/4 (+4),
+4/3, 45/32, 3/2 (+7), 8/5, 5/3, 9/5, 15/8, 2/1 (dubbel, +12). Kies je er een, dan springt de globale BPM naar het tempo
+dat daarbij hoort (het tempo van de band x de verhouding) en loopt de band precies op die verhouding: zuiver op de
+toon en in de maat met ARP en KARMA (draai je daarna aan de BPM, dan is het weer vrije varispeed).
+KNOB 3 LENGTH van de lus: 1 tel, 2 tellen, 1 maat, 2 maten, 4 maten (zo lang als de band past: ~3,6 s; anders korter);
+KNOB 4 de toonhoogte nu in halve tonen; onderin staat het tempo waarop de band is opgenomen.
+
+De eerste opname op een lege band legt zijn tempo vast; zijn alle vier sporen gewist, dan is de band weer leeg. MIDI
+START zet de band terug naar het begin van de lus. Opnemen vervangt wat er op het spoor stond; het spoor dat je opneemt
+hoor je live. Het scherm toont de recorder in 3D: de spoelen draaien zo snel als de band loopt, de wikkels groeien en
+krimpen over de lus, en op de band bij de kop lichten de vier sporen op met hun geluid (het ARM-spoor gestippeld).
+
+**Op afstand (USB).** Een computer kan de FM-1 over USB-MIDI bekijken en bespelen (firmware/src/remote.c,
+tools/fm1_remote.py; SysEx F0 7D 43 48 ...): `ping`, `state` (de pagina, de tekst op het scherm, preset, BPM, belasting,
+tape, FX), `screen out.png` (het plaatje), `button REC`, `turn "KNOB 1" 5`, `note 60 100 0.5`, `cc 1 64`, `program 12`,
+`watch 10 map/` (elke halve seconde een plaatje). Nodig: `pip3 install mido python-rtmidi Pillow`. De USB-audio-ingang
+kan daarnaast met de gewone systeemtools worden opgenomen (ffmpeg of sox).
+
+**De shimmer reverb (FX, tweede scherm).** Een stereo galm (4 vertragingslijnen met een Householder-matrix) met een
+toonhoogteverschuiver in de terugkoppeling. Elke ronde door de galm (60–110 ms) schuift een deel van de staart een
+interval omhoog en gaat terug de galm in, met behoud van energie: de staart klimt, de lage octaven vervagen terwijl de
+hoge aanzwellen, tot TONE de top dempt. Dat is de riser.
+
+| Bediening | Functie |
+| --- | --- |
+| KNOB 1 SIZE | de ruimte: 60–110 ms lange lijnen (glijdt bij draaien) |
+| KNOB 2 DECAY | nagalmtijd 0,4–30 s |
+| KNOB 3 SHIMMER | hoe snel het klimt: 0 is een gewone galm, 127 zo'n 2–3 octaven per seconde |
+| KNOB 4 MIX | droog/nat; 0 = uit (dan rekent er niets) |
+| ALGORITHM | het interval: +OCT, +5TH, +OCT+5TH, +2 OCT |
+| SELECT | TONE: donker (1,5 kHz) tot open (16 kHz) |
+
+SPACE (met ALGORITHM, samen met het INTERVAL: HALL +OCT, HALL +5TH, ..., MOSQUE +2 OCT) kiest het gebouw waarin de
+galm klinkt: HALL (de gewone galm), TEMPLE (een stenen kamer: dichte vroege reflecties, de resonantie van ~110 Hz van
+de oude orakelkamers en zijn buren, donker), CATHEDRAL (het schip: echo's van de pilaren op 23..89 ms, de lange lage
+modes 49 / 98 / 147 Hz), MOSQUE (de koepel: een fladderecho dat heen en weer kaatst, zijn modes 165 / 330 / 495 Hz,
+helder). De SHIMMER-presets (PRESETS-knop) hebben er elk een: STONE TEMPLE, ORACLE CHAMBER, CATHEDRAL, GOTHIC CHOIR,
+MOSQUE DOME, DOME LIGHT, naast HEAVEN, OCTAVE HAZE, SMALL ROOM. Het scherm toont het ornament van die ruimte als een
+raam dat langzaam draait: een roosvenster (CATHEDRAL), een girih-ster (MOSQUE), een lotus-mandala (TEMPLE), golvende
+ringen (HALL). De ringen van binnen naar buiten zijn de galmstaart van nu naar eerder, elk zo fel als de staart toen
+was: het geluid stroomt naar buiten door het patroon; elke knop werkt over zijn hele bereik zichtbaar mee: SIZE de grootte van het
+raam (en 4..7 ringen), DECAY hoe ver de ringen terug in de staart reiken (0,8..7,6 s), SHIMMER hoeveel stappen de
+buitenste ringen klimmen (0..3, elk met meer en fijnere elementen in de verhouding van het INTERVAL), TONE hoe fel de
+buitenkant blijft, MIX hoe fel het geheel is. Het ornament beweegt op de BPM (of de MIDI clock): elke ring stapt één element verder op de onderverdeling van de tel, de binnenste op de kwarten, dan de achtsten, de buitenste op de zestienden, met een snelle zachte beweging en dan stil; de ringen om en om de andere kant op. De uitgang is nu stereo; met de shimmer uit blijft hij mono en bit voor bit hetzelfde.
+
+Het scherm toont de toestand (x, y, z) van de nieuwste stem; speelt er niets, dan een "spookcircuit" dat op de huidige
+instellingen meedraait. Dat spookcircuit levert ook de beginstand van nieuwe stemmen (al op de attractor, met een kleine
+afwijking per stem zodat akkoorden niet in de pas lopen).
+
+## Waar begin je
+
+Alles wordt als één bestand gecompileerd: `firmware/src/felucca.c` bepaalt de volgorde.
+
+| Bestand | Wat |
+| --- | --- |
+| `firmware/src/synth.c` | het Chua-circuit: diode, RK2-solver in Q20 fixed point, stemmen, uitgang, de trace voor het scherm |
+| `firmware/src/noise.c` | de 30 noise-oscillators (naar Befaco's Noise Plethora) |
+| `firmware/src/shimmer.c` | de shimmer reverb: FDN-galm met octaafverschuiver in de terugkoppeling |
+| `firmware/src/waveguide.c` | de waveguides: THROAT (Kelly-Lochbaum), FLUTE, SYRINX, HAWK |
+| `firmware/src/resonator.c` | de FX-resonatoren rond de Rings/DaisySP-port (`phys_dsp.c`, `phys_symp.c`, MIT) |
+| `firmware/src/lpg_tables.h` | gegenereerd door `tools/gen_lpg_tables.py`: ADSR-tijden, cutoff, resonantie |
+| `firmware/src/chua_tables.h` | gegenereerd door `tools/gen_chua_tables.c`: α, omlooptijd en RMS per (SHAPE, CHAOS) |
+| `firmware/src/ui.c` | de attractor tekenen, knoppen, presets, LEDs, instellingen opslaan |
+| `firmware/src/keys.c` | toetsen en MIDI in → noten (draait in de audio-interrupt, elke 32 samples) |
+| `firmware/src/audio.c` | de audio-interrupt: `out[]` vullen met Q15 stereo |
+| `firmware/src/main.c` | opstarten en hoofdlus (met watchdog, boot-guard, UBOOT en update) |
+| `firmware/src/panel.c` | welke matrix-knop welke opdruk heeft |
+| `firmware/src/core.h` | gedeelde constanten en de `sys`-struct (hoofdlus ↔ audio) |
+| `firmware/src/storage.c` | flash-opslag met A/B-kopieën; `OBJ_USER0..7` zijn vrij |
+| `firmware/src/gfx.c`, `lcd.c` | tekenen: tekst (Inter Tight), rechthoeken, lijnen; kleuren via `T_BG`, `T_TEXT`, `T_THEME` … |
+| `firmware/src/usb.c`, `midi_uart.c` | USB-MIDI/-audio en TRS MIDI (ongewijzigd uit Felucca) |
+| `firmware/src/ota.c`, `ota_hw.c`, `firmware/loader/` | het update-pad: **laten staan** |
+| `firmware/hal/` | registers: toetsmatrix, LEDs, encoders, LCD, I2S, ADC, flash, tweede core |
+
+Regels van het huis (uit Felucca, en `tools/build.py` controleert ze): registertoegang alleen in `hal/`, alles in de
+audio-interrupt is fixed point (geen 64-bit delingen: die heeft de toolchain niet), en de audio-interrupt moet binnen
+~2,9 ms klaar zijn.
+
+**CPU en de tweede core.** CHUA speelt 4 stemmen, net zoveel als er FX-resonatoren/waveguides zijn (één per noot):
+met de waveguides erbij was 8 te zwaar. Een vijfde noot neemt de oudste stem over. De AC79 heeft een tweede core; CHUA
+verdeelt de stemmen en de resonatoren (om en om) over beide. De tweede core start alleen bij het opstarten, dus **SELECT op de GLO-pagina** zet hem aan of
+uit voor de volgende start (meteen opgeslagen; standaard aan). Onderaan het scherm staat dan `CPU …% x2`. Op sommige
+FM-1's leest de tweede core verkeerd (zo gevonden door X0X en Jangada): dan merkt de firmware dat, gaat verder op één
+core en zet de instelling uit (`2ND CORE STOPPED: OFF`). De uitvoer is bit voor bit gelijk, met één of twee cores
+(getest, ook als echte thread onder ThreadSanitizer). `NVOICE` in `core.h` zet het aantal stemmen.
+
+**Tabellen opnieuw maken** (na een andere diode of ander bereik), ~1 minuut:
+
+```
+cc -O2 -o build/gen_chua_tables tools/gen_chua_tables.c -lm && build/gen_chua_tables > firmware/src/chua_tables.h
+```
+
+## Installeren vanaf GitHub
+
+Elke push naar `main` bouwt de firmware op GitHub (Actions), draait de tests en zet de installer online:
+
+**https://plieuw.github.io/hawk-chua/** → open in Chrome of Edge, sluit de FM-1 met een USB-datakabel aan, druk op
+*Installeren*. Volgende versies gaan op dezelfde manier; terug naar de officiële firmware kan op dezelfde pagina.
+
+- Het `.fwsc`-bestand zelf staat bij elke run onder *Actions → firmware → Artifacts*.
+- Een tag `v1.0` (één cijfer per deel) maakt een release-build en een GitHub Release met het bestand.
+- Eenmalig instellen: *Settings → Pages → Build and deployment → Source: GitHub Actions*.
+
+## Bouwen, testen, installeren
+
+Zie [BUILDING.md](BUILDING.md). Kort:
+
+```
+tools/get_toolchain.sh                 # JieLi-toolchain (eenmalig)
+git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+    https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK
+pip3 install Pillow fonttools mido python-rtmidi
+./build.sh                             # -> build/felucca.fwsc
+tests/run_tests.sh                     # host-tests, geen FM-1 nodig (+ build/host/ui/sheet.png en basis.wav)
+python3 tools/fm1_install.py build/felucca.fwsc
+```
+
+Op macOS draait de toolchain in Docker (zie BUILDING.md); op Linux x86-64 direct.
+
+**Veiligheid.** De installers praten met de draaiende firmware (`ota.c`). Haal dat er niet uit, anders kun je de
+volgende build alleen nog via UBOOT installeren. Lukt opstarten twee keer achter elkaar niet binnen 30 s, dan gaat de
+FM-1 vanzelf naar UBOOT. Herstel na een mislukte installatie: [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
+Terug naar de officiële firmware: `python3 tools/fm1_install.py FM-1.fwsc` met het V15-bestand van M-VAVE.
+
+## Licentie
+
+De interactieve uitleg (circuit, diode, bifurcatiekaart, speelbaar in de browser met dezelfde tabellen) staat in
+`docs/chua.html`.
+
+GPL-3.0-only, net als Felucca ([LICENSE](LICENSE), [LICENSING.md](LICENSING.md), [CREDITS.md](CREDITS.md)). Deel je
+een build, deel dan ook de broncode. De namen `FELUCCA_*` in de code en de USB-naam "Felucca" zijn nog die van het
+origineel; hernoem ze gerust (`firmware/src/usb.c` STR1/STR2 voor de USB-naam, met een eigen VID/PID vóór je iets uitbrengt).
+Let op: `tools/fm1_install.py` zoekt de FM-1 op poortnaam (`PORT_RE`); pas die mee aan, of gebruik `--port`.

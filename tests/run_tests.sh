@@ -1,0 +1,129 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+# Host tests of the sources (no hardware). Run from the repo root:
+#   tests/run_tests.sh
+# Without build/felucca.fwsc (no ./build.sh yet) the two tests that need the package are skipped.
+#   basis        the keyboard and the CHUA synth (keys.c, synth.c): notes, octave, MIDI in / out, voices; the circuit in
+#                fixed point against double precision, every regime x shape x note range in range, pitch in the CYCLE
+#                regime; also with ASan / UBSan; writes build/host/basis.wav (every preset, to listen to)
+#   screen       ui.c and gfx.c drawn into a framebuffer with the synth running: every view and preset as PNGs in
+#                build/host/ui (sheet.png: all of them), nothing off the screen
+#   storage      the flash store (storage.c): A/B copies, torn writes, bit rot, object map
+#   input        the key / button debounce and the encoders of hal/fm1_input.h against the TIMER5 scan
+#   MIDI         the TRS MIDI parser and its DMA ring (midi_uart.c); the USB descriptors and USB audio (usb.c)
+#   update       the M-UPGRADE entry (ota.c) and the update loader (loader/) against this build's package;
+#                the command-line installer (tools/fm1_install.py) against a simulated FM-1
+set -e
+cd "$(dirname "$0")/.."
+if [ ! -f build/gen/ui_fonts.h ]; then         # the generated font / palette headers (as ./build.sh makes them)
+    mkdir -p build/gen
+    python3 tools/gen_aa_font.py build/gen/ui_fonts.h --preset inter-tight >/dev/null
+    python3 tools/gen_aa_keycaps.py build/gen/ui_keycaps.h >/dev/null
+    python3 tools/gen_ui_palettes.py build/gen/ui_palettes.h >/dev/null
+fi
+OUT=build/host
+mkdir -p "$OUT"
+CC="${CC:-cc} -O1 -Wall -Wno-unused-function"
+fail=0
+TIMEOUT_CMD=""                              # each test at most 5 minutes (a hang fails it instead of the whole run)
+command -v timeout >/dev/null 2>&1 && TIMEOUT_CMD="timeout 300"
+run() {                                     # (on GitHub Actions a failure is also an annotation on the run)
+    name=$1; shift
+    echo "== $name"
+    t0=$(date +%s)
+    tmo=${TIMEOUT_CMD}
+    [ "$1" = san_try ] && tmo=""            # (a shell function: it times its own tries)
+    if ! ${tmo} "$@" > "$OUT/last_test.log" 2>&1; then
+        cat "$OUT/last_test.log"
+        fail=1
+        if [ -n "$GITHUB_ACTIONS" ]; then          # the failure and its last lines, readable on the run's page
+            tail -n 12 "$OUT/last_test.log" | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}' > "$OUT/last_tail.txt"
+            echo "::error title=test failed::$name%0A$(cat "$OUT/last_tail.txt")"
+        fi
+    else
+        cat "$OUT/last_test.log"
+    fi
+    [ -n "$GITHUB_ACTIONS" ] && echo "::notice title=test time::$name: $(( $(date +%s) - t0 )) s"
+    return 0
+}
+
+# the sanitizers' memory layout breaks under the high address randomisation of newer kernels (older libasan, as
+# Debian 12's: a crash or a hang at random, nothing to do with the code): their tests run without it where we may
+NORAND=""
+setarch "$(uname -m)" -R true >/dev/null 2>&1 && NORAND="setarch $(uname -m) -R"
+if [ -n "$NORAND" ]; then echo "(sanitizers: address randomisation off)"; else echo "(sanitizers: address randomisation on: setarch not allowed here)"; fi
+# and where it may not be turned off (a container): a run that dies in the sanitizer's own start-up (DEADLYSIGNAL
+# before any test output) is tried again, up to three times; a real failure fails the same way each time
+san_try() {
+    for t in 1 2 3; do
+        if ${TIMEOUT_CMD:+timeout 120} ${NORAND} "$@" > "$OUT/san_try.log" 2>&1; then
+            cat "$OUT/san_try.log"
+            return 0
+        fi
+        if ! grep -q "DEADLYSIGNAL\|unexpected memory mapping" "$OUT/san_try.log" || grep -q " ok$\| FAIL$" "$OUT/san_try.log"; then
+            cat "$OUT/san_try.log"
+            return 1
+        fi
+        echo "(the sanitizer died at start-up: again, $t of 3)"
+    done
+    cat "$OUT/san_try.log"
+    return 1
+}
+
+$CC -o "$OUT/basis_test" tests/basis_test.c -lm -pthread
+run "keyboard and CHUA synth: keys, octave, MIDI, voices, the circuit vs double precision, ranges, pitch" "$OUT/basis_test" "$OUT/basis.wav"
+${CC%% *} -O1 -g -w -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer \
+    -o "$OUT/basis_test_san" tests/basis_test.c -lm -pthread
+run "keyboard and synth under ASan / UBSan" san_try "$OUT/basis_test_san"
+printf 'int main(void){return 0;}\n' > "$OUT/tsan_probe.c"
+if ${CC%% *} -fsanitize=thread -o "$OUT/tsan_probe" "$OUT/tsan_probe.c" 2>/dev/null && ${NORAND} "$OUT/tsan_probe" 2>/dev/null &&
+   ${CC%% *} -O1 -g -w -fsanitize=thread -o "$OUT/basis_test_tsan" tests/basis_test.c -lm -pthread 2>/dev/null; then
+    run "keyboard and synth, the second core as a real thread, under ThreadSanitizer" san_try "$OUT/basis_test_tsan"
+else
+    echo "== skip ThreadSanitizer (not available here: the compiler, or the memory layout of this machine)"
+fi
+
+rm -rf "$OUT/ui" && mkdir -p "$OUT/ui"
+$CC -Ibuild/gen -o "$OUT/ui_shot" tests/ui_shot.c -lm
+run "screen: every line on the screen, settings round trip (PNGs in $OUT/ui)" "$OUT/ui_shot" "$OUT/ui"
+python3 tests/ui_shot.py "$OUT/ui" || true
+
+$CC -o "$OUT/storage_test" tests/storage_test.c
+run "flash storage (A/B, torn writes)" "$OUT/storage_test"
+
+$CC -o "$OUT/input_test" tests/input_test.c
+run "keys and buttons: fast press, long release, bouncy contacts (one note each), glitches, encoders" "$OUT/input_test"
+
+$CC -o "$OUT/midi_uart_test" tests/midi_uart_test.c
+run "TRS MIDI parser" "$OUT/midi_uart_test"
+$CC -Ifirmware/src -o "$OUT/uart_dma_test" tests/uart_dma_test.c -lm
+run "TRS UART: pending events, stale counts, exact packets and continuous traffic" "$OUT/uart_dma_test"
+
+HALF=$(sed -n 's/^#define HALF_FRAMES \([0-9]*\).*/\1/p' firmware/src/core.h)
+$CC -O2 -DT_CDC=0 -DHALF_FRAMES="$HALF" -o "$OUT/uac_test" tests/uac_test.c -lm
+run "USB audio input: descriptors, ring and packets, 44.1 -> 48 kHz resampler" "$OUT/uac_test"
+# USB descriptor layouts: CDC UAC LAYOUT CDC-presented 48K (this build: CDC 0, UAC 1, 48K 1)
+for v in 0.1.0.1.1 0.1.0.1.0 0.0.0.1.1 1.1.0.1.1 1.1.0.0.1; do
+    IFS=. read -r t_cdc t_uac t_lay t_on t_48 <<EOV
+$v
+EOV
+    $CC -DT_CDC="$t_cdc" -DT_UAC="$t_uac" -DT_LAYOUT="$t_lay" -DT_ON="$t_on" -DT_48K="$t_48" -o "$OUT/usb_desc_test" \
+        tests/usb_desc_test.c
+    run "USB descriptors: CDC $t_cdc (presented $t_on), UAC $t_uac (48 kHz $t_48), layout $t_lay" "$OUT/usb_desc_test"
+done
+
+run "installer CLI (fm1_install.py) against a simulated FM-1" python3 tests/install_test.py
+
+if [ -f build/felucca.fwsc ]; then
+    $CC -DOWN_PKG=1 -o "$OUT/ota_test" tests/ota_test.c
+    run "M-UPGRADE entry (own loader)" "$OUT/ota_test" build/felucca.fwsc
+    head -c 200000 build/felucca.bin > "$OUT/old_app.bin"
+    python3 tools/fm1pkg_make.py "$OUT/old_app.bin" build/loader/ota.bin "$OUT/old.fwsc" >/dev/null
+    $CC -o "$OUT/ldr_test" tests/ldr_test.c
+    run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+else
+    echo "== skip the update entry and loader tests (no build/felucca.fwsc: run ./build.sh first)"
+fi
+
+[ "$fail" = 0 ] && echo "all tests passed" || { echo "SOME TESTS FAILED"; exit 1; }

@@ -1,0 +1,593 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* The screen without the hardware: firmware/src/ui.c and gfx.c (the real drawing code) against a 240 x 240
+ * framebuffer instead of the LCD, with synth.c running (the attractor's trace), a few states drawn and saved as raw
+ * RGB565 (tests/ui_shot.py makes PNGs): every view, every regime, the presets, the widest values.
+ * Also checks that no line is drawn outside the screen.
+ *   tests/ui_shot OUT_DIR      (run_tests.sh: PNGs in build/host/ui) */
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define memset felucca_memset
+#define memcpy felucca_memcpy
+#define memcmp felucca_memcmp
+#include "../firmware/src/libc.c"
+#undef memset
+#undef memcpy
+#undef memcmp
+
+/* ------------------------------------------------------------ the LCD --- */
+static uint16_t fb[240 * 240];
+static int off_screen;
+static void lcd_sync(void) {}
+static void lcd_wake_now(void) {}
+static uint8_t lcd_fresh = 1;          /* (as lcd.c: gfx.c's cv_blit sends only the bands that changed) */
+static void lcd_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c)
+{
+    uint32_t i, j;
+    lcd_fresh = 1;
+    for (j = y; j < y + h && j < 240u; j++)
+        for (i = x; i < x + w && i < 240u; i++)
+            fb[j * 240u + i] = c;
+}
+static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t *px)
+{
+    uint32_t i, j;
+    if (x + w > 240u || y + h > 240u)
+        off_screen++;
+    for (j = 0; j < h; j++)
+        for (i = 0; i < w; i++)
+            if (x + i < 240u && y + j < 240u)
+                fb[(y + j) * 240u + x + i] = (uint16_t)(px[j * w + i] >> 8 | px[j * w + i] << 8);   /* (byte-swapped) */
+}
+#include "../firmware/src/gfx.c"
+
+/* ------------------------------------------------- what ui.c reads --- */
+#define FELUCCA_VERSION "v0.1"
+#include "../firmware/src/core.h"
+static uint32_t fm1_ms_frac;
+#define FM1_NCOL 11u
+static const int8_t FM1_KEYMAP[6][FM1_NCOL] = {      /* as hal/fm1_input.h */
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    { 5, 11,  4, 10,  3,  9,  2,  8, -1, -1, -1},
+    {34, 35, 36, 37, 38, 40, 39, 13,  7,  6, 12},
+    {23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33},
+    { 0,  1, 15, 14, 17, 16, 19, 18, 20, 21, 22},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+};
+static struct { volatile uint32_t notes, buttons; } fm1_in;
+static uint8_t fm1_led[FM1_NCOL], fm1_led_dim[FM1_NCOL];
+static int fm1_led_anim_on(void) { return 0; }
+static int32_t enc_steps[7];
+static int32_t fm1_enc_take(uint32_t e) { int32_t s = enc_steps[e]; enc_steps[e] = 0; return s; }
+static uint32_t edges;
+static uint32_t fm1_input_edges(uint32_t *released) { uint32_t p = edges; (void)released; edges = 0; return p; }
+static struct { uint8_t config, suspended; } usb = {1, 0};
+static uint8_t flash_ok = 1;
+enum { OBJ_SETTINGS };
+static uint8_t flash_store[1024];
+static int saved;
+static int st_load(uint32_t obj, void *dst, uint32_t max) { (void)obj; if (!saved) return -1; memcpy(dst, flash_store, max); return (int)max; }
+static int st_save(uint32_t obj, const void *src, uint32_t len) { (void)obj; memcpy(flash_store, src, len); saved = 1; return 0; }
+static uint32_t irq_save(void) { return 0; }
+static void irq_restore(uint32_t f) { (void)f; }
+static uint32_t fl_jedec(void) { return 0x856014u; }
+#define FL_FAR(f) fl_jedec
+static void midi_out_event(uint32_t pkt) { (void)pkt; }   /* (usb.c: not in this test) */
+#include "../firmware/src/panel.c"
+#include "../firmware/src/synth.c"
+static volatile uint8_t keys_panic_req;   /* (keys.c: not in this test) */
+static volatile uint8_t keys_prog_req;
+#include "../firmware/src/ui.c"
+/* remote.c over a fake USB: frames in from rm_in, messages out into rm_log */
+#define FELUCCA_OTA 1
+#define FELUCCA_ID "FM-1_900"
+static uint8_t rm_inbuf[64];
+static uint32_t rm_inlen, rm_inready;
+static uint8_t rm_log[80000];
+static uint32_t rm_logn, rm_msgs;
+static int ota_frame_get(const uint8_t **p, uint32_t *n) { if (!rm_inready) return 0; *p = rm_inbuf; *n = rm_inlen; return 1; }
+static void ota_frame_done(void) { rm_inready = 0; }
+static int ota_wire_send(const uint8_t *p, uint32_t n)
+{
+    if (rm_logn + n <= sizeof rm_log) { memcpy(rm_log + rm_logn, p, n); rm_logn += n; }
+    rm_msgs++;
+    return 0;
+}
+#include "../firmware/src/remote.c"
+static void rm_cmd(const uint8_t *b, uint32_t n)       /* one host message (without F0 / F7), handled */
+{
+    memcpy(rm_inbuf, b, n);
+    rm_inlen = n;
+    rm_inready = 1;
+    rm_logn = rm_msgs = 0;
+    rm_service();
+}
+
+static int32_t abuf_[2 * CTL];
+static void run_ms(uint32_t ms)                  /* the audio for ms, the clock with it */
+{
+    uint32_t n = ms * FS / 1000u / CTL + 1u;
+    while (n--) {
+        tape_block();                            /* (keys.c's part of the interrupt: the tape's transport) */
+        synth_render(abuf_, CTL);
+        fm1_ms_frac += CTL;
+        while (fm1_ms_frac >= FS / 1000u) {
+            fm1_ms_frac -= FS / 1000u;
+            fm1_ms++;
+        }
+    }
+}
+
+static int stale_bands;                          /* frames whose plot on the panel is not the canvas (cv_blit's bands) */
+static void frames(uint32_t n)                  /* n UI frames, 40 ms of audio each (the scales settle) */
+{
+    while (n--) {
+        run_ms(40);
+        ui_draw();
+        if (cv_w == 240u && cv_h == PLOT_H) {    /* (the plot drawn last: the panel must show it all) */
+            uint32_t i;
+            for (i = 0; i < 240u * PLOT_H; i++)
+                if (fb[PLOT_Y * 240u + i] != (uint16_t)(cv_px[i] >> 8 | cv_px[i] << 8)) {
+                    stale_bands++;
+                    break;
+                }
+        }
+    }
+}
+
+static int shot(const char *dir, const char *name)
+{
+    char path[512];
+    FILE *f;
+    snprintf(path, sizeof path, "%s/%s.rgb565", dir, name);
+    if (!(f = fopen(path, "wb")))
+        return 1;
+    fwrite(fb, 2, 240 * 240, f);
+    fclose(f);
+    return 0;
+}
+
+
+/* every preset: a chord held 1 s, its peak and RMS; none much quieter than the others (14 dB under their median
+ * peak), none into the clip (PRESET_LEVELS=1 prints all) */
+#include <math.h>
+static int cmp_d(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
+static int preset_levels(void)
+{
+    static double pdb[NPRESETS], rdb[NPRESETS], srt[NPRESETS];
+    static uint32_t clip[NPRESETS];
+    uint32_t i, b, j, bad = 0;
+    int verbose = getenv("PRESET_LEVELS") != 0;
+    double med;
+    for (i = 0; i < NPRESETS; i++) {
+        double e = 0;
+        int32_t pk = 0;
+        uint32_t n = 0;
+        synth_kill();
+        preset_load(i);
+        synth_note_on(48, 100); synth_note_on(55, 100); synth_note_on(60, 100);
+        for (b = 0; b < FS * 3u / 2u / CTL; b++) {
+            if (b == FS / CTL)
+                synth_note_off(48), synth_note_off(55), synth_note_off(60);
+            synth_render(abuf_, CTL);
+            for (j = 0; j < 2u * CTL; j++) {
+                int32_t v = abuf_[j], a = v < 0 ? -v : v;
+                pk = a > pk ? a : pk;
+                clip[i] += a >= 8388000;
+                e += (double)v * v;
+                n++;
+            }
+        }
+        pdb[i] = srt[i] = 20 * log10((pk + 1) / 8388608.0);
+        rdb[i] = 10 * log10(e / n / (8388608.0 * 8388608.0) + 1e-20);
+    }
+    synth_kill();
+    qsort(srt, NPRESETS, sizeof srt[0], cmp_d);
+    med = srt[NPRESETS / 2];
+    for (i = 0; i < NPRESETS; i++) {
+        int w = pdb[i] < med - 14 || clip[i] > 0u;
+        if (verbose || w)
+            printf("  %3u %-16s peak %6.1f dB  rms %6.1f dB  clip %u%s\n", i, PRESETS[i].name, pdb[i] - med,
+                   rdb[i] - med, clip[i], w ? "  <-" : "");
+        bad |= w;
+    }
+    if (bad)
+        printf("presets: some much quieter than the rest, or clipping\n");
+    return bad != 0;
+}
+
+int main(int argc, char **argv)
+{
+    const char *dir = argc > 1 ? argv[1] : ".";
+    int bad = 0;
+    uint32_t i;
+    char name[32];
+    palette_set(UI_PALETTE);
+    {   /* REMOTE: PING, a BUTTON (the ARP page), STATE, a TURN, SCREEN (the plot, back as it is), not ours ignored */
+        static const uint8_t PING[] = {0x7D, 0x43, 0x48, 0x05}, BTN[] = {0x7D, 0x43, 0x48, 0x03, B_ARP},
+                             ST[] = {0x7D, 0x43, 0x48, 0x02}, TURN[] = {0x7D, 0x43, 0x48, 0x04, EN_K3, 64 + 5},
+                             SCR[] = {0x7D, 0x43, 0x48, 0x01}, OTHER[] = {0x00, 0x59, 0x11};
+        int ok = 1;
+        uint32_t y = 0, k, rows = 0;
+        rm_cmd(PING, sizeof PING);
+        ok &= rm_msgs == 1u && rm_log[4] == 0x51 && !memcmp(rm_log + 5, "FM-1_900", 8);
+        rm_cmd(BTN, sizeof BTN);
+        ui_input();
+        ok &= sys.page == 6u;
+        frames(2);
+        rm_cmd(ST, sizeof ST);
+        rm_log[rm_logn < sizeof rm_log ? rm_logn : sizeof rm_log - 1u] = 0;
+        ok &= rm_msgs == 1u && rm_log[4] == 0x50 && strstr((char *)rm_log + 5, "PAGE 6") && strstr((char *)rm_log + 5, "BPM ");
+        {
+            uint8_t g0 = sys.arp_gate;
+            rm_cmd(TURN, sizeof TURN);
+            ui_input();
+            ok &= sys.arp_gate > g0;
+        }
+        frames(2);
+        rm_cmd(SCR, sizeof SCR);
+        ok &= rm_msgs == (PLOT_H + 3u) / 4u + 1u;
+        for (k = 0; k + 6u < rm_logn && ok; ) {             /* each message: unpack, compare with the canvas */
+            uint32_t e = k + 5u, o = 0, i;
+            static uint8_t un[2000];
+            if (rm_log[k + 4] == 0x42) { rows = rm_log[k + 5] | rm_log[k + 6] << 7; break; }
+            while (rm_log[e] != 0xF7) {
+                uint8_t hi = rm_log[e++];
+                for (i = 0; i < 7u && rm_log[e] != 0xF7; i++)
+                    un[o++] = (uint8_t)(rm_log[e++] | ((hi >> i) & 1u) << 7);
+            }
+            y = un[0];
+            for (i = 0; 1u + 2u * i + 1u < o; i++)
+                ok &= (uint16_t)(un[1 + 2 * i] | un[2 + 2 * i] << 8) == cv_px[y * 240u + i];
+            k = e + 1u;
+        }
+        ok &= rows == (uint32_t)PLOT_H;
+        rm_cmd(OTHER, sizeof OTHER);
+        ok &= rm_msgs == 0u && rm_inready;                  /* (left for the update's handshake) */
+        rm_inready = 0;
+        sys.page = 0; sys.arp_gate = 64;
+        if (!ok) { printf("REMOTE: PING / BUTTON / STATE / TURN / SCREEN failed (msgs %u, page %u)\n", rm_msgs, sys.page); bad = 1; }
+    }
+    tape_init();
+    bad |= preset_levels();
+
+    draw_splash();
+    bad |= shot(dir, "a_splash");
+
+    ui_force = 1;                        /* power-on: the ghost circuit, DOUBLE SCROLL, every view */
+    run_ms(1500);
+    for (i = 0; i < V_COUNT; i++) {
+        sys.view = (uint8_t)i;
+        frames(12);
+        snprintf(name, sizeof name, "b_view_%u_%s", i, VIEW_NAME[i]);
+        for (char *c = name; *c; c++)
+            if (*c == '-') *c = '_';
+        bad |= shot(dir, name);
+    }
+
+    sys.view = V_XY;                     /* every preset, as the PRESETS encoder loads them, a note held */
+    synth_note_on(48, 100);
+    for (i = 0; i < NPRESETS; i++) {
+        enc_steps[panel.enc[EN_PRESET]] = i ? 1 : 0;
+        ui_input();
+        run_ms(700);
+        frames(12);
+        snprintf(name, sizeof name, "c_preset_%u", i);
+        bad |= shot(dir, name);
+    }
+    synth_kill();
+
+    sys.page = 1;                        /* the ENV page: a held note (its gate's level and cutoff), then a pluck */
+    preset_load(0);
+    synth_note_on(55, 100);
+    frames(10);
+    bad |= shot(dir, "e_env_held");
+    preset_load(1);
+    sys.release = 100;
+    enc_steps[panel.enc[EN_K2]] = 30;    /* (DECAY turned: its cell lit) */
+    ui_input();
+    synth_note_on(60, 100);
+    frames(3);
+    bad |= shot(dir, "e_env_pluck");
+    frames(12);
+    bad |= shot(dir, "e_env_dimming");
+    synth_kill();
+    frames(2);
+    bad |= shot(dir, "e_env_dark");
+    sys.page = 0;
+    edges = btn_bit(B_SCL);              /* the PAN page (SCL): BASIS turned, ORBIT, three notes where they are */
+    ui_input();
+    frames(2);
+    bad |= shot(dir, "e_pan_mono");
+    enc_steps[panel.enc[EN_K1]] = 90;
+    enc_steps[panel.enc[EN_K2]] = 30;
+    ui_input();
+    synth_note_on(48, 100); synth_note_on(55, 100); synth_note_on(64, 100);
+    frames(8);
+    bad |= shot(dir, "e_pan_basis");
+    ui_event_ms = 0;
+    frames(2);
+    bad |= shot(dir, "e_pan_status");
+    edges = btn_bit(B_SCL);
+    ui_input();
+    sys.orbit = 0;
+    sys.basis = 0;
+    edges = btn_bit(B_REC);              /* the TAPE page: recording track 2 under a note */
+    ui_input();
+    enc_steps[panel.enc[EN_K2]] = 1;     /* (the blank track 2's knob arms it) */
+    ui_input();
+    if (sys.tape_arm != 1u) { printf("TAPE: KNOB 2 did not arm track 2\n"); bad = 1; }
+    edges = btn_bit(B_REC);
+    ui_input();
+    synth_note_on(55, 110);
+    frames(20);
+    bad |= shot(dir, "k_tape_rec");
+    synth_note_off(55);
+    frames(40);
+    bad |= shot(dir, "k_tape_play");
+    enc_steps[panel.enc[EN_SELECT]] = 1; /* its SPEED menu: 3/4 (a fourth down): the BPM follows, the speed exact */
+    ui_input();
+    if (sys.page != 13u) { printf("TAPE: SELECT did not open the SPEED menu\n"); bad = 1; }
+    {
+        uint32_t bpm0 = sys.arp_bpm;
+        enc_steps[panel.enc[EN_K2]] = -5;
+        ui_input();
+        frames(3);
+        if (sys.tape_spd != 7u || sys.arp_bpm != (bpm0 * 3u + 2u) / 4u || tape.speed != 3072u) {
+            printf("TAPE SPEED 3/4: spd %u bpm %u (from %u) speed %u\n", sys.tape_spd, sys.arp_bpm, bpm0, tape.speed);
+            bad = 1;
+        }
+        bad |= shot(dir, "k_tape_speed");
+        sys.arp_bpm = (uint8_t)bpm0;
+        frames(2);
+        if (tape.lock_q12 || tape.speed != 4096u) {
+            printf("TAPE SPEED: the BPM back, not free again (speed %u)\n", tape.speed);
+            bad = 1;
+        }
+        sys.tape_spd = 12;
+    }
+    edges = btn_bit(B_PLAY);
+    ui_input();
+    frames(2);
+    edges = btn_bit(B_HOME);
+    ui_input();
+    synth_kill();
+    edges = btn_bit(B_EDIT);             /* the EDIT page: the mod wheel half up, velocity BRIGHT */
+    ui_input();
+    sys.mw = 64; sys.vel_to = 1; sys.last_vel = 90;
+    frames(2);
+    bad |= shot(dir, "e_edit");
+    sys.mw = 0; sys.vel_to = 0;
+    edges = btn_bit(B_EDIT);
+    ui_input();
+    synth_kill();
+    sys.page = 0;
+    ui_force = 1;
+
+    sys.page = 2;                        /* the FX page: off, then each model on a held note */
+    preset_load(0);
+    frames(3);
+    bad |= shot(dir, "f_fx_off");
+    for (i = 0; i < RZ_COUNT; i++) {
+        static const uint8_t PI_[RZ_COUNT] = {10, 11, 12, 24, 29, 32, 34};   /* RINGS BELL, SITAR DRONE, CHAOS PIANO, */
+        preset_load(PI_[i]);                                             /* CAT MEOW, NIGHT FLUTE, BIRD SONG */
+        synth_note_on(48, 100);
+        frames(14);
+        snprintf(name, sizeof name, "f_fx_%u", i);
+        bad |= shot(dir, name);
+        synth_kill();
+    }
+    preset_load(34);                     /* HAWK CRY */
+    synth_note_on(48, 110);
+    frames(14);
+    bad |= shot(dir, "f_hawk");
+    synth_kill();
+    for (i = 0; i < WA_COUNT; i++) {     /* THROAT: each animal's head, a vowel each */
+        preset_load(24);
+        sys.fx_struct = (uint8_t)(i * 128u / WA_COUNT + 4u);
+        sys.fx_pos = (uint8_t)(i * 18u);
+        synth_note_on(48, 110);
+        frames(14);
+        snprintf(name, sizeof name, "f_throat_%u", i);
+        bad |= shot(dir, name);
+        synth_kill();
+    }
+    sys.page = 3;                        /* the SHIMMER page: HEAVEN RISER, a note and its tail rising, then off */
+    preset_load(14);
+    synth_note_on(48, 110);
+    frames(30);
+    synth_note_off(48);
+    frames(80);
+    bad |= shot(dir, "g_shimmer");
+    for (i = 0; i < SS_COUNT; i++) {     /* each SPACE's ornament, a tail flowing out */
+        sys.sh_space = (uint8_t)i;
+        synth_note_on(48, 110);
+        frames(16);
+        synth_note_off(48);
+        frames(14);
+        snprintf(name, sizeof name, "g_space_%u", i);
+        bad |= shot(dir, name);
+    }
+    {   /* the knobs' range on the ornament: small dry, big with shimmer, dark, bright */
+        static const uint8_t K[4][5] = {{0, 0, 0, 20, 30}, {127, 127, 127, 127, 127}, {64, 60, 0, 70, 0},
+                                        {100, 127, 64, 100, 127}};   /* SIZE, DECAY, SHIMMER, MIX, TONE */
+        sys.sh_space = SS_CATHEDRAL;
+        for (i = 0; i < 4u; i++) {
+            sys.sh_size = K[i][0]; sys.sh_decay = K[i][1]; sys.sh_shimmer = K[i][2]; sys.sh_mix = K[i][3]; sys.sh_tone = K[i][4];
+            synth_note_on(48, 110);
+            frames(16);
+            synth_note_off(48);
+            frames(14);
+            snprintf(name, sizeof name, "g_knobs_%u", i);
+            bad |= shot(dir, name);
+        }
+    }
+    sys.sh_space = 0;
+    sys.sh_mix = 0;
+    frames(4);
+    bad |= shot(dir, "g_shimmer_off");
+    synth_kill();
+    {   /* PRESETS on FX and SHIMMER: their own presets, the sound preset kept */
+        uint8_t pr = sys.preset;
+        sys.page = 2; fx_pre = 0;
+        enc_steps[panel.enc[EN_PRESET]] = 1;
+        ui_input();
+        if (sys.preset != pr || sys.fx_model != RZ_MODAL || sys.fx_mix != 100u) {
+            printf("PRESETS on FX: not the FX preset BELL\n"); bad = 1;
+        }
+        frames(3);
+        bad |= shot(dir, "f_fx_preset");
+        enc_steps[panel.enc[EN_PRESET]] = -1;
+        ui_input();
+        if (sys.fx_mix != 0u) { printf("PRESETS on FX: back to FX OFF\n"); bad = 1; }
+        sys.page = 3; sh_pre = 0;
+        enc_steps[panel.enc[EN_PRESET]] = 3;
+        ui_input();
+        if (sys.preset != pr || sys.sh_interval != SI_FIFTH || sys.sh_space != SS_TEMPLE || sys.sh_mix != 85u) {
+            printf("PRESETS on SHIMMER: not ORACLE CHAMBER\n"); bad = 1;
+        }
+        sys.sh_mix = 0;
+    }
+    sys.page = 0;
+    sys.fx_mix = 0;
+    ui_force = 1;
+
+    preset_load(0);                      /* the noise programs: ALGORITHM on HOME, then a few of them drawn */
+    sys.view = V_XY;
+    synth_note_on(48, 100);
+    enc_steps[panel.enc[EN_ALGO]] = 6;   /* CHUA -> A5 RESONOISE */
+    ui_input();
+    frames(10);
+    bad |= shot(dir, "h_noise_select");
+    {
+        static const uint8_t O[] = {6, 14, 21, 28};   /* RESONOISE, SINE FM CLUST, BASURA TOTAL, SATAN WORKOUT */
+        for (i = 0; i < sizeof O; i++) {
+            sys.osc = O[i];
+            ui_event_ms = 0;
+            frames(14);
+            snprintf(name, sizeof name, "h_noise_%u", O[i]);
+            bad |= shot(dir, name);
+        }
+    }
+    sys.view = V_TIME;
+    frames(8);
+    bad |= shot(dir, "h_noise_time");
+    preset_load(NPRESETS - 1u);          /* the MOD ENV page (ENV twice): PITCH ZAP, a note, its envelope falling */
+    edges = btn_bit(B_ENV);
+    ui_input();
+    edges = btn_bit(B_ENV);
+    ui_input();
+    synth_note_on(55, 100);
+    frames(2);
+    bad |= shot(dir, "j_menv_strike");
+    frames(10);
+    bad |= shot(dir, "j_menv_fallen");
+    sys.menv_len = 115; sys.menv_skew = 80; sys.menv_height = 90;
+    ui_event_ms = 0;
+    frames(8);
+    bad |= shot(dir, "j_menv_slow");
+    synth_note_on(60, 100);
+    frames(20);
+    bad |= shot(dir, "j_menv_rising");
+    synth_kill();
+    sys.page = 0;
+    ui_force = 1;
+    synth_kill();
+    preset_load(0);
+    ui_force = 1;
+
+    sys.page = 6;                        /* the ARP page: off, then on with a roll of steps (no keys.c here: filled in) */
+    ui_force = 1;
+    frames(2);
+    bad |= shot(dir, "k_arp_off");
+    sys.arp_on = 1; sys.arp_type = AT_UPDOWN; sys.arp_swing = 40; sys.arp_hold = 1;
+    for (i = 0; i < 32u; i++) {
+        static const uint8_t N[10] = {60, 64, 67, 72, 76, 79, 76, 72, 67, 64};
+        arp_view.note[arp_view.w++ & 31u] = i % 8u == 7u ? 0u : N[i % 10u];
+    }
+    ui_event_ms = 0;
+    frames(2);
+    bad |= shot(dir, "k_arp_on");
+    sys.arp_on = 0; sys.arp_hold = 0; sys.page = 0;
+    ui_force = 1;
+
+    edges = btn_bit(B_LFO);              /* the FREE EG page: a recorded curve playing onto FX DAMPING */
+    ui_input();
+    for (i = 0; i < FEG_N; i++)
+        feg.curve[i] = (uint8_t)(64 + plot_sin(i * 2u) / 600 + (int32_t)(i % 32u));
+    sys.feg_has = 1; sys.feg_on = 1; sys.feg_target = 10; sys.feg_len = 10; feg.pos = 40;
+    ui_event_ms = 0;
+    frames(2);
+    bad |= shot(dir, "m_feg");
+    sys.feg_has = 0; sys.feg_on = 0; feg.pos = 255;
+    edges = btn_bit(B_HOME);
+    ui_input();
+
+    edges = btn_bit(B_SEQ);              /* the KARMA page: off, then on with a phrase playing (filled in) */
+    ui_input();
+    frames(2);
+    bad |= shot(dir, "n_karma_off");
+    edges = btn_bit(B_PLAY);             /* (PLAY starts it) */
+    ui_input();
+    if (!sys.k_on) {
+        printf("ui shots: PLAY on the KARMA page did not start KARMA\n");
+        bad = 1;
+    }
+    sys.k_ge = 5; sys.k_latch = 1; sys.k_m[0] = 90; kar.view_step = 6;
+    for (i = 0; i < 32u; i++) {
+        static const uint8_t N[8] = {48, 55, 60, 64, 67, 60, 72, 64};
+        kar_view.note[kar_view.w++ & 31u] = N[(i * 3u) % 8u];
+    }
+    ui_event_ms = 0;
+    frames(2);
+    bad |= shot(dir, "n_karma_on");
+    sys.k_ge = 22;
+    ui_event_ms = 0;
+    frames(2);
+    bad |= shot(dir, "n_karma_minimal");
+    sys.k_on = 0; sys.k_latch = 0; sys.k_m[0] = 64; sys.k_ge = 0; kar.view_step = 255;
+    edges = btn_bit(B_HOME);
+    ui_input();
+
+    edges = btn_bit(B_GLO);              /* the MIDI page */
+    ui_input();
+    sys.midi_rx = 3; sys.midi_tx = 9;
+    frames(2);
+    bad |= shot(dir, "l_midi");
+    sys.midi_rx = 0; sys.midi_tx = 0;
+    edges = btn_bit(B_GLO);
+    ui_input();
+
+    sys.octave = 2;                      /* the widest values: a knob just turned, a message */
+    sys.release = 127;
+    sys.cpu_q8 = 255;
+    enc_steps[panel.enc[EN_K2]] = 127;
+    ui_input();
+    edges = btn_bit(B_SAVE);
+    ui_input();
+    frames(8);
+    bad |= shot(dir, "d_saved");
+    sys.octave = -3;                     /* (after the save: the round trip below must give +2) */
+
+    {   /* settings: SAVE wrote them, a power-on reads them back */
+        uint8_t sh = sys.shape;
+        sys.octave = 0; sys.shape = 0; sys.release = 0;
+        settings_boot();
+        if (sys.octave != 2 || sys.shape != sh || sys.release != 127) {
+            printf("settings round trip FAIL\n");
+            bad = 1;
+        }
+    }
+    if (off_screen) {
+        printf("%d strips drawn outside the screen FAIL\n", off_screen);
+        bad = 1;
+    }
+    if (stale_bands) {
+        printf("ui shots: %d frames left part of the plot stale on the panel\n", stale_bands);
+        bad = 1;
+    }
+    printf(bad ? "ui shots: FAILED\n" : "ui shots: ok (%s)\n", dir);
+    return bad;
+}
