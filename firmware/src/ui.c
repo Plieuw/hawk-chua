@@ -23,7 +23,7 @@
  *            REED (REED, BORE));
  *            ALGORITHM the model (MODAL, SYMP STRING, STRING), SELECT the POSITION; its resonances and output drawn
  *   FX (2nd) KNOB 1..4      SIZE, DECAY, SHIMMER, MIX of the shimmer reverb (shimmer.c); ALGORITHM the INTERVAL,
- *            SELECT the TONE; the tail's level over the last seconds drawn (the riser building)
+ *            SELECT the TONE; the tail's level over the last seconds drawn (the undertow building)
  *   SELECT   HOME: the view (3D turning, X-Y, X-Z, Y-Z, TIME)
  * Each parameter lives in one place: RING on HOME (KNOB 4), the oscillator on HOME (ALGORITHM).
  *   PRESETS the presets

@@ -1707,30 +1707,42 @@ int main(int argc, char **argv)
                     }
         printf("   (shimmer: peak %d, mean of the tails %.1f)\n", pk2, (double)dcs / (64.0 * 100 * 2 * CTL));
         okk &= pk2 <= 32767 && dcs / (64 * 100 * 2 * CTL) < 64 && dcs / (64 * 100 * 2 * CTL) > -64;
-        {   /* it rises: a pure note's tail with SHIMMER 100, +OCT: its zero crossings a second double and more */
-            uint32_t z0 = 0, z1 = 0, j;
-            int32_t pv = 0;
+        {   /* it sinks: a high pure note's tail with SHIMMER 100, -OCT: its spectrum's centroid (the energy-weighted
+             * frequency) falls by a fifth and more from just after the note to 0.7 s later (the plain tail rings on) */
+            static int32_t w0[200u * CTL], w1[200u * CTL];
+            double c[2];
+            uint32_t j, q2;
             sys.sh_mix = 0;
             fx_shimmer(buf, buf, buf, 0);          /* (clear) */
             sys.chaos = 6; sys.output = 64; sys.sustain = 0; sys.decay = 70; sys.release = 60; sys.ring = 30;
             sys.sh_mix = 127; sys.sh_size = 110; sys.sh_decay = 110; sys.sh_shimmer = 100; sys.sh_interval = SI_OCT;
             sys.sh_tone = 100;
-            synth_note_on(48, 110);
-            for (b2 = 0; b2 < 1600u; b2++) {
+            synth_note_on(84, 110);
+            for (b2 = 0; b2 < 1200u; b2++) {
                 if (b2 == 20u)
-                    synth_note_off(48);
+                    synth_note_off(84);
                 synth_render(buf, CTL);
                 for (j = 0; j < CTL; j++) {
-                    int32_t v2 = buf[2 * j];
-                    if ((pv < 0) != (v2 < 0)) {
-                        if (b2 >= 20u && b2 < 220u) z0++;
-                        if (b2 >= 1000u && b2 < 1200u) z1++;
-                    }
-                    pv = v2;
+                    if (b2 >= 20u && b2 < 220u) w0[(b2 - 20u) * CTL + j] = buf[2 * j];
+                    if (b2 >= 1000u) w1[(b2 - 1000u) * CTL + j] = buf[2 * j];
                 }
             }
-            printf("   (tail zero crossings: %u at 0.0..0.15 s after the note, %u at 0.7..0.85 s)\n", z0, z1);
-            okk &= z1 > 2u * z0;
+            for (q2 = 0; q2 < 2u; q2++) {
+                const int32_t *w3 = q2 ? w1 : w0;
+                double num = 0, den = 0;
+                uint32_t f;
+                for (f = 60; f < 4000u; f += 40u) {
+                    double re = 0, im = 0, e;
+                    for (j = 0; j < 200u * CTL; j += 2u) {
+                        double ph = 2 * M_PI * f * j / FS;
+                        re += w3[j] * cos(ph); im += w3[j] * sin(ph);
+                    }
+                    e = re * re + im * im; num += e * f; den += e;
+                }
+                c[q2] = num / (den + 1);
+            }
+            printf("   (the tail's centroid: %.0f Hz at 0.0..0.15 s after the note, %.0f Hz at 0.7..0.85 s)\n", c[0], c[1]);
+            okk &= c[1] < 0.8 * c[0];
             synth_kill();
         }
         {   /* MIX 0: the same output as with the shimmer never on, left = right */
@@ -1756,7 +1768,7 @@ int main(int argc, char **argv)
             okk &= same;
         }
         synth_kill();
-        check("shimmer: every corner bounded, no DC, the tail rises; MIX 0 bit for bit dry and mono", okk);
+        check("shimmer: every corner bounded, no DC, the tail sinks; MIX 0 bit for bit dry and mono", okk);
     }
 
     /* MASTER at 0: silence */

@@ -1,24 +1,24 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* SHIMMER: a stereo reverb with a pitch shifter in its feedback loop. Every trip round the loop part of the tail is
- * shifted up by the INTERVAL and fed back in, so the tail climbs: an octave, then another, and with SHIMMER high and a
- * long DECAY it keeps rising and building, a riser, until TONE's damping takes the top off.
+ * shifted down by the INTERVAL and fed back in, so the tail sinks: an octave, then another, and with SHIMMER high and a
+ * long DECAY it keeps falling and building, a deepening undertow, until the high-pass (~40 Hz) takes the bottom.
  *
  *   input   two allpasses diffuse the dry signal
  *   tank    a 4-line feedback delay network (Householder matrix: o - sum / 2), each line with a one-pole low-pass
  *           (TONE) and the gain of its length for the DECAY time; SIZE scales the lengths (they glide when it turns)
- *   shimmer the tank's outputs, high-passed (~120 Hz: no rumble climbing), through a two-tap granular pitch shifter
+ *   shimmer the tank's outputs, high-passed (~40 Hz: no rumble building), through a two-tap granular pitch shifter
  *           (taps sweeping a 2048-sample window, crossfaded by triangles): SHIMMER crossfades part of the tank's
  *           feedback from itself to this shifted copy, keeping its energy (weights a and b, a^2 + b^2 = 1), so the
  *           loop gain stays the DECAY's (bounded). Each trip round (~60 .. 110 ms) that part of the tail moves up an
- *           interval: at SHIMMER 127 (30 % a trip) about 2..3 octaves a second, the lower octaves fading as the higher
- *           ones build
+ *           interval down: at SHIMMER 127 (30 % a trip) about 2..3 octaves a second, the higher octaves fading as the
+ *           lower ones build
  *   output  left and right from different lines; dry / wet by MIX (the dry stays full to the middle)
  *
  *   SIZE 0..127      the room: 0.35 .. 1 of the longest lines (~60 .. 110 ms)
  *   DECAY 0..127     RT60 0.4 s .. 30 s
  *   SHIMMER 0..127   how much of the feedback is the shifted tail: how fast it rises (0: a plain reverb)
  *   MIX 0..127       0: off (nothing runs; the tank is cleared at the next use)
- *   INTERVAL         +OCT, +5TH, +OCT+5TH, +2 OCT
+ *   INTERVAL         -OCT, -5TH, -OCT-5TH, -2 OCT (down: the sub-octaves under the sound)
  *   TONE 0..127      the tank's damping: dark (1.5 kHz) .. open (16 kHz)
  *   SPACE            the building it rings in (ALGORITHM, with the INTERVAL): HALL (the plain tank), TEMPLE (a stone
  *                    chamber: dense early reflections, the hypogeum's resonance ~110 Hz and its neighbours, dark),
@@ -36,8 +36,9 @@ static const uint16_t SH_LEN[SH_NLINE] = {4799, 3931, 3203, 2687};   /* mutually
 #define SH_PS 4096u                              /* the pitch shifter's buffer (a power of two) */
 #define SH_WIN 2048u                             /* its window */
 enum { SI_OCT, SI_FIFTH, SI_OCT5, SI_2OCT, SI_COUNT };
-static const char *const SH_INTERVAL_NAME[SI_COUNT] = {"+OCT", "+5TH", "+OCT+5TH", "+2 OCT"};
-static const uint32_t SH_INC[SI_COUNT] = {1u << 21, 1u << 20, 1u << 22, 3u << 21};   /* (ratio - 1) 2^32 / SH_WIN */
+static const char *const SH_INTERVAL_NAME[SI_COUNT] = {"-OCT", "-5TH", "-OCT-5TH", "-2 OCT"};
+static const uint32_t SH_INC[SI_COUNT] = {1u << 21, 699051u, 1398101u, 3u << 20};   /* (1 - ratio) 2^32 / SH_WIN:
+                                                  * 1/2, 2/3, 1/3, 1/4 */
 enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_COUNT };
 static const char *const SH_SPACE_NAME[SS_COUNT] = {"HALL", "TEMPLE", "CATHEDRAL", "MOSQUE"};
 /* each space: its three modes (two-pole resonators: a1 = 2 r cos w, a2 = r^2, b = (1 - r) 2 sin w x 2 gain: the peak
@@ -177,13 +178,13 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         {
             int32_t hx = (o[0] + o[1] - o[2] - o[3]) / 2, a, b;   /* (the signs the shifted tail goes in with) */
             uint32_t ph2, d1, d2, w1, w2;
-            sh.hp_y = hx - sh.hp_x + (int32_t)(((int64_t)sh.hp_y * 32210 + 16384) >> 15);
+            sh.hp_y = hx - sh.hp_x + (int32_t)(((int64_t)sh.hp_y * 32581 + 16384) >> 15);
             sh.hp_x = hx;
             sh.ps[sh.pw & (SH_PS - 1u)] = sh_sat(sh.hp_y);
-            /* two taps, half a window apart: delay = SH_WIN (1 - phase), falling: the pitch rises */
+            /* two taps, half a window apart: delay = SH_WIN phase, growing: the pitch falls */
             ph2 = sh.ph + 0x80000000u;
-            d1 = (65536u - (sh.ph >> 16)) * SH_WIN;  /* Q16 samples */
-            d2 = (65536u - (ph2 >> 16)) * SH_WIN;
+            d1 = ((sh.ph >> 16) + 16u) * SH_WIN;    /* Q16 samples (at least a sample: the interpolation) */
+            d2 = ((ph2 >> 16) + 16u) * SH_WIN;
             {
                 uint32_t p1 = sh.pw - 1u - (d1 >> 16), p2 = sh.pw - 1u - (d2 >> 16);
                 int32_t f1 = (int32_t)(d1 & 0xFFFFu), f2 = (int32_t)(d2 & 0xFFFFu);

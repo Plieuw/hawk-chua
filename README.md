@@ -313,8 +313,8 @@ kan daarnaast met de gewone systeemtools worden opgenomen (ffmpeg of sox).
 
 **De shimmer reverb (FX, tweede scherm).** Een stereo galm (4 vertragingslijnen met een Householder-matrix) met een
 toonhoogteverschuiver in de terugkoppeling. Elke ronde door de galm (60–110 ms) schuift een deel van de staart een
-interval omhoog en gaat terug de galm in, met behoud van energie: de staart klimt, de lage octaven vervagen terwijl de
-hoge aanzwellen, tot TONE de top dempt. Dat is de riser.
+interval omlaag en gaat terug de galm in, met behoud van energie: de staart zakt, de hoge octaven vervagen terwijl de
+lage aanzwellen, een diepe onderstroom onder de klank (tot een high-pass rond 40 Hz de bodem afsnijdt).
 
 | Bediening | Functie |
 | --- | --- |
@@ -322,10 +322,10 @@ hoge aanzwellen, tot TONE de top dempt. Dat is de riser.
 | KNOB 2 DECAY | nagalmtijd 0,4–30 s |
 | KNOB 3 SHIMMER | hoe snel het klimt: 0 is een gewone galm, 127 zo'n 2–3 octaven per seconde |
 | KNOB 4 MIX | droog/nat; 0 = uit (dan rekent er niets) |
-| ALGORITHM | het interval: +OCT, +5TH, +OCT+5TH, +2 OCT |
+| ALGORITHM | het interval, omlaag: -OCT, -5TH, -OCT-5TH, -2 OCT |
 | SELECT | TONE: donker (1,5 kHz) tot open (16 kHz) |
 
-SPACE (met ALGORITHM, samen met het INTERVAL: HALL +OCT, HALL +5TH, ..., MOSQUE +2 OCT) kiest het gebouw waarin de
+SPACE (met ALGORITHM, samen met het INTERVAL: HALL -OCT, HALL -5TH, ..., MOSQUE -2 OCT) kiest het gebouw waarin de
 galm klinkt: HALL (de gewone galm), TEMPLE (een stenen kamer: dichte vroege reflecties, de resonantie van ~110 Hz van
 de oude orakelkamers en zijn buren, donker), CATHEDRAL (het schip: echo's van de pilaren op 23..89 ms, de lange lage
 modes 49 / 98 / 147 Hz), MOSQUE (de koepel: een fladderecho dat heen en weer kaatst, zijn modes 165 / 330 / 495 Hz,
