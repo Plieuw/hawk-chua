@@ -80,153 +80,163 @@ typedef struct {
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
 #define NOSH 0, 0, 0, 0, 0, 0
+/* 128 in all, in the order of General MIDI (program change 0..127 = GM program 1..128): each GM sound as near as
+ * the circuit, the noise programs, the resonators and the waveguides get. Without a model of their own (no lip
+ * reed, no bow, no reed: brass, bowed strings, saxes and double reeds) they are approximations: a saw or a pulse
+ * through the low pass gate, or a resonator held by a sustained tone (as a bowed Rings). */
+#define CYC 6, 64, 64                            /* the pure cycle, Y: near a sine (a resonator's exciter) */
+#define NZK 85, 76, 0                            /* (a noise program: the circuit's knobs kept for going back) */
+#define ROOM 90, 85, 0, 45, SI_OCT, 70           /* the shimmer as a plain room (SHIMMER 0) */
+#define HALL 120, 108, 0, 60, SI_OCT, 80         /* a big plain hall */
+#define AIR 110, 110, 60, 70, SI_OCT, 90         /* a hall that rises a little */
 static const preset_t PRESETS[] = {
-    {"DOUBLE SCROLL", 85, 76, 0, 6, 80, 110, 70, 50},     /* the classic double scroll, x (the scroll jumps) */
-    {"RING PLUCK", 85, 90, 64, 0, 62, 0, 66, 110},        /* the gate pinged: a short ring on the spiral */
-    {"PURE CYCLE", 6, 64, 64, 10, 70, 120, 64, 30},       /* just past the Hopf point: a clean periodic orbit, y */
-    {"PERIOD TWO", 38, 64, 32, 4, 60, 90, 66, 60},       /* the first period doubling: a sub-octave appears */
-    {"SPIRAL", 54, 56, 64, 2, 64, 80, 72, 70},           /* Roessler-like chaos on one scroll: pitched, rough */
-    {"BONGO GATE", 30, 100, 32, 0, 50, 0, 52, 100},       /* a short gate on a clean cycle: a wooden ring */
-    {"CRISIS EDGE", 110, 64, 96, 2, 76, 100, 74, 60},    /* the double scroll about to break out */
-    {"OUTER LOOP", 124, 40, 64, 0, 56, 60, 60, 40},       /* the saturated circuit's big cycle: loud, buzzy */
-    {"SLOW BLOOM", 70, 110, 127, 92, 96, 110, 100, 70},  /* z, fast spirals, slow envelope, ringing gate: a pad */
-    {"GRIT BASS", 96, 16, 0, 0, 54, 70, 50, 40},          /* x at low beta: slow, deep switching */
-    {"RINGS BELL", 54, 90, 64, 0, 60, 0, 70, 40, RZ_MODAL, 70, 100, 110, 12, 100},   /* the spiral struck into a bell */
-    {"SITAR DRONE", 85, 64, 32, 20, 80, 110, 90, 30, RZ_SYMP, 16, 80, 105, 70, 90},  /* sympathetic strings, 5TH */
-    {"CHAOS PIANO", 30, 76, 64, 0, 64, 40, 74, 50, RZ_STRING, 100, 70, 96, 20, 85},  /* a stiff string, dispersion */
-    {"BURIED BAR", 110, 40, 0, 4, 76, 90, 80, 60, RZ_MODAL, 116, 40, 80, 24, 70},     /* a tuned bar under the crisis */
-    {"HEAVEN RISER", 6, 64, 64, 30, 80, 100, 96, 30, 0, 0, 0, 0, 0, 0,              /* a pure cycle that climbs */
-     110, 110, 100, 96, SI_OCT, 100},
-    {"OCTAVE CLOUD", 85, 76, 32, 60, 90, 110, 100, 50, 0, 0, 0, 0, 0, 0,            /* the double scroll in a slow */
-     127, 120, 50, 80, SI_OCT, 80},                                                  /* octave haze */
-    {"FIFTH ASCENT", 54, 90, 64, 0, 62, 0, 70, 40, RZ_MODAL, 70, 100, 110, 12, 70,  /* struck bells rising in */
-     90, 110, 120, 100, SI_FIFTH, 110},                                              /* fifths */
-    /* the noise programs (noise.c): the gate as on the circuit, the CHAOS / SHAPE / OUTPUT kept for going back */
-    {"RADIO OH NO", 85, 76, 0, 0, 70, 100, 70, 40, NOFX, NOSH, NZ(0, 0), 40, 90},          /* a broken radio */
-    {"GRAIN SHOWER", 85, 76, 0, 20, 80, 90, 96, 30, NOFX,                                 /* glitch grains */
-     100, 100, 60, 70, SI_OCT, 90, NZ(0, 6), 70, 50},                                    /* rising in octaves */
-    {"PRIME HATS", 85, 76, 0, 0, 40, 0, 44, 70, NOFX, NOSH, NZ(1, 5), 96, 64},           /* metal clusters: hats */
-    {"FIBONACCI PAD", 85, 76, 0, 80, 96, 110, 100, 50, NOFX,                             /* a stretched cluster */
-     110, 110, 90, 80, SI_FIFTH, 100, NZ(1, 7), 50, 40},
-    {"CLUSTER BELL", 85, 76, 0, 0, 62, 0, 70, 40, RZ_MODAL, 70, 100, 110, 12, 80,        /* a saw cluster struck */
-     NOSH, NZ(1, 0), 30, 80},                                                              /* into the bell */
-    {"SATAN WORKOUT", 85, 76, 0, 2, 76, 100, 74, 60, NOFX, NOSH, NZ(2, 7), 80, 80},       /* harsh and wild */
-    {"BITCRUSH WALK", 85, 76, 0, 0, 64, 60, 60, 50, NOFX, NOSH, NZ(2, 8), 64, 100},       /* a crushed random walk */
-    /* the waveguides (FX: THROAT, FLUTE, SYRINX), the voices their source */
-    {"CAT MEOW", 6, 64, 64, 30, 80, 90, 80, 30, RZ_THROAT, 8, 70, 60, 80, 127},      /* a pure cycle into a cat's */
-                                                                                       /* mouth, opening I > A > U */
-    {"COW MOO", 85, 76, 64, 60, 90, 110, 90, 20, RZ_THROAT, 88, 40, 80, 10, 120},      /* the scroll, a long nasal U */
-    {"WOLF HOWL", 6, 100, 64, 90, 100, 110, 110, 30, RZ_THROAT, 72, 60, 90, 20, 115,  /* a slow U > O in a big room */
-     110, 110, 40, 70, SI_OCT, 70},
-    {"TALKING CHAOS", 85, 76, 32, 4, 70, 100, 70, 40, RZ_THROAT, 40, 80, 60, 64, 110},  /* a human throat: turn VOWEL */
-    {"ELEPHANT", 96, 16, 0, 20, 90, 100, 90, 30, RZ_THROAT, 120, 30, 100, 40, 127},   /* the trunk: a low trumpet */
-    {"NIGHT FLUTE", 6, 64, 64, 40, 80, 110, 90, 20, RZ_FLUTE, 30, 70, 90, 50, 127,    /* breathy, in the shimmer */
-     110, 100, 60, 60, SI_OCT, 70},
-    {"OVERBLOWN", 54, 90, 64, 10, 70, 100, 70, 30, RZ_FLUTE, 115, 90, 100, 20, 120},  /* the jet short: octaves */
-    {"PAN NOISE FLUTE", 85, 76, 0, 30, 80, 110, 80, 20, RZ_FLUTE, 50, 60, 90, 90, 127, /* a noise program blows it */
-     NOSH, NZ(0, 9), 70, 50},
-    {"BIRD SONG", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 90, 70, 60, 15, 127,        /* chirps falling away */
-     100, 90, 30, 40, SI_OCT, 100},
-    {"TWO BIRDS", 30, 100, 32, 0, 60, 40, 50, 30, RZ_SYRINX, 60, 90, 70, 110, 127},   /* the two sides a fifth */
-    {"HAWK CRY", 6, 64, 64, 0, 100, 0, 80, 30, RZ_HAWK, 70, 90, 70, 70, 127,          /* kee-eeee-arr, over a valley */
-     110, 100, 40, 35, SI_OCT, 90},
-    /* the MOD ENV on the pitch (ENV twice) */
-    {"PING BELL", 85, 76, 0, 0, 62, 0, 70, 40, RZ_MODAL, 70, 100, 110, 12, 80,           /* the cluster bell, each */
-     NOSH, NZ(1, 0), 30, 80, 30, 0, 40},                                                   /* strike a little ping */
-    {"PITCH ZAP", 85, 76, 0, 0, 64, 40, 64, 40, NOFX, NOSH, NZ(1, 3), 10, 20,           /* a fast drop, a zap */
-     56, 0, 110},
-    /* 128 in all: basses, leads, pads, keys and plucks, bells, drums, textures, animals (program change 0..127) */
-    {"SUB SCROLL", 85, 20, 0, 0, 60, 100, 50, 30},
-    {"DEEP SWITCH", 96, 10, 0, 0, 58, 90, 50, 50},
-    {"RUBBER BASS", 38, 40, 32, 0, 56, 60, 52, 90},
-    {"GROWL BASS", 110, 30, 16, 0, 64, 100, 54, 70},
-    {"OUTER BASS", 124, 20, 0, 0, 60, 90, 50, 40},
-    {"PLUCK BASS", 54, 50, 64, 0, 52, 0, 52, 100},
-    {"CYCLE SUB", 6, 30, 64, 2, 60, 110, 56, 20},
-    {"FM BASS", 85, 76, 0, 0, 60, 90, 54, 40, NOFX, NOSH, NZ(1, 3), 10, 70},
-    {"SQUARE BASS", 85, 76, 0, 0, 56, 90, 50, 50, NOFX, NOSH, NZ(0, 2), 20, 30},
-    {"ZAP BASS", 85, 76, 0, 0, 58, 80, 50, 50, NOFX, NOSH, NZ(1, 3), 5, 40, 40, 0, 70},
-    {"WOOD BASS", 30, 100, 32, 0, 54, 40, 56, 80, RZ_MODAL, 30, 60, 60, 20, 60},
-    {"ACID SPIRAL", 54, 70, 16, 0, 60, 40, 54, 120},
-    {"SCROLL LEAD", 85, 76, 32, 4, 70, 110, 64, 70},
-    {"CRISIS LEAD", 110, 64, 64, 2, 70, 110, 66, 90},
-    {"PURE LEAD", 6, 64, 64, 10, 70, 120, 64, 60},
-    {"SPIRAL LEAD", 54, 90, 64, 4, 64, 110, 66, 80},
-    {"RASP LEAD", 120, 50, 96, 2, 66, 110, 60, 60},
-    {"SYNC SCREAM", 85, 76, 0, 2, 64, 110, 62, 60, NOFX, NOSH, NZ(0, 3), 80, 70},
-    {"RADIO LEAD", 85, 76, 0, 4, 64, 110, 64, 50, NOFX, NOSH, NZ(0, 0), 64, 40},
-    {"ATARI LEAD", 85, 76, 0, 0, 64, 110, 60, 30, NOFX, NOSH, NZ(2, 1), 50, 30},
-    {"WHISTLE LEAD", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 90, 20, 120},
-    {"OVERDRIVE", 124, 64, 96, 2, 64, 110, 64, 50},
-    {"GLIDE BIRD", 6, 64, 64, 0, 80, 100, 70, 30, RZ_SYRINX, 70, 80, 60, 30, 127},
-    {"SHIMMER LEAD", 85, 76, 32, 6, 70, 110, 80, 60, NOFX, 60, 60, 20, 60, SI_OCT, 70},
-    {"CHAOS PAD", 85, 76, 64, 96, 100, 110, 104, 40, NOFX, 110, 110, 100, 96, SI_OCT, 100},
-    {"PERIOD PAD", 38, 64, 32, 90, 96, 110, 100, 50, NOFX, 127, 120, 50, 80, SI_OCT, 80},
-    {"GLASS PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 120, 40, 60, 110, 110, 100, 96, SI_OCT, 100},
-    {"STRING PAD", 54, 76, 64, 90, 100, 115, 104, 40, RZ_SYMP, 60, 60, 115, 40, 80, 110, 100, 40, 35, SI_OCT, 90},
-    {"DARK PAD", 96, 16, 0, 100, 100, 110, 106, 30, NOFX, 127, 120, 50, 80, SI_OCT, 80},
-    {"FIFTH PAD", 6, 90, 64, 96, 100, 110, 104, 30, NOFX, 90, 110, 120, 100, SI_FIFTH, 110},
-    {"CLUSTER PAD", 85, 76, 0, 96, 100, 110, 104, 30, NOFX, 110, 110, 100, 96, SI_OCT, 100, NZ(1, 1), 40, 64},
-    {"PARTIAL PAD", 85, 76, 0, 96, 100, 110, 104, 30, NOFX, 120, 115, 90, 80, SI_2OCT, 100, NZ(1, 8), 50, 40},
-    {"PHASE PAD", 85, 76, 0, 96, 100, 115, 104, 40, NOFX, 110, 100, 40, 35, SI_OCT, 90, NZ(1, 9), 60, 80},
-    {"PRIME PAD", 85, 76, 0, 90, 100, 110, 104, 40, NOFX, 127, 125, 80, 90, SI_OCT5, 90, NZ(1, 5), 30, 20},
-    {"WARM CYCLE PAD", 6, 30, 64, 92, 100, 115, 104, 20},
-    {"CHOIR CHAOS", 85, 76, 32, 96, 100, 115, 104, 30, RZ_THROAT, 40, 80, 60, 64, 90, 60, 60, 20, 60, SI_OCT, 70},
-    {"FROZEN SCROLL", 85, 100, 127, 110, 110, 120, 115, 60, NOFX, 127, 127, 60, 100, SI_OCT, 70},
-    {"NIGHT SKY", 6, 64, 64, 100, 104, 115, 110, 30, RZ_MODAL, 70, 100, 110, 12, 50, 127, 125, 80, 90, SI_OCT5, 90},
-    {"CHAOS KEYS", 54, 76, 64, 0, 70, 60, 70, 50},
-    {"E-PIANO SCROLL", 30, 76, 64, 0, 72, 50, 72, 40, RZ_MODAL, 70, 100, 110, 12, 50},
-    {"HARPSI CHAOS", 85, 100, 96, 0, 62, 0, 62, 70, RZ_STRING, 40, 90, 60, 50, 90},
-    {"CLAV GATE", 38, 100, 32, 0, 54, 0, 54, 110},
-    {"KOTO", 6, 64, 64, 0, 66, 0, 66, 60, RZ_STRING, 60, 70, 96, 20, 85},
-    {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 60, 50, 90, 60, 60, 20, 60, SI_OCT, 70},
-    {"MARIMBA", 30, 100, 32, 0, 64, 0, 64, 100, RZ_MODAL, 90, 70, 80, 24, 60},
-    {"KALIMBA", 6, 64, 64, 0, 62, 0, 62, 70, RZ_MODAL, 40, 90, 80, 30, 100},
-    {"MUSIC BOX", 6, 64, 64, 0, 70, 0, 70, 40, RZ_MODAL, 100, 127, 120, 40, 80, 60, 60, 20, 60, SI_OCT, 70},
+    /* PIANO 1-8 */
+    {"GRAND PIANO", 30, 76, 64, 0, 64, 40, 74, 50, RZ_STRING, 100, 70, 96, 20, 85, ROOM},
+    {"BRIGHT PIANO", 30, 90, 96, 0, 64, 40, 72, 50, RZ_STRING, 108, 100, 96, 16, 85, ROOM},
+    {"ELECTRIC GRAND", 30, 90, 64, 0, 66, 50, 70, 40, RZ_STRING, 90, 85, 90, 30, 70},
+    {"HONKY-TONK", NZK, 0, 64, 40, 70, 40, RZ_STRING, 100, 80, 90, 20, 70, ROOM, NZ(1, 0), 10, 0},
+    {"E.PIANO 1", NZK, 0, 92, 0, 84, 20, NOFX, ROOM, NZ(1, 3), 2, 18},
+    {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 90, 40, 40, SI_OCT, 90, NZ(1, 3), 8, 45},
+    {"HARPSICHORD", 85, 100, 96, 0, 62, 0, 62, 70, RZ_STRING, 40, 90, 60, 50, 90},
+    {"CLAVINET", 38, 100, 32, 0, 54, 0, 54, 110},
+    /* CHROMATIC PERCUSSION 9-16 */
     {"CELESTA", 54, 90, 64, 0, 72, 0, 72, 60, RZ_MODAL, 100, 120, 110, 30, 120},
-    {"STEEL DRUM", 30, 76, 64, 0, 66, 0, 66, 80, RZ_MODAL, 90, 100, 90, 50, 100},
-    {"SITAR PLUCK", 85, 64, 32, 0, 74, 0, 74, 40, RZ_SYMP, 16, 80, 105, 70, 90},
-    {"TEMPLE BELL", 54, 90, 64, 0, 96, 0, 100, 30, RZ_MODAL, 70, 80, 120, 12, 110, 110, 100, 40, 35, SI_OCT, 90},
-    {"TUBULAR", 6, 64, 64, 0, 90, 0, 94, 40, RZ_MODAL, 110, 90, 115, 30, 100},
-    {"GONG", 110, 40, 0, 0, 100, 0, 104, 30, RZ_MODAL, 20, 60, 125, 60, 110, 127, 120, 50, 80, SI_OCT, 80},
+    {"GLOCKENSPIEL", CYC, 0, 66, 0, 70, 50, RZ_MODAL, 104, 127, 105, 28, 110, ROOM},
+    {"MUSIC BOX", 6, 64, 64, 0, 70, 0, 70, 40, RZ_MODAL, 100, 127, 120, 40, 80, 60, 60, 20, 60, SI_OCT, 70},
+    {"VIBRAPHONE", CYC, 0, 90, 0, 96, 40, RZ_MODAL, 92, 90, 112, 24, 110, ROOM},
+    {"MARIMBA", 30, 100, 32, 0, 64, 0, 64, 100, RZ_MODAL, 90, 70, 80, 24, 60},
+    {"XYLOPHONE", CYC, 0, 56, 0, 58, 80, RZ_MODAL, 116, 110, 64, 20, 100},
+    {"TUBULAR BELLS", 6, 64, 64, 0, 90, 0, 94, 40, RZ_MODAL, 110, 90, 115, 30, 100},
+    {"DULCIMER", CYC, 0, 60, 0, 70, 60, RZ_SYMP, 4, 100, 110, 60, 90},
+    /* ORGAN 17-24 */
+    {"DRAWBAR ORGAN", NZK, 2, 64, 127, 50, 0, NOFX, NOSH, NZ(1, 9), 0, 12},
+    {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, NOSH, NZ(1, 9), 2, 20},
+    {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, ROOM, NZ(1, 9), 6, 70},
+    {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, HALL, NZ(1, 9), 2, 8},
+    {"REED ORGAN", NZK, 20, 64, 120, 60, 10, NOFX, NOSH, NZ(1, 1), 4, 100},
+    {"ACCORDION", NZK, 20, 64, 120, 56, 10, NOFX, NOSH, NZ(1, 1), 30, 110},
+    {"HARMONICA", NZK, 24, 64, 115, 56, 30, NOFX, NOSH, NZ(1, 1), 2, 70},
+    {"TANGO ACCORD.", NZK, 16, 64, 120, 56, 20, NOFX, ROOM, NZ(1, 1), 20, 127},
+    /* GUITAR 25-32 */
+    {"NYLON GUITAR", CYC, 0, 60, 0, 66, 60, RZ_STRING, 40, 60, 90, 40, 100},
+    {"STEEL GUITAR", CYC, 0, 60, 0, 66, 60, RZ_STRING, 40, 100, 100, 30, 100, ROOM},
+    {"JAZZ GUITAR", CYC, 0, 62, 0, 66, 60, RZ_STRING, 44, 40, 84, 50, 100},
+    {"CLEAN GUITAR", CYC, 0, 62, 0, 68, 50, RZ_STRING, 45, 90, 96, 40, 100, ROOM},
+    {"MUTED GUITAR", CYC, 0, 50, 0, 50, 80, RZ_STRING, 40, 70, 30, 40, 100},
+    {"OVERDRIVE GTR", 110, 64, 96, 0, 80, 100, 64, 60, RZ_STRING, 45, 90, 96, 40, 50, ROOM},
+    {"DISTORTION GTR", 124, 64, 96, 2, 64, 110, 64, 50, NOFX, ROOM},
+    {"GTR HARMONICS", 54, 90, 64, 0, 70, 0, 74, 60, RZ_MODAL, 8, 120, 100, 50, 120},
+    /* BASS 33-40 */
+    {"ACOUSTIC BASS", CYC, 0, 60, 30, 60, 50, RZ_STRING, 40, 30, 72, 30, 100},
+    {"FINGER BASS", 6, 64, 0, 0, 64, 40, 56, 50, RZ_STRING, 40, 50, 80, 30, 90},
+    {"PICK BASS", 6, 64, 0, 0, 62, 40, 54, 60, RZ_STRING, 40, 90, 80, 20, 90},
+    {"FRETLESS BASS", 6, 30, 64, 10, 70, 90, 56, 40, RZ_STRING, 50, 40, 90, 40, 50},
+    {"SLAP BASS 1", 54, 50, 64, 0, 52, 0, 52, 100},
+    {"SLAP BASS 2", 38, 70, 32, 0, 56, 20, 52, 120},
+    {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30},
+    {"SYNTH BASS 2", 54, 70, 16, 0, 60, 40, 54, 120},
+    /* STRINGS 41-48: no bow; a saw holds a string resonator (as a bowed Rings) */
+    {"VIOLIN", NZK, 50, 80, 115, 70, 20, RZ_STRING, 50, 90, 120, 40, 80, ROOM, NZ(1, 8), 0, 70},
+    {"VIOLA", NZK, 50, 80, 115, 70, 20, RZ_STRING, 50, 70, 120, 40, 80, ROOM, NZ(1, 8), 0, 55},
+    {"CELLO", NZK, 54, 80, 115, 72, 20, RZ_STRING, 50, 55, 120, 40, 80, ROOM, NZ(1, 8), 0, 45},
+    {"CONTRABASS", NZK, 56, 80, 115, 72, 20, RZ_STRING, 50, 40, 120, 40, 80, ROOM, NZ(1, 8), 0, 35},
+    {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, NOFX, ROOM, NZ(1, 9), 40, 127},
+    {"PIZZICATO", CYC, 0, 54, 0, 56, 70, RZ_STRING, 40, 70, 50, 40, 100, ROOM},
+    {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 60, 50, 90, 60, 60, 20, 60, SI_OCT, 70},
+    {"TIMPANI", 6, 40, 0, 0, 84, 0, 86, 60, RZ_MODAL, 30, 40, 96, 8, 100, ROOM},
+    /* ENSEMBLE 49-56 */
+    {"STRINGS", NZK, 80, 96, 115, 96, 20, NOFX, HALL, NZ(1, 0), 12, 80},
+    {"SLOW STRINGS", NZK, 96, 100, 115, 100, 20, NOFX, HALL, NZ(1, 0), 10, 70},
+    {"SYNTH STRINGS 1", NZK, 60, 90, 110, 90, 40, NOFX, AIR, NZ(1, 0), 20, 100},
+    {"SYNTH STRINGS 2", NZK, 70, 90, 110, 94, 30, NOFX, AIR, NZ(1, 9), 6, 40},
+    {"CHOIR AAHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 80, 60, 60, 110, HALL, NZ(1, 0), 8, 40},
+    {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 60, 60, 4, 110, HALL, NZ(1, 0), 8, 40},
+    {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_THROAT, 40, 90, 60, 90, 100, AIR, NZ(1, 1), 10, 80},
+    {"ORCHESTRA HIT", NZK, 0, 70, 0, 74, 40, NOFX, HALL, NZ(1, 0), 40, 127},
+    /* BRASS 57-64: no lip reed; a saw that opens with the gate (the LPG: brighter as it gets louder) */
+    {"TRUMPET", NZK, 30, 80, 105, 60, 30, NOFX, ROOM, NZ(1, 8), 0, 90},
+    {"TROMBONE", NZK, 40, 80, 105, 64, 30, NOFX, ROOM, NZ(1, 8), 0, 55},
+    {"TUBA", NZK, 40, 80, 105, 64, 20, NOFX, NOSH, NZ(1, 8), 0, 30},
+    {"MUTED TRUMPET", NZK, 24, 76, 100, 60, 40, RZ_THROAT, 40, 90, 50, 110, 60, NOSH, NZ(1, 1), 0, 30},
+    {"FRENCH HORN", NZK, 50, 84, 105, 76, 20, NOFX, HALL, NZ(1, 8), 0, 25},
+    {"BRASS SECTION", NZK, 30, 80, 105, 64, 40, NOFX, ROOM, NZ(1, 0), 6, 64},
+    {"SYNTH BRASS 1", NZK, 20, 70, 90, 60, 80, NOFX, NOSH, NZ(1, 0), 10, 40},
+    {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, NOFX, ROOM, NZ(1, 0), 16, 80},
+    /* REED 65-72: no reed; a pulse (or the squares, the clarinet) through a throat */
+    {"SOPRANO SAX", NZK, 20, 76, 110, 60, 30, RZ_THROAT, 40, 90, 60, 30, 60, ROOM, NZ(1, 1), 0, 110},
+    {"ALTO SAX", NZK, 20, 76, 110, 60, 30, RZ_THROAT, 40, 80, 60, 30, 70, ROOM, NZ(1, 1), 0, 90},
+    {"TENOR SAX", NZK, 24, 76, 110, 62, 30, RZ_THROAT, 40, 60, 60, 30, 80, ROOM, NZ(1, 8), 0, 60},
+    {"BARITONE SAX", NZK, 24, 76, 110, 62, 30, RZ_THROAT, 40, 40, 60, 20, 80, NOSH, NZ(1, 8), 0, 40},
+    {"OBOE", NZK, 20, 76, 110, 60, 20, NOFX, ROOM, NZ(1, 1), 0, 0},
+    {"ENGLISH HORN", NZK, 24, 76, 110, 62, 20, RZ_THROAT, 40, 60, 60, 26, 50, ROOM, NZ(1, 1), 0, 20},
+    {"BASSOON", NZK, 24, 76, 110, 62, 20, RZ_THROAT, 40, 50, 60, 4, 50, NOSH, NZ(1, 1), 0, 50},
+    {"CLARINET", NZK, 30, 76, 115, 60, 0, NOFX, ROOM, NZ(1, 9), 0, 0},
+    /* PIPE 73-80: the FLUTE waveguide */
+    {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 90, 40, 127, ROOM},
+    {"FLUTE", CYC, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 90, 50, 127, ROOM},
+    {"RECORDER", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 90, 20, 127},
+    {"PAN FLUTE", CYC, 40, 80, 110, 76, 20, RZ_FLUTE, 30, 60, 90, 100, 127, HALL},
+    {"BLOWN BOTTLE", CYC, 50, 80, 110, 74, 20, RZ_FLUTE, 0, 30, 90, 110, 127},
+    {"SHAKUHACHI", CYC, 50, 84, 105, 80, 20, RZ_FLUTE, 50, 60, 90, 120, 127, HALL},
+    {"WHISTLE", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 90, 20, 120},
+    {"OCARINA", 6, 64, 127, 30, 76, 110, 66, 20, RZ_FLUTE, 10, 30, 90, 10, 127, ROOM},
+    /* SYNTH LEAD 81-88 */
+    {"SQUARE LEAD", NZK, 2, 64, 115, 60, 40, NOFX, NOSH, NZ(1, 9), 0, 0},
+    {"SAW LEAD", NZK, 2, 64, 115, 60, 50, NOFX, NOSH, NZ(1, 0), 4, 0},
+    {"CALLIOPE", NZK, 20, 70, 110, 60, 20, RZ_FLUTE, 60, 100, 90, 80, 100, ROOM, NZ(1, 9), 0, 4},
+    {"CHIFF LEAD", CYC, 0, 70, 110, 60, 40, RZ_FLUTE, 40, 100, 100, 90, 110},
+    {"CHARANG", 120, 50, 96, 2, 66, 110, 60, 60},
+    {"VOICE LEAD", NZK, 10, 70, 110, 64, 40, RZ_THROAT, 40, 90, 60, 64, 110, 60, 60, 20, 60, SI_OCT, 70,
+     NZ(1, 0), 4, 20},
+    {"FIFTHS LEAD", NZK, 4, 70, 110, 64, 50, RZ_SYMP, 20, 90, 100, 110, 80, NOSH, NZ(1, 0), 4, 0},
+    {"BASS + LEAD", 85, 76, 0, 6, 80, 110, 70, 50},
+    /* SYNTH PAD 89-96 */
+    {"NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 120, 40, 60, 110, 110, 100, 96, SI_OCT, 100},
+    {"WARM PAD", 6, 30, 64, 92, 100, 115, 104, 20, NOFX, ROOM},
+    {"POLYSYNTH", NZK, 20, 90, 80, 80, 60, NOFX, ROOM, NZ(1, 0), 8, 40},
+    {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 80, 60, 64, 90, 110, 110, 60, 80, SI_OCT, 90,
+     NZ(1, 0), 8, 30},
+    {"BOWED PAD", NZK, 96, 100, 115, 104, 20, RZ_MODAL, 100, 90, 120, 40, 90, HALL, NZ(1, 8), 0, 40},
+    {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 125, 80, 90, SI_OCT5, 90, NZ(1, 5), 30, 20},
+    {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 60, 60, 20, 90, 127, 127, 90, 90, SI_OCT, 90,
+     NZ(1, 0), 6, 20},
+    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 110, 40, 70, SI_OCT, 80},
+    /* SYNTH EFFECTS 97-104 */
+    {"RAIN", NZK, 0, 70, 60, 80, 30, NOFX, 110, 110, 100, 96, SI_OCT, 100, NZ(0, 7), 90, 50},
+    {"SOUNDTRACK", 85, 100, 127, 110, 110, 120, 115, 60, NOFX, 127, 127, 60, 100, SI_OCT, 70},
     {"CRYSTAL", 6, 100, 64, 0, 84, 0, 86, 20, RZ_MODAL, 100, 127, 120, 40, 80, 90, 110, 120, 100, SI_FIFTH, 110},
-    {"METAL CLUSTER", 85, 76, 0, 0, 80, 0, 82, 40, RZ_MODAL, 70, 100, 110, 12, 100, NOSH, NZ(1, 5), 80, 60},
-    {"FM BELLS", 85, 76, 0, 0, 84, 0, 86, 30, NOFX, NOSH, NZ(1, 3), 90, 90},
-    {"PING CHIME", 85, 76, 0, 0, 80, 0, 82, 30, NOFX, 60, 60, 20, 60, SI_OCT, 70, NZ(1, 4), 40, 50, 30, 0, 30},
-    {"BROKEN BELL", 110, 40, 64, 0, 84, 0, 86, 60, RZ_MODAL, 116, 70, 100, 40, 110},
-    {"CHAOS KICK", 85, 76, 0, 0, 50, 0, 50, 30, NOFX, NOSH, NZ(1, 3), 0, 0, 36, 0, 90},
-    {"NOISE SNARE", 85, 76, 0, 0, 48, 0, 48, 40, NOFX, NOSH, NZ(2, 0), 80, 20},
-    {"CLOSED HAT", 85, 76, 0, 0, 34, 0, 34, 70, NOFX, NOSH, NZ(1, 5), 110, 90},
-    {"OPEN HAT", 85, 76, 0, 0, 58, 0, 58, 70, NOFX, NOSH, NZ(1, 6), 110, 90},
-    {"TOM DROP", 85, 76, 0, 0, 56, 0, 56, 40, NOFX, NOSH, NZ(1, 3), 10, 10, 50, 0, 60},
-    {"RIM CLICK", 6, 64, 64, 0, 30, 0, 30, 120},
-    {"CONGA", 30, 100, 32, 0, 52, 0, 52, 110, RZ_MODAL, 30, 60, 60, 20, 40},
-    {"COWBELL", 85, 76, 0, 0, 50, 0, 50, 60, NOFX, NOSH, NZ(0, 2), 70, 0},
-    {"CLAP", 85, 76, 0, 0, 46, 0, 48, 30, NOFX, NOSH, NZ(0, 6), 100, 20},
-    {"ZAP DRUM", 85, 76, 0, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 120},
-    {"WOOD BLOCK", 6, 64, 64, 0, 40, 0, 40, 100, RZ_MODAL, 30, 70, 50, 20, 90},
-    {"808 BOOM", 85, 76, 0, 0, 72, 0, 72, 20, NOFX, NOSH, NZ(1, 3), 0, 0, 56, 0, 70},
-    {"RWALK FLANGE", 85, 76, 0, 20, 80, 100, 80, 40, NOFX, NOSH, NZ(0, 1), 64, 80},
-    {"CROSS MOD", 85, 76, 0, 4, 70, 100, 70, 50, NOFX, NOSH, NZ(0, 4), 64, 64},
-    {"RESONOISE", 85, 76, 0, 10, 70, 100, 72, 60, NOFX, NOSH, NZ(0, 5), 50, 70},
-    {"GLITCH RAIN", 85, 76, 0, 0, 70, 60, 80, 30, NOFX, 110, 110, 100, 96, SI_OCT, 100, NZ(0, 7), 90, 50},
-    {"GRAIN STORM", 85, 76, 0, 10, 70, 100, 74, 40, NOFX, NOSH, NZ(0, 8), 100, 80},
-    {"BASURILLA", 85, 76, 0, 4, 70, 100, 70, 40, NOFX, NOSH, NZ(0, 9), 40, 60},
-    {"LFSR DUST", 85, 76, 0, 10, 80, 100, 90, 30, NOFX, NOSH, NZ(2, 0), 30, 90},
-    {"WAKING", 85, 76, 0, 20, 80, 100, 80, 40, NOFX, NOSH, NZ(2, 2), 64, 64},
-    {"PSH BLIPS", 85, 76, 0, 0, 70, 90, 76, 40, NOFX, NOSH, NZ(2, 3), 80, 70},
-    {"ARRAY ROCKS", 85, 76, 0, 0, 70, 100, 70, 40, NOFX, NOSH, NZ(2, 4), 64, 64},
-    {"EXISTENTIAL", 85, 76, 0, 40, 90, 110, 96, 40, NOFX, 127, 120, 50, 80, SI_OCT, 80, NZ(2, 5), 40, 90},
-    {"WHO KNOWS", 85, 76, 0, 20, 80, 100, 84, 40, NOFX, NOSH, NZ(2, 6), 70, 70},
-    {"RWALK DRIFT", 85, 76, 0, 30, 80, 110, 90, 40, NOFX, 110, 100, 40, 35, SI_OCT, 90, NZ(2, 9), 64, 80},
-    {"KITTEN", 6, 64, 64, 10, 70, 80, 70, 30, RZ_THROAT, 4, 80, 50, 90, 127},
-    {"LION ROAR", 124, 30, 0, 10, 90, 100, 90, 40, RZ_THROAT, 110, 40, 100, 20, 127},
-    {"CROW", 110, 64, 64, 0, 64, 40, 60, 30, RZ_SYRINX, 40, 60, 60, 80, 127},
-    {"OWL HOOT", 6, 64, 64, 20, 80, 60, 80, 20, RZ_FLUTE, 90, 40, 90, 10, 120},
-    {"DOVE COO", 6, 40, 64, 20, 80, 60, 80, 20, RZ_THROAT, 60, 50, 70, 30, 110},
-    {"EAGLE", 6, 64, 64, 0, 100, 0, 80, 30, RZ_HAWK, 90, 100, 60, 50, 127, 110, 100, 40, 35, SI_OCT, 90},
-    {"WHALE SONG", 6, 30, 64, 90, 100, 110, 104, 20, RZ_THROAT, 127, 30, 110, 10, 120, 127, 127, 40, 90, SI_OCT, 60},
-    {"SIREN RISE", 85, 76, 0, 40, 100, 110, 100, 30, NOFX, NOSH, NZ(0, 3), 50, 20, 110, 127, 100},
+    {"ATMOSPHERE", CYC, 0, 80, 0, 90, 40, RZ_STRING, 40, 90, 100, 40, 90, 127, 120, 50, 80, SI_OCT, 80},
+    {"BRIGHTNESS", NZK, 40, 90, 110, 96, 40, NOFX, 120, 115, 90, 80, SI_2OCT, 100, NZ(1, 9), 8, 60},
+    {"GOBLINS", 6, 64, 64, 40, 90, 100, 90, 30, RZ_HAWK, 70, 90, 70, 70, 127, 110, 100, 40, 35, SI_OCT, 90},
+    {"ECHOES", 54, 90, 64, 0, 70, 0, 80, 40, RZ_MODAL, 70, 100, 110, 12, 80, 127, 127, 0, 90, SI_OCT, 70},
+    {"SCI-FI", NZK, 10, 80, 100, 90, 30, NOFX, AIR, NZ(2, 1), 50, 30, 100, 127, 60},
+    /* ETHNIC 105-112 */
+    {"SITAR", 85, 64, 32, 0, 74, 0, 74, 40, RZ_SYMP, 16, 80, 105, 70, 90},
+    {"BANJO", CYC, 0, 56, 0, 58, 70, RZ_STRING, 20, 120, 60, 20, 100},
+    {"SHAMISEN", CYC, 0, 54, 0, 56, 80, RZ_STRING, 10, 110, 50, 30, 100},
+    {"KOTO", 6, 64, 64, 0, 66, 0, 66, 60, RZ_STRING, 60, 70, 96, 20, 85, ROOM},
+    {"KALIMBA", 6, 64, 64, 0, 62, 0, 62, 70, RZ_MODAL, 40, 90, 80, 30, 100},
+    {"BAGPIPE", NZK, 10, 70, 120, 60, 20, RZ_SYMP, 20, 90, 115, 100, 70, ROOM, NZ(1, 1), 6, 80},
+    {"FIDDLE", NZK, 40, 76, 115, 66, 30, RZ_STRING, 50, 110, 115, 30, 80, NOSH, NZ(1, 8), 0, 90},
+    {"SHANAI", NZK, 20, 76, 110, 60, 20, RZ_THROAT, 40, 100, 60, 110, 60, ROOM, NZ(1, 1), 0, 0},
+    /* PERCUSSIVE 113-120 */
+    {"TINKLE BELL", 54, 90, 64, 0, 76, 0, 76, 60, RZ_MODAL, 70, 120, 110, 12, 120, ROOM},
+    {"AGOGO", CYC, 0, 54, 0, 56, 80, RZ_MODAL, 116, 100, 80, 40, 110},
+    {"STEEL DRUMS", 54, 90, 64, 0, 68, 0, 68, 60, RZ_MODAL, 90, 100, 100, 40, 120},
+    {"WOODBLOCK", 6, 64, 64, 0, 40, 0, 40, 100, RZ_MODAL, 30, 70, 50, 20, 90},
+    {"TAIKO", NZK, 0, 62, 0, 64, 30, NOFX, HALL, NZ(1, 3), 0, 0, 50, 0, 50},
+    {"MELODIC TOM", NZK, 0, 56, 0, 56, 40, NOFX, NOSH, NZ(1, 3), 10, 10, 50, 0, 60},
+    {"SYNTH DRUM", NZK, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 120},
+    {"REVERSE CYMBAL", NZK, 100, 30, 0, 30, 20, NOFX, NOSH, NZ(1, 6), 110, 90},
+    /* SOUND EFFECTS 121-128 */
+    {"GTR FRET NOISE", NZK, 0, 40, 0, 44, 60, RZ_STRING, 40, 90, 60, 40, 60, NOSH, NZ(0, 6), 40, 40, 30, 0, 50},
+    {"BREATH NOISE", NZK, 40, 70, 60, 70, 10, RZ_FLUTE, 30, 60, 90, 127, 70, NOSH, NZ(1, 6), 127, 127},
+    {"SEASHORE", NZK, 110, 110, 100, 115, 10, NOFX, HALL, NZ(1, 6), 127, 127},
+    {"BIRD TWEET", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 90, 70, 60, 15, 127, 100, 90, 30, 40, SI_OCT, 100},
+    {"TELEPHONE", NZK, 0, 64, 127, 40, 30, NOFX, NOSH, NZ(0, 2), 30, 20},
+    {"HELICOPTER", NZK, 20, 80, 120, 80, 30, NOFX, NOSH, NZ(0, 9), 20, 40},
+    {"APPLAUSE", NZK, 40, 80, 110, 90, 10, NOFX, HALL, NZ(0, 8), 100, 80},
+    {"GUNSHOT", NZK, 0, 60, 0, 60, 30, NOFX, HALL, NZ(2, 0), 80, 20},
 };
 #define NPRESETS (sizeof PRESETS / sizeof PRESETS[0])
 typedef char presets_are_128[NPRESETS == 128u ? 1 : -1];   /* (one for each MIDI program) */
