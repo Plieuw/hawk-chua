@@ -1,6 +1,7 @@
 # HAWK CHUA — een chaotische synthesizer voor de M-VAVE FM-1
 
-Door **plieuwski** — Instagram: [@plieuwski](https://www.instagram.com/plieuwski/). Op de FM-1 Firmware Hub als `hawk-chua` (identiteit `FM-1_007`).
+Door **plieuwski**. Contact: Instagram [@plieuwski](https://www.instagram.com/plieuwski/). Op de FM-1 Firmware Hub als
+`hawk-chua` (identiteit `FM-1_007`).
 
 Firmware voor de FM-1 waarvan de oscillator **Chua's circuit** is: het eenvoudigste elektronische circuit dat chaotisch
 gedrag vertoont. Elke stem is een eigen circuit; het scherm tekent live de attractor die de stem doorloopt. Gebouwd op
