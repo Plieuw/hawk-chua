@@ -596,7 +596,7 @@ static void art_syrinx(int hawk)
  * window (CATHEDRAL), a girih star (MOSQUE), a lotus mandala (TEMPLE), rippling rings (HALL). Its rings from the
  * middle out are the tail from now back in time: each lit as the tail was then (hist: the level, a UI frame each,
  * the newest last), so the sound flows outward through the pattern; with SHIMMER the outer rings (the older tail,
- * climbed higher) have more and finer elements, an INTERVAL's ratio a step; DECAY how far out it reaches, TONE how
+ * sunk deeper) have fewer and broader elements, an INTERVAL's ratio a step; DECAY how far out it reaches, TONE how
  * bright the outer rings stay; the whole turning slowly in time with the BPM */
 static void orn_pt(int32_t r, uint32_t th, int32_t *sx, int32_t *sy)   /* r Q8, th a phase: on the window */
 {
@@ -638,10 +638,10 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
         d = d > 200u ? 200u : d;                                 /* (after a pause: no jump) */
         orn_beat += d * (bpm ? bpm : 120u) * 1118u / 1024u;     /* (beats, Q16: 65536 / 60000 a ms a BPM) */
     }
-    static const uint8_t RATIO8[SI_COUNT] = {16, 12, 24, 32};    /* the interval's ratio x 8 */
+    static const uint8_t RATIO8[SI_COUNT] = {16, 12, 24, 32};    /* the interval's ratio (down) x 8 */
     static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8};
     /* the knobs, each across its whole range: SIZE the window (28 .. 52 px) and its rings (4 .. 7); DECAY how far back
-     * the rings reach into the tail (0.8 .. 7.6 s); SHIMMER how many steps the outer rings climb (0 .. 3); TONE how
+     * the rings reach into the tail (0.8 .. 7.6 s); SHIMMER how many steps the outer rings sink (0 .. 3); TONE how
      * bright the outer rings stay; MIX how bright it all is */
     uint32_t size = sys.sh_size & 127u, mixv = sys.sh_mix & 127u, tone = sys.sh_tone & 127u;
     uint32_t NR = 4u + size * 3u / 127u, span = 20u + (sys.sh_decay & 127u) * 170u / 127u, SP, k, j;
@@ -671,7 +671,7 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
         }
     }
     for (k = 0; k < NR; k++) {                                   /* the rings: the tail, now (inside) to earlier */
-        uint32_t age = k * SP + SP / 2u, n, climb;
+        uint32_t age = k * SP + SP / 2u, n, sink;
         int32_t lv, a, ri = Q8(8) + (R - Q8(8)) * (int32_t)k / (int32_t)NR, ro = Q8(8) + (R - Q8(8)) * (int32_t)(k + 1u) / (int32_t)NR;
         uint32_t rot = 0;
         uint16_t c;
@@ -679,10 +679,10 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
         a = lv * (int32_t)(127u * NR - k * (127u - tone)) / (int32_t)(127u * NR);   /* (TONE: the outer ones) */
         a = (int32_t)(6u + mixv * 14u / 127u) + a * (int32_t)(30u + mixv * 52u / 127u) / 255;   /* (MIX; faintly there) */
         c = ux_mix(T_BG, art_c, a > 100 ? 100 : a);
-        climb = (k * (sys.sh_shimmer & 127u) * 3u + 63u * (NR - 1u)) / (127u * (NR - 1u));   /* the steps climbed */
-        n = FOLD[sp];
-        for (j = 0; j < climb && n < 40u; j++)
-            n = n * RATIO8[sys.sh_interval % SI_COUNT] / 8u;
+        sink = (k * (sys.sh_shimmer & 127u) * 3u + 63u * (NR - 1u)) / (127u * (NR - 1u));   /* the steps sunk */
+        n = FOLD[sp] * 2u;
+        for (j = 0; j < sink && n > 3u; j++)
+            n = n * 8u / RATIO8[sys.sh_interval % SI_COUNT];
         n = n < 3u ? 3u : n > 48u ? 48u : n;
         {   /* each ring steps one of its elements on the beat's subdivisions: the inner on the quarters, then eighths,
              * the outer on sixteenths; a quick eased move at each, then still; the rings in alternate directions */

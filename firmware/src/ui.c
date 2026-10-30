@@ -267,14 +267,14 @@ static const fx_preset_t FX_PRESETS[] = {
 typedef struct { const char *name; uint8_t size, decay, shimmer, mix, interval, tone, space; } sh_preset_t;
 static const sh_preset_t SH_PRESETS[] = {
     {"SHIMMER OFF", 100, 90, 70, 0, SI_OCT, 80, SS_HALL},
-    {"HEAVEN", 110, 110, 100, 96, SI_OCT, 100, SS_HALL},
+    {"UNDERWORLD", 110, 110, 100, 96, SI_OCT, 100, SS_HALL},
     {"STONE TEMPLE", 70, 95, 15, 70, SI_OCT, 50, SS_TEMPLE},
     {"ORACLE CHAMBER", 90, 110, 40, 85, SI_FIFTH, 40, SS_TEMPLE},
     {"CATHEDRAL", 127, 122, 30, 80, SI_OCT, 70, SS_CATHEDRAL},
     {"GOTHIC CHOIR", 120, 118, 90, 90, SI_OCT5, 80, SS_CATHEDRAL},
     {"MOSQUE DOME", 110, 112, 25, 75, SI_FIFTH, 100, SS_MOSQUE},
-    {"DOME LIGHT", 115, 120, 100, 90, SI_2OCT, 110, SS_MOSQUE},
-    {"OCTAVE HAZE", 127, 120, 50, 80, SI_OCT, 80, SS_HALL},
+    {"DOME DEPTHS", 115, 120, 100, 90, SI_2OCT, 110, SS_MOSQUE},
+    {"SUB HAZE", 127, 120, 50, 80, SI_OCT, 80, SS_HALL},
     {"SMALL ROOM", 60, 60, 20, 60, SI_OCT, 70, SS_HALL},
 };
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
