@@ -234,6 +234,68 @@ int main(int argc, char **argv)
     check("CC 123 releases everything", note_held[55] == 0 && voice[0].stage != ST_SUSTAIN && voice[1].stage != ST_SUSTAIN);
     run_ms(2000);
 
+    {   /* the XG / GM CC map: HOLD, SOSTENUTO, VOLUME / EXPRESSION / PAN, the sound's controls 71 .. 74, RESET */
+        int okk = 1;
+        uint32_t q, att0, rel0;
+        int32_t k0;
+        double el = 0, er = 0, e0 = 0;
+#define VST(nt) ({ uint32_t _s = ST_OFF, _q; for (_q = 0; _q < NVOICE; _q++) if (voice[_q].note == (nt) && voice[_q].stage != ST_OFF && voice[_q].stage != ST_TAIL) _s = voice[_q].stage; _s; })
+        midi_in(0xB0, 64, 127);                  /* HOLD down, a note played and let go: it sounds on */
+        midi_in(0x90, 60, 100);
+        run_ms(20);
+        midi_in(0x80, 60, 0);
+        run_ms(20);
+        okk &= VST(60) == ST_SUSTAIN || VST(60) == ST_ATTACK;
+        midi_in(0xB0, 64, 0);                    /* ... until it comes up */
+        run_ms(20);
+        okk &= VST(60) == ST_RELEASE || VST(60) == ST_OFF;
+        run_ms(2000);
+        midi_in(0x90, 62, 100);                  /* SOSTENUTO: holds 62 (held as it went down), not 64 (after) */
+        run_ms(20);
+        midi_in(0xB0, 66, 127);
+        midi_in(0x90, 64, 100);
+        run_ms(20);
+        midi_in(0x80, 62, 0);
+        midi_in(0x80, 64, 0);
+        run_ms(20);
+        okk &= (VST(62) == ST_SUSTAIN || VST(62) == ST_ATTACK) && VST(64) != ST_SUSTAIN && VST(64) != ST_ATTACK;
+        midi_in(0xB0, 66, 0);
+        run_ms(20);
+        okk &= VST(62) != ST_SUSTAIN && VST(62) != ST_ATTACK;
+        run_ms(2000);
+        printf("   (HOLD, SOSTENUTO: %s)\n", okk ? "ok" : "wrong");
+        att0 = eg.att; rel0 = eg.rel; k0 = eg.k;  /* 71 .. 73 move the ring and the envelope off the knobs */
+        midi_in(0xB0, 71, 127); midi_in(0xB0, 72, 127); midi_in(0xB0, 73, 127);
+        midi_in(0x90, 60, 100);
+        run_ms(20);
+        okk &= eg.k != k0 && eg.rel != rel0 && eg.att != att0;
+        midi_in(0xB0, 121, 0);                   /* RESET ALL CONTROLLERS: back */
+        midi_in(0x80, 60, 0);
+        run_ms(20);
+        okk &= eg.k == k0 && eg.rel == rel0 && eg.att == att0 && mcc.bri == 64u;
+        run_ms(2000);
+        for (q = 0; q < 3u; q++) {               /* VOLUME 0: silence; PAN 0: all left */
+            static const uint8_t vv[3] = { 100, 100, 0 }, pp[3] = { 64, 0, 64 };
+            uint32_t w, b;
+            double sl = 0, sr = 0;
+            midi_in(0xB0, 7, vv[q]); midi_in(0xB0, 10, pp[q]);
+            midi_in(0x90, 57, 110);
+            run_ms(100);
+            for (w = 0; w < 40u; w++) { block(); for (b = 0; b < CTL; b++) { sl += fabs((double)buf[2 * b]); sr += fabs((double)buf[2 * b + 1]); } }
+            midi_in(0x80, 57, 0);
+            run_ms(1500);
+            if (q == 0) { e0 = sl + sr; }
+            if (q == 1) { el = sl; er = sr; }
+            if (q == 2) okk &= sl + sr < 0.001 * e0;
+        }
+        printf("   (PAN 0: left %.0f right %.0f; VOLUME 100 both %.0f)\n", el, er, e0);
+        okk &= e0 > 0 && er < 0.01 * el;
+        midi_in(0xB0, 7, 100); midi_in(0xB0, 10, 64);
+        run_ms(10);
+#undef VST
+        check("MIDI CCs (the XG map): HOLD, SOSTENUTO, VOLUME, PAN, 71 .. 73, RESET ALL CONTROLLERS", okk);
+    }
+
     /* a ring overflow: everything let go */
     midi_in(0x90, 50, 100);
     run_ms(10);

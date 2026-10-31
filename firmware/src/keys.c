@@ -30,6 +30,9 @@ static void kb_out(uint32_t pkt)                 /* a note on to USB MIDI out, i
         midi_out_event(pkt);
 }
 static uint8_t note_held[128];                   /* sources holding each note */
+static uint8_t note_sus[128];                    /* bit 0: let go under a pedal (sounds on), bit 1: held when SOSTENUTO
+                                                  * went down (sostenuto holds it) */
+static uint8_t sost_on;                          /* SOSTENUTO (CC 66) down */
 
 enum { OWN_SYNTH, OWN_ARP, OWN_KARMA };         /* who the notes held go to */
 static uint8_t own_was, arp_was_hold, k_was_latch, k_was_on, arp_was_on;
@@ -37,6 +40,12 @@ static uint32_t owner(void) { return sys.k_on ? OWN_KARMA : sys.arp_on ? OWN_ARP
 
 static void note_start(uint32_t note, uint32_t vel)
 {
+    if (mcc.soft)                                /* (SOFT PEDAL, CC 67: softer, x 3/4) */
+        vel = vel * 3u / 4u ? vel * 3u / 4u : 1u;
+    if (note_sus[note] & 1u) {                   /* (played again while the pedal holds it: no longer pending) */
+        note_sus[note] &= 2u;
+        synth_note_off(note);
+    }
     if (note_held[note] < 255u)
         note_held[note]++;
     switch (own_was) {
@@ -52,6 +61,10 @@ static void note_end(uint32_t note)
     if (!note_held[note])
         return;
     if (--note_held[note] == 0u) {
+        if (own_was != OWN_ARP && own_was != OWN_KARMA && (sys.pedal || (note_sus[note] & 2u))) {
+            note_sus[note] |= 1u;                /* (HOLD / SOSTENUTO: it sounds on until the pedal comes up) */
+            return;
+        }
         switch (own_was) {
         case OWN_ARP: arp_remove(note); break;
         case OWN_KARMA: karma_remove(note); break;
@@ -103,7 +116,7 @@ static void keys_all_off(void)
 {
     uint32_t k;
     for (k = 0; k < 128u; k++)
-        note_held[k] = 0;
+        note_held[k] = note_sus[k] = 0;
     for (k = 0; k < NKEYS; k++)
         if (kb_note[k] != KB_SILENT) {
             midi_out_event(0x08u | (0x80u | kb_ch[k]) << 8 | (uint32_t)kb_note[k] << 16);
@@ -141,6 +154,76 @@ static void keyboard_block(void)
     }
 }
 
+/* the notes the pedals let go (HOLD up, SOSTENUTO up): those that no pedal holds any more end */
+static void pedal_release(void)
+{
+    uint32_t k;
+    for (k = 0; k < 128u; k++)
+        if ((note_sus[k] & 1u) && !sys.pedal && !(note_sus[k] & 2u)) {
+            note_sus[k] = 0;
+            synth_note_off(k);
+        }
+}
+
+/* MIDI control changes: the XG / GM map (as on a Yamaha MU90) where the sound has the thing. Not here: bank select
+ * (program change alone picks the preset), portamento (5, 65, 84: no glide), RPN / NRPN (no pitch bend), omni / mono */
+static void midi_cc(uint32_t cc, uint32_t v)
+{
+    uint32_t k;
+    switch (cc) {
+    case 1:                                      /* MODULATION: the mod wheel (feg.c mw_block, the EDIT page) */
+        sys.mw = (uint8_t)v;
+        sys.mw_seen = 1;
+        break;
+    case 7: mcc.vol = (uint8_t)v; break;         /* MAIN VOLUME (100: as it was; synth_render) */
+    case 10: mcc.pan = (uint8_t)v; break;        /* PAN: the balance */
+    case 11: mcc.expr = (uint8_t)v; break;       /* EXPRESSION */
+    case 64:                                     /* HOLD 1: the notes sound on (and the PIANO's dampers stay up) */
+        sys.pedal = v >= 64u;
+        if (!sys.pedal)
+            pedal_release();
+        break;
+    case 66:                                     /* SOSTENUTO: holds the notes held as it goes down */
+        if (v >= 64u && !sost_on)
+            for (k = 0; k < 128u; k++)
+                if (note_held[k] || (note_sus[k] & 1u))
+                    note_sus[k] |= 2u;
+        if (v < 64u && sost_on) {
+            for (k = 0; k < 128u; k++)
+                note_sus[k] &= 1u;
+            pedal_release();
+        }
+        sost_on = v >= 64u;
+        break;
+    case 67: mcc.soft = v >= 64u; break;         /* SOFT PEDAL: new notes softer */
+    case 71: mcc.res = (uint8_t)v; break;        /* HARMONIC CONTENT: the ring (64: as the sound has it) */
+    case 72: mcc.rel = (uint8_t)v; break;        /* RELEASE TIME */
+    case 73: mcc.att = (uint8_t)v; break;        /* ATTACK TIME */
+    case 74: mcc.bri = (uint8_t)v; break;        /* BRIGHTNESS: how far the gate opens */
+    case 91: sys.sh_mix = (uint8_t)v; break;     /* EFFECT 1 (reverb send): the SHIMMER's mix */
+    case 93: sys.fx_mix = (uint8_t)v; break;     /* EFFECT 3 (chorus send): the FX resonator's mix */
+    case 94: sys.sh_shimmer = (uint8_t)v; break; /* EFFECT 4 (variation): the SHIMMER's shimmer */
+    case 120:                                    /* ALL SOUND OFF, ALL NOTES OFF */
+    case 123:
+        keys_all_off();
+        break;
+    case 121:                                    /* RESET ALL CONTROLLERS (as XG: not volume, pan, the effects) */
+        sys.mw = 0;
+        mcc.expr = 127;
+        mcc.soft = 0;
+        mcc.res = mcc.rel = mcc.att = mcc.bri = 64;
+        sys.at = 0;
+        for (k = 0; k < 128u; k++)
+            note_sus[k] &= 1u, at_poly[k] = 0;
+        sost_on = 0;
+        sys.pedal = 0;
+        pedal_release();
+        break;
+    default:
+        break;
+    }
+}
+
 static void midi_in_block(void)
 {
     if (midi_in_overflow) {                      /* the ring overflowed: a note-off may be lost, release all */
@@ -162,14 +245,8 @@ static void midi_in_block(void)
             note_start(d1, d2);
         else if (st == 0x80u || st == 0x90u)     /* (note on with velocity 0 is a note off) */
             note_end(d1);
-        else if (st == 0xB0u && (d1 == 123u || d1 == 120u))
-            keys_all_off();
-        else if (st == 0xB0u && d1 == 1u) {      /* the mod wheel: its parameter (feg.c mw_block, the EDIT page) */
-            sys.mw = (uint8_t)d2;
-            sys.mw_seen = 1;
-        }
-        else if (st == 0xB0u && d1 == 64u)        /* the sustain pedal: the PIANO's dampers (resonator.c) */
-            sys.pedal = d2 >= 64u;
+        else if (st == 0xB0u)
+            midi_cc(d1, d2);
         else if (st == 0xD0u) {                  /* aftertouch (channel pressure): the breath (resonator.c) */
             sys.at = (uint8_t)d1;
             sys.at_seen = 1;
@@ -182,7 +259,7 @@ static void midi_in_block(void)
             keys_prog_req = (uint8_t)(d1 + 1u);
         else if (((pkt >> 8) & 0xFFu) >= 0xF8u)   /* realtime: the clock for the arpeggiator */
             arp_midi_rt((pkt >> 8) & 0xFFu);
-        /* add here: CC -> parameters, pitch bend ... */
+        /* add here: pitch bend ... */
     }
 }
 

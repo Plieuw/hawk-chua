@@ -253,14 +253,22 @@ static uint32_t chua_restarts;                   /* voices restarted because the
 
 /* the knobs' envelope and ring, per block (read by both cores while they render: written before) */
 static struct { uint32_t att, dec, sus, rel; int32_t k, comp; } eg;
+/* MIDI CCs (keys.c, the XG / GM map): MAIN VOLUME and EXPRESSION, PAN (the balance), and the sound's controls 71 .. 74
+ * (64: the sound as it is: HARMONIC CONTENT = the ring, RELEASE / ATTACK TIME = the envelope, BRIGHTNESS = the gate) */
+static struct { uint8_t vol, expr, pan, res, rel, att, bri, soft; } mcc = { 100, 127, 64, 64, 64, 64, 64, 0 };
+static uint32_t mcc_off(uint32_t knob, uint32_t cc)   /* the knob moved by the CC's offset from 64 (x 1, -64 .. +63) */
+{
+    return (uint32_t)clamp((int32_t)(knob & 127u) + (int32_t)(cc & 127u) - 64, 0, 127);
+}
 static void env_params(void)
 {
-    eg.att = ENV_MAX / ENV_FRAMES[sys.attack & 127u];
+    uint32_t ring = mcc_off(sys.ring, mcc.res);
+    eg.att = ENV_MAX / ENV_FRAMES[mcc_off(sys.attack, mcc.att)];
     eg.dec = ENV_COEF[sys.decay & 127u];
     eg.sus = (uint32_t)(sys.sustain & 127u) * (ENV_MAX / 127u);
-    eg.rel = ENV_COEF[sys.release & 127u];
-    eg.k = (int32_t)LPG_K[sys.ring & 127u];
-    eg.comp = LPG_COMP[sys.ring & 127u];
+    eg.rel = ENV_COEF[mcc_off(sys.release, mcc.rel)];
+    eg.k = (int32_t)LPG_K[ring];
+    eg.comp = LPG_COMP[ring];
 }
 
 static void synth_note_on(uint32_t key, uint32_t vel)
@@ -402,6 +410,11 @@ static void lpg_coefs(voice_t *v)
     int64_t g, k = (int64_t)eg.k << 4;
     if (v->vbr)                                         /* (velocity: a soft note's gate opens less) */
         c = c * (255u - v->vbr) / 255u;
+    if (mcc.bri != 64u) {                               /* (BRIGHTNESS, CC 74: the gate opens 1/2 .. 3/2 as far) */
+        c = c * (mcc.bri + 64u) / 128u;
+        if (c > 255u)
+            c = 255u;
+    }
     g = (int64_t)LPG_G[c] << 4;
     uint32_t d = (uint32_t)((1 << 28) + ((g * (g + k)) >> 28));               /* 1 + g (g + k): 1 .. ~8, Q28 */
     v->a1 = (int32_t)(((1u << 31) / (d >> 13)) << 12);                         /* 1 / d (32-bit division) */
@@ -681,7 +694,14 @@ static void synth_render(int32_t *out, uint32_t n)
     uint32_t i, k, busy = 0, newest = 0, mask = 0, own = 0;
     int32_t m = (int32_t)sys.master_q12, sum[CTL], dl[CTL], dr[CTL], basis = (int32_t)(sys.basis & 127u);
     voice_t *tv = 0;
-    int inner;
+    int inner, ml, mr;
+    {   /* MAIN VOLUME x EXPRESSION (CC 7, 11; squared, as on a GM synth: 100 x 127 = the level as it was), PAN (CC 10) */
+        uint32_t ve = (uint32_t)(mcc.vol > 100u ? 100u : mcc.vol) * mcc.expr;     /* 0 .. 12700 */
+        uint32_t p = mcc.pan & 127u;
+        m = (int32_t)((uint32_t)m * (ve * ve / 4096u) / 39375u);                    /* (12700^2 / 4096 = 39377) */
+        ml = p <= 64u ? m : (int32_t)((uint32_t)m * (127u - p) / 63u);
+        mr = p >= 64u ? m : (int32_t)((uint32_t)m * p / 64u);
+    }
     if (synth_shed) {                                   /* the CPU over its budget: one voice less, the one least heard
                                                          * (the oldest ringing tail, else released, else the oldest) */
         voice_t *best = 0;
@@ -777,8 +797,8 @@ static void synth_render(int32_t *out, uint32_t n)
         for (i = 0; i < n; i++) {
             l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
             r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
-            l[i] = soft_clip(l[i]) * m >> 12;
-            r[i] = soft_clip(r[i]) * m >> 12;
+            l[i] = soft_clip(l[i]) * ml >> 12;
+            r[i] = soft_clip(r[i]) * mr >> 12;
         }
         tape_run(l, r, n);                              /* (the tape: recorded from it, played under it) */
         for (i = 0; i < n; i++) {
