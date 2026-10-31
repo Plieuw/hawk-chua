@@ -683,6 +683,7 @@ static void wg_drum_run(wg_drum_t *D, const int32_t *in, int32_t *y, uint32_t n,
  * piano's own: ~20 s in the bass, ~1 s at the top) */
 #define WG_PL 740u                               /* each string's line (half-rate samples: 30 Hz and up; lower: up) */
 #define WG_PH 160u                               /* the hammer's comb (a power of two is not needed: modulo) */
+#define WG_PHU 128u                              /* the hammer: the near end's echo (an eighth of the period)'s line */
 typedef struct {
     int32_t s[2][WG_PL];
     int32_t hb[WG_PH];
@@ -690,6 +691,11 @@ typedef struct {
     int32_t lp[2], a1x[2], a1y[2], a2x[2], a2y[2];   /* the loss filters; the stiffness all-passes */
     int32_t fx[2], fy[2];                        /* the tuning all-passes (the fraction of a sample: lossless) */
     int32_t felt, env, b1l, b1d, b2l, b2d, ox, oy, yp;
+    int32_t hy, hv, hu, hx;                      /* the hammer: its place (Q24 m), speed (Q16 m/s); the string at
+                                                  * it, the waves sent (Q24 m); hx: its last force (Q12 N) */
+    int32_t hu_d[WG_PHU];                        /* the waves sent, a sample each: back from the near end */
+    uint32_t hw_u;
+    uint8_t hon;                                 /* the hammer on its way or against the string */
 } wg_piano_t;
 
 static inline int32_t wg_readm(const int32_t *l, uint32_t len, uint32_t w, uint32_t d)   /* d back, Q16; any length */
@@ -701,9 +707,26 @@ static inline int32_t wg_readm(const int32_t *l, uint32_t len, uint32_t w, uint3
     b = l[t ? t - 1 : (int32_t)len - 1];
     return a + px_m(b - a, (int32_t)(d & 0xFFFFu), 16);
 }
-static void wg_piano_run(wg_piano_t *P, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, uint32_t note,
-                         int32_t unison, int32_t pos, int32_t bright, int32_t damp, int held)
+/* the hammer (after Chaigne & Askenfelt, Stulov): a felt-covered mass thrown at the string at the key's speed (0.4 ..
+ * 5 m/s: the velocity), the felt a stiffening spring, F = K c^2.5 (c: how far it is pressed in). The string gives
+ * way as a line would (its impedance: F / 2Z its speed there), and an eighth of a period later the wave comes back
+ * from the near end (the agraffe) and throws the hammer off. So the force is a pulse of 1 .. 14 ms, shorter and
+ * sharper the harder the key is struck (the felt stiffens as it is pressed: a loud note is brighter, by itself) and
+ * the higher the note (lighter hammers, harder felt: 11 g, K 3e8 in the bass .. 5 g, 8e9 at the top);
+ * BRIGHTNESS makes the felt harder or softer. Four steps a sample (88 kHz): the contact's stiffness needs them */
+static void wg_hammer_strike(wg_piano_t *P, uint32_t vel)
 {
+    P->hy = 0;
+    P->hu = 0;
+    P->hv = 26214 + (int32_t)(vel * vel * 1196u >> 6);   /* 0.4 .. 5 m/s, Q16 (velocity squared) */
+    P->hon = 1;
+    memset(P->hu_d, 0, sizeof P->hu_d);
+}
+static void wg_piano_run(wg_piano_t *P, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, uint32_t note,
+                         int32_t unison, int32_t pos, int32_t bright, int32_t damp, int held, uint32_t strike)
+{
+    int32_t hkn = 0, ham = 0;
+    uint32_t hdl = 1;
     uint32_t i, k, per = wg_per(f0, WG_PL - 8u), d[2], hd;
     int32_t env = wg_follow(&P->env, in, n), g[2], la, c, fa, cents;
     uint32_t t60;
@@ -748,10 +771,45 @@ static void wg_piano_run(wg_piano_t *P, const int32_t *in, int32_t *y, uint32_t 
         int32_t e2 = env > PX_ONE / 8 ? 8192 : env / 16;
         fa = wg_half(1500 + bright / 6 + e2);
     }
+    {   /* the hammer for this note: K / 2^20 (300 .. 7500, BRIGHTNESS x 1/3 .. 3), h / m x 16 Q16 (h a quarter
+         * sample: 1 / 88200 s), the near end's echo an eighth of the period (half-rate samples) */
+        int32_t tr = note < 21u ? 0 : note > 108u ? 87 : (int32_t)note - 21;
+        hkn = (int32_t)(((uint64_t)300u * px_exp2(tr * 3500 + (bright / 516 - 64) * 1638)) >> 16);
+        hkn = hkn < 16 ? 16 : hkn;
+        ham = (int32_t)(((uint64_t)1081u * px_exp2(tr * 853)) >> 16);   /* 11 g .. 5 g */
+        hdl = per >> 19;                         /* (per: Q16 half-rate samples; / 8) */
+        hdl = hdl < 1u ? 1u : hdl > WG_PHU - 1u ? WG_PHU - 1u : hdl;
+        if (strike)
+            wg_hammer_strike(P, strike);
+    }
     for (i = 0; i < n; i += 2u) {
         int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], ex, o = 0, t;
         P->felt += px_m(fa, x - P->felt, 15);
-        P->hb[P->hw] = P->felt;                  /* the hammer's comb: the strike less itself a place later */
+        {   /* the hammer against the string (its force, the strike), the voices' sound a knock under it */
+            int32_t fsum = 0;
+            if (P->hon) {
+                int32_t back = P->hu_d[(P->hw_u + WG_PHU - hdl) % WG_PHU], s4;
+                for (s4 = 0; s4 < 4; s4++) {
+                    int32_t c = P->hy - (P->hu - back), f = 0;
+                    if (c > 0) {
+                        uint32_t cc = (uint32_t)(c > 50331 ? 50331 : c);   /* (3 mm at most) */
+                        uint64_t c25 = (uint64_t)cc * cc * px_isqrt64(cc);
+                        f = (int32_t)(((uint64_t)hkn * c25) >> 28);   /* Q12 N */
+                        f = f > 2000000 ? 2000000 : f;
+                    }
+                    P->hv -= (int32_t)(((int64_t)f * ham) >> 16);
+                    P->hy += (int32_t)(((int64_t)P->hv * 190) >> 16);
+                    P->hu += (int32_t)(((int64_t)f * 725) >> 16);
+                    fsum += f;
+                }
+                if (P->hv < 0 && P->hy < P->hu - back - 2000)   /* (thrown off and away: done) */
+                    P->hon = 0;
+            }
+            P->hu_d[P->hw_u] = P->hu;
+            P->hw_u = P->hw_u + 1u >= WG_PHU ? 0u : P->hw_u + 1u;
+            P->hx = fsum >> 2;
+        }
+        P->hb[P->hw] = P->hx * 32 + (P->felt >> 2);   /* the hammer's comb: the strike less itself a place later */
         ex = P->felt - P->hb[(P->hw + WG_PH - hd) % WG_PH];
         P->hw = P->hw + 1u >= WG_PH ? 0u : P->hw + 1u;
         for (k = 0; k < 2u; k++) {

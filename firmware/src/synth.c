@@ -233,7 +233,7 @@ typedef struct {
 static voice_t voice[NVOICE];
 #define NP_COUNT 30                              /* the noise programs (noise.c, included below) */
 static void np_start(uint32_t k, uint32_t seed);
-static uint32_t rz_assign(uint32_t note);
+static uint32_t rz_assign(uint32_t note, uint32_t vel);
 /* BASIS: each of the four voices has its own place (left, right, half left, half right), always the same, and the
  * notes cycle through the voices (a new note takes the next free one); BASIS scales the places, held notes too. The
  * pan law is a balance: the far side turned down, the centre at full level (BASIS 0: the mono output as it was, bit
@@ -310,7 +310,7 @@ static void synth_note_on(uint32_t key, uint32_t vel)
     }
     v->note = (uint8_t)note;
     v->key = (uint8_t)key;
-    v->rz = (uint8_t)rz_assign(note);
+    v->rz = (uint8_t)rz_assign(note, vel);
     voice_rr = (uint32_t)(v - voice + 1) % NVOICE;
     v->pan = synth_pan_set ? synth_pan_next : VOICE_PAN[(v - voice) & 3];
     if (v->stage == ST_OFF || v->stage == ST_TAIL) {  /* (a new voice: its picture's place from the middle) */

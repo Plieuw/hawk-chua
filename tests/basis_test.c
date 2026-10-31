@@ -1110,6 +1110,36 @@ int main(int argc, char **argv)
         sys.sh_mix = 0; sys.sh_space = 0;
         check("SHIMMER bodies (PIANO, GUITAR, VIOLIN, CELLO, HARP, ACCORDION, BAGPIPE, PIPE ORGAN): their modes ring", okk);
     }
+    {   /* PIANO's hammer: with the voices all but silent the note still sounds (the hammer strikes it), louder and
+         * brighter (more above 2 kHz) the harder the key is struck */
+        double pk[2], hi[2];
+        uint32_t q, w, b, k;
+        int okk = 1;
+        static int32_t ob[8192];
+        for (q = 0; q < 2u; q++) {
+            double tot = 0, h = 0, p = 0;
+            synth_kill(); keys_all_off(); sys.pedal = 0; sys.transpose = 0; sys.fx_mix = 0; run_ms(50);   /* (the
+                                                  * resonators cleared) */
+            sys.osc = 19; sys.np_x = 0; sys.np_y = 63; sys.np_level = 1; sys.attack = 0; sys.decay = 50; sys.sustain = 0;
+            sys.release = 50; sys.ring = 10; sys.fx_model = RZ_PIANO; sys.fx_struct = 40; sys.fx_bright = 80;
+            sys.fx_damp = 70; sys.fx_pos = 40; sys.fx_mix = 127; sys.sh_mix = 0; sys.feg_on = 0;
+            synth_note_on(60, q ? 127 : 30);
+            for (w = 0; w < 8192u / CTL; w++) { block(); for (b = 0; b < CTL; b++) ob[w * CTL + b] = buf[2 * b]; }
+            for (b = 0; b < 8192u; b++)
+                p = fabs((double)ob[b]) > p ? fabs((double)ob[b]) : p;
+            for (k = 2; k < 200u; k += 2) {      /* (a coarse spectrum: 2 .. 200 x 5.4 Hz steps over 1 kHz) */
+                double rr = 0, ii = 0, f = 2000.0 * k / 100.0;
+                for (b = 0; b < 8192u; b += 2) { rr += ob[b] * cos(2 * M_PI * f * b / FS); ii += ob[b] * sin(2 * M_PI * f * b / FS); }
+                if (f > 2000.0) h += rr * rr + ii * ii;
+                tot += rr * rr + ii * ii;
+            }
+            pk[q] = p; hi[q] = h / (tot + 1);
+        }
+        printf("   (PIANO hammer: peak %.0f / %.0f, above 2 kHz %.3f / %.3f at velocity 30 / 127)\n", pk[0], pk[1], hi[0], hi[1]);
+        okk &= pk[0] > 300 && pk[1] > 4 * pk[0] && hi[1] > hi[0];
+        synth_kill(); sys.fx_mix = 0; sys.osc = 0; sys.np_level = 64; run_ms(50);
+        check("PIANO: the hammer strikes (louder and brighter the harder)", okk);
+    }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */
         int okk = 1;

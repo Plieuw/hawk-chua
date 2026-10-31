@@ -23,7 +23,7 @@
  *   POSITION     the excitation point (MODAL), how much the sympathetic strings take (SYMP)
  *   MIX          dry .. wet (0: off, nothing runs)
  *
- *   rz_assign(note)              note on: the resonator for that note (the voice keeps it)
+ *   rz_assign(note, vel)         note on: the resonator for that note (the voice keeps it)
  *   fx_resonator(sum, dl, dr, n) audio ISR, core 0, after the voices: rz_bus[r][] each resonator's input (the voices
  *                                that feed it, Q15), sum[] their total (the dry), the output into sum[]; dl / dr what
  *                                BASIS takes off the left / right (synth.c), each resonator panned as its note */
@@ -65,6 +65,7 @@ typedef struct {
     } u;
     uint8_t held;                                /* the model its state is for + 1 (0: nothing: reset at the next use) */
     uint8_t note;                                /* the note it is tuned to */
+    uint8_t strike;                              /* a note on's velocity, for PIANO's hammer (0: none waiting) */
     uint16_t quiet;                              /* blocks it has been quiet (RZ_QUIET and up: not run) */
     uint32_t stamp;                              /* when a note last took it */
 } rz_t;
@@ -118,7 +119,7 @@ static void rz_reset(rz_t *R, uint32_t md)
 
 /* note on (the audio ISR, core 0, before the render): the resonator for the note. The voices feeding it are the
  * notes that hold it: one whose note is held elsewhere is not taken while another is free */
-static uint32_t rz_assign(uint32_t note)
+static uint32_t rz_assign(uint32_t note, uint32_t vel)
 {
     uint32_t r, k, best = RZ_POLY, used = 0;
     for (r = 0; r < RZ_POLY; r++)
@@ -135,6 +136,7 @@ static uint32_t rz_assign(uint32_t note)
                 best = r;
     }
     rz[best].note = (uint8_t)note;
+    rz[best].strike = (uint8_t)(vel ? vel : 1u);
     rz[best].stamp = ++rz_clock;
     rz_view_r = best;
     return best;
@@ -275,7 +277,7 @@ static void rz_run(uint32_t r, uint32_t n)
         uint32_t k2, held = 0;
         for (k2 = 0; k2 < NVOICE; k2++)          /* the key down: a voice holding this note (else the damper) */
             held |= voice[k2].note == note && (voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN);
-        wg_piano_run(&R->u.pn, in, y, n, f0, note, strc / 516, pos, brit, damp, (int)held);
+        wg_piano_run(&R->u.pn, in, y, n, f0, note, strc / 516, pos, brit, damp, (int)held, R->strike);
         if (view) {                              /* (its partials, stretched by the stiffness: a sketch) */
             for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++) {
                 rz_view.f[i] = f0 * (i + 1u) + (f0 >> 12) * (i + 1u) * (i + 1u) * (i + 1u);
@@ -330,6 +332,7 @@ static void rz_run(uint32_t r, uint32_t n)
         int32_t a = y[i] < 0 ? -y[i] : y[i];
         pk = a > pk ? a : pk;
     }
+    R->strike = 0;                               /* (taken: PIANO's hammer; the other models none) */
     if (pk_in || pk >= RZ_QUIET_Q20)
         R->quiet = 0;
     else if (R->quiet < 0xFFFFu)
@@ -353,13 +356,14 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
         for (r = 0; r < RZ_POLY; r++) {          /* (off: the next use starts from silence) */
             rz[r].held = 0;
             rz[r].quiet = RZ_QUIET;
+            rz[r].strike = 0;                    /* (no hammer left waiting for later) */
         }
         return;
     }
     if (n > CTL)
         n = CTL;
     for (r = 0; r < RZ_POLY; r++) {              /* the ones sounding or fed: every other one to the second core */
-        uint32_t fed = 0;
+        uint32_t fed = rz[r].strike != 0u;      /* (a hammer on its way: fed) */
         for (i = 0; i < n && !fed; i++)
             fed = rz_bus[r][i] != 0;
         if (rz[r].held != md + 1u)               /* (a new model: state anew, quiet until fed) */

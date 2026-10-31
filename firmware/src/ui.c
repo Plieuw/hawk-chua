@@ -737,7 +737,7 @@ static const preset_t PRESETS[] = {
     {"THUD", 110, 64, 96, 0, 46, 0, 46, 62, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 14, 5, 54, 0, SS_HALL, 0, 0, .oct = -2},
     {"SNAP", 85, 76, 0, 0, 49, 0, 49, 73, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 21, 5, 71, 0, SS_HALL, 127, 0},
     {"PEW", 85, 76, 0, 0, 32, 0, 32, 84, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 28, 5, 88, 0, SS_HALL, 127, 0, .oct = 1},
-    {"WOOD KNOCK", 6, 64, 64, 0, 35, 0, 35, 95, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 35, 5, 105, 0, SS_HALL, 0, 0, .oct = -1},
+    {"WOOD KNOCK", 85, 76, 0, 0, 35, 0, 35, 40, RZ_MODAL, 30, 70, 37, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
 };
 #define NPRESETS (sizeof PRESETS / sizeof PRESETS[0])
 #define NBANKS 4u                                /* four banks of 128 (bank select; HOME held + PRESETS) */
