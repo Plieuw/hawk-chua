@@ -16,11 +16,19 @@
  *   feg_block(n)   keys.c, the audio ISR, after the arpeggiator: once a block */
 #define FEG_N 128u
 #define FEG_NOTE_STEP 2048u                      /* NOTE: samples a point (128 points ~ 5.9 s) */
-#define FEG_NLEN 14
+#define FEG_NLEN 28
 #define FEG_PHRASE 13u                           /* PHRASE: KARMA's phrase (karma.c), each trigger from its start */
+#define FEG_LFO0 14u                             /* LFO: the recording a free-running loop, 0.1 .. 32 Hz */
+#define FEG_AUD0 23u                             /* AUDIO: a loop at audio rate, x 1/2 .. 4 the note: the voices'
+                                                  * level moved by it, every sample (AM: sidebands) */
 static const char *const FEG_LEN_NAME[FEG_NLEN] = {"NOTE", "1 STEP", "2 STEPS", "3 STEPS", "4 STEPS", "5 STEPS",
                                                    "6 STEPS", "7 STEPS", "8 STEPS", "1 BAR", "2 BARS", "3 BARS",
-                                                   "4 BARS", "PHRASE"};
+                                                   "4 BARS", "PHRASE", "LFO 0.1 HZ", "LFO 0.25 HZ", "LFO 0.5 HZ",
+                                                   "LFO 1 HZ", "LFO 2 HZ", "LFO 4 HZ", "LFO 8 HZ", "LFO 16 HZ",
+                                                   "LFO 32 HZ", "AUDIO X1/2", "AUDIO X1", "AUDIO X2", "AUDIO X3",
+                                                   "AUDIO X4"};
+static const uint16_t FEG_LFO_CHZ[9] = {10, 25, 50, 100, 200, 400, 800, 1600, 3200};   /* centihertz */
+static const uint8_t FEG_AUD_R4[5] = {8, 16, 32, 48, 64};   /* the note x this / 16 */
 static uint32_t feg_ticks(uint32_t len)          /* MIDI clocks a cycle (24 a quarter, a step a sixteenth) */
 {
     return len <= 8u ? len * 6u : len <= 12u ? (len - 8u) * 96u : 96u;   /* (PHRASE without KARMA: a bar) */
@@ -154,6 +162,14 @@ static void feg_block(uint32_t n, uint32_t note_ons)
         L = (pts ? pts : 1u) * FEG_NOTE_STEP;
         p = feg.t < L ? feg.t : L - 1u;
         feg.t = feg.t < 0x7FFFFFFFu ? feg.t + n : feg.t;
+    } else if (len >= FEG_LFO0) {                /* LFO (and AUDIO, recorded at 1 Hz): its own free-running loop */
+        L = len >= FEG_AUD0 ? FS : FS * 100u / FEG_LFO_CHZ[len - FEG_LFO0];
+        if (feg.rec && feg.t + n >= L) {
+            feg.t = L - 1u;
+            p = feg.t;
+        } else
+            p = feg.t % L;
+        feg.t = (feg.t + n) % L;
     } else if (arp_ext()) {                      /* MIDI clock: the clocks since the cycle's start */
         uint32_t tk = feg_ticks(len), c = (arp.clk - feg.clk0) % tk;
         uint32_t tl = arp.tick_len ? arp.tick_len : 919u;
@@ -192,10 +208,20 @@ static void feg_block(uint32_t n, uint32_t note_ons)
             sys.feg_npts = (uint8_t)(idx + 1u > 127u ? 127u : idx + 1u);
             if (idx + 1u >= FEG_N)               /* full */
                 feg_record(0);
-        } else if ((len == FEG_PHRASE || !arp_ext()) && p + n >= L)
+        } else if ((len == FEG_PHRASE || len >= FEG_LFO0 || !arp_ext()) && p + n >= L)
             feg_record(0);
         return;
     }
+    if (len >= FEG_AUD0 && sys.feg_on && sys.feg_has) {   /* AUDIO: the voices take it, every sample */
+        feg_release();
+        feg_am.r16 = FEG_AUD_R4[len - FEG_AUD0];
+        feg_am.depth = (uint8_t)(sys.feg_depth & 127u);
+        feg_am.curve = feg.curve;
+        feg_am.on = 1;
+        feg.pos = (uint8_t)idx;
+        return;
+    }
+    feg_am.on = 0;
     if (!sys.feg_on || !sys.feg_has) {
         feg_release();
         feg.pos = 255;

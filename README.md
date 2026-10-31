@@ -57,7 +57,7 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | SAVE | alle instellingen in flash (terug na herstart), én de klank zoals hij nu is over de preset die speelt (de naam blijft); PRESETS en program change laden daarna die opgeslagen versie. Via USB: `python3 tools/fm1_remote.py presets presets.txt` of de knop *Presets → C* op de Remote-pagina geeft alle 128 als regels voor de tabel in `firmware/src/ui.c` (de opgeslagen gemarkeerd `SAVED`); `reset-presets` of *Opgeslagen presets wissen* zet de ingebouwde terug |
 | (blokjes rechtsonder) | knoppen met twee pagina's (ENV + MOD ENV, FX + SHIMMER) tonen rechtsonder twee blokjes: de pagina waar je bent oranje gevuld, de andere een leeg vakje |
 | LFO | de FREE EG-pagina (nog een keer: terug naar HOME); daar neemt REC op |
-| EDIT | de EDIT-pagina (nog een keer: terug naar HOME): KNOB 1 welke parameter het MOD WHEEL (MIDI CC 1) beweegt (de lijst van FREE EG), KNOB 2 hoe ver (DEPTH; wiel omhoog = tot 127, wiel omlaag = de oude waarde terug; speelt FREE EG op dezelfde parameter, dan regelt het wiel de diepte van FREE EG: wiel omlaag = stil, omhoog = FREE EG's DEPTH; pas zodra er een mod wheel binnenkomt), KNOB 3 VELOCITY op de klank (OFF, BRIGHT: zacht = donkerder, SWEEP: zacht = minder MOD ENV-sweep, BRIGHT + SWEEP), KNOB 4 hoeveel |
+| EDIT | de EDIT-pagina (nog een keer: terug naar HOME); SELECT zet het octaaf van de klank (-3 .. +3: alle oscillatoren, de FX stemmen mee; de presets zetten het op het register van hun instrument, bassen -2, cello en gitaren -1, piccolo en glockenspiel +1; opgeslagen met SAVE); KNOB 1 welke parameter het MOD WHEEL (MIDI CC 1) beweegt (de lijst van FREE EG), KNOB 2 hoe ver (DEPTH; wiel omhoog = tot 127, wiel omlaag = de oude waarde terug; speelt FREE EG op dezelfde parameter, dan regelt het wiel de diepte van FREE EG: wiel omlaag = stil, omhoog = FREE EG's DEPTH; pas zodra er een mod wheel binnenkomt), KNOB 3 VELOCITY op de klank (OFF, BRIGHT: zacht = donkerder, SWEEP: zacht = minder MOD ENV-sweep, BRIGHT + SWEEP), KNOB 4 hoeveel |
 | GLO | de MIDI-pagina (nog een keer: terug naar HOME): KNOB 1 TRS MIDI IN aan/uit, KNOB 2 USB MIDI (OFF, IN, OUT, IN + OUT), KNOB 3 RX-kanaal (OMNI, 1..16), KNOB 4 TX-kanaal (1..16); SELECT de tweede core aan/uit (vanaf de volgende start) |
 | Snel draaien | elke knop en encoder (KNOB 1–4, SELECT, ALGORITHM, PRESETS) versnelt tot 4×, net als BPM (van 0 naar 127 in één zwaai); één klik blijft één stap |
 | MASTER | volume |
@@ -158,6 +158,8 @@ contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de wa
 | 1..8 STEPS | een lus van 1 tot 8 zestiende noten |
 | 1..4 BARS | een lus van 1 tot 4 maten (4/4) |
 | PHRASE | precies zo lang als de frase van KARMA (5/4, 6/8, 3 tegen 4: wat de GE ook is) en elke keer dat de frase opnieuw begint begint hij mee; zonder KARMA één maat |
+| LFO 0.1 .. 32 HZ | de opname als vrijlopende lus (een LFO van je eigen vorm), los van het tempo, op elk doel |
+| AUDIO X1/2 .. X4 | de opname als lus op audiosnelheid, 1/2 tot 4 keer de noot, elke sample op het niveau van de stemmen (amplitudemodulatie: zijbanden, van tremolo-achtige ruwheid tot belachtige klanken); opnemen gaat dan op 1 Hz, zodat je de golfvorm rustig met KNOB 1 tekent |
 
 STEPS en BARS lopen op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de lus opnieuw);
 de opname begint aan het begin van een lus en stopt vanzelf na één lengte. DEPTH 127 speelt de opname precies af, lager

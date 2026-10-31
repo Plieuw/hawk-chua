@@ -59,6 +59,8 @@ static volatile struct {
     uint8_t k_on, k_ge, k_latch, k_m[4];
     uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */
     uint8_t mw_seen;
+    int8_t transpose;              /* synth.c: the sound's octave (-3 .. +3: every oscillator, the FX tuned with it;
+                                  * the presets set it for their instrument's register; EDIT page SELECT) */
     uint8_t pedal;                 /* keys.c: the sustain pedal (MIDI CC 64): the PIANO's dampers stay up */
     uint8_t at, at_seen, scream;   /* keys.c: MIDI aftertouch (channel pressure; poly per note: at_poly), one has come
                                   * (from then on it is the breath: resonator.c); SCREAM (feg.c's list): the voices' own

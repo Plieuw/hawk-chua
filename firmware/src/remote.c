@@ -102,9 +102,11 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
     for (i = 0; i < NPRESETS; i++) {
         uint8_t a[PR_N];
         const preset_t *p = &PRESETS[i];
-        if (upre_has(i))
+        if (upre_has(i)) {
             for (k = 0; k < PR_N; k++)
                 a[k] = upre_v(i)[k];
+            a[27] = (uint8_t)(a[27] % SS_COUNT);         /* (the SPACE alone: the octave is written below) */
+        }
         else {
             const uint8_t b[PR_N] = {p->chaos, p->shape, p->output, p->attack, p->decay, p->sustain, p->release,
                                      p->ring, p->fx_model, p->fx_struct, p->fx_bright, p->fx_damp, p->fx_pos,
@@ -127,6 +129,18 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
                                                       "EG_REEDSWELL", "EG_GROWL", "EG_VOWEL", "EG_SHIMRISE", "EG_OPEN"};
             ui_cat(t, sizeof t, ", .eg = ");
             ui_cat(t, sizeof t, EGN[p->eg % EG_COUNT]);
+        }
+        {   /* the octave: the preset's, or the saved one's */
+            int32_t o = p->oct;
+            if (upre_has(i)) {
+                o = (int32_t)(upre_v(i)[27] >> 2 & 7u);
+                o = o > 3 ? o - 8 : o;
+            }
+            if (o) {
+                ui_cat(t, sizeof t, ", .oct = ");
+                fmt_int(v, o);
+                ui_cat(t, sizeof t, v);
+            }
         }
         ui_cat(t, sizeof t, upre_has(i) ? "},   /* SAVED */" : "},");
         rm_send(0x52, (const uint8_t *)t, str_len(t), 1);

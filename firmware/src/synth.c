@@ -212,11 +212,13 @@ typedef struct {
     uint32_t age;                /* started at (voice clock): the oldest is stolen first */
     int32_t dc;                  /* the DC blocker's state (Q15 << 8) */
     int32_t hp1, hp2;            /* the circuit's high-pass under the note (Q15 << 8) */
+    uint32_t amph;               /* FREE EG AUDIO: its loop's phase (Q32) */
     int32_t ic1, ic2;            /* the filter's states (Q23) */
     int32_t a1, a2, a3;          /* its coefficients for the cutoff now (Q28) */
     uint32_t trace_t;            /* time since its last trace point (Q24) */
     uint16_t amp;                /* velocity, Q15 */
     uint8_t note, stage, fresh;  /* fresh: the DC blocker starts at the first sample */
+    uint8_t key;                 /* the note as played (note: as it sounds, the sound's octave on it) */
     uint8_t lpg_n;               /* frames until the next coefficient update */
     uint8_t vbr, vfm;            /* velocity on the sound (EDIT): taken off the gate's opening, the FM depth, /255 (0: none) */
     uint8_t osc;                 /* the oscillator its state belongs to (sys.osc when it started; a change restarts it) */
@@ -261,12 +263,20 @@ static void env_params(void)
     eg.comp = LPG_COMP[sys.ring & 127u];
 }
 
-static void synth_note_on(uint32_t note, uint32_t vel)
+static void synth_note_on(uint32_t key, uint32_t vel)
 {
-    uint32_t i;
+    uint32_t i, note;
     voice_t *v = 0;
-    for (i = 0; i < NVOICE && !v; i++)              /* the same note again: retrigger its voice */
-        if (voice[i].stage != ST_OFF && voice[i].note == note)
+    {   /* the sound's octave (TRANSPOSE: the preset's register), the key kept for the note off */
+        int32_t t = (int32_t)(key & 127u) + 12 * (int32_t)sys.transpose;
+        while (t < 0)
+            t += 12;
+        while (t > 127)
+            t -= 12;
+        note = (uint32_t)t;
+    }
+    for (i = 0; i < NVOICE && !v; i++)              /* the same key again: retrigger its voice */
+        if (voice[i].stage != ST_OFF && voice[i].key == key)
             v = &voice[i];
     for (i = 0; i < NVOICE && !v; i++)              /* a free voice: the next of the cycle */
         if (voice[(voice_rr + i) % NVOICE].stage == ST_OFF)
@@ -297,6 +307,7 @@ static void synth_note_on(uint32_t note, uint32_t vel)
         v->fresh = 1;
     }
     v->note = (uint8_t)note;
+    v->key = (uint8_t)key;
     v->rz = (uint8_t)rz_assign(note);
     voice_rr = (uint32_t)(v - voice + 1) % NVOICE;
     v->pan = synth_pan_set ? synth_pan_next : VOICE_PAN[(v - voice) & 3];
@@ -317,15 +328,15 @@ static void synth_note_on(uint32_t note, uint32_t vel)
     }
     v->stage = ST_ATTACK;                           /* (a retrigger: the attack from where the envelope is) */
     v->age = ++voice_clock;
-    sys.last_note = (uint8_t)note;
+    sys.last_note = (uint8_t)key;
     sys.last_vel = (uint8_t)vel;
 }
 
-static void synth_note_off(uint32_t note)
+static void synth_note_off(uint32_t key)
 {
     uint32_t i;
     for (i = 0; i < NVOICE; i++)
-        if (voice[i].note == note && (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN))
+        if (voice[i].key == key && (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN))
             voice[i].stage = ST_RELEASE;
 }
 
@@ -446,6 +457,8 @@ static uint32_t voice_h(const voice_t *v, int32_t *hs)
 #define C1_RUN(fn, arg) 0                        /* hand it fn(arg): 1 = taken */
 #define C1_WAIT() 0                              /* wait for it: 0 = done */
 #endif
+/* FREE EG at audio rate (feg.c, LENGTH AUDIO): its loop read at x 1/2 .. 4 the note, every sample, on the voice's level */
+static struct { uint8_t on, depth; uint32_t r16; const uint8_t *curve; } feg_am;
 #include "resonator.c"                          /* the FX resonators (Rings' models), after the voices */
 #include "shimmer.c"                            /* the shimmer reverb, after the resonator: the stereo output */
 static voice_t *render_tv;                       /* the voice the trace follows (set before the voices render) */
@@ -457,6 +470,9 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     int32_t hs = 0, ahs = 0, bhs = 0, src[CTL];
     uint32_t ns = 0, i, j, h_all = 0, osc = sys.osc, k = (uint32_t)(v - voice);
     int32_t hpk = (int32_t)(((uint64_t)v->inc * 144121u) >> 32);   /* 1.4 pi f_note / FS, Q16: poles at 0.7 x the note */
+    const uint8_t *am = feg_am.on ? feg_am.curve : 0;
+    uint32_t amr = feg_am.r16;
+    int32_t amd = feg_am.depth;
     if (osc > NP_COUNT)
         osc = 0;
     if (osc != v->osc) {                                /* (the oscillator changed under the note: its state anew) */
@@ -505,6 +521,17 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
             s -= v->hp1 >> 8;
             v->hp2 += (int32_t)(((int64_t)(s * 256 - v->hp2) * hpk) >> 16);
             s -= v->hp2 >> 8;
+        }
+        if (am) {     /* FREE EG AUDIO: the level by the loop (1 - DEPTH + DEPTH x curve), at x r / 16 the note */
+            uint32_t ix, fr;
+            int32_t c0, c1;
+            v->amph += (v->inc >> 4) * amr;
+            ix = v->amph >> 25;
+            fr = v->amph >> 17 & 255u;
+            c0 = am[ix];
+            c1 = am[(ix + 1u) & 127u];
+            c0 += ((c1 - c0) * (int32_t)fr) >> 8;
+            s = (int32_t)(((int64_t)s * ((127 - amd) * 127 + amd * c0) * 2) >> 15);
         }
         sum[i] += lpg_frame(v, s) >> 1;
         if (v == render_tv) {

@@ -80,6 +80,7 @@ typedef struct {
     uint8_t scream;                              /* SCREAM: the voices on the waveguides' breath (0, left out) */
     uint8_t sh_space, np_level, menv_bend;       /* the SPACE (0, left out: HALL), NOISE LEVEL and BEND (0: 64) */
     uint8_t eg;                                  /* a FREE EG contour each note plays (PRE_EG; .eg = EG_..., 0: none) */
+    int8_t oct;                                  /* the sound's octave: its instrument's register (.oct = -1 ...) */
 } preset_t;
 /* the presets' FREE EG contours: each note moves a parameter around the preset's value (the offsets, at points of
  * ~46 ms: FREE EG's NOTE length), as a player would: a flute's overtones coming in as the jet shortens, a burst of air
@@ -130,13 +131,16 @@ static const preset_t PRESETS[] = {
     {"HARPSICHORD", NZK, 0, 42, 0, 42, 0, RZ_STRING, 40, 90, 45, 50, 90, NOSH, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
     {"CLAVINET", 38, 100, 32, 0, 54, 0, 54, 110},
     /* CHROMATIC PERCUSSION 9-16 */
-    {"CELESTA", NZK, 0, 36, 0, 36, 0, RZ_MODAL, 100, 120, 84, 30, 127, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
-    {"GLOCKENSPIEL", NZK, 0, 36, 0, 36, 0, RZ_MODAL, 104, 127, 81, 28, 127, ROOM, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
+    {"CELESTA", NZK, 0, 36, 0, 36, 0, RZ_MODAL, 100, 120, 84, 30, 127, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127,
+     .oct = 1},
+    {"GLOCKENSPIEL", NZK, 0, 36, 0, 36, 0, RZ_MODAL, 104, 127, 81, 28, 127, ROOM, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127,
+     .oct = 1},
     {"MUSIC BOX", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 100, 127, 90, 40, 80, 60, 48, 20, 39, SI_OCT, 70,
-     NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127},
+     NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127, .oct = 1},
     {"VIBRAPHONE", CYC, 0, 58, 0, 58, 0, RZ_MODAL, 92, 90, 84, 24, 110, ROOM},
     {"MARIMBA", CYC, 0, 52, 0, 52, 0, RZ_MODAL, 90, 70, 60, 24, 60},
-    {"XYLOPHONE", NZK, 0, 40, 0, 40, 0, RZ_MODAL, 116, 110, 48, 20, 100, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
+    {"XYLOPHONE", NZK, 0, 40, 0, 40, 0, RZ_MODAL, 116, 110, 48, 20, 100, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127,
+     .oct = 1},
     {"TUBULAR BELLS", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 104, 100, 84, 16, 127, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
     {"DULCIMER", NZK, 0, 42, 0, 42, 0, RZ_SYMP, 4, 100, 82, 60, 90, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
     /* ORGAN 17-24 */
@@ -150,33 +154,42 @@ static const preset_t PRESETS[] = {
      .eg = EG_REEDSWELL},
     {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ROOM, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
-    {"NYLON GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 67, 40, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
-    {"STEEL GUITAR", NZK, 0, 44, 0, 44, 0, RZ_STRING, 40, 100, 75, 30, 100, ROOM, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"JAZZ GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 44, 40, 63, 50, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
-    {"CLEAN GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 45, 90, 72, 40, 100, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"MUTED GUITAR", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 70, 22, 40, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
-    {"OVERDRIVE GTR", 110, 64, 96, 0, 80, 100, 64, 60, RZ_STRING, 45, 90, 72, 40, 50, ROOM},
-    {"DISTORTION GTR", 124, 64, 96, 2, 64, 110, 64, 50, NOFX, ROOM},
+    {"NYLON GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 67, 40, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127,
+     .oct = -1},
+    {"STEEL GUITAR", NZK, 0, 44, 0, 44, 0, RZ_STRING, 40, 100, 75, 30, 100, ROOM, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127,
+     .oct = -1},
+    {"JAZZ GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 44, 40, 63, 50, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127,
+     .oct = -1},
+    {"CLEAN GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 45, 90, 72, 40, 100, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127,
+     .oct = -1},
+    {"MUTED GUITAR", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 70, 22, 40, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127,
+     .oct = -1},
+    {"OVERDRIVE GTR", 110, 64, 96, 0, 80, 100, 64, 60, RZ_STRING, 45, 90, 72, 40, 50, ROOM, .oct = -1},
+    {"DISTORTION GTR", 124, 64, 96, 2, 64, 110, 64, 50, NOFX, ROOM, .oct = -1},
     {"GTR HARMONICS", 54, 90, 64, 0, 70, 0, 74, 60, RZ_MODAL, 8, 120, 75, 50, 120},
     /* BASS 33-40 */
-    {"ACOUSTIC BASS", NZK, 0, 50, 0, 50, 0, RZ_STRING, 40, 30, 54, 30, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
-    {"FINGER BASS", NZK, 0, 50, 0, 50, 0, RZ_STRING, 40, 50, 60, 30, 90, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
-    {"PICK BASS", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 60, 20, 90, NOSH, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"FRETLESS BASS", 6, 30, 64, 10, 70, 90, 56, 40, RZ_STRING, 50, 40, 67, 40, 50},
-    {"SLAP BASS 1", 54, 50, 64, 0, 52, 0, 52, 100},
-    {"SLAP BASS 2", 38, 70, 32, 0, 56, 20, 52, 120},
-    {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30},
-    {"SYNTH BASS 2", 54, 70, 16, 0, 60, 40, 54, 120},
+    {"ACOUSTIC BASS", NZK, 0, 50, 0, 50, 0, RZ_STRING, 40, 30, 54, 30, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127,
+     .oct = -2},
+    {"FINGER BASS", NZK, 0, 50, 0, 50, 0, RZ_STRING, 40, 50, 60, 30, 90, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127,
+     .oct = -2},
+    {"PICK BASS", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 60, 20, 90, NOSH, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127,
+     .oct = -2},
+    {"FRETLESS BASS", 6, 30, 64, 10, 70, 90, 56, 40, RZ_STRING, 50, 40, 67, 40, 50, .oct = -2},
+    {"SLAP BASS 1", 54, 50, 64, 0, 52, 0, 52, 100, .oct = -2},
+    {"SLAP BASS 2", 38, 70, 32, 0, 56, 20, 52, 120, .oct = -2},
+    {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30, .oct = -2},
+    {"SYNTH BASS 2", 54, 70, 16, 0, 60, 40, 54, 120, .oct = -2},
     /* STRINGS 41-48: the BOW waveguide */
     {"VIOLIN", NZK, 44, 80, 118, 70, 20, RZ_BOW, 110, 90, 88, 60, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
     {"VIOLA", NZK, 46, 80, 118, 70, 20, RZ_BOW, 110, 75, 88, 64, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
-    {"CELLO", NZK, 48, 80, 118, 72, 20, RZ_BOW, 115, 60, 93, 70, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
-    {"CONTRABASS", NZK, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 93, 74, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
+    {"CELLO", NZK, 48, 80, 118, 72, 20, RZ_BOW, 115, 60, 93, 70, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL, .oct = -1},
+    {"CONTRABASS", NZK, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 93, 74, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL,
+     .oct = -2},
     {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 88, 60, 127, HALL, NZ(1, 6), 63, 63, .eg = EG_SWELL},
     {"PIZZICATO", NZK, 0, 42, 0, 42, 0, RZ_STRING, 40, 70, 37, 40, 100, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
     {"HARP", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 45, 50, 90, 60, 48, 20, 39, SI_OCT, 70,
      NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"TIMPANI", NZK, 0, 40, 0, 40, 50, RZ_DRUM, 120, 90, 95, 30, 127, ROOM, NZ(1, 6), 126, 0},
+    {"TIMPANI", NZK, 0, 40, 0, 40, 50, RZ_DRUM, 120, 90, 95, 30, 127, ROOM, NZ(1, 6), 126, 0, .oct = -1},
     /* ENSEMBLE 49-56 */
     {"STRINGS", NZK, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 93, 64, 110, HALL, NZ(1, 0), 40, 30, .eg = EG_SWELL},
     {"SLOW STRINGS", NZK, 96, 100, 115, 100, 20, RZ_BOW, 110, 70, 93, 70, 110, HALL, NZ(1, 0), 40, 30, .eg = EG_SWELL},
@@ -188,10 +201,10 @@ static const preset_t PRESETS[] = {
     {"ORCHESTRA HIT", CYC, 0, 70, 0, 74, 40, RZ_BRASS, 110, 110, 68, 0, 110, HALL},
     /* BRASS 57-64: the BRASS waveguide (the synth brass: saws) */
     {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 68, 0, 127, ROOM, NOOSC, 10, .eg = EG_BLOOM},
-    {"TROMBONE", CYC, 34, 80, 112, 64, 20, RZ_BRASS, 70, 80, 73, 0, 127, ROOM, .eg = EG_BLOOM},
-    {"TUBA", CYC, 36, 80, 112, 64, 20, RZ_BRASS, 30, 55, 78, 0, 127, .eg = EG_BLOOM},
+    {"TROMBONE", CYC, 34, 80, 112, 64, 20, RZ_BRASS, 70, 80, 73, 0, 127, ROOM, .eg = EG_BLOOM, .oct = -1},
+    {"TUBA", CYC, 36, 80, 112, 64, 20, RZ_BRASS, 30, 55, 78, 0, 127, .eg = EG_BLOOM, .oct = -2},
     {"MUTED TRUMPET", CYC, 24, 76, 110, 60, 20, RZ_BRASS, 90, 100, 68, 110, 127, ROOM, .eg = EG_BLOOM},
-    {"FRENCH HORN", CYC, 44, 84, 112, 76, 20, RZ_BRASS, 20, 50, 83, 0, 127, HALL, .eg = EG_BLOOM},
+    {"FRENCH HORN", CYC, 44, 84, 112, 76, 20, RZ_BRASS, 20, 50, 83, 0, 127, HALL, .eg = EG_BLOOM, .oct = -1},
     {"BRASS SECTION", CYC, 30, 80, 112, 64, 30, RZ_BRASS, 90, 95, 68, 0, 127, ROOM, NOOSC, 10, .eg = EG_BLOOM},
     {"SYNTH BRASS 1", NZK, 20, 70, 90, 60, 80, RZ_BRASS, 110, 120, 63, 0, 90, NOSH, NZ(1, 0), 10, 40},
     {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, RZ_BRASS, 80, 100, 68, 40, 90, ROOM, NZ(1, 0), 16, 80, .eg = EG_BLOOM},
@@ -201,21 +214,21 @@ static const preset_t PRESETS[] = {
     {"ALTO SAX", NZK, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 78, 60, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 15,
      .eg = EG_GROWL},
     {"TENOR SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 55, 80, 78, 80, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 25,
-     .eg = EG_GROWL},
+     .eg = EG_GROWL, .oct = -1},
     {"BARITONE SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 78, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
-     .eg = EG_GROWL},
+     .eg = EG_GROWL, .oct = -1},
     {"OBOE", CYC, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 78, 120, 127, ROOM, .eg = EG_REEDSWELL},
     {"ENGLISH HORN", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 78, 110, 127, ROOM, .eg = EG_REEDSWELL},
-    {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 83, 105, 127, .eg = EG_REEDSWELL},
+    {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 83, 105, 127, .eg = EG_REEDSWELL, .oct = -1},
     {"CLARINET", 124, 64, 64, 30, 76, 118, 60, 20, RZ_REED, 40, 80, 83, 0, 127, ROOM, .eg = EG_REEDSWELL},
     /* PIPE 73-80: the FLUTE waveguide */
-    {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 78, 40, 127, ROOM, .eg = EG_OVERTONE},
+    {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 78, 40, 127, ROOM, .eg = EG_OVERTONE, .oct = 1},
     {"FLUTE", CYC, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 78, 50, 127, ROOM, .eg = EG_OVERTONE},
     {"RECORDER", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 78, 20, 127, .eg = EG_OVERTONE},
     {"PAN FLUTE", NZK, 40, 80, 110, 76, 20, RZ_FLUTE, 30, 60, 78, 100, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
     {"BLOWN BOTTLE", NZK, 50, 80, 110, 74, 20, RZ_FLUTE, 0, 30, 78, 110, 127, NOSH, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
     {"SHAKUHACHI", NZK, 50, 84, 105, 80, 20, RZ_FLUTE, 50, 60, 78, 120, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
-    {"WHISTLE", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 78, 20, 120, .eg = EG_OVERTONE},
+    {"WHISTLE", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 78, 20, 120, .eg = EG_OVERTONE, .oct = 1},
     {"OCARINA", 6, 64, 127, 30, 76, 110, 66, 20, RZ_FLUTE, 10, 30, 78, 10, 127, ROOM, .eg = EG_OVERTONE},
     /* SYNTH LEAD 81-88 */
     {"SQUARE LEAD", NZK, 2, 64, 115, 60, 40, NOFX, NOSH, NZ(1, 9), 0, 0},
@@ -259,11 +272,12 @@ static const preset_t PRESETS[] = {
      .eg = EG_SWELL},
     {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
-    {"TINKLE BELL", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 70, 120, 82, 12, 120, ROOM, NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127},
+    {"TINKLE BELL", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 70, 120, 82, 12, 120, ROOM, NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127,
+     .oct = 1},
     {"AGOGO", NZK, 0, 38, 0, 38, 0, RZ_MODAL, 116, 100, 60, 40, 110, NOSH, NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127},
     {"STEEL DRUMS", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 90, 110, 81, 40, 127, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
     {"WOODBLOCK", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 30, 70, 37, 20, 90, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
-    {"TAIKO", NZK, 0, 42, 0, 42, 0, RZ_DRUM, 0, 60, 80, 20, 127, HALL, NZ(0, 2), 126, 0, 0, 0, 0, 0, 0, 127},
+    {"TAIKO", NZK, 0, 42, 0, 42, 0, RZ_DRUM, 0, 60, 80, 20, 127, HALL, NZ(0, 2), 126, 0, 0, 0, 0, 0, 0, 127, .oct = -1},
     {"MELODIC TOM", NZK, 0, 40, 0, 40, 0, RZ_DRUM, 10, 80, 70, 40, 127, NOSH, NZ(0, 2), 126, 0, 0, 0, 0, 0, 0, 127},
     {"SYNTH DRUM", NZK, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 120},
     {"REVERSE CYMBAL", NZK, 100, 30, 0, 30, 20, NOFX, NOSH, NZ(1, 6), 110, 90},
@@ -351,7 +365,7 @@ static int upre_save(uint32_t i)                 /* the sound now over preset i:
     for (k = 0; k < PR_N; k++)
         upre[h].v[j][k] = (uint8_t)(*PR_SYS[k] & 127u);
     feg_unhold(t, was, irq);
-    upre[h].v[j][27] = (uint8_t)(sys.sh_space % SS_COUNT);
+    upre[h].v[j][27] = (uint8_t)(sys.sh_space % SS_COUNT | ((uint32_t)sys.transpose & 7u) << 2);   /* (+ the octave) */
     upre[h].has[j >> 3] |= (uint8_t)(1u << (j & 7u));
     return st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
 }
@@ -378,7 +392,11 @@ static void preset_apply(uint32_t i)
             *PR_SYS[k] = v[k];
         sys.fx_model = (uint8_t)(sys.fx_model % RZ_COUNT);
         sys.sh_interval = (uint8_t)(sys.sh_interval % SI_COUNT);
-        sys.sh_space = (uint8_t)(sys.sh_space % SS_COUNT);
+        {   /* (the octave rides in the SPACE's value: 3 bits two's complement above its 2) */
+            int32_t t = (int32_t)(v[27] >> 2 & 7u);
+            sys.transpose = (int8_t)(t > 3 ? t - 8 : t);
+        }
+        sys.sh_space = (uint8_t)(v[27] % SS_COUNT);
         sys.osc = (uint8_t)(sys.osc % (NP_COUNT + 1u));
         return;
     }
@@ -420,6 +438,7 @@ static void preset_apply(uint32_t i)
         sys.menv_bend = p->menv_bend ? p->menv_bend : 64u;
     }
     sys.scream = p->scream;
+    sys.transpose = (int8_t)(p->oct < -3 ? -3 : p->oct > 3 ? 3 : p->oct);
 }
 static uint8_t eg_from_preset;                   /* FREE EG holds a preset's contour (not a recording) */
 static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the preset's contour, or none */
@@ -500,9 +519,9 @@ static int preset_edited_(void)
         const uint8_t *v = upre_v(sys.preset);
         uint32_t k;
         for (k = 0; k < PR_N; k++)
-            if ((*PR_SYS[k] & 127u) != v[k])
+            if (k != 27u && (*PR_SYS[k] & 127u) != v[k])
                 return 1;
-        return 0;
+        return (uint32_t)sys.sh_space != v[27] % SS_COUNT || ((uint32_t)sys.transpose & 7u) != (v[27] >> 2 & 7u);
     }
     return sys.chaos != p->chaos || sys.shape != p->shape || sys.output != p->output || sys.attack != p->attack ||
            sys.decay != p->decay || sys.sustain != p->sustain || sys.release != p->release || sys.ring != p->ring ||
@@ -514,11 +533,12 @@ static int preset_edited_(void)
            sys.osc != p->osc || (p->osc && (sys.np_x != p->np_x || sys.np_y != p->np_y ||
            sys.np_level != (p->np_level ? p->np_level : 64u) ||
            sys.menv_height != p->menv_height || (p->menv_height && (sys.menv_len != p->menv_len ||
-           sys.menv_skew != p->menv_skew || sys.menv_bend != (p->menv_bend ? p->menv_bend : 64u))))) || sys.scream != p->scream;
+           sys.menv_skew != p->menv_skew || sys.menv_bend != (p->menv_bend ? p->menv_bend : 64u))))) || sys.scream != p->scream ||
+           sys.transpose != p->oct;
 }
 
 /* ------------------------------------------------------------ settings --- */
-#define SET_MAGIC 0x43485546u      /* "CHUA": bump when the layout changes (older records are then ignored) */
+#define SET_MAGIC 0x43485547u      /* "CHUA": bump when the layout changes (older records are then ignored) */
 typedef struct {
     uint32_t magic;
     int8_t octave;
@@ -533,6 +553,7 @@ typedef struct {
     uint8_t k_on, k_ge, k_latch, k_m[4];
     uint8_t mw_target, mw_depth, vel_to, vel_amt;
     uint8_t tape_lv[4], tape_len, tape_arm, sh_space, tape_spd;
+    int8_t transpose;
 } settings_t;
 
 static void settings_boot(void)    /* power-on, before the audio */
@@ -611,6 +632,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.tape_len = (uint8_t)(s.tape_len % 5u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
+        sys.transpose = (int8_t)clamp(s.transpose, -3, 3);
         for (uint32_t i = 0; i < 4u; i++)
             sys.k_m[i] = (uint8_t)(s.k_m[i] & 127u);
     }
@@ -688,6 +710,7 @@ static int settings_save(void)     /* 0 = saved */
     s.tape_len = sys.tape_len;
     s.tape_arm = sys.tape_arm;
     s.tape_spd = sys.tape_spd;
+    s.transpose = sys.transpose;
     for (uint32_t i = 0; i < 4u; i++)
         s.k_m[i] = sys.k_m[i];
     return st_save(OBJ_SETTINGS, &s, sizeof s);
@@ -1637,6 +1660,12 @@ static void ui_draw(void)
             ui_cat(a, sizeof a, k_ge()->name);
             if (sys.k_latch)
                 ui_cat(a, sizeof a, "  LATCH");
+        } else if (sys.page == 11u) {            /* EDIT: the sound's octave (SELECT) */
+            str_cpy(a, "SELECT: SOUND OCTAVE ", sizeof a);
+            fmt_int(v, sys.transpose);
+            if (sys.transpose > 0)
+                ui_cat(a, sizeof a, "+");
+            ui_cat(a, sizeof a, v);
         } else if (sys.page == 8u) {             /* FREE EG: recording, playing, or what to do */
             str_cpy(a, feg.rec ? "FREE EG   RECORDING: TURN KNOB 1" : !sys.feg_has ? "FREE EG   REC: RECORD" :
                     sys.feg_on ? "FREE EG   PLAYING" : "FREE EG   SELECT: PLAY", sizeof a);
@@ -2159,6 +2188,14 @@ static void ui_input(void)
         sys.view = (uint8_t)((sys.view + V_COUNT * 8 + s) % V_COUNT);
         str_cpy(t, "VIEW ", sizeof t);
         ui_cat(t, sizeof t, VIEW_NAME[sys.view]);
+        ui_say(t);
+    } else if (s && sys.page == 11u) {          /* EDIT: the sound's octave, -3 .. +3 (notes held keep theirs) */
+        sys.transpose = (int8_t)clamp((int32_t)sys.transpose + (s > 0 ? 1 : -1), -3, 3);
+        str_cpy(t, "SOUND OCTAVE ", sizeof t);
+        if (sys.transpose > 0)
+            ui_cat(t, sizeof t, "+");
+        fmt_int(v, sys.transpose);
+        ui_cat(t, sizeof t, v);
         ui_say(t);
     } else if (s && sys.page == 9u) {           /* KARMA: LATCH (right on, left off) */
         sys.k_latch = (uint8_t)(s > 0);

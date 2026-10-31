@@ -251,6 +251,22 @@ int main(int argc, char **argv)
             ok &= !sys.feg_on && sys.fx_struct == PRESETS[0].fx_struct;
             if (!ok) printf("preset FREE EG contour: jet %u .. %u around %u\n", lo, hi, st0);
         }
+        {   /* the sound's octave: ACOUSTIC BASS two down; the key played still ends its note */
+            uint32_t k3, found = 0;
+            preset_load(32);
+            ok &= sys.transpose == -2;
+            synth_note_on(60, 100);
+            for (k3 = 0; k3 < NVOICE; k3++)
+                found |= voice[k3].stage == ST_ATTACK && voice[k3].note == 36u && voice[k3].key == 60u;
+            synth_note_off(60);
+            for (k3 = 0; k3 < NVOICE; k3++)
+                ok &= !(voice[k3].key == 60u && (voice[k3].stage == ST_ATTACK || voice[k3].stage == ST_SUSTAIN));
+            ok &= found;
+            synth_kill();
+            preset_load(0);
+            ok &= sys.transpose == 0;
+            if (!ok) printf("the sound's octave: failed\n");
+        }
         if (!ok) { printf("SAVE over a preset / remote PRESETS / RESET PRESETS: failed\n"); return 1; }
         printf("SAVE over a preset, remote PRESETS (128 lines), RESET PRESETS ok\n");
     }

@@ -914,6 +914,52 @@ int main(int argc, char **argv)
         if (!okk) printf("   (fx_struct %u playing %u)\n", sys.fx_struct, feg.playing);
         check("mod wheel on FREE EG's parameter sets FREE EG's depth", okk);
     }
+    {   /* FREE EG LFO 4 HZ: a sine-like curve loops on its own (CHAOS goes up and down 4 times a second); AUDIO X2:
+         * the voice's level moved at twice the note, every sample: sidebands at the note +- 2 x the note (here the
+         * third harmonic grows) */
+        int okk = 1, k, ups = 0, last = -1, dir = 0;
+        uint32_t b2, w3;
+        for (k = 0; k < FEG_N; k++)
+            feg.curve[k] = (uint8_t)(64 + 60 * sin(2 * M_PI * k / FEG_N));
+        sys.chaos = 64; sys.feg_target = 0; sys.feg_depth = 127; sys.feg_len = FEG_LFO0 + 5u;   /* 4 Hz */
+        sys.feg_has = 1; sys.feg_on = 1;
+        for (b2 = 0; b2 < FS / CTL; b2++) {
+            block();
+            if (last >= 0 && sys.chaos != last) {
+                int d = sys.chaos > last ? 1 : -1;
+                if (d > 0 && dir < 0) ups++;
+                dir = d;
+            }
+            last = sys.chaos;
+        }
+        okk &= ups >= 3 && ups <= 5;
+        sys.feg_on = 0; run_ms(10);
+        {   /* AUDIO X2 on a pure cycle: the third harmonic against the fundamental, off and on */
+            double h[2];
+            uint32_t q2;
+            static int32_t ob[8192];
+            for (q2 = 0; q2 < 2u; q2++) {
+                double r1 = 0, i1 = 0, r3 = 0, i3 = 0;
+                synth_kill(); sys.osc = 0; sys.chaos = 6; sys.shape = 64; sys.output = 64; sys.attack = 0;
+                sys.sustain = 127; sys.ring = 0; sys.fx_mix = 0; sys.sh_mix = 0;
+                for (k = 0; k < FEG_N; k++)
+                    feg.curve[k] = (uint8_t)(64 + 63 * sin(2 * M_PI * k / FEG_N));
+                sys.feg_len = FEG_AUD0 + 2u; sys.feg_depth = 127; sys.feg_on = (uint8_t)q2;
+                synth_note_on(57, 100);
+                run_ms(200);
+                for (w3 = 0; w3 < 8192u / CTL; w3++) { block(); for (b2 = 0; b2 < CTL; b2++) ob[w3 * CTL + b2] = buf[2 * b2]; }
+                for (b2 = 0; b2 < 8192u; b2++) {
+                    double ph = 2 * M_PI * 220.0 * b2 / FS;
+                    r1 += ob[b2] * cos(ph); i1 += ob[b2] * sin(ph); r3 += ob[b2] * cos(3 * ph); i3 += ob[b2] * sin(3 * ph);
+                }
+                h[q2] = (r3 * r3 + i3 * i3) / (r1 * r1 + i1 * i1 + 1);
+            }
+            printf("   (FREE EG AUDIO X2: 3rd harmonic / fundamental %.4f off, %.4f on)\n", h[0], h[1]);
+            okk &= h[1] > 10 * h[0] + 0.01;
+        }
+        sys.feg_on = 0; sys.feg_len = 9; synth_kill(); run_ms(10);
+        check("FREE EG loops on its own (LFO) and at audio rate (AUDIO: sidebands)", okk);
+    }
     {   /* SHIMMER's SPACEs: each rings on after a note, bounded, unlike the plain HALL */
         int okk = 1;
         uint32_t sp, b, j;
