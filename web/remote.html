@@ -32,11 +32,20 @@ pre { margin: 0; white-space: pre-wrap; color: var(--fg); font: 12px/1.35 ui-mon
     <button id="screen">Screen</button>
     <label><input type="checkbox" id="live"> Live (elke 0,5 s)</label>
   </div>
+  <div class="row">
+    <button id="presets">Presets → C</button>
+    <button id="presetsdl">Download presets.txt</button>
+    <button id="presetsreset">Opgeslagen presets wissen</button>
+  </div>
 </section>
 <section>
   <h2>Scherm (plot)</h2>
   <canvas id="cv" width="240" height="124" style="width:480px;height:248px"></canvas>
   <p id="shotinfo" style="color:var(--mid);font-size:12px"></p>
+</section>
+<section>
+  <h2>Presets (C, voor ui.c)</h2>
+  <pre id="presettext" style="max-height:240px;overflow:auto">-</pre>
 </section>
 <section>
   <h2>Toestand</h2>
@@ -82,6 +91,10 @@ function onMsg(e) {
   const cmd = d[4], body = Array.from(d.slice(5, d.length - 1));
   if (cmd === 0x51) say("PING: " + String.fromCharCode(...body));
   else if (cmd === 0x50) $("statetext").textContent = String.fromCharCode(...body);
+  else if (cmd === 0x52) presetLines.push(String.fromCharCode(...body));
+  else if (cmd === 0x53) { const t = String.fromCharCode(...body);
+    if (t === "CLR") say("Opgeslagen presets gewist: de ingebouwde zijn terug.");
+    else { $("presettext").textContent = presetLines.join("\n"); say(presetLines.length + " presets, " + presetLines.filter(l => l.includes("SAVED")).length + " opgeslagen"); } }
   else if (cmd === 0x41) { const u = unpack7(body); const y = u[0]; for (let k = 0; (k + 1) * 480 <= u.length - 1; k++) shot[y + k] = u.slice(1 + k * 480, 1 + (k + 1) * 480); }
   else if (cmd === 0x42) {
     const h = body[0] | body[1] << 7;
@@ -109,6 +122,11 @@ $("connect").onclick = async () => {
   } catch (e) { say("Geen MIDI-toegang: " + e.message); }
 };
 $("ping").onclick = () => sysex(0x05);
+let presetLines = [];
+$("presets").onclick = () => { presetLines = []; sysex(0x06); };
+$("presetsdl").onclick = () => { const t = $("presettext").textContent; if (!t || t === "-") return say("Eerst Presets → C.");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t + "\n"], {type: "text/plain"})); a.download = "presets.txt"; a.click(); };
+$("presetsreset").onclick = () => { if (confirm("Alle met SAVE opgeslagen presets wissen?")) sysex(0x07, 67, 76, 82); };
 $("state").onclick = () => sysex(0x02);
 $("screen").onclick = () => sysex(0x01);
 $("live").onchange = e => { clearInterval(liveTimer); if (e.target.checked) liveTimer = setInterval(() => { sysex(0x01); sysex(0x02); }, 500); };

@@ -11,6 +11,8 @@
  *                            OCT- OCT+), as the panel's would be
  *   04 e s        TURN    -> encoder e (SELECT ALGORITHM PRESETS KNOB 1..4) turned s - 64 detents
  *   05            PING    -> 51 the firmware's identity
+ *   06            PRESETS -> 52 a line each, all 128 as ui.c's table (C, the saved ones as saved), then 53
+ *   07 'C' 'L' 'R'  RESET PRESETS: the user's saved presets cleared (the built-in back) -> 53
  * Notes, CCs and program changes need nothing new: they are MIDI. */
 
 #if FELUCCA_OTA
@@ -92,6 +94,39 @@ static void rm_state(void)
     rm_line(t, sizeof t, "UPTIME_S ", v);
     rm_send(0x50, (const uint8_t *)t, str_len(t), 1);
 }
+static void rm_presets(void)                     /* PRESETS: each preset as a line of ui.c's table */
+{
+    static char t[200] __attribute__((section(".pool")));
+    char v[8];
+    uint32_t i, k;
+    for (i = 0; i < NPRESETS; i++) {
+        uint8_t a[PR_N];
+        const preset_t *p = &PRESETS[i];
+        if (upre_has(i))
+            for (k = 0; k < PR_N; k++)
+                a[k] = upre_v(i)[k];
+        else {
+            const uint8_t b[PR_N] = {p->chaos, p->shape, p->output, p->attack, p->decay, p->sustain, p->release,
+                                     p->ring, p->fx_model, p->fx_struct, p->fx_bright, p->fx_damp, p->fx_pos,
+                                     p->fx_mix, p->sh_size, p->sh_decay, p->sh_shimmer, p->sh_mix, p->sh_interval,
+                                     p->sh_tone, p->osc, p->np_x, p->np_y, p->menv_len, p->menv_skew,
+                                     p->menv_height, p->scream, p->sh_space, p->np_level, p->menv_bend};
+            for (k = 0; k < PR_N; k++)
+                a[k] = b[k];
+        }
+        str_cpy(t, "    {\"", sizeof t);
+        ui_cat(t, sizeof t, p->name);
+        ui_cat(t, sizeof t, "\"");
+        for (k = 0; k < PR_N; k++) {
+            fmt_int(v, a[k]);
+            ui_cat(t, sizeof t, ", ");
+            ui_cat(t, sizeof t, v);
+        }
+        ui_cat(t, sizeof t, upre_has(i) ? "},   /* SAVED */" : "},");
+        rm_send(0x52, (const uint8_t *)t, str_len(t), 1);
+    }
+    rm_send(0x53, (const uint8_t *)"128", 3, 1);
+}
 static void rm_screen(void)
 {
     static uint8_t raw[1 + 4u * 240u * 2u] __attribute__((section(".pool")));
@@ -127,7 +162,7 @@ static void rm_service(void)
     if (n < 4u || p[0] != RM_HDR0 || p[1] != RM_HDR1 || p[2] != RM_HDR2)
         return;                                  /* (not ours: the update's) */
     {
-        uint8_t cmd = p[3], a = n > 4u ? p[4] : 0, b = n > 5u ? p[5] : 64;
+        uint8_t cmd = p[3], a = n > 4u ? p[4] : 0, b = n > 5u ? p[5] : 64, c = n > 6u ? p[6] : 0;
         ota_frame_done();                        /* (copied out: the ISR may take the next) */
         switch (cmd) {
         case 0x01: rm_screen(); break;
@@ -139,6 +174,13 @@ static void rm_service(void)
         case 0x04:
             if (a < NE)
                 rm_turn[a] = (int8_t)clamp(rm_turn[a] + (int32_t)b - 64, -64, 63);
+            break;
+        case 0x06: rm_presets(); break;
+        case 0x07:
+            if (a == 'C' && b == 'L' && c == 'R') {   /* (its key: no stray byte clears them) */
+                (void)upre_clear();
+                rm_send(0x53, (const uint8_t *)"CLR", 3, 1);
+            }
             break;
         case 0x05: {
             static const char ID[] = FELUCCA_ID " " FELUCCA_VERSION;

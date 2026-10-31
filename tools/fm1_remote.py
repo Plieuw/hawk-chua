@@ -12,6 +12,9 @@
     python3 tools/fm1_remote.py cc 1 64              a control change (CC 1: the mod wheel)
     python3 tools/fm1_remote.py program 12           a program change (preset 13)
     python3 tools/fm1_remote.py watch 10 shots/      a screen every half second for 10 s
+    python3 tools/fm1_remote.py presets presets.txt  all 128 presets as lines of ui.c's table (C; the ones SAVE
+                                                     overwrote marked SAVED), to paste into the code
+    python3 tools/fm1_remote.py reset-presets        the saved presets cleared: the built-in ones back
 
 Needs: pip3 install mido python-rtmidi Pillow. The port is the one whose name has "FM" in it (--port to choose).
 Recording the FM-1's USB audio is a job for the system's tools (e.g. ffmpeg / sox from its USB audio device)."""
@@ -67,6 +70,16 @@ class FM1:
                         return got
             time.sleep(0.002)
         return got
+
+    def presets(self):
+        """the 128 presets as text lines (C)"""
+        self.send(0x06)
+        r = self.replies({0x53}, timeout=10.0)
+        return [p.decode() for cmd, p in r if cmd == 0x52]
+
+    def reset_presets(self):
+        self.send(0x07, ord("C"), ord("L"), ord("R"))
+        return bool(self.replies({0x53}))
 
     def ping(self):
         self.send(0x05)
@@ -151,6 +164,16 @@ def main():
         fm.note(int(a.args[0]), int(a.args[1]) if len(a.args) > 1 else 100, float(a.args[2]) if len(a.args) > 2 else 0.5)
     elif a.cmd == "cc":
         fm.cc(int(a.args[0]), int(a.args[1]))
+    elif a.cmd == "presets":
+        lines = fm.presets()
+        txt = "\n".join(lines) + "\n"
+        if a.args:
+            open(a.args[0], "w").write(txt)
+            print("%d presets in %s (%d saved)" % (len(lines), a.args[0], sum("SAVED" in l for l in lines)))
+        else:
+            sys.stdout.write(txt)
+    elif a.cmd == "reset-presets":
+        print("cleared" if fm.reset_presets() else "no answer")
     elif a.cmd == "program":
         fm.program(int(a.args[0]))
     elif a.cmd == "watch":

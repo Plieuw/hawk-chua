@@ -78,6 +78,7 @@ typedef struct {
     uint8_t osc, np_x, np_y;                     /* the oscillator: 0 (left out) the circuit, 1..30 a noise program */
     uint8_t menv_len, menv_skew, menv_height;    /* its AD envelope (HEIGHT 0, left out: none) */
     uint8_t scream;                              /* SCREAM: the voices on the waveguides' breath (0, left out) */
+    uint8_t sh_space, np_level, menv_bend;       /* the SPACE (0, left out: HALL), NOISE LEVEL and BEND (0: 64) */
 } preset_t;
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
@@ -280,9 +281,64 @@ static const sh_preset_t SH_PRESETS[] = {
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
 static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not saved: the knobs are) */
 
+/* the user's presets: SAVE writes the sound as it is over the preset playing (its name kept), in the flash (two
+ * objects of 64: a bit each saying which are overwritten, then the 30 values of each); PRESETS and program change
+ * load it instead of the built-in one; the remote's PRESETS sends all 128 as C (remote.c), for ui.c's table */
+#define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
+typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
+static upre_t upre[2] __attribute__((section(".pool")));   /* (zeroed at start: none) */
+static volatile uint8_t *const PR_SYS[PR_N] = {
+    &sys.chaos, &sys.shape, &sys.output, &sys.attack, &sys.decay, &sys.sustain, &sys.release, &sys.ring,
+    &sys.fx_model, &sys.fx_struct, &sys.fx_bright, &sys.fx_damp, &sys.fx_pos, &sys.fx_mix,
+    &sys.sh_size, &sys.sh_decay, &sys.sh_shimmer, &sys.sh_mix, &sys.sh_interval, &sys.sh_tone,
+    &sys.osc, &sys.np_x, &sys.np_y, &sys.menv_len, &sys.menv_skew, &sys.menv_height, &sys.scream,
+    &sys.sh_space, &sys.np_level, &sys.menv_bend,
+};
+static int upre_has(uint32_t i) { i %= NPRESETS; return upre[i >> 6].has[(i & 63u) >> 3] >> (i & 7u) & 1; }
+static const uint8_t *upre_v(uint32_t i) { i %= NPRESETS; return upre[i >> 6].v[i & 63u]; }
+static void upre_boot(void)                      /* (settings_boot: the flash there) */
+{
+    uint32_t h;
+    for (h = 0; h < 2u; h++)
+        if (st_load(OBJ_USER0 + h, &upre[h], sizeof upre[h]) != (int)sizeof upre[h])
+            memset(&upre[h], 0, sizeof upre[h]);
+}
+static int upre_save(uint32_t i)                 /* the sound now over preset i: 0 saved */
+{
+    uint32_t k, h = (i % NPRESETS) >> 6, j = i & 63u;
+    for (k = 0; k < PR_N; k++)
+        upre[h].v[j][k] = (uint8_t)(*PR_SYS[k] & 127u);
+    upre[h].v[j][27] = (uint8_t)(sys.sh_space % SS_COUNT);
+    upre[h].has[j >> 3] |= (uint8_t)(1u << (j & 7u));
+    return st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
+}
+static int upre_clear(void)                      /* the built-in presets back (the remote's RESET PRESETS) */
+{
+    uint32_t h;
+    int e = 0;
+    for (h = 0; h < 2u; h++) {
+        memset(&upre[h], 0, sizeof upre[h]);
+        e |= st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
+    }
+    return e;
+}
+
 static void preset_load(uint32_t i)
 {
     const preset_t *p = &PRESETS[i % NPRESETS];
+    if (upre_has(i)) {                           /* (overwritten by SAVE: every value as it was saved) */
+        const uint8_t *v = upre_v(i);
+        uint32_t k;
+        mwd.on = 0;
+        sys.preset = (uint8_t)(i % NPRESETS);
+        for (k = 0; k < PR_N; k++)
+            *PR_SYS[k] = v[k];
+        sys.fx_model = (uint8_t)(sys.fx_model % RZ_COUNT);
+        sys.sh_interval = (uint8_t)(sys.sh_interval % SI_COUNT);
+        sys.sh_space = (uint8_t)(sys.sh_space % SS_COUNT);
+        sys.osc = (uint8_t)(sys.osc % (NP_COUNT + 1u));
+        return;
+    }
     mwd.on = 0;                                         /* (the mod wheel takes the new value as its base) */
     sys.preset = (uint8_t)(i % NPRESETS);
     sys.chaos = p->chaos;
@@ -307,33 +363,43 @@ static void preset_load(uint32_t i)
         sys.sh_shimmer = p->sh_shimmer;
         sys.sh_interval = p->sh_interval;
         sys.sh_tone = p->sh_tone;
-        sys.sh_space = SS_HALL;                  /* (the sound presets: the plain tank) */
+        sys.sh_space = (uint8_t)(p->sh_space % SS_COUNT);   /* (0: HALL, the plain tank) */
     }
     sys.sh_mix = p->sh_mix;
     sys.osc = (uint8_t)(p->osc % (NP_COUNT + 1u));
     if (p->osc) {                                /* (a circuit preset leaves the noise knobs) */
         sys.np_x = p->np_x;
         sys.np_y = p->np_y;
-        sys.np_level = 64;
+        sys.np_level = p->np_level ? p->np_level : 64u;
         sys.menv_len = p->menv_height ? p->menv_len : 80;
         sys.menv_skew = p->menv_height ? p->menv_skew : 10;
         sys.menv_height = p->menv_height;
-        sys.menv_bend = 64;
+        sys.menv_bend = p->menv_bend ? p->menv_bend : 64u;
     }
     sys.scream = p->scream;
 }
 static int preset_edited(void)
 {
     const preset_t *p = &PRESETS[sys.preset % NPRESETS];
+    if (upre_has(sys.preset)) {
+        const uint8_t *v = upre_v(sys.preset);
+        uint32_t k;
+        for (k = 0; k < PR_N; k++)
+            if ((*PR_SYS[k] & 127u) != v[k])
+                return 1;
+        return 0;
+    }
     return sys.chaos != p->chaos || sys.shape != p->shape || sys.output != p->output || sys.attack != p->attack ||
            sys.decay != p->decay || sys.sustain != p->sustain || sys.release != p->release || sys.ring != p->ring ||
            sys.fx_mix != p->fx_mix || (p->fx_mix && (sys.fx_model != p->fx_model || sys.fx_struct != p->fx_struct ||
            sys.fx_bright != p->fx_bright || sys.fx_damp != p->fx_damp || sys.fx_pos != p->fx_pos)) ||
            sys.sh_mix != p->sh_mix || (p->sh_mix && (sys.sh_size != p->sh_size || sys.sh_decay != p->sh_decay ||
-           sys.sh_shimmer != p->sh_shimmer || sys.sh_interval != p->sh_interval || sys.sh_tone != p->sh_tone)) ||
-           sys.osc != p->osc || (p->osc && (sys.np_x != p->np_x || sys.np_y != p->np_y || sys.np_level != 64u ||
+           sys.sh_shimmer != p->sh_shimmer || sys.sh_interval != p->sh_interval || sys.sh_tone != p->sh_tone ||
+           sys.sh_space != p->sh_space % SS_COUNT)) ||
+           sys.osc != p->osc || (p->osc && (sys.np_x != p->np_x || sys.np_y != p->np_y ||
+           sys.np_level != (p->np_level ? p->np_level : 64u) ||
            sys.menv_height != p->menv_height || (p->menv_height && (sys.menv_len != p->menv_len ||
-           sys.menv_skew != p->menv_skew || sys.menv_bend != 64u)))) || sys.scream != p->scream;
+           sys.menv_skew != p->menv_skew || sys.menv_bend != (p->menv_bend ? p->menv_bend : 64u))))) || sys.scream != p->scream;
 }
 
 /* ------------------------------------------------------------ settings --- */
@@ -362,6 +428,7 @@ static void settings_boot(void)    /* power-on, before the audio */
     irq_restore(f);
     if (!flash_ok)
         return;
+    upre_boot();
     if (st_load(OBJ_SETTINGS, &s, sizeof s) == (int)sizeof s && s.magic == SET_MAGIC) {
         sys.octave = (int8_t)clamp(s.octave, OCT_MIN, OCT_MAX);
         sys.chaos = (uint8_t)(s.chaos & 127u);
@@ -1747,9 +1814,12 @@ static void ui_input(void)
                 break;                                  /* both: the UBOOT combo (main.c), not an octave */
             sys.octave = (int8_t)clamp(sys.octave + (b == B_OCTUP ? 1 : -1), OCT_MIN, OCT_MAX);
             break;
-        case B_SAVE:
-            ui_say(settings_save() == 0 ? "SAVED" : flash_ok ? "SAVE FAILED" : "NO FLASH");
+        case B_SAVE: {                                  /* the settings, and the sound over the preset playing */
+            int e = settings_save();
+            e |= flash_ok ? upre_save(sys.preset) : 1;
+            ui_say(!e ? "PRESET SAVED" : flash_ok ? "SAVE FAILED" : "NO FLASH");
             break;
+        }
         case B_HOME:                                    /* the oscillator's page */
             sys.page = 0;
             ui_force = 1;

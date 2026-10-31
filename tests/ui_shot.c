@@ -65,11 +65,11 @@ static uint32_t edges;
 static uint32_t fm1_input_edges(uint32_t *released) { uint32_t p = edges; (void)released; edges = 0; return p; }
 static struct { uint8_t config, suspended; } usb = {1, 0};
 static uint8_t flash_ok = 1;
-enum { OBJ_SETTINGS };
-static uint8_t flash_store[1024];
-static int saved;
-static int st_load(uint32_t obj, void *dst, uint32_t max) { (void)obj; if (!saved) return -1; memcpy(dst, flash_store, max); return (int)max; }
-static int st_save(uint32_t obj, const void *src, uint32_t len) { (void)obj; memcpy(flash_store, src, len); saved = 1; return 0; }
+enum { OBJ_SETTINGS, OBJ_USER0, OBJ_COUNT = OBJ_USER0 + 8 };
+static uint8_t flash_store[OBJ_COUNT][3840];
+static int saved[OBJ_COUNT];
+static int st_load(uint32_t obj, void *dst, uint32_t max) { if (obj >= OBJ_COUNT || !saved[obj]) return -1; memcpy(dst, flash_store[obj], max); return (int)max; }
+static int st_save(uint32_t obj, const void *src, uint32_t len) { if (obj >= OBJ_COUNT || len > 3840u) return -1; memcpy(flash_store[obj], src, len); saved[obj] = 1; return 0; }
 static uint32_t irq_save(void) { return 0; }
 static void irq_restore(uint32_t f) { (void)f; }
 static uint32_t fl_jedec(void) { return 0x856014u; }
@@ -205,6 +205,35 @@ int main(int argc, char **argv)
     uint32_t i;
     char name[32];
     palette_set(UI_PALETTE);
+    {   /* SAVE overwrites the preset playing (its name kept); PRESETS / program change load the saved one; the remote's
+         * PRESETS sends all 128 as C lines (the saved one as saved), RESET PRESETS brings the built-in back */
+        static const uint8_t PRE[] = {0x7D, 0x43, 0x48, 0x06}, CLR[] = {0x7D, 0x43, 0x48, 0x07, 'C', 'L', 'R'};
+        int ok = 1;
+        uint32_t k, lines = 0;
+        preset_load(5);
+        sys.chaos = 17; sys.sh_space = SS_MOSQUE; sys.sh_mix = 50; sys.fx_damp = 33;
+        ok &= preset_edited();
+        edges = btn_bit(B_SAVE);
+        ui_input();
+        ok &= upre_has(5) && !upre_has(6) && !preset_edited();
+        preset_load(6);
+        ok &= sys.chaos != 17u || sys.sh_space != SS_MOSQUE;
+        preset_load(5);
+        ok &= sys.chaos == 17u && sys.sh_space == SS_MOSQUE && sys.sh_mix == 50u && sys.fx_damp == 33u && !preset_edited();
+        memset(upre, 0, sizeof upre);                    /* (as after a power cycle: from the flash) */
+        upre_boot();
+        ok &= upre_has(5);
+        rm_cmd(PRE, sizeof PRE);
+        rm_log[rm_logn < sizeof rm_log ? rm_logn : sizeof rm_log - 1u] = 0;
+        for (k = 0; k + 4u < rm_logn; k++)
+            if (rm_log[k] == 0xF0 && rm_log[k + 4] == 0x52)
+                lines++;
+        ok &= lines == NPRESETS && strstr((char *)rm_log, "SAVED") && strstr((char *)rm_log, "{\"GRAND PIANO\", ");
+        rm_cmd(CLR, sizeof CLR);
+        ok &= !upre_has(5);
+        if (!ok) { printf("SAVE over a preset / remote PRESETS / RESET PRESETS: failed\n"); return 1; }
+        printf("SAVE over a preset, remote PRESETS (128 lines), RESET PRESETS ok\n");
+    }
     {   /* REMOTE: PING, a BUTTON (the ARP page), STATE, a TURN, SCREEN (the plot, back as it is), not ours ignored */
         static const uint8_t PING[] = {0x7D, 0x43, 0x48, 0x05}, BTN[] = {0x7D, 0x43, 0x48, 0x03, B_ARP},
                              ST[] = {0x7D, 0x43, 0x48, 0x02}, TURN[] = {0x7D, 0x43, 0x48, 0x04, EN_K3, 64 + 5},
