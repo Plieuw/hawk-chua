@@ -1,4 +1,8 @@
 {
   "what": "A chaotic modeling synth: each voice is a live Chua circuit or a noise program, through vactrol gates into resonators, animal-throat and bird waveguides and temple, cathedral and mosque reverbs. With KARMA phrases, ARP, FREE EG, a 4-track varispeed tape and 3D scope art.",
-  "kinds": "synth"
+  "author": "plieuwski",
+  "kinds": [
+    "synth"
+  ],
+  "image": "docs/card.png"
 }
