@@ -10,6 +10,7 @@
  *                      5 PRIME CLUSTER 6 PRIME C NOISE  7 FIBONACCI      8 PARTIAL CLUST   9 PHASING CLUST
  *   C  HARSH & WILD    0 BASURA TOTAL  1 ATARI          2 WAKING FILOM.  3 P S H           4 ARRAY ROCKS
  *                      5 EXIST. PAIN   6 WHO KNOWS      7 SATAN WORKOUT  8 RWALK BITCRUSH  9 RWALK LFREE
+ *   D  ORDER           0 BIG BANG (this firmware's own: the standard waves, entropy, a bang, the series stretched)
  *
  * Building blocks: phase accumulators (Q32 cycles), square / pulse / saw / triangle / sine (px_sin), xorshift noise,
  * random walkers in a box, a Chamberlin state-variable band-pass, a granular cell (a 1024-sample buffer read back
@@ -24,7 +25,7 @@
  *   np_start(k, seed)                 a voice's state at a new note
  *   np_render(k, alg, inc, out, n, ext)  voice k, program alg (0..29), the note's increment (ext: FREE EG FM's factor
  *                                     a sample, Q16, or 0): n samples Q15 into out */
-#define NP_COUNT 30
+#define NP_COUNT 31
 static const char *const NP_NAME[NP_COUNT] = {
     "RADIO OH NO", "RWALK FLANGE", "XMOD RING SQR", "XMOD RING SINE", "CROSS MOD RING",
     "RESONOISE", "GRAIN GLITCH", "GRAIN GLITCH 2", "GRAIN GLITCH 3", "BASURILLA",
@@ -32,16 +33,19 @@ static const char *const NP_NAME[NP_COUNT] = {
     "PRIME CLUSTER", "PRIME C NOISE", "FIBONACCI", "PARTIAL CLUST", "PHASING CLUST",
     "BASURA TOTAL", "ATARI", "WAKING FILOM.", "P S H", "ARRAY ROCKS",
     "EXIST. PAIN", "WHO KNOWS", "SATAN WORKOUT", "RWALK BITCRUSH", "RWALK LFREE",
+    "BIG BANG",
 };
 static const char *const NP_X[NP_COUNT] = {        /* what X and Y do, per program (the screen) */
     "OSC 2", "WALK RATE", "OSC 2", "OSC 2", "RATIOS", "MOD RATIO", "GRAIN", "GRAIN", "GRAIN", "LFO RATE",
     "SPREAD", "DETUNE", "DETUNE", "DETUNE", "DETUNE", "SPREAD", "SPREAD", "SPREAD", "SPREAD", "SPREAD",
     "LFSR BEND", "OSC 2", "BOX", "RATE", "MOD RATIO", "SWEEP RATE", "SWEEP RATE", "FM", "BOX", "BOX",
+    "WAVE",
 };
 static const char *const NP_Y[NP_COUNT] = {
     "PWM", "FLANGE", "FM", "FM", "FM", "FOLD", "FM", "FM", "FM", "WIDTH",
     "VOICES", "PW", "FM", "FM", "FM", "FM", "NOISE FM", "TONE", "TONE", "DRIFT",
     "REVERB", "FM", "FM", "REVERB", "SCRAMBLE", "DEPTH", "DEPTH", "CRUSH", "REVERB", "REVERB",
+    "ENTROPY",
 };
 /* the output level per program: measured (tests/basis_test.c, NP_LEVELS=1 prints them) so that each sounds about as
  * loud as the circuit at X = Y = 64, a four-note chord (Q12) */
@@ -49,6 +53,7 @@ static const uint16_t NP_GAIN[NP_COUNT] = {
     1747, 1703, 1041, 2220, 1945, 510, 880, 879, 1531, 4523,
     3027, 1975, 1996, 2339, 2423, 2275, 2289, 2350, 2309, 1750,
     4035, 1169, 1285, 3241, 1548, 959, 382, 925, 2334, 1740,
+    4200,
 };
 
 #define NP_BUF 4096u
@@ -84,6 +89,7 @@ typedef struct {
     uint32_t hn;
     uint32_t menv, mage;                         /* its envelope (0..ENV_MAX), the voice's age it was started for */
     uint8_t mstage;                              /* 0 rising, 1 falling, 2 done */
+    int32_t bang;                                /* BIG BANG: the heat left of the note's bang, Q15 */
 } np_t;
 static np_t np_state[NVOICE];
 
@@ -199,11 +205,25 @@ static void np_start(uint32_t k, uint32_t seed)   /* (seed: from note_on's rng()
     memset(np_buf[k], 0, sizeof np_buf[k]);
     S->rng = seed | 1u;
     S->lfsr = 0xACE1u;
+    S->bang = 32767;
     for (i = 0; i < 16u; i++)
         S->ph[i] = np_rnd(&S->rng);              /* (clusters: no click of all phases at 0) */
     for (i = 0; i < 64u; i++)
         S->wt[i] = (int16_t)np_noise(&S->rng);
 }
+
+/* BIG BANG (D0): the harmonic series, sixteen partials, their weights the standard waves' (sine, triangle, saw,
+ * square: WAVE, X, between them), band-limited by itself (a partial over the top is left out); then ENTROPY (Y): the
+ * partials' frequencies walk off the series (+-50 % at the most) and noise comes in, order to disorder; BANG
+ * (CHAOS's knob): each note starts at full entropy, a singularity, and cools to ENTROPY's in 30 ms .. 4 s (0: no
+ * bang); EXPAND (OUTPUT's knob): the series stretched, partial n at n^(1 + 0 .. 0.5): in tune .. piano .. bell */
+static const int16_t NP_BB_W[4][16] = {
+    {20000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {16211, 0, -1801, 0, 648, 0, -331, 0, 200, 0, -134, 0, 96, 0, -72, 0},
+    {12732, -6366, 4244, -3183, 2546, -2122, 1819, -1592, 1415, -1273, 1157, -1061, 979, -909, 849, -796},
+    {25465, 0, 8488, 0, 5093, 0, 3638, 0, 2829, 0, 2315, 0, 1959, 0, 1698, 0},
+};
+static const int32_t NP_LOG2[16] = {0, 65536, 103872, 131072, 152170, 169408, 183983, 196608, 207744, 217706, 226717, 234944, 242512, 249519, 256042, 262144};   /* log2 n, Q16 */
 
 static const uint16_t NP_PRIMES[16] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53};
 static const uint16_t NP_FIB[16] = {1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597};
@@ -642,6 +662,47 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
         }
         break;
     }
+    case 30: {  /* BIG BANG: the standard waves from the harmonic series, entropy, the bang, the stretch */
+        int32_t w16[16], e, e2, st = (int32_t)(sys.output & 127u) * 32768 / 127, a;
+        uint32_t ci[16], seg = (uint32_t)x * 3u, sg = seg >> 15, fr = seg & 32767u, chs = sys.chaos & 127u;
+        if (sg > 2u) {
+            sg = 2u;
+            fr = 32767u;
+        }
+        for (j = 0; j < 16u; j++)                /* the wave: two of the four standard ones, mixed */
+            w16[j] = ((int32_t)NP_BB_W[sg][j] * (32768 - (int32_t)fr) + (int32_t)NP_BB_W[sg + 1u][j] * (int32_t)fr) >> 15;
+        if (!chs)
+            S->bang = 0;
+        else {                                   /* the bang cools: 30 ms .. 4 s (41 .. 5500 blocks) */
+            uint32_t tb = (uint32_t)(((uint64_t)41u * px_exp2((int32_t)(chs * 463339u / 127u))) >> 16);
+            S->bang -= (int32_t)(((int64_t)S->bang * (int32_t)(65536u / (tb ? tb : 1u))) >> 16) + 1;
+            S->bang = S->bang < 0 ? 0 : S->bang;
+        }
+        e = y + (int32_t)(((int64_t)(32767 - y) * S->bang) >> 15);   /* the entropy now, Q15 */
+        e2 = (int32_t)(((int64_t)e * e) >> 15);
+        for (j = 0; j < 16u; j++) {              /* each partial: its place in the series (stretched), walking off */
+            uint32_t r = px_exp2((int32_t)(((int64_t)(65536 + st) * NP_LOG2[j]) >> 16));   /* n^(1 + s), Q16 */
+            uint64_t c;
+            np_walk(&S->walk[j], &S->rng, 200 + (e >> 3), 65536);
+            c = ((uint64_t)inc * r) >> 16;
+            c = (c * (uint32_t)(65536 + (int32_t)(((int64_t)S->walk[j] * e2) >> 16))) >> 16;   /* (+-50 %) */
+            ci[j] = c > 0x70000000u || !w16[j] ? 0u : (uint32_t)c;   /* (over the top, or not in this wave: out) */
+        }
+        a = (int32_t)(inc >> 12);                /* the noise, low-passed near the note (~5 x) */
+        a = a > 32767 ? 32767 : a < 64 ? 64 : a;
+        for (i = 0; i < n; i++) {
+            int32_t s = 0;
+            for (j = 0; j < 16u; j++)
+                if (ci[j]) {
+                    S->ph[j] += NPF(ci[j]);
+                    s += (np_sin(S->ph[j]) * w16[j]) >> 15;
+                }
+            S->lp += (int32_t)(((int64_t)(np_noise(&S->rng) - S->lp) * a) >> 15);
+            s = (int32_t)(((int64_t)s * (32768 - (e2 * 3 >> 2)) + (int64_t)S->lp * e2) >> 15);
+            out[i] = np_clip(s);
+        }
+        break;
+    }
     default: {  /* RWALK LFREE: four pulses, frequency and width walking in a box; reverb */
         int32_t box = 2000 + x * 3 / 2;
         for (i = 0; i < n; i++) {
@@ -660,7 +721,8 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     }
 #undef NPF
     {   /* the level */
-        int32_t g = (int32_t)NP_GAIN[alg % NP_COUNT] * (int32_t)(sys.np_level & 127u) / 64;
+        int32_t g = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg == 30u ? 64 : (int32_t)(sys.np_level & 127u)) / 64;   /* (BIG
+                                                  * BANG: its own knobs where LEVEL was: at 64) */
         for (i = 0; i < n; i++)
             out[i] = np_clip((int32_t)(((int64_t)out[i] * g) >> 12));
     }

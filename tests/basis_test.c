@@ -1140,6 +1140,57 @@ int main(int argc, char **argv)
         synth_kill(); sys.fx_mix = 0; sys.osc = 0; sys.np_level = 64; run_ms(50);
         check("PIANO: the hammer strikes (louder and brighter the harder)", okk);
     }
+    {   /* BIG BANG: WAVE gives the standard waves (saw: the 2nd harmonic 6 dB under the 1st; square: no 2nd, the 3rd
+         * 9.5 dB under), ENTROPY takes the series apart, BANG starts each note in disorder and cools */
+        static int32_t ob[8192];
+        double hs[3], h2[2], h3[2], early, late;
+        uint32_t q, w, b, k;
+        int okk = 1;
+        static const uint8_t XS[3] = {85, 127, 85}, YS[3] = {0, 0, 110};
+        for (q = 0; q < 3u; q++) {
+            double hm = 0, tot = 0, a[4] = {0};
+            synth_kill(); run_ms(20);
+            sys.osc = NP_COUNT; sys.np_x = XS[q]; sys.np_y = YS[q]; sys.chaos = 0; sys.output = 0; sys.attack = 0;
+            sys.sustain = 127; sys.ring = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.feg_on = 0; sys.menv_height = 0;
+            synth_note_on(57, 100);
+            run_ms(200);
+            for (w = 0; w < 8192u / CTL; w++) { block(); for (b = 0; b < CTL; b++) ob[w * CTL + b] = buf[2 * b]; }
+            for (b = 0; b < 8192u; b++)
+                tot += (double)ob[b] * ob[b];
+            for (k = 1; k <= 12u; k++) {
+                double rr = 0, ii = 0;
+                for (b = 0; b < 8192u; b++) {
+                    double wv = 0.5 - 0.5 * cos(2 * M_PI * b / 8192.0), ph = 2 * M_PI * 220.0 * k * b / FS;
+                    rr += ob[b] * wv * cos(ph); ii += ob[b] * wv * sin(ph);
+                }
+                hm += (rr * rr + ii * ii) * 2 / 8192.0 / 0.375;
+                if (k <= 3u) a[k] = rr * rr + ii * ii;
+            }
+            hs[q] = hm / (tot + 1);
+            if (q < 2u) { h2[q] = 10 * log10(a[2] / a[1] + 1e-12); h3[q] = 10 * log10(a[3] / a[1] + 1e-12); }
+        }
+        {   /* BANG 64: the first 50 ms against 0.5 s later, the noise above 4 kHz */
+            double e0 = 0, e1 = 0, prev = 0;
+            synth_kill(); run_ms(20);
+            sys.np_x = 85; sys.np_y = 0; sys.chaos = 64;
+            synth_note_on(57, 100);
+            for (w = 0; w < 1000u; w++) {
+                block();
+                for (b = 0; b < CTL; b++) {
+                    double d = buf[2 * b] - prev;     /* (the difference: the highs) */
+                    prev = buf[2 * b];
+                    if (w < 70u) e0 += d * d; else if (w >= 700u && w < 770u) e1 += d * d;
+                }
+            }
+            early = e0; late = e1;
+        }
+        printf("   (BIG BANG: saw h2 %.1f dB, square h2 %.1f h3 %.1f dB; on the series %.2f, %.2f, ENTROPY 110: %.2f; BANG highs %.1fx)\n",
+               h2[0], h2[1], h3[1], hs[0], hs[1], hs[2], early / (late + 1));
+        okk &= h2[0] > -7.5 && h2[0] < -4.5 && h2[1] < -30 && h3[1] > -11.5 && h3[1] < -8;
+        okk &= hs[0] > 0.5 && hs[1] > 0.5 && hs[2] < 0.2 * hs[0] && early > 2 * late;
+        synth_kill(); sys.osc = 0; sys.chaos = 85; sys.output = 0; run_ms(20);
+        check("BIG BANG: the standard waves from the series, ENTROPY, BANG", okk);
+    }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */
         int okk = 1;

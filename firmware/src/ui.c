@@ -486,11 +486,11 @@ static const preset_t PRESETS[] = {
     {"PWM LEAD", 85, 76, 0, 2, 64, 115, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 12, 6, 40, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SYNC LEAD", 85, 76, 0, 2, 64, 115, 60, 60, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 3, 70, 50, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"FM LEAD", 85, 76, 0, 2, 64, 115, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 14, 4, 60, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"TRI LEAD", 85, 76, 0, 2, 64, 115, 60, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 15, 4, 20, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"BANG SQUARE", 20, 64, 0, 2, 64, 115, 60, 30, RZ_MODAL, 0, 0, 0, 0, 0, ROOM, NZ(3, 0), 127, 0},
     {"CHUA LEAD", 38, 100, 32, 2, 64, 115, 60, 70, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SPIRAL LEAD", 54, 90, 64, 2, 64, 115, 60, 60, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SCREAMER", 110, 64, 96, 2, 64, 110, 60, 70, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"SINE LEAD 2", 6, 64, 64, 4, 64, 120, 64, 20, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 40, 10, 20, 0, SS_HALL, 0, 0},
+    {"BANG SAW LEAD", 30, 64, 0, 2, 64, 115, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, ROOM, NZ(3, 0), 85, 0},
     {"SOFT FLUTE LEAD", 6, 64, 64, 10, 70, 110, 64, 30, RZ_FLUTE, 40, 90, 83, 40, 90, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OVERTONE},
     {"ACID LEAD", 85, 30, 0, 0, 60, 90, 50, 110, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"BRASSY LEAD", 85, 76, 0, 6, 70, 110, 60, 50, RZ_BRASS, 110, 120, 63, 0, 80, 85, 72, 0, 30, SI_OCT, 70, 11, 6, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
@@ -510,7 +510,7 @@ static const preset_t PRESETS[] = {
     {"WOBBLE BASS", 85, 76, 0, 0, 60, 100, 50, 90, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 12, 4, 90, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN, .oct = -2},
     {"GROWL BASS", 110, 40, 96, 0, 60, 100, 50, 70, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"STRING BASS SYN", 85, 76, 0, 0, 50, 0, 50, 30, RZ_STRING, 40, 50, 60, 30, 90, 0, 0, 0, 0, SI_OCT, 0, 19, 2, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -2},
-    {"HOLLOW BASS", 85, 76, 0, 0, 60, 100, 50, 40, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 20, 2, 10, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
+    {"BANG BASS", 25, 64, 0, 0, 60, 100, 50, 60, RZ_MODAL, 0, 0, 0, 0, 0, NOSH, NZ(3, 0), 100, 0, .oct = -2},
     {"DRONE BASS", 6, 64, 64, 20, 90, 120, 80, 40, RZ_BOW, 120, 45, 93, 74, 100, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"BOING BASS", 6, 64, 64, 0, 60, 70, 50, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 50, 10, 40, 0, SS_HALL, 0, 0, .oct = -2},
     {"SAW PAD", 85, 76, 0, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 11, 20, 60, 0, 0, 0, 0, SS_HALL, 0, 0},
@@ -526,7 +526,7 @@ static const preset_t PRESETS[] = {
     {"SHIMMER PAD", 6, 64, 64, 96, 100, 115, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 110, 100, 60, SI_OCT, 100, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
     {"FIFTH PAD", 85, 76, 0, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 80, 50, SI_FIFTH, 90, 11, 6, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"BOWED SYN PAD", 6, 64, 64, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 98, 100, 100, 110, 100, 60, 45, SI_OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SWELL},
-    {"HOLLOW PAD", 85, 76, 0, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 20, 6, 20, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"COOLING PAD", 110, 64, 0, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, AIR, NZ(3, 0), 64, 10},
     {"SPACE PAD", 85, 76, 0, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 127, 118, 60, 55, SI_2OCT, 90, 16, 30, 20, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
     {"SLOW STR PAD", 85, 76, 0, 110, 104, 115, 110, 20, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 11, 40, 80, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SYNTH PIANO", 85, 76, 0, 0, 60, 30, 56, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 12, 4, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
@@ -540,7 +540,7 @@ static const preset_t PRESETS[] = {
     {"CLAV SYNTH", 38, 120, 48, 0, 50, 0, 50, 110, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"PLUCKED KEYS", 85, 76, 0, 0, 56, 20, 56, 50, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 19, 4, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"TINE KEYS", 85, 76, 0, 0, 84, 0, 80, 20, RZ_MODAL, 10, 60, 70, 20, 50, 85, 72, 0, 30, SI_OCT, 70, 14, 4, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"HARPSI SYNTH", 85, 76, 0, 0, 44, 0, 44, 60, RZ_STRING, 40, 100, 45, 50, 70, 0, 0, 0, 0, SI_OCT, 0, 12, 4, 40, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"HARPSI SYNTH", 85, 76, 0, 0, 50, 0, 50, 30, RZ_STRING, 40, 100, 60, 50, 127, 0, 0, 0, 0, SI_OCT, 0, 12, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"REED KEYS", 6, 64, 64, 6, 60, 110, 56, 20, RZ_REED, 100, 100, 88, 115, 100, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
     {"VOX KEYS", 85, 76, 0, 4, 70, 90, 64, 40, RZ_VOICE, 40, 90, 48, 40, 90, 85, 72, 0, 30, SI_OCT, 70, 11, 4, 20, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"CHIME KEYS", 85, 76, 0, 0, 70, 0, 74, 20, RZ_MODAL, 90, 110, 84, 24, 110, 85, 72, 0, 30, SI_OCT, 70, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
@@ -623,10 +623,10 @@ static const preset_t PRESETS[] = {
     {"EDGE OF CHAOS", 112, 80, 32, 60, 100, 115, 100, 66, RZ_MODAL, 70, 100, 82, 12, 60, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0},
     {"LIMIT CYCLE", 30, 64, 96, 80, 100, 115, 100, 70, RZ_SYMP, 60, 60, 86, 40, 60, 127, 118, 60, 55, SI_2OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
     {"HOMOCLINIC", 60, 64, 32, 100, 100, 115, 100, 74, RZ_BOW, 120, 45, 93, 74, 90, 127, 120, 30, 50, SI_FIFTH, 60, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0},
-    {"TORUS", 40, 127, 64, 60, 100, 115, 100, 78, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"ATTRACTOR BELL", 96, 90, 64, 80, 100, 115, 100, 82, RZ_MODAL, 70, 100, 82, 12, 60, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0},
-    {"CHUA STORM", 124, 110, 96, 100, 100, 115, 100, 86, RZ_SYMP, 60, 60, 86, 40, 60, 127, 118, 60, 55, SI_2OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
-    {"DIODE HUM", 20, 10, 127, 60, 100, 115, 100, 30, RZ_BOW, 120, 45, 93, 74, 90, 127, 120, 30, 50, SI_FIFTH, 60, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0},
+    {"BIG BANG", 70, 64, 0, 20, 100, 115, 100, 30, RZ_MODAL, 0, 0, 0, 0, 0, 127, 118, 60, 55, SI_OCT, 90, NZ(3, 0), 85, 0, .sh_space = SS_CATHEDRAL},
+    {"EXPANDING BELL", 40, 64, 127, 0, 90, 0, 96, 20, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, NZ(3, 0), 0, 0},
+    {"HEAT DEATH", 127, 64, 40, 60, 110, 120, 110, 30, RZ_MODAL, 0, 0, 0, 0, 0, 127, 120, 30, 55, SI_OCT, 60, NZ(3, 0), 127, 110, .sh_space = SS_MOSQUE},
+    {"PRIMORDIAL SOUP", 100, 64, 20, 40, 100, 115, 100, 50, RZ_MODAL, 0, 0, 0, 0, 0, AIR, NZ(3, 0), 30, 70, .eg = EG_OPEN},
     {"RADIO STATIC", 85, 76, 0, 0, 80, 100, 80, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 1, 100, 90, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"FLANGE WALK", 85, 76, 0, 20, 90, 110, 90, 49, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 2, 90, 110, 0, 0, 0, 0, SS_MOSQUE, 0, 0},
     {"RING SQUARES", 85, 76, 0, 0, 60, 60, 70, 58, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 3, 20, 120, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
@@ -661,7 +661,7 @@ static const preset_t PRESETS[] = {
     {"HAWK DRONE", 110, 64, 64, 20, 80, 115, 70, 30, RZ_HAWK, 40, 110, 58, 90, 120, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 120, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"SHEET METAL", 85, 76, 0, 0, 50, 0, 60, 20, RZ_MODAL, 0, 90, 70, 0, 110, 85, 72, 0, 30, SI_OCT, 70, 25, 90, 110, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"SPRING TANK", 85, 76, 0, 0, 57, 0, 65, 20, RZ_SYMP, 37, 101, 83, 29, 110, 115, 96, 0, 40, SI_OCT, 80, 5, 100, 60, 0, 0, 0, 0, SS_MOSQUE, 127, 0},
-    {"GONG CHAOS", 124, 64, 96, 0, 64, 0, 70, 20, RZ_DRUM, 74, 112, 71, 58, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
+    {"GONG CHAOS", 124, 64, 96, 0, 70, 60, 80, 20, RZ_DRUM, 74, 112, 80, 58, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
     {"BRAKE DRUM", 85, 76, 0, 0, 71, 0, 75, 20, RZ_STRING, 111, 123, 84, 87, 110, 110, 100, 60, 45, SI_OCT, 90, 3, 126, 40, 0, 0, 0, 0, SS_TEMPLE, 127, 0},
     {"WIND GLASS", 85, 76, 0, 0, 78, 0, 80, 20, RZ_MODAL, 20, 96, 72, 116, 110, 85, 72, 0, 30, SI_OCT, 70, 25, 90, 110, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"PIPE KNOCK", 85, 76, 0, 0, 85, 0, 85, 20, RZ_SYMP, 57, 107, 85, 17, 110, 115, 96, 0, 40, SI_OCT, 80, 5, 100, 60, 0, 0, 0, 0, SS_MOSQUE, 127, 0},
@@ -2044,10 +2044,30 @@ static void ui_draw(void)
         ui_val_c = np_is_fm(NP_Y[alg]) ? T_FM_IN : 0;
         ui_cell(T_C2, a, v);
         ui_val_c = 0;
-        fmt_int(v, sys.np_level);
-        ui_cell(T_C3, "3 LEVEL", v);
-        fmt_int(v, sys.ring);
-        ui_cell(T_C4, "4 RING", v);
+        if (alg == 30u) {                        /* BIG BANG: its own two where LEVEL and RING are */
+            if (sys.chaos & 127u) {
+                uint32_t ms = (uint32_t)(((uint64_t)30u * px_exp2((int32_t)((sys.chaos & 127u) * 463339u / 127u))) >> 16);
+                fmt_int(v, (int32_t)(ms < 1000u ? ms : ms / 100u));
+                str_cpy(b, v, sizeof b);
+                if (ms >= 1000u) {               /* (seconds with one decimal) */
+                    char d[2] = {b[str_len(b) - 1u], 0};
+                    b[str_len(b) - 1u] = 0;
+                    ui_cat(b, sizeof b, ".");
+                    ui_cat(b, sizeof b, d);
+                    ui_cat(b, sizeof b, " S");
+                } else
+                    ui_cat(b, sizeof b, " MS");
+            } else
+                str_cpy(b, "OFF", sizeof b);
+            ui_cell(T_C3, "3 BANG", b);
+            fmt_int(v, sys.output);
+            ui_cell(T_C4, "4 EXPAND", v);
+        } else {
+            fmt_int(v, sys.np_level);
+            ui_cell(T_C3, "3 LEVEL", v);
+            fmt_int(v, sys.ring);
+            ui_cell(T_C4, "4 RING", v);
+        }
     } else if (sys.page == 0u) {
         str_cpy(a, "1 CHAOS ", sizeof a);
         fmt_int(v, sys.chaos);
@@ -2646,8 +2666,13 @@ static void ui_input(void)
     } else if (sys.page == 0u && sys.osc) {
         knob(&sys.np_x, EN_K1, 0);
         knob(&sys.np_y, EN_K2, 1);
-        knob(&sys.np_level, EN_K3, 2);
-        knob(&sys.ring, EN_K4, 3);
+        if (sys.osc == NP_COUNT) {               /* BIG BANG: BANG, EXPAND (on the circuit's CHAOS and OUTPUT) */
+            knob(&sys.chaos, EN_K3, 2);
+            knob(&sys.output, EN_K4, 3);
+        } else {
+            knob(&sys.np_level, EN_K3, 2);
+            knob(&sys.ring, EN_K4, 3);
+        }
     } else if (sys.page == 0u) {
         knob(&sys.chaos, EN_K1, 0);
         knob(&sys.shape, EN_K2, 1);

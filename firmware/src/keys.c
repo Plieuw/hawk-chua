@@ -211,13 +211,20 @@ static void midi_cc(uint32_t cc, uint32_t v)
         else
             sys.shape = (uint8_t)v;
         break;
-    case 73:
-        if (sys.osc)
+    case 73:                                     /* (BIG BANG: BANG, EXPAND on CHAOS's and OUTPUT's) */
+        if (sys.osc == NP_COUNT)
+            sys.chaos = (uint8_t)v;
+        else if (sys.osc)
             sys.np_level = (uint8_t)v;
         else
             sys.output = (uint8_t)v;
         break;
-    case 74: sys.ring = (uint8_t)v; break;
+    case 74:
+        if (sys.osc == NP_COUNT)
+            sys.output = (uint8_t)v;
+        else
+            sys.ring = (uint8_t)v;
+        break;
     case 91: sys.sh_mix = (uint8_t)v; break;     /* EFFECT 1 (reverb send): the SHIMMER's mix */
     case 93: sys.fx_mix = (uint8_t)v; break;     /* EFFECT 3 (chorus send): the FX resonator's mix */
     case 94: sys.sh_shimmer = (uint8_t)v; break; /* EFFECT 4 (variation): the SHIMMER's shimmer */
