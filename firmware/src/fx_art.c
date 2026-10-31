@@ -1084,7 +1084,7 @@ static void art_kalimba(void)
 /* ACCORDION: the bellows breathing (their folds open with the output's level), the two keyboards' ends */
 static void art_accord(void)
 {
-    int32_t k, open = 6 + art_lv / 24 + (art_sin(art_t * 0x02000000u) >> 13), x0 = Q8(120) - Q8(8) * open, fold;
+    int32_t k, open = 6 + art_lv / 24 + (art_sin(art_t * (1u << 25)) >> 13), x0 = Q8(120) - Q8(8) * open, fold;
     fold = Q8(16) * open / 10 + Q8(6);
     for (k = 0; k < 8; k++) {                    /* the folds: a zigzag top and bottom */
         int32_t xa = x0 + fold * k, xb = xa + fold;
