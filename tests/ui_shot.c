@@ -231,6 +231,26 @@ int main(int argc, char **argv)
         ok &= lines == NPRESETS && strstr((char *)rm_log, "SAVED") && strstr((char *)rm_log, "{\"GRAND PIANO\", ");
         rm_cmd(CLR, sizeof CLR);
         ok &= !upre_has(5);
+        {   /* a preset's FREE EG contour: FLUTE's jet moves with each note; the edited mark and SAVE see its base; a
+             * preset without one turns it off */
+            uint32_t b2;
+            uint8_t lo = 255, hi = 0, st0;
+            preset_load(73);                             /* FLUTE: EG_OVERTONE on FX STRUCTURE */
+            st0 = sys.fx_struct;
+            ok &= sys.feg_on && sys.feg_target == 8u && sys.feg_len == 0u;
+            synth_note_on(57, 100);
+            for (b2 = 0; b2 < 2u * FS / CTL; b2++) {
+                feg_block(CTL, voice_clock);
+                synth_render(abuf_, CTL);
+                lo = sys.fx_struct < lo ? sys.fx_struct : lo;
+                hi = sys.fx_struct > hi ? sys.fx_struct : hi;
+            }
+            ok &= lo < st0 && hi > st0 + 15u && !preset_edited();
+            synth_kill();
+            preset_load(0);                              /* GRAND PIANO: none */
+            ok &= !sys.feg_on && sys.fx_struct == PRESETS[0].fx_struct;
+            if (!ok) printf("preset FREE EG contour: jet %u .. %u around %u\n", lo, hi, st0);
+        }
         if (!ok) { printf("SAVE over a preset / remote PRESETS / RESET PRESETS: failed\n"); return 1; }
         printf("SAVE over a preset, remote PRESETS (128 lines), RESET PRESETS ok\n");
     }

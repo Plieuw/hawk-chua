@@ -142,6 +142,16 @@ DAMPING/MIX, SHIMMER, BASIS, ORBIT, ARP GATE/SWING, KARMA K1..K4, ...), KNOB 2 d
 KNOB 1: de beweging wordt opgenomen (128 punten) en je hoort hem meteen op het doel. SELECT rechtsom speelt hem af
 (linksom uit: de parameter krijgt zijn oude waarde terug).
 
+**FREE EG in de presets.** Een deel van de presets zet zelf een contour in FREE EG (LENGTH NOTE, rond de waarde van
+de preset), zodat elke noot leeft zoals een speler hem speelt: de boventonen van de fluit komen erin doordat de
+luchtstraal korter wordt (PICCOLO, FLUTE, RECORDER, OCARINA, WHISTLE: FX STRUCTURE), een stoot lucht bij het aanzetten
+die overgaat in een rustige adem (PAN FLUTE, SHAKUHACHI, BLOWN BOTTLE, CALLIOPE, CHIFF LEAD: FX POSITION), koper dat
+openbloeit doordat de lippen zich spannen (TRUMPET, TROMBONE, TUBA, FRENCH HORN, ...: FX STRUCTURE), een aanzwellende
+streek (de strijkers: FX BRIGHTNESS), het riet dat aanzet (hobo, fagot, klarinet, accordeons), een sax die laat in een
+lange noot gaat grommen (SCREAM), een koor dat van oe naar aa naar ee opent (FX POSITION), een pad waarvan de shimmer
+aanzwelt. Een preset zonder contour zet FREE EG weer uit (een eigen opname laat hij staan, tot een preset met een
+contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de waarde waaromheen FREE EG beweegt.
+
 | LENGTH | Wat |
 | --- | --- |
 | NOTE | elke noot (ook van de arpeggiator en KARMA) start hem opnieuw; hij speelt één keer, zo lang als je opnam (REC nog een keer stopt, max ~6 s), en houdt dan de laatste waarde |

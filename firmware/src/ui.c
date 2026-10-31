@@ -79,7 +79,26 @@ typedef struct {
     uint8_t menv_len, menv_skew, menv_height;    /* its AD envelope (HEIGHT 0, left out: none) */
     uint8_t scream;                              /* SCREAM: the voices on the waveguides' breath (0, left out) */
     uint8_t sh_space, np_level, menv_bend;       /* the SPACE (0, left out: HALL), NOISE LEVEL and BEND (0: 64) */
+    uint8_t eg;                                  /* a FREE EG contour each note plays (PRE_EG; .eg = EG_..., 0: none) */
 } preset_t;
+/* the presets' FREE EG contours: each note moves a parameter around the preset's value (the offsets, at points of
+ * ~46 ms: FREE EG's NOTE length), as a player would: a flute's overtones coming in as the jet shortens, a burst of air
+ * at the lips (the chiff) settling to a steady breath, brass blooming as the lips tighten, a bow swelling, a sax
+ * growling late in a long note, a choir's vowel opening, a pad's shimmer rising */
+enum { EG_NONE, EG_OVERTONE, EG_CHIFF, EG_BLOOM, EG_SWELL, EG_REEDSWELL, EG_GROWL, EG_VOWEL, EG_SHIMRISE, EG_OPEN, EG_COUNT };
+typedef struct { uint8_t target, n; int8_t p[5][2]; } pre_eg_t;   /* FREE EG's target; points: (point, offset) */
+static const pre_eg_t PRE_EG[EG_COUNT] = {
+    {0, 0, {{0, 0}}},
+    {8, 4, {{0, -10}, {4, 0}, {26, 25}, {60, 10}}},              /* OVERTONE: the jet (FX STRUCTURE) shortening */
+    {11, 4, {{0, 60}, {3, -10}, {20, 6}, {60, 0}}},              /* CHIFF: the breath (FX POSITION): a burst, then */
+    {8, 3, {{0, -30}, {6, 0}, {30, 8}}},                         /* BLOOM: the lips (FX STRUCTURE) tightening */
+    {9, 3, {{0, -20}, {14, 12}, {60, 4}}},                       /* SWELL: the bow's brightness swelling */
+    {8, 3, {{0, -15}, {12, 6}, {60, 0}}},                        /* REEDSWELL: the reed (FX STRUCTURE) */
+    {27, 4, {{0, 0}, {16, 0}, {44, 45}, {90, 30}}},              /* GROWL: SCREAM late in the note */
+    {11, 3, {{0, -40}, {24, 0}, {70, 30}}},                      /* VOWEL: U .. A .. E (FX POSITION) */
+    {15, 2, {{0, -40}, {80, 30}}},                               /* SHIMRISE: SHIMMER rising */
+    {3, 2, {{0, -40}, {60, 40}}},                                /* OPEN: RING opening the gate's resonance */
+};
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
 #define NOSH 0, 0, 0, 0, 0, 0
@@ -124,10 +143,11 @@ static const preset_t PRESETS[] = {
     {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, NOSH, NZ(1, 9), 2, 20},
     {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, ROOM, NZ(1, 9), 6, 70},
     {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, HALL, NZ(1, 9), 2, 8},
-    {"REED ORGAN", CYC, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ROOM},
-    {"ACCORDION", CYC, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ROOM},
-    {"HARMONICA", NZK, 24, 64, 115, 56, 30, RZ_REED, 90, 110, 83, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 15},
-    {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ROOM},
+    {"REED ORGAN", CYC, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ROOM, .eg = EG_REEDSWELL},
+    {"ACCORDION", CYC, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ROOM, .eg = EG_REEDSWELL},
+    {"HARMONICA", NZK, 24, 64, 115, 56, 30, RZ_REED, 90, 110, 83, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 15,
+     .eg = EG_REEDSWELL},
+    {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ROOM, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"NYLON GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 67, 40, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
     {"STEEL GUITAR", NZK, 0, 44, 0, 44, 0, RZ_STRING, 40, 100, 75, 30, 100, ROOM, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
@@ -147,72 +167,77 @@ static const preset_t PRESETS[] = {
     {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30},
     {"SYNTH BASS 2", 54, 70, 16, 0, 60, 40, 54, 120},
     /* STRINGS 41-48: the BOW waveguide */
-    {"VIOLIN", NZK, 44, 80, 118, 70, 20, RZ_BOW, 110, 90, 88, 60, 127, ROOM, NZ(1, 6), 63, 63},
-    {"VIOLA", NZK, 46, 80, 118, 70, 20, RZ_BOW, 110, 75, 88, 64, 127, ROOM, NZ(1, 6), 63, 63},
-    {"CELLO", NZK, 48, 80, 118, 72, 20, RZ_BOW, 115, 60, 93, 70, 127, ROOM, NZ(1, 6), 63, 63},
-    {"CONTRABASS", NZK, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 93, 74, 127, ROOM, NZ(1, 6), 63, 63},
-    {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 88, 60, 127, HALL, NZ(1, 6), 63, 63},
+    {"VIOLIN", NZK, 44, 80, 118, 70, 20, RZ_BOW, 110, 90, 88, 60, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
+    {"VIOLA", NZK, 46, 80, 118, 70, 20, RZ_BOW, 110, 75, 88, 64, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
+    {"CELLO", NZK, 48, 80, 118, 72, 20, RZ_BOW, 115, 60, 93, 70, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
+    {"CONTRABASS", NZK, 50, 80, 118, 72, 20, RZ_BOW, 120, 45, 93, 74, 127, ROOM, NZ(1, 6), 63, 63, .eg = EG_SWELL},
+    {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 88, 60, 127, HALL, NZ(1, 6), 63, 63, .eg = EG_SWELL},
     {"PIZZICATO", NZK, 0, 42, 0, 42, 0, RZ_STRING, 40, 70, 37, 40, 100, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
     {"HARP", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 45, 50, 90, 60, 48, 20, 39, SI_OCT, 70,
      NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
     {"TIMPANI", NZK, 0, 40, 0, 40, 50, RZ_DRUM, 120, 90, 95, 30, 127, ROOM, NZ(1, 6), 126, 0},
     /* ENSEMBLE 49-56 */
-    {"STRINGS", NZK, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 93, 64, 110, HALL, NZ(1, 0), 40, 30},
-    {"SLOW STRINGS", NZK, 96, 100, 115, 100, 20, RZ_BOW, 110, 70, 93, 70, 110, HALL, NZ(1, 0), 40, 30},
+    {"STRINGS", NZK, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 93, 64, 110, HALL, NZ(1, 0), 40, 30, .eg = EG_SWELL},
+    {"SLOW STRINGS", NZK, 96, 100, 115, 100, 20, RZ_BOW, 110, 70, 93, 70, 110, HALL, NZ(1, 0), 40, 30, .eg = EG_SWELL},
     {"SYNTH STRINGS 1", NZK, 60, 90, 110, 90, 40, NOFX, AIR, NZ(1, 0), 20, 100},
     {"SYNTH STRINGS 2", NZK, 70, 90, 110, 94, 30, NOFX, AIR, NZ(1, 9), 6, 40},
-    {"CHOIR AAHS", NZK, 80, 96, 115, 100, 20, RZ_VOICE, 64, 80, 48, 60, 110, HALL, NZ(1, 0), 8, 40},
-    {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_VOICE, 64, 60, 48, 4, 110, HALL, NZ(1, 0), 8, 40},
-    {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_VOICE, 40, 90, 48, 90, 100, AIR, NZ(1, 1), 10, 80},
+    {"CHOIR AAHS", NZK, 80, 96, 115, 100, 20, RZ_VOICE, 64, 80, 48, 60, 110, HALL, NZ(1, 0), 8, 40, .eg = EG_VOWEL},
+    {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_VOICE, 64, 60, 48, 4, 110, HALL, NZ(1, 0), 8, 40, .eg = EG_VOWEL},
+    {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_VOICE, 40, 90, 48, 90, 100, AIR, NZ(1, 1), 10, 80, .eg = EG_VOWEL},
     {"ORCHESTRA HIT", CYC, 0, 70, 0, 74, 40, RZ_BRASS, 110, 110, 68, 0, 110, HALL},
     /* BRASS 57-64: the BRASS waveguide (the synth brass: saws) */
-    {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 68, 0, 127, ROOM, NOOSC, 10},
-    {"TROMBONE", CYC, 34, 80, 112, 64, 20, RZ_BRASS, 70, 80, 73, 0, 127, ROOM},
-    {"TUBA", CYC, 36, 80, 112, 64, 20, RZ_BRASS, 30, 55, 78, 0, 127},
-    {"MUTED TRUMPET", CYC, 24, 76, 110, 60, 20, RZ_BRASS, 90, 100, 68, 110, 127, ROOM},
-    {"FRENCH HORN", CYC, 44, 84, 112, 76, 20, RZ_BRASS, 20, 50, 83, 0, 127, HALL},
-    {"BRASS SECTION", CYC, 30, 80, 112, 64, 30, RZ_BRASS, 90, 95, 68, 0, 127, ROOM, NOOSC, 10},
+    {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 68, 0, 127, ROOM, NOOSC, 10, .eg = EG_BLOOM},
+    {"TROMBONE", CYC, 34, 80, 112, 64, 20, RZ_BRASS, 70, 80, 73, 0, 127, ROOM, .eg = EG_BLOOM},
+    {"TUBA", CYC, 36, 80, 112, 64, 20, RZ_BRASS, 30, 55, 78, 0, 127, .eg = EG_BLOOM},
+    {"MUTED TRUMPET", CYC, 24, 76, 110, 60, 20, RZ_BRASS, 90, 100, 68, 110, 127, ROOM, .eg = EG_BLOOM},
+    {"FRENCH HORN", CYC, 44, 84, 112, 76, 20, RZ_BRASS, 20, 50, 83, 0, 127, HALL, .eg = EG_BLOOM},
+    {"BRASS SECTION", CYC, 30, 80, 112, 64, 30, RZ_BRASS, 90, 95, 68, 0, 127, ROOM, NOOSC, 10, .eg = EG_BLOOM},
     {"SYNTH BRASS 1", NZK, 20, 70, 90, 60, 80, RZ_BRASS, 110, 120, 63, 0, 90, NOSH, NZ(1, 0), 10, 40},
-    {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, RZ_BRASS, 80, 100, 68, 40, 90, ROOM, NZ(1, 0), 16, 80},
+    {"SYNTH BRASS 2", NZK, 40, 80, 100, 70, 60, RZ_BRASS, 80, 100, 68, 40, 90, ROOM, NZ(1, 0), 16, 80, .eg = EG_BLOOM},
     /* REED 65-72: the REED waveguide (BORE: a cone, the clarinet a cylinder) */
-    {"SOPRANO SAX", NZK, 20, 76, 115, 60, 20, RZ_REED, 70, 100, 78, 40, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 10},
-    {"ALTO SAX", NZK, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 78, 60, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 15},
-    {"TENOR SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 55, 80, 78, 80, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 25},
-    {"BARITONE SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 78, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30},
-    {"OBOE", CYC, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 78, 120, 127, ROOM},
-    {"ENGLISH HORN", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 78, 110, 127, ROOM},
-    {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 83, 105, 127},
-    {"CLARINET", 124, 64, 64, 30, 76, 118, 60, 20, RZ_REED, 40, 80, 83, 0, 127, ROOM},
+    {"SOPRANO SAX", NZK, 20, 76, 115, 60, 20, RZ_REED, 70, 100, 78, 40, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 10,
+     .eg = EG_GROWL},
+    {"ALTO SAX", NZK, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 78, 60, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 15,
+     .eg = EG_GROWL},
+    {"TENOR SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 55, 80, 78, 80, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 25,
+     .eg = EG_GROWL},
+    {"BARITONE SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 78, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
+     .eg = EG_GROWL},
+    {"OBOE", CYC, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 78, 120, 127, ROOM, .eg = EG_REEDSWELL},
+    {"ENGLISH HORN", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 78, 110, 127, ROOM, .eg = EG_REEDSWELL},
+    {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 83, 105, 127, .eg = EG_REEDSWELL},
+    {"CLARINET", 124, 64, 64, 30, 76, 118, 60, 20, RZ_REED, 40, 80, 83, 0, 127, ROOM, .eg = EG_REEDSWELL},
     /* PIPE 73-80: the FLUTE waveguide */
-    {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 78, 40, 127, ROOM},
-    {"FLUTE", CYC, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 78, 50, 127, ROOM},
-    {"RECORDER", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 78, 20, 127},
-    {"PAN FLUTE", NZK, 40, 80, 110, 76, 20, RZ_FLUTE, 30, 60, 78, 100, 127, HALL, NZ(1, 6), 126, 63},
-    {"BLOWN BOTTLE", NZK, 50, 80, 110, 74, 20, RZ_FLUTE, 0, 30, 78, 110, 127, NOSH, NZ(1, 6), 126, 63},
-    {"SHAKUHACHI", NZK, 50, 84, 105, 80, 20, RZ_FLUTE, 50, 60, 78, 120, 127, HALL, NZ(1, 6), 126, 63},
-    {"WHISTLE", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 78, 20, 120},
-    {"OCARINA", 6, 64, 127, 30, 76, 110, 66, 20, RZ_FLUTE, 10, 30, 78, 10, 127, ROOM},
+    {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 78, 40, 127, ROOM, .eg = EG_OVERTONE},
+    {"FLUTE", CYC, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 78, 50, 127, ROOM, .eg = EG_OVERTONE},
+    {"RECORDER", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 78, 20, 127, .eg = EG_OVERTONE},
+    {"PAN FLUTE", NZK, 40, 80, 110, 76, 20, RZ_FLUTE, 30, 60, 78, 100, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
+    {"BLOWN BOTTLE", NZK, 50, 80, 110, 74, 20, RZ_FLUTE, 0, 30, 78, 110, 127, NOSH, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
+    {"SHAKUHACHI", NZK, 50, 84, 105, 80, 20, RZ_FLUTE, 50, 60, 78, 120, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
+    {"WHISTLE", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 78, 20, 120, .eg = EG_OVERTONE},
+    {"OCARINA", 6, 64, 127, 30, 76, 110, 66, 20, RZ_FLUTE, 10, 30, 78, 10, 127, ROOM, .eg = EG_OVERTONE},
     /* SYNTH LEAD 81-88 */
     {"SQUARE LEAD", NZK, 2, 64, 115, 60, 40, NOFX, NOSH, NZ(1, 9), 0, 0},
     {"SAW LEAD", NZK, 2, 64, 115, 60, 50, NOFX, NOSH, NZ(1, 0), 4, 0},
-    {"CALLIOPE", NZK, 20, 70, 110, 60, 20, RZ_FLUTE, 60, 100, 78, 80, 100, ROOM, NZ(1, 9), 0, 4},
-    {"CHIFF LEAD", CYC, 0, 70, 110, 60, 40, RZ_FLUTE, 40, 100, 88, 90, 110},
+    {"CALLIOPE", NZK, 20, 70, 110, 60, 20, RZ_FLUTE, 60, 100, 78, 80, 100, ROOM, NZ(1, 9), 0, 4, .eg = EG_CHIFF},
+    {"CHIFF LEAD", CYC, 0, 70, 110, 60, 40, RZ_FLUTE, 40, 100, 88, 90, 110, .eg = EG_CHIFF},
     {"CHARANG", 120, 50, 96, 2, 66, 110, 60, 60},
     {"VOICE LEAD", NZK, 10, 70, 110, 64, 40, RZ_VOICE, 40, 90, 48, 64, 110, 60, 48, 20, 39, SI_OCT, 70,
-     NZ(1, 0), 4, 20},
+     NZ(1, 0), 4, 20, .eg = EG_VOWEL},
     {"FIFTHS LEAD", NZK, 4, 70, 110, 64, 50, RZ_SYMP, 20, 90, 75, 110, 80, NOSH, NZ(1, 0), 4, 0},
     {"BASS + LEAD", 85, 76, 0, 6, 80, 110, 70, 50},
     /* SYNTH PAD 89-96 */
-    {"NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 90, 40, 60, 110, 98, 100, 62, SI_OCT, 100},
+    {"NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 90, 40, 60, 110, 98, 100, 62, SI_OCT, 100,
+     .eg = EG_SHIMRISE},
     {"WARM PAD", 6, 30, 64, 92, 100, 115, 104, 20, NOFX, ROOM},
     {"POLYSYNTH", NZK, 20, 90, 80, 80, 60, NOFX, ROOM, NZ(1, 0), 8, 40},
     {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 64, 80, 48, 64, 90, 110, 98, 60, 52, SI_OCT, 90,
-     NZ(1, 0), 8, 30},
-    {"BOWED PAD", CYC, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 98, 100, 110, AIR},
+     NZ(1, 0), 8, 30, .eg = EG_VOWEL},
+    {"BOWED PAD", CYC, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 98, 100, 110, AIR, .eg = EG_SHIMRISE},
     {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 113, 80, 58, SI_OCT5, 90, NZ(1, 5), 30, 20},
     {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 40, 60, 48, 20, 90, 127, 115, 90, 58, SI_OCT, 90,
-     NZ(1, 0), 6, 20},
-    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 98, 40, 45, SI_OCT, 80},
+     NZ(1, 0), 6, 20, .eg = EG_VOWEL},
+    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 98, 40, 45, SI_OCT, 80, .eg = EG_OPEN},
     /* SYNTH EFFECTS 97-104 */
     {"RAIN", NZK, 0, 70, 60, 80, 30, NOFX, 110, 98, 100, 62, SI_OCT, 100, NZ(0, 7), 90, 50},
     {"SOUNDTRACK", 85, 100, 127, 110, 110, 120, 115, 60, NOFX, 127, 115, 60, 65, SI_OCT, 70},
@@ -229,8 +254,9 @@ static const preset_t PRESETS[] = {
     {"KOTO", NZK, 0, 46, 0, 46, 0, RZ_STRING, 60, 70, 72, 20, 85, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
     {"KALIMBA", NZK, 0, 42, 0, 42, 0, RZ_MODAL, 40, 90, 60, 30, 100, NOSH, NZ(1, 8), 0, 0, 0, 0, 0, 0, 0, 127},
     {"BAGPIPE", CYC, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 88, 120, 127, ROOM},
-    {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, NOSH, NZ(1, 6), 63, 63, 0, 0, 0, 12},
-    {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20},
+    {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, NOSH, NZ(1, 6), 63, 63, 0, 0, 0, 12,
+     .eg = EG_SWELL},
+    {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
     {"TINKLE BELL", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 70, 120, 82, 12, 120, ROOM, NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127},
     {"AGOGO", NZK, 0, 38, 0, 38, 0, RZ_MODAL, 116, 100, 60, 40, 110, NOSH, NZ(2, 4), 63, 0, 0, 0, 0, 0, 0, 127},
@@ -242,7 +268,7 @@ static const preset_t PRESETS[] = {
     {"REVERSE CYMBAL", NZK, 100, 30, 0, 30, 20, NOFX, NOSH, NZ(1, 6), 110, 90},
     /* SOUND EFFECTS 121-128 */
     {"GTR FRET NOISE", NZK, 0, 40, 0, 44, 60, RZ_STRING, 40, 90, 45, 40, 60, NOSH, NZ(0, 6), 40, 40, 30, 0, 50},
-    {"BREATH NOISE", NZK, 40, 70, 60, 70, 10, RZ_FLUTE, 30, 60, 78, 127, 70, NOSH, NZ(1, 6), 127, 127},
+    {"BREATH NOISE", NZK, 40, 70, 60, 70, 10, RZ_FLUTE, 30, 60, 78, 127, 70, NOSH, NZ(1, 6), 127, 127, .eg = EG_CHIFF},
     {"SEASHORE", NZK, 110, 110, 100, 115, 10, NOFX, HALL, NZ(1, 6), 127, 127},
     {"BIRD TWEET", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 90, 70, 48, 15, 127, 100, 78, 30, 26, SI_OCT, 100},
     {"TELEPHONE", NZK, 0, 64, 127, 40, 30, NOFX, NOSH, NZ(0, 2), 30, 20},
@@ -313,11 +339,16 @@ static void upre_boot(void)                      /* (settings_boot: the flash th
         if (st_load(OBJ_USER0 + h, &upre[h], sizeof upre[h]) != (int)sizeof upre[h])
             memset(&upre[h], 0, sizeof upre[h]);
 }
+static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq);
+static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq);
 static int upre_save(uint32_t i)                 /* the sound now over preset i: 0 saved */
 {
-    uint32_t k, h = (i % NPRESETS) >> 6, j = i & 63u;
+    uint32_t k, h = (i % NPRESETS) >> 6, j = i & 63u, irq;
+    uint8_t was = 0;
+    volatile uint8_t *t = feg_hold(&was, &irq);
     for (k = 0; k < PR_N; k++)
         upre[h].v[j][k] = (uint8_t)(*PR_SYS[k] & 127u);
+    feg_unhold(t, was, irq);
     upre[h].v[j][27] = (uint8_t)(sys.sh_space % SS_COUNT);
     upre[h].has[j >> 3] |= (uint8_t)(1u << (j & 7u));
     return st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
@@ -333,7 +364,7 @@ static int upre_clear(void)                      /* the built-in presets back (t
     return e;
 }
 
-static void preset_load(uint32_t i)
+static void preset_apply(uint32_t i)
 {
     const preset_t *p = &PRESETS[i % NPRESETS];
     if (upre_has(i)) {                           /* (overwritten by SAVE: every value as it was saved) */
@@ -388,7 +419,79 @@ static void preset_load(uint32_t i)
     }
     sys.scream = p->scream;
 }
+static uint8_t eg_from_preset;                   /* FREE EG holds a preset's contour (not a recording) */
+static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the preset's contour, or none */
+{
+    const pre_eg_t *g = &PRE_EG[e % EG_COUNT];
+    uint32_t k, j;
+    int32_t base;
+    if (!e || e >= EG_COUNT) {
+        if (eg_from_preset) {                    /* (the last preset's contour off: not this one's) */
+            sys.feg_has = 0;
+            eg_from_preset = 0;
+            was_on = 0;
+        }
+        sys.feg_on = was_on;
+        return;
+    }
+    base = *feg_field(g->target);
+    for (k = 0; k < FEG_N; k++) {                /* the points, the offsets between them straight */
+        int32_t v = g->p[g->n - 1u][1];
+        for (j = 0; j + 1u < g->n; j++)
+            if (k < (uint32_t)g->p[j + 1u][0]) {
+                int32_t t0 = g->p[j][0], t1 = g->p[j + 1u][0];
+                v = g->p[j][1] + (g->p[j + 1u][1] - g->p[j][1]) * ((int32_t)k - t0) / (t1 - t0);
+                break;
+            }
+        v += base;
+        feg.curve[k] = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
+    }
+    sys.feg_npts = (uint8_t)(g->p[g->n - 1u][0] + 1);
+    sys.feg_target = g->target;
+    sys.feg_depth = 127;
+    sys.feg_len = 0;                             /* (NOTE: each note plays it from its start) */
+    sys.feg_has = 1;
+    eg_from_preset = 1;
+    sys.feg_on = 1;
+}
+static void preset_load(uint32_t i)
+{
+    uint8_t on = sys.feg_on;
+    sys.feg_on = 0;                              /* (FREE EG gives its parameter back; it takes the new value as */
+    feg_release();                               /* its base when it plays again) */
+    preset_apply(i);
+    preset_eg(PRESETS[i % NPRESETS].eg, on);
+}
+/* FREE EG's target held at its base for a moment (what it moves around, not where it is now): the comparisons and
+ * SAVE see the sound's settings, not the contour's place (the audio held off meanwhile: a few microseconds) */
+static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq)
+{
+    volatile uint8_t *t;
+    *irq = irq_save();
+    t = feg.playing ? feg_field(feg.target) : 0;
+    if (t) {
+        *was = *t;
+        *t = feg.base;
+    }
+    return t;
+}
+static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq)
+{
+    if (t)
+        *t = was;
+    irq_restore(irq);
+}
+static int preset_edited_(void);
 static int preset_edited(void)
+{
+    uint8_t was = 0;
+    uint32_t irq;
+    volatile uint8_t *t = feg_hold(&was, &irq);
+    int r = preset_edited_();
+    feg_unhold(t, was, irq);
+    return r;
+}
+static int preset_edited_(void)
 {
     const preset_t *p = &PRESETS[sys.preset % NPRESETS];
     if (upre_has(sys.preset)) {

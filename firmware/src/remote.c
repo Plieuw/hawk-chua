@@ -122,6 +122,12 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
             ui_cat(t, sizeof t, ", ");
             ui_cat(t, sizeof t, v);
         }
+        if (p->eg) {                             /* (its FREE EG contour, as ui.c writes it) */
+            static const char *const EGN[EG_COUNT] = {"", "EG_OVERTONE", "EG_CHIFF", "EG_BLOOM", "EG_SWELL",
+                                                      "EG_REEDSWELL", "EG_GROWL", "EG_VOWEL", "EG_SHIMRISE", "EG_OPEN"};
+            ui_cat(t, sizeof t, ", .eg = ");
+            ui_cat(t, sizeof t, EGN[p->eg % EG_COUNT]);
+        }
         ui_cat(t, sizeof t, upre_has(i) ? "},   /* SAVED */" : "},");
         rm_send(0x52, (const uint8_t *)t, str_len(t), 1);
     }
