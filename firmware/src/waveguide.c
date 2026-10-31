@@ -859,3 +859,198 @@ static void wg_piano_run(wg_piano_t *P, const int32_t *in, int32_t *y, uint32_t 
         P->yp = t;
     }
 }
+
+/* --------------------------------------------------------------- ACCORDION --- */
+/* Free reeds (the accordion's, the bandoneon's, the harmonium's): each reed a tongue swinging through its slot at
+ * its own pitch, the air let through only while it is out of the slot (a valve: the flow a pulse each swing, the
+ * harder the bellows push the wider the reed swings and the shorter the pulse: louder and brighter, a reed's buzz),
+ * heard as the flow and a little of its change (radiated) through the reed chamber (a resonance, BRIGHTNESS: 500 Hz .. 3 kHz, the
+ * cassotto's dark to the open reed block's bright). The registers (POSITION): one reed (8'), two a little apart (8'
+ * 8'), three (the musette: one in tune, one flat, one sharp: its beating tremolo), the bassoon (16'), the master (16'
+ * 8' 8' 4'); STRUCTURE how far apart the musette's reeds are (0 .. 30 cents: dry .. wet); DAMPING the chamber's
+ * resonance (wide .. sharp). The bellows are the voices' loudness (and aftertouch) */
+#define WG_AR 4
+static const int8_t WG_AREG[5][WG_AR] = {   /* per register its reeds: the octave (-1 16', 0 8', 1 4'), the detune */
+    {0, 99, 99, 99}, {0, 4, 99, 99}, {0, -2, 2, 99}, {-1, 99, 99, 99}, {-1, 0, 2, 1}};   /* (99: none; 4: + half) */
+typedef struct {
+    uint32_t ph[WG_AR];
+    int32_t env, prv, c1, c2, ox, oy, iav, oav, ag;
+} wg_accord_t;
+static void wg_accord_run(wg_accord_t *A, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t musette,
+                          int32_t reg, int32_t bright, int32_t damp)
+{
+    uint32_t i, k, inc[WG_AR], nr = 0, rg = (uint32_t)reg * 5u / 128u;
+    int32_t env = wg_follow(&A->env, in, n), pr, w, cf, cq, cb;
+    for (k = 0; k < WG_AR; k++) {                /* the reeds of the register, each its pitch */
+        int32_t o = WG_AREG[rg][k], c;
+        if (o == 99)
+            continue;
+        c = o == 4 ? 1 : o == 2 ? 1 : o == -2 ? -1 : 0;   /* (the detuned ones: +-) */
+        {
+            int32_t cents = c * (musette * musette / 540);   /* 0 .. 30 cents */
+            uint32_t f = (uint32_t)(((uint64_t)f0 * px_exp2(cents * 65536 / 1200)) >> 16);
+            if (o == -1 || (rg == 4u && k == 0u))
+                f >>= 1;
+            else if (o == 1 && rg == 4u)
+                f <<= 1;
+            inc[nr++] = f > 0x60000000u ? 0x60000000u : f;
+        }
+    }
+    pr = env * 16 > PX_ONE ? PX_ONE : env * 16;  /* the bellows, 0 .. 1 */
+    w = 26000 - (pr >> 6);                       /* the slot: the pulse's width (Q15), shorter as the reed swings wider */
+    {   /* the chamber: a two-pole band-pass (the state-variable kind), f 500 Hz .. 3 kHz, Q from DAMPING */
+        int32_t oct = (int32_t)(((int64_t)bright * 169000) >> 16);   /* 0 .. 2.6 octaves */
+        uint32_t fc = (uint32_t)(((uint64_t)500u * px_exp2(oct)) >> 16);
+        cf = (int32_t)(fc * 4669u / 1000u);      /* 2 sin(pi f / FS) ~ 2 pi f / FS, Q15 (x 32768 / 44100 x 2 pi) */
+        cq = 32768 - (int32_t)(((int64_t)damp * 29000) >> 16);   /* 1 / Q: wide .. sharp */
+        cb = 9000 + damp / 8;
+    }
+    for (i = 0; i < n; i++) {
+        int32_t u = 0, o, d, hp;
+        for (k = 0; k < nr; k++) {               /* each reed: out of the slot, the air through */
+            int32_t s;
+            A->ph[k] += inc[k];
+            s = px_sin(A->ph[k]) >> 15;          /* its swing, Q15 */
+            s = s - w;
+            u += s > 0 ? s : 0;
+        }
+        u = (int32_t)(((int64_t)u * pr) >> 20) * 4;   /* the flow, on the bellows */
+        d = u - A->prv;                          /* radiated: the flow's change */
+        A->prv = u;
+        hp = u - A->c1 - px_m(A->c2, cq, 15);   /* the chamber (low c1, band c2), rung by the flow */
+        A->c2 += px_m(cf, hp, 15);
+        A->c1 += px_m(cf, A->c2, 15);
+        o = u + d * 2 + px_m(A->c2, cb, 15);     /* the flow, a little of its change (the buzz), the chamber */
+        d = o - A->ox + px_m(A->oy, 32440, 15);  /* (DC out) */
+        A->ox = o;
+        A->oy = d;
+        y[i] = px_clamp(d * 16, -32 * PX_ONE, 32 * PX_ONE);
+    }
+    wg_level(&A->iav, &A->oav, &A->ag, in, y, n);
+}
+
+/* ----------------------------------------------------------------- BAGPIPE --- */
+/* The bagpipe: the chanter a double reed on a narrow cone (the REED waveguide, its reed hard: loud, bright, buzzing;
+ * STRUCTURE softens it), and the drones (resonator.c's fx_resonator: one for the whole instrument, not a note): a
+ * bass and two tenors, cylinders with single reeds (odd harmonics, a square's), two octaves and an octave under the
+ * key POSITION sets (A .. G#: 12 places), the tenors a little apart (they beat); they sound while the bag is full
+ * (a note held, then ~0.7 s as it empties); DAMPING their level (0: none) */
+static uint32_t bag_ph[3];
+static int32_t bag_fill, bag_lp[3];
+static inline int32_t bag_blep(uint32_t ph, uint32_t inc)   /* a square's step smoothed (polyBLEP), Q15 */
+{
+    int32_t s = ph < 0x80000000u ? 32767 : -32767;
+    uint32_t t;
+    if (ph < inc) {                              /* (the rising edge) */
+        t = ph / (inc >> 15 ? inc >> 15 : 1u);  /* (32-bit: the position in the step, Q15) */
+        s -= (int32_t)((32768 - (int32_t)t) * (32768 - (int32_t)t) >> 15);
+    } else if (ph - 0x80000000u < inc) {         /* (the falling edge) */
+        t = (ph - 0x80000000u) / (inc >> 15 ? inc >> 15 : 1u);
+        s += (int32_t)((32768 - (int32_t)t) * (32768 - (int32_t)t) >> 15);
+    }
+    return s;
+}
+/* the drones this block into y (added, the model's units), the bag filled while held */
+static void bag_drones(int32_t *y, uint32_t n, int held, int32_t key, int32_t level)
+{
+    static const int16_t OFS[3] = {0, 4, -3};   /* the tenors' beating (cents x 4 ... a few cents) */
+    uint32_t i, k, inc[3], note = 45u + (uint32_t)key * 12u / 128u;   /* A2 .. G#3 */
+    int32_t tgt = held ? 32767 : 0;
+    if (!level && !bag_fill)
+        return;
+    for (k = 0; k < 3u; k++) {
+        uint32_t f = note_inc(k ? note : note - 12u);   /* the bass an octave under the tenors */
+        inc[k] = (uint32_t)(((uint64_t)f * px_exp2(OFS[k] * 65536 / 4800)) >> 16);
+    }
+    for (i = 0; i < n; i++) {
+        int32_t s = 0;
+        bag_fill += held ? (tgt - bag_fill) / 256 : -(bag_fill / 2048) - (bag_fill > 0);   /* (~6 ms up, ~0.7 s down) */
+        for (k = 0; k < 3u; k++) {
+            int32_t q;
+            bag_ph[k] += inc[k];
+            q = bag_blep(bag_ph[k], inc[k]);
+            bag_lp[k] += (q - bag_lp[k]) / 3;    /* (a reed's softness) */
+            s += k ? bag_lp[k] / 2 : bag_lp[k];
+        }
+        y[i] += (int32_t)(((int64_t)s * bag_fill >> 15) * level >> 7) * 8;   /* Q15 x 8: the model's units */
+    }
+}
+
+/* ----------------------------------------------------------------- KALIMBA --- */
+/* A lamellophone (kalimba, mbira, sanza): a steel tine clamped at one end and plucked at the other, a cantilever:
+ * its modes 1 : 6.27 : 17.5 : 34.4 (the clamped-free bar's, far from the harmonic series: what makes it a kalimba and
+ * not a bell or a string), the upper ones dying in a moment, the fundamental singing on; STRUCTURE the tine (0: the
+ * bare bar's ratios .. 127: a heavier tip, the overtones pulled down, 1 : 5 : 13 : 25); the tines on a box: its air
+ * (a Helmholtz resonance near 280 Hz) and its top (~1.1 kHz), rung by the tine (BRIGHTNESS: how much of the upper
+ * modes and of the top); DAMPING how long it sings (0.3 .. 6 s); POSITION the buzzers (the mbira's bottle caps and
+ * shells on the board: they rattle as the tine swings wide, a hard pluck the most). The voices' sound is the pluck */
+#define WG_KM 4
+static const uint32_t WG_TINE0[WG_KM] = {4096, 25670, 71885, 140861};   /* Q12: 1, 6.267, 17.55, 34.39 */
+static const uint32_t WG_TINE1[WG_KM] = {4096, 20480, 53248, 102400};   /* 1, 5, 13, 25 */
+typedef struct {
+    int32_t y1[WG_KM], y2[WG_KM], h1, h2, p1, p2, bz, env, yp;
+    uint32_t rng;
+} wg_kalimba_t;
+static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t tine,
+                           int32_t buzz, int32_t bright, int32_t damp)
+{
+    int32_t a1[WG_KM], a2[WG_KM], b[WG_KM], ha1, ha2, pa1, pa2, hb, pb;
+    uint32_t i, m, nm = 0;
+    uint32_t ts = (uint32_t)(((uint64_t)6615u * px_exp2(damp * 43 / 10)) >> 16);   /* T60 (half-rate samples):
+                                                  * 0.3 .. ~6 s */
+    (void)wg_follow(&K->env, in, n);
+    for (m = 0; m < WG_KM; m++) {
+        int32_t ratio = WG_TINE0[m] + (int32_t)(((int64_t)((int32_t)WG_TINE1[m] - (int32_t)WG_TINE0[m]) * tine) >> 16);
+        uint64_t fr = ((uint64_t)f0 * (uint32_t)ratio) >> 12;
+        uint32_t ph, tm, e;
+        int32_t r, cs, sn, d, amp;
+        if (fr * 2u >= 0x70000000u)
+            break;
+        ph = (uint32_t)fr * 2u;
+        tm = m ? ts / (4u + m * m * (uint32_t)(131072 - bright) / 8192u) : ts;   /* the upper modes: brief */
+        tm = tm < 16u ? 16u : tm;
+        e = 653126u / tm;
+        d = e < 2000u ? (int32_t)(e * 2839u) : (int32_t)((1u << 28) - (px_exp2(-(int32_t)e) << 12));
+        r = (1 << 28) - d;
+        cs = px_sin(ph + 0x40000000u) >> 2;
+        sn = px_sin(ph) >> 2;
+        amp = m ? 9000 + bright / 4 : 65536;     /* (the pluck at the tip: the upper modes softer) */
+        a1[m] = (int32_t)(((int64_t)r * cs) >> 27);
+        a2[m] = (int32_t)(((int64_t)r * r) >> 28);
+        b[m] = (int32_t)(((int64_t)(sn >> 3) * amp) >> 16);
+        nm = m + 1u;
+    }
+    {   /* the box: its air ~280 Hz (Q ~8), its top ~1.1 kHz (Q ~5), at the half rate */
+        ha1 = 533289919; ha2 = 266559696; hb = 299528;            /* (r 0.9965, w 2 pi 280 / 22050; peak x 2) */
+        pa1 = 503051945; pa2 = 260442790; pb = 1241538 + bright * 19;   /* (r 0.985, w 2 pi 1100 / 22050; x 0.5 .. 1) */
+    }
+    for (i = 0; i < n; i += 2u) {
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], o = 0, h, p, a;
+        for (m = 0; m < nm; m++) {
+            int32_t v = (int32_t)(((int64_t)a1[m] * K->y1[m] - (int64_t)a2[m] * K->y2[m] + (int64_t)b[m] * x) >> 28);
+            v = px_clamp(v, -32 * PX_ONE, 32 * PX_ONE);
+            K->y2[m] = K->y1[m];
+            K->y1[m] = v;
+            o += v >> 2;
+        }
+        for (; m < WG_KM; m++)
+            K->y1[m] = K->y2[m] = 0;
+        h = (int32_t)(((int64_t)ha1 * K->h1 - (int64_t)ha2 * K->h2 + (int64_t)hb * o) >> 28);   /* the box */
+        h = px_clamp(h, -32 * PX_ONE, 32 * PX_ONE);
+        K->h2 = K->h1; K->h1 = h;
+        p = (int32_t)(((int64_t)pa1 * K->p1 - (int64_t)pa2 * K->p2 + (int64_t)pb * o) >> 28);
+        p = px_clamp(p, -32 * PX_ONE, 32 * PX_ONE);
+        K->p2 = K->p1; K->p1 = p;
+        o = o + h / 2 + p / 2;
+        if (buzz) {                              /* the buzzers: a rattle as the swing passes their gap */
+            a = o < 0 ? -o : o;
+            a = a > PX_ONE / 8 ? a - PX_ONE / 8 : 0;
+            K->bz += px_m(8000, px_m((int32_t)(px_rand(&K->rng) >> 11) - (1 << 20), a, 20) - K->bz, 15);
+            o += K->bz * buzz / 16;
+        }
+        y[i] = (K->yp + o) >> 1;
+        if (i + 1u < n)
+            y[i + 1u] = o;
+        K->yp = o;
+    }
+}

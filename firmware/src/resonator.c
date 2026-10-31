@@ -31,8 +31,10 @@
 #include "phys_symp.c"
 #include "waveguide.c"                           /* VOICE ... DRUM: this firmware's own models */
 
-enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_VOICE, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_DRUM, RZ_PIANO, RZ_COUNT };
-static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "VOICE", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED", "DRUM", "PIANO"};
+enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_VOICE, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_DRUM, RZ_PIANO,
+       RZ_ACCORD, RZ_BAGPIPE, RZ_KALIMBA, RZ_COUNT };
+static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "VOICE", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED", "DRUM", "PIANO",
+                                              "ACCORDION", "BAGPIPE", "KALIMBA"};
 static const char *const RZ_CHORD_NAME[8] = {"OCT", "5TH", "4TH", "MAJ", "MIN", "SUS", "7TH", "OCTAVES"};
 static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Felucca's PHYS chords) */
     {-12, 12, 24}, {7, 12, 19}, {5, 12, 17}, {4, 7, 12}, {3, 7, 12}, {2, 7, 14}, {4, 7, 10}, {12, 24, 36},
@@ -40,9 +42,9 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000, 6000};
-static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
-static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
+static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000, 6000, 4500, 4500, 6000};
+static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
+static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
 static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
@@ -59,7 +61,9 @@ typedef struct {
         wg_syrinx_t x;
         wg_brass_t br;                           /* BRASS, BOW, REED */
         wg_bow_t bw;
-        wg_reed_t rd;
+        wg_reed_t rd;                            /* (BAGPIPE: its chanter) */
+        wg_accord_t ac;                          /* ACCORDION */
+        wg_kalimba_t kl;                         /* KALIMBA */
         wg_drum_t dr;                            /* DRUM */
         wg_piano_t pn;                           /* PIANO */
     } u;
@@ -103,7 +107,11 @@ static void rz_reset(rz_t *R, uint32_t md)
         R->u.br.ag = 4096;
     else if (md == RZ_BOW)
         R->u.bw.ag = 4096;
-    else if (md == RZ_REED) {
+    else if (md == RZ_ACCORD)
+        R->u.ac.ag = 4096;
+    else if (md == RZ_KALIMBA)
+        R->u.kl.rng = 0x9E3779B9u;
+    else if (md == RZ_REED || md == RZ_BAGPIPE) {
         R->u.rd.ag = 4096;
         R->u.rd.rng = 0x9E3779B9u;
     }                        /* (the automatic gain at 1) */
@@ -287,6 +295,39 @@ static void rz_run(uint32_t r, uint32_t n)
         }
         break;
     }
+    case RZ_ACCORD:
+        wg_accord_run(&R->u.ac, in, y, n, f0, strc / 516, pos, brit, damp);
+        if (view) {                              /* (the reeds' harmonics) */
+            for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++) {
+                rz_view.f[i] = f0 * (i + 1u);
+                rz_view.a[i] = (int16_t)(32767 / (int32_t)(i + 1u));
+            }
+            rz_view.n = i;
+        }
+        break;
+    case RZ_KALIMBA:
+        wg_kalimba_run(&R->u.kl, in, y, n, f0, strc, pos, brit, damp);
+        if (view) {                              /* (the tine's modes) */
+            uint32_t m2;
+            for (m2 = 0; m2 < WG_KM; m2++) {
+                int32_t ra = WG_TINE0[m2] + (int32_t)(((int64_t)((int32_t)WG_TINE1[m2] - (int32_t)WG_TINE0[m2]) * strc) >> 16);
+                uint64_t fr = ((uint64_t)f0 * (uint32_t)ra) >> 12;
+                rz_view.f[m2] = fr < 0x7F000000u ? (uint32_t)fr : 0u;
+                rz_view.a[m2] = (int16_t)(32767 / (int32_t)(m2 * 3u + 1u));
+            }
+            rz_view.n = WG_KM;
+        }
+        break;
+    case RZ_BAGPIPE:                             /* the chanter: a hard double reed on a narrow cone */
+        wg_reed_run(&R->u.rd, in, y, n, f0, 127 - strc / 1032, 115, brit, 100 * 516);
+        if (view) {
+            for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++) {
+                rz_view.f[i] = f0 * (i + 1u);
+                rz_view.a[i] = (int16_t)(32767 / (int32_t)(i + 1u));
+            }
+            rz_view.n = i;
+        }
+        break;
     case RZ_DRUM:
         wg_drum_run(&R->u.dr, in, y, n, f0, strc, pos, brit, damp);
         if (view) {                              /* (its modes, as the drum is tuned) */
@@ -394,9 +435,18 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
     mix += mix >> 6;                             /* 0..128 */
     {
         int32_t oct = RZ_OFF[md] - (int32_t)(((int64_t)RZ_SLOPE[md] * (sys.fx_damp & 127u)) / 127);
-        int32_t g = (int32_t)(((int64_t)RZ_GAIN[md] * px_exp2(oct)) >> 16);
+        int32_t g = (int32_t)(((int64_t)RZ_GAIN[md] * px_exp2(oct)) >> 16), drn[CTL];
+        memset(drn, 0, sizeof drn);
+        if (md == RZ_BAGPIPE) {                  /* the drones: the whole instrument's, while a note holds the bag */
+            uint32_t k2;
+            int held = 0;
+            for (k2 = 0; k2 < NVOICE; k2++)
+                held |= voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN;
+            bag_drones(drn, n, held, (int32_t)(sys.fx_pos & 127u), (int32_t)(sys.fx_damp & 127u));
+        } else
+            bag_fill = 0;
         for (i = 0; i < n; i++) {
-            int32_t y = 0, yl = 0, yr = 0, wet;
+            int32_t y = drn[i], yl = 0, yr = 0, wet;
             for (r = 0; r < RZ_POLY; r++)
                 if (mine >> r & 1u) {
                     y += rz_out[r][i];

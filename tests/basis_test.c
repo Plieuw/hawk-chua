@@ -1224,6 +1224,41 @@ int main(int argc, char **argv)
         synth_kill(); sys.osc = 0; sys.orbit = 0; sys.chaos = 85; run_ms(20);
         check("ORBIT: on the harmonic series (the 2nd harmonic to the sides, the 1st in the middle)", okk);
     }
+    {   /* ACCORDION, BAGPIPE, KALIMBA: the accordion speaks at the note; the bagpipe's drones sound under the chanter
+         * at the key POSITION sets; the kalimba's tine rings its cantilever's second mode (6.27 x), not a harmonic */
+        static int32_t ob[8192];
+        double r[6];
+        uint32_t q, w, b;
+        int okk = 1;
+        static const double FQ[6] = {220.0, 330.0, 110.0, 100.0, 1379.0, 1320.0};   /* (what each measures) */
+        for (q = 0; q < 3u; q++) {
+            uint32_t k;
+            synth_kill(); sys.fx_mix = 0; run_ms(20);
+            sys.osc = q == 2u ? 19 : 17; sys.np_x = q == 2u ? 0 : 126; sys.np_y = 63; sys.np_level = q == 2u ? 127 : 30;
+            sys.attack = q == 2u ? 0 : 10; sys.decay = 46; sys.sustain = q == 2u ? 0 : 120; sys.release = 46;
+            sys.ring = 10; sys.sh_mix = 0; sys.feg_on = 0; sys.osc = sys.osc;
+            sys.fx_model = q == 0u ? RZ_ACCORD : q == 1u ? RZ_BAGPIPE : RZ_KALIMBA;
+            sys.fx_struct = q == 1u ? 30 : 0; sys.fx_bright = 80; sys.fx_damp = 80;
+            sys.fx_pos = q == 1u ? 0 : 0;        /* (BAGPIPE: drones in A: A2 110 Hz tenors) */
+            sys.fx_mix = 127;
+            synth_note_on(57, 100);
+            run_ms(q == 2u ? 5 : 300);
+            for (w = 0; w < 8192u / CTL; w++) { block(); for (b = 0; b < CTL; b++) ob[w * CTL + b] = buf[2 * b]; }
+            for (k = 0; k < 2u; k++) {
+                double rr = 0, ii = 0, f = FQ[q * 2u + k];
+                for (b = 0; b < (q == 2u ? 2048u : 8192u); b++) {
+                    double wv = 0.5 - 0.5 * cos(2 * M_PI * b / (q == 2u ? 2048.0 : 8192.0));
+                    rr += ob[b] * wv * cos(2 * M_PI * f * b / FS); ii += ob[b] * wv * sin(2 * M_PI * f * b / FS);
+                }
+                r[q * 2u + k] = rr * rr + ii * ii;
+            }
+        }
+        printf("   (ACCORDION 220 / 330 Hz %.1f dB; BAGPIPE drone 110 / 100 Hz %.1f dB; KALIMBA 6.27 x / 6 x %.1f dB)\n",
+               10 * log10(r[0] / (r[1] + 1)), 10 * log10(r[2] / (r[3] + 1)), 10 * log10(r[4] / (r[5] + 1)));
+        okk &= r[0] > 30 * r[1] && r[2] > 10 * r[3] && r[4] > 2 * r[5];
+        synth_kill(); sys.fx_mix = 0; sys.osc = 0; run_ms(20);
+        check("ACCORDION speaks, BAGPIPE drones, KALIMBA's tine (6.27 x)", okk);
+    }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */
         int okk = 1;
@@ -1918,7 +1953,7 @@ int main(int argc, char **argv)
                 int32_t pk = 0;
                 synth_kill(); sys.fx_mix = 0; run_ms(20);
                 sys.fx_model = (uint8_t)md2; sys.fx_damp = 127; sys.fx_mix = 127;
-                synth_note_on(57, 110); run_ms(200); synth_kill(); run_ms(md2 == RZ_DRUM ? 9000 : 3000);   /* (the drum rings 4 s) */
+                synth_note_on(57, 110); run_ms(200); synth_kill(); run_ms(md2 == RZ_DRUM || md2 == RZ_KALIMBA ? 9000 : 3000);   /* (the drum rings 4 s, the tine 6) */
                 for (w2 = 0; w2 < 100u; w2++) {
                     synth_render(buf, CTL);
                     for (q = 0; q < CTL; q++) pk = abs(buf[2 * q]) > pk ? abs(buf[2 * q]) : pk;

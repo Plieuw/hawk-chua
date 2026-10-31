@@ -1064,6 +1064,71 @@ static void art_piano(void)
     art_title(ICON_PIANO, "PIANO");
 }
 
+/* KALIMBA: the tines fanned on the box (the one playing swings with the level), the sound hole */
+static void art_kalimba(void)
+{
+    int32_t k, sw = art_lv * art_sin(art_t * 0x40000000u) / 32768 / 16;
+    art_ln(Q8(40), Q8(40), Q8(200), Q8(40), art_c2, 0);       /* the box */
+    art_ln(Q8(40), Q8(40), Q8(56), Q8(116), art_c2, 0);
+    art_ln(Q8(200), Q8(40), Q8(184), Q8(116), art_c2, 0);
+    art_ln(Q8(56), Q8(116), Q8(184), Q8(116), art_c2, 0);
+    art_ring(Q8(120), Q8(92), 9, art_c3);
+    art_ln(Q8(52), Q8(58), Q8(188), Q8(58), art_c, 0);        /* the bridge */
+    for (k = 0; k < 9; k++) {                    /* the tines: the middle longest */
+        int32_t x = Q8(64 + 14 * k), d = k < 4 ? 4 - k : k - 4, len = 52 - d * 6, w = k == 4 ? sw : 0;
+        art_ln(x, Q8(58), x + Q8(w), Q8(58 - len / 2), art_c, 0);
+        art_ln(x, Q8(58), x, Q8(58 + len / 4), art_c3, 0);
+    }
+    art_title(ICON_PIANO, "KALIMBA");
+}
+/* ACCORDION: the bellows breathing (their folds open with the output's level), the two keyboards' ends */
+static void art_accord(void)
+{
+    int32_t k, open = 6 + art_lv / 24 + (art_sin(art_t * 0x02000000u) >> 13), x0 = Q8(120) - Q8(8) * open, fold;
+    fold = Q8(16) * open / 10 + Q8(6);
+    for (k = 0; k < 8; k++) {                    /* the folds: a zigzag top and bottom */
+        int32_t xa = x0 + fold * k, xb = xa + fold;
+        art_ln(xa, Q8(30), (xa + xb) / 2, Q8(22), art_c, 0);
+        art_ln((xa + xb) / 2, Q8(22), xb, Q8(30), art_c, 0);
+        art_ln(xa, Q8(98), (xa + xb) / 2, Q8(106), art_c, 0);
+        art_ln((xa + xb) / 2, Q8(106), xb, Q8(98), art_c, 0);
+        art_ln(xa, Q8(30), xa, Q8(98), art_c3, 0);
+    }
+    {
+        int32_t xe = x0 + fold * 8, j;
+        for (j = 0; j < 2; j++) {                /* the ends: the keys, the buttons */
+            int32_t xs = j ? xe : x0 - Q8(26);
+            art_ln(xs, Q8(24), xs + Q8(26), Q8(24), art_c2, 0);
+            art_ln(xs, Q8(104), xs + Q8(26), Q8(104), art_c2, 0);
+            art_ln(xs, Q8(24), xs, Q8(104), art_c2, 0);
+            art_ln(xs + Q8(26), Q8(24), xs + Q8(26), Q8(104), art_c2, 0);
+        }
+        for (j = 0; j < 6; j++)
+            art_ring(xe + Q8(13), Q8(34 + 12 * j), 3, art_c2);
+        for (j = 0; j < 7; j++)
+            art_ln(x0 - Q8(22), Q8(32 + 10 * j), x0 - Q8(6), Q8(32 + 10 * j), art_c3, 0);
+    }
+    art_title(ICON_PIANO, "ACCORDION");
+}
+/* BAGPIPE: the bag (breathing with the level), the chanter below, the three drones over the shoulder */
+static void art_bagpipe(void)
+{
+    int32_t k, r = 30 + art_lv / 20;
+    art_ring(Q8(110), Q8(70), r, art_c);
+    art_ring(Q8(110), Q8(70), r - 6, art_c3);
+    art_ln(Q8(96), Q8(70 + r), Q8(92), Q8(118), art_c, 0);           /* the chanter */
+    for (k = 0; k < 5; k++)
+        art_ring(Q8(95) - Q8(k) / 2, Q8(84 + r / 2 + k * 6), 1, art_c2);
+    for (k = 0; k < 3; k++) {                    /* the drones, fanned up and right */
+        int32_t x0 = Q8(118 + k * 6), y0 = Q8(70 - r + 4), len = k ? 56 : 72;
+        int32_t dx = Q8(len) * (2 + k) / 6, dy = -Q8(len) * (5 - k) / 6;
+        art_ln(x0, y0, x0 + dx, y0 + dy, art_c, 0);
+        art_ln(x0 + dx - Q8(3), y0 + dy, x0 + dx + Q8(3), y0 + dy, art_c2, 0);
+    }
+    art_ln(Q8(80), Q8(70 - r / 2), Q8(56), Q8(40), art_c2, 0);       /* the blowpipe */
+    art_title(ICON_SAX, "BAGPIPE");
+}
+
 /* DRUM: the drum turning, its head a polar grid moving in its mode (struck in the middle: the round (0,1), a dome
  * breathing; towards the edge: (1,1), the two halves seesawing about a nodal line), as loud as the sound; a shell
  * for a tom, a kettle under it for a timpani (KETTLE) */
@@ -1148,6 +1213,9 @@ static void art_draw(void)
     case RZ_REED: art_reed(); break;
     case RZ_DRUM: art_drum(); break;
     case RZ_PIANO: art_piano(); break;
+    case RZ_ACCORD: art_accord(); break;
+    case RZ_BAGPIPE: art_bagpipe(); break;
+    case RZ_KALIMBA: art_kalimba(); break;
     default: art_syrinx(1); break;
     }
     if (!sys.fx_mix)

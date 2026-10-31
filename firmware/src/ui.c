@@ -159,11 +159,11 @@ static const preset_t PRESETS[] = {
     {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, LESS, NZ(1, 9), 2, 20, .sh_space = SS_LESLIE},
     {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, LESF, NZ(1, 9), 6, 70, .sh_space = SS_LESLIE},
     {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, ORGB, NZ(1, 9), 2, 8, .sh_space = SS_ORGAN},
-    {"REED ORGAN", NZK, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
-    {"ACCORDION", NZK, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
-    {"HARMONICA", NZK, 24, 64, 115, 56, 30, RZ_REED, 90, 110, 83, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 15,
+    {"REED ORGAN", NZK, 20, 64, 120, 60, 10, RZ_ACCORD, 15, 50, 40, 30, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"ACCORDION", NZK, 20, 64, 120, 56, 10, RZ_ACCORD, 70, 80, 60, 64, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"HARMONICA", NZK, 24, 64, 115, 56, 30, RZ_ACCORD, 0, 110, 80, 0, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 15,
      .eg = EG_REEDSWELL},
-    {"TANGO ACCORD.", NZK, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"TANGO ACCORD.", NZK, 16, 64, 120, 56, 20, RZ_ACCORD, 20, 60, 70, 30, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"NYLON GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 67, 40, 100, GTRB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_GUITAR, 127, .oct = -1},
     {"STEEL GUITAR", NZK, 0, 44, 0, 44, 0, RZ_STRING, 40, 100, 75, 30, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127, .oct = -1},
@@ -270,8 +270,8 @@ static const preset_t PRESETS[] = {
     {"BANJO", NZK, 0, 40, 0, 40, 0, RZ_STRING, 20, 120, 45, 20, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127},
     {"SHAMISEN", NZK, 0, 38, 0, 38, 0, RZ_STRING, 10, 110, 37, 30, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127},
     {"KOTO", NZK, 0, 46, 0, 46, 0, RZ_STRING, 60, 70, 72, 20, 85, HRPB, NZ(1, 8), 0, 63, 0, 0, 0, 0, SS_HARP, 127},
-    {"KALIMBA", NZK, 0, 42, 0, 42, 0, RZ_MODAL, 40, 90, 60, 30, 100, HRPB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_HARP, 127},
-    {"BAGPIPE", NZK, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 88, 120, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
+    {"KALIMBA", NZK, 0, 42, 0, 42, 0, RZ_KALIMBA, 20, 80, 70, 0, 110, HRPB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_HARP, 127},
+    {"BAGPIPE", NZK, 10, 70, 127, 60, 20, RZ_BAGPIPE, 20, 100, 80, 0, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, VLNB, NZ(1, 6), 63, 63, 0, 0, 0, 12, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
@@ -323,11 +323,11 @@ static const preset_t PRESETS[] = {
     {"DETUNED PERC", NZK, 0, 58, 90, 50, 50, NOFX, LESS, NZ(1, 9), 8, 24, .sh_space = SS_LESLIE},
     {"ROTARY ORGAN", NZK, 2, 64, 127, 54, 30, RZ_SYMP, 60, 90, 70, 60, 60, LESF, NZ(1, 9), 6, 90, .sh_space = SS_LESLIE},
     {"CHURCH OCT MIX", NZK, 30, 64, 127, 90, 0, NOFX, ORGB, NZ(1, 9), 4, 4, .sh_space = SS_ORGAN},
-    {"PUFF ORGAN", NZK, 30, 64, 120, 66, 10, RZ_REED, 60, 50, 88, 110, 110, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_CHIFF},
-    {"ITALIAN ACCORD", NZK, 16, 64, 120, 56, 10, RZ_REED, 120, 110, 88, 118, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
-    {"BLUES HARP", NZK, 20, 64, 115, 56, 40, RZ_REED, 100, 120, 78, 90, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
+    {"PUFF ORGAN", NZK, 30, 64, 120, 66, 10, RZ_ACCORD, 0, 40, 30, 0, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_CHIFF},
+    {"ITALIAN ACCORD", NZK, 16, 64, 120, 56, 10, RZ_ACCORD, 110, 90, 60, 64, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"BLUES HARP", NZK, 20, 64, 115, 56, 40, RZ_ACCORD, 0, 120, 90, 0, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
      .eg = EG_GROWL},
-    {"BANDONEON", NZK, 24, 64, 120, 60, 20, RZ_REED, 90, 80, 88, 112, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"BANDONEON", NZK, 24, 64, 120, 60, 20, RZ_ACCORD, 15, 40, 80, 30, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"UKULELE", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 80, 66, 34, 127, GTRB, NZ(1, 8), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
     {"12-STRING GTR", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 40, 110, 75, 30, 90, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127, .oct = -1},
@@ -452,8 +452,8 @@ static const preset_t PRESETS[] = {
     {"MUTED BANJO", NZK, 0, 40, 0, 40, 0, RZ_STRING, 20, 110, 40, 20, 127, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
     {"TSUGARU", NZK, 0, 42, 0, 42, 0, RZ_STRING, 10, 127, 45, 16, 100, GTRB, NZ(1, 1), 0, 90, .sh_space = SS_GUITAR, .np_level = 127},
     {"TAISHO KOTO", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 60, 90, 72, 30, 85, HRPB, NZ(1, 1), 0, 63, .sh_space = SS_HARP, .np_level = 127},
-    {"MBIRA", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 60, 100, 70, 20, 100, HRPB, NZ(1, 8), 0, 30, .sh_space = SS_HARP, .np_level = 127},
-    {"DRONE PIPES", NZK, 10, 70, 127, 64, 20, RZ_REED, 110, 120, 88, 122, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
+    {"MBIRA", NZK, 0, 46, 0, 46, 0, RZ_KALIMBA, 60, 90, 80, 60, 110, HRPB, NZ(1, 8), 0, 30, .sh_space = SS_HARP, .np_level = 127},
+    {"DRONE PIPES", NZK, 10, 70, 127, 64, 20, RZ_BAGPIPE, 40, 90, 110, 0, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FOLK FIDDLE", NZK, 30, 72, 115, 62, 30, RZ_BOW, 100, 120, 78, 30, 127, VLNB, NZ(1, 6), 63, 63, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"ZURNA", CYC, 16, 72, 115, 58, 30, RZ_REED, 127, 127, 68, 127, 127, ROOM, NOOSC, 30, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
@@ -551,7 +551,7 @@ static const preset_t PRESETS[] = {
     {"RESO PLUCK", 85, 76, 0, 0, 48, 0, 48, 110, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"KARPLUS PLUCK", 85, 76, 0, 0, 46, 0, 46, 10, RZ_STRING, 40, 90, 60, 40, 100, 0, 0, 0, 0, SI_OCT, 0, 19, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"HARP SYN", 85, 76, 0, 0, 50, 0, 50, 10, RZ_STRING, 40, 80, 72, 50, 90, 85, 72, 0, 30, SI_OCT, 70, 19, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
-    {"KALIMBA SYN", 85, 76, 0, 0, 42, 0, 42, 0, RZ_MODAL, 40, 90, 60, 30, 100, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"KALIMBA SYN", 85, 76, 0, 0, 42, 0, 42, 0, RZ_KALIMBA, 0, 100, 60, 0, 110, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"MARIMBA SYN", 85, 76, 0, 0, 50, 0, 50, 0, RZ_MODAL, 90, 70, 60, 24, 100, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"BELL PLUCK", 85, 76, 0, 0, 40, 0, 44, 0, RZ_MODAL, 104, 120, 82, 16, 110, 85, 72, 0, 30, SI_OCT, 70, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"BLIP", 6, 64, 64, 0, 40, 0, 40, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 20, 5, 50, 0, SS_HALL, 0, 0},
@@ -764,6 +764,9 @@ static const fx_preset_t FX_PRESETS[] = {
     {"CELLO", RZ_BOW, 115, 60, 93, 70, 127},      {"SUL PONTICELLO", RZ_BOW, 100, 110, 83, 8, 127},
     {"CLARINET", RZ_REED, 40, 80, 83, 0, 127},     {"SAX", RZ_REED, 60, 90, 78, 60, 127},
     {"OBOE", RZ_REED, 110, 100, 78, 120, 127},
+    {"MUSETTE", RZ_ACCORD, 70, 80, 60, 64, 127}, {"BANDONEON", RZ_ACCORD, 15, 40, 80, 30, 127},
+    {"HIGHLAND PIPES", RZ_BAGPIPE, 20, 100, 80, 0, 127},
+    {"KALIMBA", RZ_KALIMBA, 20, 80, 70, 0, 110},  {"MBIRA BUZZ", RZ_KALIMBA, 60, 90, 80, 60, 110},
 };
 #define NFX_PRESETS (sizeof FX_PRESETS / sizeof FX_PRESETS[0])
 /* the SHIMMER page's own presets */
@@ -1787,8 +1790,9 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
     uint32_t md = sys.fx_model % RZ_COUNT, p = sys.fx_pos & 127u;
     char v[12];
     static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP", "MUTE", "BOW AT", "BORE",
-                                                  "STRIKE", "HAMMER"};
-    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE", "AT", "HAM"};
+                                                  "STRIKE", "HAMMER", "REGISTER", "DRONES IN", "BUZZ"};
+    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE", "AT", "HAM",
+                                            "REG", "KEY", "BUZZ"};
     str_cpy(d, brief ? S[md] : L[md], n);
     ui_cat(d, n, " ");
     if (md == RZ_VOICE) {                       /* the vowel: U O A E I, or between two */
@@ -1804,6 +1808,15 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
             ui_cat(d, n, ">");
             ui_cat(d, n, WG_VOWEL[k + 1u]);
         }
+        return;
+    }
+    if (md == RZ_ACCORD) {                       /* the register: its reeds */
+        static const char *const REG[5] = {"CLARINET", "VIOLIN", "MUSETTE", "BASSOON", "MASTER"};
+        ui_cat(d, n, REG[p * 5u / 128u]);
+        return;
+    }
+    if (md == RZ_BAGPIPE) {                      /* the drones' key */
+        ui_cat(d, n, NOTE_NAME[(9u + p * 12u / 128u) % 12u]);
         return;
     }
     if (md == RZ_DRUM) {                         /* where it is struck: the middle .. the edge */
@@ -2114,7 +2127,7 @@ static void ui_draw(void)
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
         static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
-                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON"};
+                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON", "1 MUSETTE", "1 SOFT REED", "1 TINE"};
         if (md == RZ_SYMP)
             str_cpy(b, RZ_CHORD_NAME[(sys.fx_struct & 127u) >> 4], sizeof b);
         else if (md == RZ_VOICE)
@@ -2127,7 +2140,7 @@ static void ui_draw(void)
         fmt_int(v, sys.fx_bright);
         ui_cell(T_C2, "2 BRIGHTNESS", v);
         fmt_int(v, sys.fx_damp);
-        ui_cell(T_C3, "3 DAMPING", v);
+        ui_cell(T_C3, md == RZ_BAGPIPE ? "3 DRONES" : md == RZ_ACCORD ? "3 CHAMBER" : "3 DAMPING", v);
         if (sys.fx_mix) {
             fmt_int(v, (int32_t)(sys.fx_mix * 100u / 127u));
             str_cpy(b, v, sizeof b);
