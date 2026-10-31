@@ -1084,6 +1084,32 @@ int main(int argc, char **argv)
         synth_kill(); run_ms(200);
         check("SHIMMER SPACEs: each rings on, bounded, unlike the HALL", okk);
     }
+    {   /* the bodies: an impulse through each body's modes rings its lowest (A0, the air in the box ...) well
+         * above a frequency between its modes */
+        static const uint16_t F0[5] = {92, 100, 275, 100, 90}, FX[5] = {116, 150, 340, 122, 135};
+        int okk = 1;
+        uint32_t sp, i;
+        static int32_t wv[8192];
+        for (sp = SS_BODY; sp < SS_COUNT; sp++) {
+            double r0 = 0, i0 = 0, r1 = 0, i1 = 0, a0, a1;
+            int32_t bm, bs;
+            memset(&sh, 0, sizeof sh);
+            for (i = 0; i < 8192u; i++) {
+                sh_body(sp, i == 0 ? 30000 : 0, &bm, &bs);
+                wv[i] = bm;
+            }
+            for (i = 0; i < 8192u; i++) {
+                double p0 = 2 * M_PI * F0[sp - SS_BODY] * i / FS, p1 = 2 * M_PI * FX[sp - SS_BODY] * i / FS;
+                r0 += wv[i] * cos(p0); i0 += wv[i] * sin(p0); r1 += wv[i] * cos(p1); i1 += wv[i] * sin(p1);
+            }
+            a0 = sqrt(r0 * r0 + i0 * i0); a1 = sqrt(r1 * r1 + i1 * i1);
+            printf("   (%s: %u Hz %.0f, %u Hz %.0f)\n", SH_SPACE_NAME[sp], F0[sp - SS_BODY], a0, FX[sp - SS_BODY], a1);
+            okk &= a0 > 2 * a1;
+        }
+        memset(&sh, 0, sizeof sh);
+        sys.sh_mix = 0; sys.sh_space = 0;
+        check("SHIMMER bodies (PIANO, GUITAR, VIOLIN, CELLO, HARP): their modes ring", okk);
+    }
     {   /* TAPE: a pass recorded on track 1 plays back under the synth; its level; the speed with the BPM; erased */
         int okk = 1;
         uint32_t j, b;

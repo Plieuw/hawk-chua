@@ -105,7 +105,7 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
         if (upre_has(i)) {
             for (k = 0; k < PR_N; k++)
                 a[k] = upre_v(i)[k];
-            a[27] = (uint8_t)(a[27] % SS_COUNT);         /* (the SPACE alone: the octave is written below) */
+            a[27] = (uint8_t)PR_SPACE(a[27]);            /* (the SPACE alone: the octave is written below) */
         }
         else {
             const uint8_t b[PR_N] = {p->chaos, p->shape, p->output, p->attack, p->decay, p->sustain, p->release,
