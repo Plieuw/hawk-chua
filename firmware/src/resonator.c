@@ -10,7 +10,7 @@
  * Rings). A resonator that has had no input and gone quiet is not run (the cost is per resonator sounding); the
  * second core runs every other one of those sounding.
  *
- *   (and the waveguides of waveguide.c: THROAT, FLUTE, SYRINX, HAWK, BRASS, BOW, REED)
+ *   (and the waveguides of waveguide.c: VOICE, FLUTE, SYRINX, HAWK, BRASS, BOW, REED; the membrane DRUM)
  *   MODAL        a bank of 12 tuned band-pass modes: bells, bars, plates (Rings' "modal resonator")
  *   SYMP STRING  a string with three sympathetic strings tuned to a chord above the note (Rings' "sympathetic
  *                strings": STRUCTURE picks the chord: OCT, 5TH, 4TH, MAJ, MIN, SUS, 7TH, OCTAVES)
@@ -29,10 +29,10 @@
  *                                BASIS takes off the left / right (synth.c), each resonator panned as its note */
 #include "phys_dsp.c"
 #include "phys_symp.c"
-#include "waveguide.c"                           /* THROAT, FLUTE, SYRINX, HAWK: this firmware's own waveguides */
+#include "waveguide.c"                           /* VOICE ... DRUM: this firmware's own models */
 
-enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_THROAT, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_COUNT };
-static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "THROAT", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED"};
+enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_VOICE, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_DRUM, RZ_COUNT };
+static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "VOICE", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED", "DRUM"};
 static const char *const RZ_CHORD_NAME[8] = {"OCT", "5TH", "4TH", "MAJ", "MIN", "SUS", "7TH", "OCTAVES"};
 static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Felucca's PHYS chords) */
     {-12, 12, 24}, {7, 12, 19}, {5, 12, 17}, {4, 7, 12}, {3, 7, 12}, {2, 7, 14}, {4, 7, 10}, {12, 24, 36},
@@ -40,9 +40,9 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500};   /* (THROAT: per animal, too) */
-static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
-static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
+static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000};
+static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
+static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
 static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
@@ -60,6 +60,7 @@ typedef struct {
         wg_brass_t br;                           /* BRASS, BOW, REED */
         wg_bow_t bw;
         wg_reed_t rd;
+        wg_drum_t dr;                            /* DRUM */
     } u;
     uint8_t held;                                /* the model its state is for + 1 (0: nothing: reset at the next use) */
     uint8_t note;                                /* the note it is tuned to */
@@ -92,7 +93,9 @@ static void rz_reset(rz_t *R, uint32_t md)
         R->u.x.rng = 0x9E3779B9u;
         R->u.x.quiet = 1;
     }
-    else if (md == RZ_THROAT)
+    else if (md == RZ_DRUM)
+        ;                                        /* (all zero: still) */
+    else if (md == RZ_VOICE)
         R->u.t.ag = 4096;
     else if (md == RZ_BRASS)
         R->u.br.ag = 4096;
@@ -206,8 +209,8 @@ static void rz_run(uint32_t r, uint32_t n)
         }
         break;
     }
-    case RZ_THROAT: {
-        uint32_t an = (sys.fx_struct & 127u) * WA_COUNT / 128u, ns = WG_ANI[an].n, k = WG_ANI[an].k, m;
+    case RZ_VOICE: {
+        uint32_t an = (sys.fx_struct & 127u) * WV_COUNT / 128u, ns = WG_VS[an].n, k = WG_VS[an].k, m;
         wg_throat_run(&R->u.t, in, y, n, an, pos, brit, damp);
         if (view) {                              /* (the tube's quarter-wave resonances: a sketch of its formants) */
             for (m = 0; m < 8u; m++) {
@@ -265,6 +268,19 @@ static void rz_run(uint32_t r, uint32_t n)
                     rz_view.a[m++] = (int16_t)(32767 / (int32_t)(i + 1u));
                 }
             rz_view.n = m;
+        }
+        break;
+    case RZ_DRUM:
+        wg_drum_run(&R->u.dr, in, y, n, f0, strc, pos, brit, damp);
+        if (view) {                              /* (its modes, as the drum is tuned) */
+            uint32_t m2;
+            for (m2 = 0; m2 < WG_DM; m2++) {
+                int32_t ra = WG_MEMB[m2] + (int32_t)(((int64_t)(WG_KETTLE[m2] - WG_MEMB[m2]) * strc) >> 16);
+                uint64_t fr = ((uint64_t)f0 * (uint32_t)ra) >> 12;
+                rz_view.f[m2] = fr < 0x7F000000u ? (uint32_t)fr : 0u;
+                rz_view.a[m2] = (int16_t)(32767 / (int32_t)(m2 + 1u));
+            }
+            rz_view.n = WG_DM;
         }
         break;
     default: {                                   /* SYMP: the string, then the strings it drives */

@@ -18,9 +18,9 @@
  *            (left, right, half left, ...); KNOB 2 ORBIT: how much each voice's phase moves with its picture (all-passes: the circuit's
  *            scroll left / right, a drift); the voices drawn where they are
  *   FX       KNOB 1..4      STRUCTURE, BRIGHTNESS, DAMPING, MIX of the resonators (resonator.c: Rings' models, 4 voices;
- *            and the waveguides of waveguide.c: THROAT (KNOB 1 the ANIMAL, SELECT the VOWEL), FLUTE (JET, BREATH),
+ *            and the waveguides of waveguide.c: VOICE (KNOB 1 the SIZE, SELECT the VOWEL), FLUTE (JET, BREATH),
  *            SYRINX (CHIRP, TWO VOICE), HAWK (SCREAM, RASP), BRASS (LIP, MUTE), BOW (PRESSURE, BOW AT),
- *            REED (REED, BORE));
+ *            REED (REED, BORE), DRUM (KETTLE, STRIKE));
  *            ALGORITHM the model (MODAL, SYMP STRING, STRING), SELECT the POSITION; its resonances and output drawn
  *   FX (2nd) KNOB 1..4      SIZE, DECAY, SHIMMER, MIX of the shimmer reverb (shimmer.c); ALGORITHM the INTERVAL,
  *            SELECT the TONE; the tail's level over the last seconds drawn (the undertow building)
@@ -146,15 +146,15 @@ static const preset_t PRESETS[] = {
     {"TREMOLO STR.", CYC, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 88, 60, 127, HALL},
     {"PIZZICATO", CYC, 0, 54, 0, 56, 70, RZ_STRING, 40, 70, 37, 40, 100, ROOM},
     {"HARP", 6, 90, 64, 0, 80, 0, 80, 40, RZ_STRING, 40, 90, 45, 50, 90, 60, 48, 20, 39, SI_OCT, 70},
-    {"TIMPANI", 6, 40, 0, 0, 84, 0, 86, 60, RZ_MODAL, 30, 40, 72, 8, 100, ROOM},
+    {"TIMPANI", NZK, 0, 40, 0, 40, 50, RZ_DRUM, 120, 90, 95, 30, 127, ROOM, NZ(1, 6), 100, 90},
     /* ENSEMBLE 49-56 */
     {"STRINGS", CYC, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 93, 64, 110, HALL},
     {"SLOW STRINGS", CYC, 96, 100, 115, 100, 20, RZ_BOW, 110, 70, 93, 70, 110, HALL},
     {"SYNTH STRINGS 1", NZK, 60, 90, 110, 90, 40, NOFX, AIR, NZ(1, 0), 20, 100},
     {"SYNTH STRINGS 2", NZK, 70, 90, 110, 94, 30, NOFX, AIR, NZ(1, 9), 6, 40},
-    {"CHOIR AAHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 80, 48, 60, 110, HALL, NZ(1, 0), 8, 40},
-    {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_THROAT, 40, 60, 48, 4, 110, HALL, NZ(1, 0), 8, 40},
-    {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_THROAT, 40, 90, 48, 90, 100, AIR, NZ(1, 1), 10, 80},
+    {"CHOIR AAHS", NZK, 80, 96, 115, 100, 20, RZ_VOICE, 64, 80, 48, 60, 110, HALL, NZ(1, 0), 8, 40},
+    {"VOICE OOHS", NZK, 80, 96, 115, 100, 20, RZ_VOICE, 64, 60, 48, 4, 110, HALL, NZ(1, 0), 8, 40},
+    {"SYNTH VOICE", NZK, 70, 90, 110, 96, 30, RZ_VOICE, 40, 90, 48, 90, 100, AIR, NZ(1, 1), 10, 80},
     {"ORCHESTRA HIT", CYC, 0, 70, 0, 74, 40, RZ_BRASS, 110, 110, 68, 0, 110, HALL},
     /* BRASS 57-64: the BRASS waveguide (the synth brass: saws) */
     {"TRUMPET", CYC, 26, 80, 112, 60, 20, RZ_BRASS, 100, 100, 68, 0, 127, ROOM, NOOSC, 10},
@@ -189,7 +189,7 @@ static const preset_t PRESETS[] = {
     {"CALLIOPE", NZK, 20, 70, 110, 60, 20, RZ_FLUTE, 60, 100, 78, 80, 100, ROOM, NZ(1, 9), 0, 4},
     {"CHIFF LEAD", CYC, 0, 70, 110, 60, 40, RZ_FLUTE, 40, 100, 88, 90, 110},
     {"CHARANG", 120, 50, 96, 2, 66, 110, 60, 60},
-    {"VOICE LEAD", NZK, 10, 70, 110, 64, 40, RZ_THROAT, 40, 90, 48, 64, 110, 60, 48, 20, 39, SI_OCT, 70,
+    {"VOICE LEAD", NZK, 10, 70, 110, 64, 40, RZ_VOICE, 40, 90, 48, 64, 110, 60, 48, 20, 39, SI_OCT, 70,
      NZ(1, 0), 4, 20},
     {"FIFTHS LEAD", NZK, 4, 70, 110, 64, 50, RZ_SYMP, 20, 90, 75, 110, 80, NOSH, NZ(1, 0), 4, 0},
     {"BASS + LEAD", 85, 76, 0, 6, 80, 110, 70, 50},
@@ -197,11 +197,11 @@ static const preset_t PRESETS[] = {
     {"NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 30, RZ_MODAL, 100, 127, 90, 40, 60, 110, 98, 100, 62, SI_OCT, 100},
     {"WARM PAD", 6, 30, 64, 92, 100, 115, 104, 20, NOFX, ROOM},
     {"POLYSYNTH", NZK, 20, 90, 80, 80, 60, NOFX, ROOM, NZ(1, 0), 8, 40},
-    {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 80, 48, 64, 90, 110, 98, 60, 52, SI_OCT, 90,
+    {"CHOIR PAD", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 64, 80, 48, 64, 90, 110, 98, 60, 52, SI_OCT, 90,
      NZ(1, 0), 8, 30},
     {"BOWED PAD", CYC, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 98, 100, 110, AIR},
     {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 113, 80, 58, SI_OCT5, 90, NZ(1, 5), 30, 20},
-    {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_THROAT, 40, 60, 48, 20, 90, 127, 115, 90, 58, SI_OCT, 90,
+    {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 40, 60, 48, 20, 90, 127, 115, 90, 58, SI_OCT, 90,
      NZ(1, 0), 6, 20},
     {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 98, 40, 45, SI_OCT, 80},
     /* SYNTH EFFECTS 97-104 */
@@ -227,8 +227,8 @@ static const preset_t PRESETS[] = {
     {"AGOGO", CYC, 0, 54, 0, 56, 80, RZ_MODAL, 116, 100, 60, 40, 110},
     {"STEEL DRUMS", 54, 90, 64, 0, 78, 0, 78, 80, RZ_MODAL, 90, 110, 81, 40, 127},
     {"WOODBLOCK", 6, 64, 64, 0, 40, 0, 40, 100, RZ_MODAL, 30, 70, 37, 20, 90},
-    {"TAIKO", NZK, 0, 62, 0, 64, 30, NOFX, HALL, NZ(1, 3), 0, 0, 50, 0, 50},
-    {"MELODIC TOM", NZK, 0, 56, 0, 56, 40, NOFX, NOSH, NZ(1, 3), 10, 10, 50, 0, 60},
+    {"TAIKO", NZK, 0, 40, 0, 40, 50, RZ_DRUM, 0, 60, 80, 20, 127, HALL, NZ(1, 6), 90, 90},
+    {"MELODIC TOM", NZK, 0, 36, 0, 36, 50, RZ_DRUM, 10, 80, 70, 40, 127, NOSH, NZ(1, 6), 110, 90},
     {"SYNTH DRUM", NZK, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 120},
     {"REVERSE CYMBAL", NZK, 100, 30, 0, 30, 20, NOFX, NOSH, NZ(1, 6), 110, 90},
     /* SOUND EFFECTS 121-128 */
@@ -251,9 +251,10 @@ static const fx_preset_t FX_PRESETS[] = {
     {"BELL", RZ_MODAL, 70, 100, 82, 12, 100},     {"TUNED BAR", RZ_MODAL, 116, 40, 60, 24, 70},
     {"GLASS", RZ_MODAL, 100, 127, 90, 40, 80},    {"SITAR", RZ_SYMP, 16, 80, 78, 70, 90},
     {"DRONE STRINGS", RZ_SYMP, 60, 60, 86, 40, 80}, {"PIANO STRING", RZ_STRING, 100, 70, 72, 20, 85},
-    {"PLUCKED STRING", RZ_STRING, 40, 90, 45, 50, 90}, {"CAT", RZ_THROAT, 8, 70, 48, 80, 127},
-    {"COW", RZ_THROAT, 88, 40, 68, 10, 120},       {"WOLF", RZ_THROAT, 72, 60, 78, 20, 115},
-    {"TALKING", RZ_THROAT, 40, 80, 48, 64, 110},   {"ELEPHANT", RZ_THROAT, 120, 30, 88, 40, 127},
+    {"PLUCKED STRING", RZ_STRING, 40, 90, 45, 50, 90}, {"SOPRANO AAH", RZ_VOICE, 30, 80, 48, 60, 120},
+    {"TENOR OOH", RZ_VOICE, 90, 60, 48, 4, 120},   {"BASS OH", RZ_VOICE, 115, 50, 52, 26, 120},
+    {"TOM", RZ_DRUM, 10, 80, 70, 40, 127},         {"TIMPANI", RZ_DRUM, 120, 90, 95, 30, 127},
+    {"TAIKO", RZ_DRUM, 0, 60, 80, 20, 127},
     {"NIGHT FLUTE", RZ_FLUTE, 30, 70, 78, 50, 127}, {"OVERBLOWN", RZ_FLUTE, 115, 90, 88, 20, 120},
     {"BIRD", RZ_SYRINX, 90, 70, 48, 15, 127},      {"TWO BIRDS", RZ_SYRINX, 60, 90, 58, 110, 127},
     {"HAWK", RZ_HAWK, 70, 90, 58, 70, 127},
@@ -1160,11 +1161,12 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
 {
     uint32_t md = sys.fx_model % RZ_COUNT, p = sys.fx_pos & 127u;
     char v[12];
-    static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP", "MUTE", "BOW AT", "BORE"};
-    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE"};
+    static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP", "MUTE", "BOW AT", "BORE",
+                                                  "STRIKE"};
+    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE", "AT"};
     str_cpy(d, brief ? S[md] : L[md], n);
     ui_cat(d, n, " ");
-    if (md == RZ_THROAT) {                       /* the vowel: U O A E I, or between two */
+    if (md == RZ_VOICE) {                       /* the vowel: U O A E I, or between two */
         uint32_t t = p * 4u * 256u / 127u, k = t >> 8, f = t & 255u;
         k = k > 3u ? 3u : k;
         if (t >= 4u * 256u) { k = 3u; f = 256u; }
@@ -1176,6 +1178,14 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
             ui_cat(d, n, WG_VOWEL[k]);
             ui_cat(d, n, ">");
             ui_cat(d, n, WG_VOWEL[k + 1u]);
+        }
+        return;
+    }
+    if (md == RZ_DRUM) {                         /* where it is struck: the middle .. the edge */
+        ui_cat(d, n, p < 16u ? "MIDDLE" : p > 110u ? "EDGE" : "");
+        if (p >= 16u && p <= 110u) {
+            fmt_int(v, (int32_t)p);
+            ui_cat(d, n, v);
         }
         return;
     }
@@ -1458,12 +1468,12 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
-        static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 ANIMAL", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
-                                                   "1 PRESSURE", "1 REED"};
+        static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
+                                                   "1 PRESSURE", "1 REED", "1 KETTLE"};
         if (md == RZ_SYMP)
             str_cpy(b, RZ_CHORD_NAME[(sys.fx_struct & 127u) >> 4], sizeof b);
-        else if (md == RZ_THROAT)
-            str_cpy(b, WG_ANIMAL[(sys.fx_struct & 127u) * WA_COUNT / 128u], sizeof b);
+        else if (md == RZ_VOICE)
+            str_cpy(b, WG_VSIZE[(sys.fx_struct & 127u) * WV_COUNT / 128u], sizeof b);
         else {
             fmt_int(v, sys.fx_struct);
             str_cpy(b, v, sizeof b);

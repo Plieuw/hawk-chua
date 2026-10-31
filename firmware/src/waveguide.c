@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The FX waveguides: three more models for resonator.c, beside Rings' (the same page, the same polyphony: one per
+/* The FX waveguides: more models for resonator.c, beside Rings' (the same page, the same polyphony: one per
  * note, fed by the voices that play it). Digital waveguides: travelling waves in delay lines, scattered where the
  * tube changes, reflected at its ends. This firmware's own fixed-point code (after the textbook models: Kelly and
  * Lochbaum's vocal tract, Cook's slide flute / STK Flute's jet and bore), signals Q20 like Rings' models.
  *
- *   THROAT   a vocal tract: a tube of up to 12 sections (Kelly-Lochbaum; each 2 .. 10 samples long), the voices its glottal source. ANIMAL sets
- *            the tube's length (its formants: a cat's short throat, a cow's long one, an elephant's longer still)
- *            and how much the mouth opens with the voice's loudness ("meow", "moo"); VOWEL (POSITION) the tongue:
- *            U, O, A, E, I, morphing; BRIGHTNESS the mouth's radiation; DAMPING how long the tube rings (the
- *            glottis' and the lips' reflections)
+ *   VOICE    a human vocal tract (the choir's): a tube of 8 .. 12 sections (Kelly-Lochbaum; 2 samples each), the
+ *            voices its glottal source. SIZE sets the tube's length, its formants: CHILD (12 cm), SOPRANO, ALTO,
+ *            TENOR, BASS (18.5 cm); VOWEL (POSITION) the tongue: U, O, A, E, I, morphing; BRIGHTNESS the mouth's
+ *            radiation; DAMPING how long the tube rings (the glottis' and the lips' reflections)
  *   FLUTE    a jet over the mouth of a bore tuned to the note: the voices' loudness is the breath that blows it,
  *            their sound rides on the breath (as STK's Flute: jet delay, the jet's x (x^2 - 1), the bore's low-pass
  *            reflection). JET (STRUCTURE) the jet's length: long blows the fundamental, short overblows to octaves
@@ -22,26 +21,23 @@
  * (SYRINX, HAWK) and the output's DC blocker run at the full rate.
  *
  * The breath: each model follows its input's loudness (an envelope, ~2 ms up, ~80 ms down); the flute and the
- * syrinx blow only while it plays, the throat's mouth moves with it. */
+ * syrinx blow only while it plays, the voice's mouth moves with it. */
 
-/* ------------------------------------------------------------------ THROAT --- */
+/* ------------------------------------------------------------------- VOICE --- */
 #define WG_NSEC 12                               /* sections at most (half the junctions of 24: the CPU) */
-#define WG_KMAX 10                               /* samples per section at most (a section: k samples each way) */
-enum { WA_CAT, WA_MONKEY, WA_HUMAN, WA_DOG, WA_WOLF, WA_COW, WA_LION, WA_ELEPHANT, WA_COUNT };
-static const char *const WG_ANIMAL[WA_COUNT] = {"CAT", "MONKEY", "HUMAN", "DOG", "WOLF", "COW", "LION", "ELEPHANT"};
+#define WG_KMAX 2                                /* samples per section (a section: k samples each way) */
+enum { WV_CHILD, WV_SOPRANO, WV_ALTO, WV_TENOR, WV_BASS, WV_COUNT };
+static const char *const WG_VSIZE[WV_COUNT] = {"CHILD", "SOPRANO", "ALTO", "TENOR", "BASS"};
 static const struct {
     uint8_t n, k;                                /* sections, samples each: the tube n k / 44100 s one way (x 350 m/s) */
     uint8_t wah;                                 /* how much the mouth follows the loudness, /128 */
     uint8_t nasal;                               /* the glottis' reflection's floor, /128 (a "closed", nasal tone) */
-} WG_ANI[WA_COUNT] = {
-    {5, 2, 120, 90},                         /* cat: 8 cm, the mouth opening with the meow */
-    {7, 2, 90, 70},                          /* monkey: 11 cm, hoots */
-    {11, 2, 40, 60},                         /* human: 17 cm */
-    {7, 4, 70, 70},                          /* dog: 22 cm, barks open */
-    {10, 4, 60, 80},                         /* wolf: 32 cm, the howl's slow vowel */
-    {12, 4, 80, 100},                         /* cow: 38 cm, "moo": nasal, closed then open */
-    {10, 6, 50, 70},                         /* lion: 48 cm, a roar */
-    {11, 10, 60, 110},                        /* elephant: 87 cm (the trunk), a low rumble */
+} WG_VS[WV_COUNT] = {
+    {8, 2, 40, 60},                          /* a child: 12 cm */
+    {9, 2, 40, 60},                          /* soprano: 14 cm */
+    {10, 2, 40, 60},                         /* alto: 15.5 cm */
+    {11, 2, 40, 60},                         /* tenor: 17 cm */
+    {12, 2, 40, 60},                         /* bass: 18.5 cm */
 };
 /* the area along the tube, glottis to lips, per vowel (relative, Q4; after Fant's measured shapes, simplified) */
 #define WG_NV 5
@@ -82,7 +78,7 @@ static int32_t wg_follow(int32_t *env, const int32_t *in, uint32_t n)
 static void wg_throat_run(wg_throat_t *T, const int32_t *in, int32_t *y, uint32_t n, uint32_t animal, int32_t vowel,
                           int32_t bright, int32_t damp)
 {
-    uint32_t an = animal % WA_COUNT, ns = WG_ANI[an].n, k = WG_ANI[an].k, i, j;
+    uint32_t an = animal % WV_COUNT, ns = WG_VS[an].n, k = WG_VS[an].k, i, j;
     int32_t env = wg_follow(&T->env, in, n), A[WG_NSEC + 1], open, rg, rl, lp, ro;
     {   /* the areas: the vowel (0..127 across U O A E I), resampled to the sections; the mouth (the last quarter)
          * opened by the loudness as much as the animal does it */
@@ -91,7 +87,7 @@ static void wg_throat_run(wg_throat_t *T, const int32_t *in, int32_t *y, uint32_
         v = v > WG_NV - 2 ? WG_NV - 2 : v;
         if (pos >= (WG_NV - 1) * 256)
             fr = 256;
-        open = (128 - WG_ANI[an].wah) * 2 + WG_ANI[an].wah * (40 + e * 3 / 2) / 128;   /* /256 */
+        open = (128 - WG_VS[an].wah) * 2 + WG_VS[an].wah * (40 + e * 3 / 2) / 128;   /* /256 */
         for (j = 0; j < ns; j++) {
             uint32_t s = j * 15u * 16u / (ns - 1u), s0 = s >> 4, s1 = s0 < 15u ? s0 + 1u : 15u, sf = s & 15u;
             int32_t a0 = WG_SHAPE[v][s0] * (16 - (int32_t)sf) + WG_SHAPE[v][s1] * (int32_t)sf;
@@ -104,7 +100,7 @@ static void wg_throat_run(wg_throat_t *T, const int32_t *in, int32_t *y, uint32_
         for (j = 0; j + 1u < ns; j++)            /* Kelly-Lochbaum: r = (A_j - A_j+1) / (A_j + A_j+1) */
             T->r[j] = (A[j] - A[j + 1]) * 32767 / (A[j] + A[j + 1]);
     }
-    rg = 22000 + WG_ANI[an].nasal * 40 + damp / 11;   /* the glottis: ~0.67 .. 0.99 (Q15) */
+    rg = 22000 + WG_VS[an].nasal * 40 + damp / 11;   /* the glottis: ~0.67 .. 0.99 (Q15) */
     rg = rg > 32440 ? 32440 : rg;
     rl = -(26000 + damp / 10);                   /* the lips (open end: inverted), 0.79 .. 0.99 */
     rl = rl < -32440 ? -32440 : rl;
@@ -445,7 +441,7 @@ static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t 
         B->bore[B->w & (WG_BR - 1u)] = px_clamp(o, -8 * PX_ONE, 8 * PX_ONE);
         B->w++;
         B->bell += px_m(gb, o - B->bell, 15);    /* out: the bell, radiating the change more the brighter */
-        o = B->bell / 2 + (B->bell - B->prv) * (1 + bright / 8192);
+        o = px_clamp(B->bell / 2 + (B->bell - B->prv) * (1 + bright / 8192), -32 * PX_ONE, 32 * PX_ONE);
         B->prv = B->bell;
         {   /* the mute: a band-pass (Q ~4) mixed in as MUTE turns, the open bell out */
             int32_t hi;
@@ -453,7 +449,8 @@ static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t 
             hi = o - B->mlo - px_m(8192, B->mbd, 15);
             B->mbd = px_clamp(B->mbd + px_m(mf, hi, 15), -16 * PX_ONE, 16 * PX_ONE);
             B->mlo = px_clamp(B->mlo, -16 * PX_ONE, 16 * PX_ONE);
-            o = (o * (127 - mute) + B->mbd * mute * 2) / 127;
+            o = px_clamp((int32_t)(((int64_t)o * (127 - mute) + (int64_t)B->mbd * mute * 2) / 127), -32 * PX_ONE,
+                         32 * PX_ONE);
         }
         t = o - B->ox + px_m(B->oy, 32440, 15);
         B->ox = o;
@@ -606,4 +603,69 @@ static void wg_reed_run(wg_reed_t *D, const int32_t *in, int32_t *y, uint32_t n,
         D->yp = t;
     }
     wg_level(&D->iav, &D->oav, &D->ag, in, y, n);
+}
+
+/* -------------------------------------------------------------------- DRUM --- */
+/* A struck membrane (toms, taiko, timpani): eight of its modes, each a two-pole resonator rung by the voices (a short
+ * gated note is the stick). STRUCTURE morphs the modes from a free membrane (the circular membrane's Bessel ratios
+ * 1, 1.59, 2.14, 2.30, ...: a tom, a taiko) to a kettle drum's (the air under the head pulls the (n,1) modes near
+ * 1 : 1.5 : 2 : 2.5: a pitched timpani); POSITION where it is struck: the middle rings the round modes ((0,n): a
+ * dull boom), the edge the others (a ringing tone); BRIGHTNESS how long the higher modes ring against the lowest;
+ * DAMPING the decay, 0.05 .. 4 s. A hard strike tightens the head: the pitch starts up to a quarter tone .. a
+ * fourth high and falls back (the drum's "doom"), as hard as the input is loud. The note tunes the drum. */
+#define WG_DM 8
+static const uint16_t WG_MEMB[WG_DM] = {4096, 6529, 8749, 9405, 10867, 11952, 12927, 14746};   /* Q12 */
+static const uint16_t WG_KETTLE[WG_DM] = {3482, 4096, 6144, 8110, 9994, 11878, 7004, 13640};    /* (0,1) low and short */
+static const uint8_t WG_ROUND[WG_DM] = {1, 0, 0, 1, 0, 0, 0, 1};   /* the round modes (0,n): the middle rings them */
+typedef struct {
+    int32_t y1[WG_DM], y2[WG_DM];
+    int32_t env, yp;
+} wg_drum_t;
+
+static void wg_drum_run(wg_drum_t *D, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t kettle,
+                        int32_t pos, int32_t bright, int32_t damp)
+{
+    int32_t a1[WG_DM], a2[WG_DM], b[WG_DM], env = wg_follow(&D->env, in, n);
+    uint32_t i, m, nm = 0;
+    uint32_t ts = (uint32_t)(((uint64_t)1102u * px_exp2(damp * 63 / 10)) >> 16);   /* T60, half-rate samples:
+                                                  * 0.05 .. ~4 s */
+    int32_t up = env > PX_ONE / 4 ? 65536 : env / 4;   /* the strike's tension: 0..1 (Q16) */
+    uint32_t fm = (uint32_t)(((uint64_t)f0 * px_exp2((int32_t)(((int64_t)up * (2730 + kettle / 3)) >> 16))) >> 16);
+    for (m = 0; m < WG_DM; m++) {
+        int32_t ratio = WG_MEMB[m] + (int32_t)(((int64_t)(WG_KETTLE[m] - WG_MEMB[m]) * kettle) >> 16);   /* Q12 */
+        uint64_t fr = ((uint64_t)fm * (uint32_t)ratio) >> 12;   /* cycles Q32 at the full rate */
+        uint32_t ph, tm, e;
+        int32_t r, cs, sn, amp, d;
+        if (fr * 2u >= 0x70000000u)              /* (above ~0.44 of the half rate's Nyquist: left out) */
+            break;
+        ph = (uint32_t)fr * 2u;                  /* (the half rate's turn) */
+        tm = ts / (1u + m * (uint32_t)(131072 - bright) / 65536u);   /* the higher modes shorter, less so bright */
+        tm = tm < 16u ? 16u : tm;
+        e = 653126u / tm;                        /* log2(1000) / T60, Q16 */
+        d = e < 2000u ? (int32_t)(e * 2839u) : (int32_t)((1u << 28) - (px_exp2(-(int32_t)e) << 12));   /* 1 - r, Q28 */
+        r = (1 << 28) - d;
+        cs = px_sin(ph + 0x40000000u) >> 2;      /* Q28 */
+        sn = px_sin(ph) >> 2;
+        amp = WG_ROUND[m] ? 65536 - pos * 300 : 26000 + pos * 300;   /* the strike's place (Q16) */
+        a1[m] = (int32_t)(((int64_t)r * cs) >> 27);   /* 2 r cos w, Q28 */
+        a2[m] = (int32_t)(((int64_t)r * r) >> 28);
+        b[m] = (int32_t)(((int64_t)(sn >> 3) * amp) >> 16);   /* sin w: a strike rings as loud at any decay */
+        nm = m + 1u;
+    }
+    for (i = 0; i < n; i += 2u) {
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], o = 0;
+        for (m = 0; m < nm; m++) {
+            int32_t v = (int32_t)(((int64_t)a1[m] * D->y1[m] - (int64_t)a2[m] * D->y2[m] + (int64_t)b[m] * x) >> 28);
+            v = px_clamp(v, -32 * PX_ONE, 32 * PX_ONE);
+            D->y2[m] = D->y1[m];
+            D->y1[m] = v;
+            o += v >> 2;
+        }
+        for (; m < WG_DM; m++)
+            D->y1[m] = D->y2[m] = 0;
+        y[i] = (D->yp + o) >> 1;
+        if (i + 1u < n)
+            y[i + 1u] = o;
+        D->yp = o;
+    }
 }

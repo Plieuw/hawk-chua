@@ -43,11 +43,11 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | KNOB 4 — RING | resonantie van de low pass gate: 0 geen, 127 Q 6 (een korte, houtachtige ring) |
 | HOME | de oscillator: het circuit (CHAOS, SHAPE, OUTPUT, RING en de attractor) of een noise-programma (X, Y, LEVEL, RING) |
 | ENV | 1× de ENV-pagina, 2× de MOD ENV (een AD-envelope direct op de toonhoogte), 3× terug naar HOME. ENV-pagina: KNOB 1–4 = ATTACK, DECAY, SUSTAIN, RELEASE (0,5 ms .. 10 s), met de envelope getekend |
-| FX | de FX-pagina's: 1× de resonatoren van Mutable Instruments Rings en de waveguides (THROAT, FLUTE, SYRINX, HAWK, BRASS, BOW, REED), 2× de shimmer reverb, 3× terug naar HOME |
+| FX | de FX-pagina's: 1× de resonatoren van Mutable Instruments Rings en de waveguides (VOICE, FLUTE, SYRINX, HAWK, BRASS, BOW, REED, DRUM), 2× de shimmer reverb, 3× terug naar HOME |
 | SELECT | weergave op HOME: 3D (draaiend), X-Y, X-Z, Y-Z, TIME · POSITION (resonator) · TONE (shimmer) |
 | ALGORITHM | op HOME de oscillator: CHUA of een van de 30 noise-programma's A0..C9 · het model (resonator of waveguide) · het interval (shimmer) |
 | PRESETS | 128 presets in de volgorde van General MIDI (program change 0..127 = GM 1..128). piano: GRAND PIANO, BRIGHT PIANO, ELECTRIC GRAND, HONKY-TONK, E.PIANO 1, E.PIANO 2, HARPSICHORD, CLAVINET; chromatische percussie: CELESTA, GLOCKENSPIEL, MUSIC BOX, VIBRAPHONE, MARIMBA, XYLOPHONE, TUBULAR BELLS, DULCIMER; orgel: DRAWBAR ORGAN, PERC. ORGAN, ROCK ORGAN, CHURCH ORGAN, REED ORGAN, ACCORDION, HARMONICA, TANGO ACCORD.; gitaar: NYLON GUITAR, STEEL GUITAR, JAZZ GUITAR, CLEAN GUITAR, MUTED GUITAR, OVERDRIVE GTR, DISTORTION GTR, GTR HARMONICS; bas: ACOUSTIC BASS, FINGER BASS, PICK BASS, FRETLESS BASS, SLAP BASS 1, SLAP BASS 2, SYNTH BASS 1, SYNTH BASS 2; strijkers: VIOLIN, VIOLA, CELLO, CONTRABASS, TREMOLO STR., PIZZICATO, HARP, TIMPANI; ensemble: STRINGS, SLOW STRINGS, SYNTH STRINGS 1, SYNTH STRINGS 2, CHOIR AAHS, VOICE OOHS, SYNTH VOICE, ORCHESTRA HIT; koper: TRUMPET, TROMBONE, TUBA, MUTED TRUMPET, FRENCH HORN, BRASS SECTION, SYNTH BRASS 1, SYNTH BRASS 2; riet: SOPRANO SAX, ALTO SAX, TENOR SAX, BARITONE SAX, OBOE, ENGLISH HORN, BASSOON, CLARINET; fluiten: PICCOLO, FLUTE, RECORDER, PAN FLUTE, BLOWN BOTTLE, SHAKUHACHI, WHISTLE, OCARINA; synth lead: SQUARE LEAD, SAW LEAD, CALLIOPE, CHIFF LEAD, CHARANG, VOICE LEAD, FIFTHS LEAD, BASS + LEAD; synth pad: NEW AGE PAD, WARM PAD, POLYSYNTH, CHOIR PAD, BOWED PAD, METALLIC PAD, HALO PAD, SWEEP PAD; synth FX: RAIN, SOUNDTRACK, CRYSTAL, ATMOSPHERE, BRIGHTNESS, GOBLINS, ECHOES, SCI-FI; etnisch: SITAR, BANJO, SHAMISEN, KOTO, KALIMBA, BAGPIPE, FIDDLE, SHANAI; percussie: TINKLE BELL, AGOGO, STEEL DRUMS, WOODBLOCK, TAIKO, MELODIC TOM, SYNTH DRUM, REVERSE CYMBAL; geluidseffecten: GTR FRET NOISE, BREATH NOISE, SEASHORE, BIRD TWEET, TELEPHONE, HELICOPTER, APPLAUSE, GUNSHOT. Koper, strijkers en riet spelen op de waveguides BRASS, BOW en REED |
-| PRESETS op FX / SHIMMER | op de FX-pagina gaat de PRESETS-knop door FX-presets (FX OFF, BELL, TUNED BAR, GLASS, SITAR, DRONE STRINGS, PIANO STRING, PLUCKED STRING, CAT, COW, WOLF, TALKING, ELEPHANT, NIGHT FLUTE, OVERBLOWN, BIRD, TWO BIRDS, HAWK), op de SHIMMER-pagina door shimmer-presets (SHIMMER OFF, UNDERWORLD, STONE TEMPLE, ORACLE CHAMBER, CATHEDRAL, GOTHIC CHOIR, MOSQUE DOME, DOME DEPTHS, SUB HAZE, SMALL ROOM); de klank zelf blijft staan |
+| PRESETS op FX / SHIMMER | op de FX-pagina gaat de PRESETS-knop door FX-presets (FX OFF, BELL, TUNED BAR, GLASS, SITAR, DRONE STRINGS, PIANO STRING, PLUCKED STRING, SOPRANO AAH, TENOR OOH, BASS OH, TOM, TIMPANI, TAIKO, NIGHT FLUTE, OVERBLOWN, BIRD, TWO BIRDS, HAWK), op de SHIMMER-pagina door shimmer-presets (SHIMMER OFF, UNDERWORLD, STONE TEMPLE, ORACLE CHAMBER, CATHEDRAL, GOTHIC CHOIR, MOSQUE DOME, DOME DEPTHS, SUB HAZE, SMALL ROOM); de klank zelf blijft staan |
 | ARP | de ARP-pagina; nog een keer: terug naar HOME (het lampje brandt zolang de arpeggiator speelt) |
 | REC | de TAPE-pagina (bandrecorder); daar: opnemen. Op de FREE EG-pagina neemt REC FREE EG op (bij NOTE nog een keer om te stoppen) |
 | SCL | de PAN-pagina (nog een keer: terug naar HOME): KNOB 1 BASIS (stereo-spreiding per noot), KNOB 2 ORBIT (de stemmen bewegen mee met hun plaatje); de stemmen staan getekend waar ze in het stereobeeld klinken |
@@ -240,27 +240,29 @@ Rings en DaisySP (Emilie Gillet, Electrosmith; MIT) die Felucca al had (`phys_ds
 KNOB 2 BRIGHTNESS, KNOB 3 DAMPING (zoals Rings: rechtsom langer), KNOB 4 MIX (0 = uit, dan rekent er niets). Het
 scherm tekent het model als één 3D-draadmodel in vectorstijl, in het midden (dunne lijnen in perspectief, langzaam
 draaiend, de achterkant gestippeld), met linksboven een pictogram en de naam (de klok, de snaar, de sitar, de fluit,
-de zangvogel, de havik, en bij THROAT het dier: kat, aap, mens, hond, wolf, koe, leeuw, olifant). Wat het model doet
+de zangvogel, de havik, een hoofd bij VOICE, de trompet, de viool, de klarinet of sax en de trom). Wat het model doet
 zit in de animatie zelf: MODAL een draaiende klok waarvan de wand beweegt in de modes (2,0), (3,0) en (4,0), elk zo
 sterk als de echte partial van de resonator; SYMP de bespeelde snaar met daarachter elke resonantie als snaar van zijn
-lengte (1/f); STRING de eigentrillingen n = 1..4 achter elkaar en hun som vooraan; THROAT het spraakkanaal als buis
-met de echte oppervlaktefunctie van de VOWEL en de lengte van het dier; FLUTE de fluit zelf (kopstuk, middenstuk,
+lengte (1/f); STRING de eigentrillingen n = 1..4 achter elkaar en hun som vooraan; VOICE het spraakkanaal als buis
+met de echte oppervlaktefunctie van de VOWEL en de lengte van de SIZE; DRUM het vel dat in zijn mode beweegt, op een
+ketel of een romp; FLUTE de fluit zelf (kopstuk, middenstuk,
 voetstuk, kleppen, lipplaat) met de staande golf en zijn knopen erin en de luchtstraal over het mondgat; SYRINX en HAWK
 de luchtpijp met de syrinx en de twee bronchiën als buizen, de labia trillend, elk met zijn eigen stem.
 
 **De waveguides (FX, achter de resonatoren).** Draai op de FX-pagina verder met ALGORITHM: na MODAL, SYMP STRING en
-STRING komen drie waveguides, eigen code (naar de klassieke modellen: het vocal tract van Kelly en Lochbaum, de fluit
+STRING komen de waveguides en de trom, eigen code (naar de klassieke modellen: het vocal tract van Kelly en Lochbaum, de fluit
 van Cook / STK). Net als de resonatoren polyfoon (één per noot) en gevoed door de stemmen: de oscillator is de bron.
 De luidheid van de stemmen is de "adem": de fluit en de syrinx blazen alleen zolang je speelt.
 
 | Model | Wat | KNOB 1 | SELECT |
 | --- | --- | --- | --- |
-| THROAT | een strottenhoofd/keel: een buis van tot 24 secties met de oscillator als stembanden. De lengte geeft de formanten van het dier, de mond gaat open met de luidheid (miauw, boe) | ANIMAL: CAT, MONKEY, HUMAN, DOG, WOLF, COW, LION, ELEPHANT | VOWEL: U, O, A, E, I (morphend) |
+| VOICE | een menselijk spraakkanaal (het koor): een buis van 8 .. 12 secties met de oscillator als stembanden; de lengte geeft de formanten | SIZE: CHILD, SOPRANO, ALTO, TENOR, BASS (12 .. 18,5 cm) | VOWEL: U, O, A, E, I (morphend) |
 | FLUTE | een luchtstraal over een buis op de toonhoogte van de noot | JET: laag = grondtoon (buigt iets omhoog), hoger = overblazen naar octaaf en duodecime | BREATH: de ruis in de adem |
 | SYRINX | het stemorgaan van een vogel: twee fluitjes twee octaven boven de noot, door de snavel | CHIRP: hoeveel de toon stijgt met de adem | TWO VOICE: de tweede fluit 0..7 halve tonen hoger (zweven .. kwint) |
 | HAWK | de schreeuw van een roofvogel ("kee-eeee-arr"), gebouwd op SYRINX: twee fluitjes een kwarttoon uit elkaar (ze zweven: de ruwheid), 2,5 octaaf boven de noot, de toon stijgt eerst iets en zakt dan een half octaaf over de schreeuw; ruisiger adem en een hogere, wijdere snavel | SCREAM: hoe lang de schreeuw duurt (0,1 .. 2,7 s, vanaf het moment dat er na stilte weer geluid binnenkomt) | RASP: hoe rauw (een snelle, willekeurige tremolo) |
 | BRASS | lippen die in een buis zoemen: een korte luchtstoot per periode, smaller naarmate je harder blaast (luid is helder, zoals koper), door een buis van één periode (zijn modi de boventonen) en een beker die de hoge tonen uitstraalt | LIP: los en zacht (hoorn) .. strak en schetterend (trompet) | MUTE: open beker .. harmon-demper (een smalle band, het nasale "wah") |
 | BOW | een strijkstok op een snaar (naar STK Bowed / Smith): twee vertragingslijnen, de wrijving van het haar (stick-slip), de kam en een klankkast (een lage resonantie en de 'bridge hill' rond 2,5 kHz); de luidheid van de stemmen is de snelheid van de stok | PRESSURE: licht en luchtig (flageolet) .. gedrukt en krassend | BOW AT: sul ponticello (bij de kam) .. sul tasto (boven de toets) |
+| DRUM | een aangeslagen vel (tom, taiko, pauk): acht van zijn modes, elk een resonator, gestemd op de noot; hoe harder de slag, hoe strakker het vel: de toon begint hoger en zakt terug (de "doem") | KETTLE: vrij vel (Bessel-verhoudingen: tom, taiko) .. ketel (de modes bijna 1 : 1,5 : 2: een gestemde pauk) | STRIKE: midden (een doffe dreun) .. rand (een zingende toon) |
 | REED | een riet op een buis (naar STK Clarinet / Saxofony): het riet als klep, een cilinder (klarinet: oneven boventonen) of een kegel (sax, hobo, fagot: alle boventonen) | REED: zacht en donker .. hard en schetterend | BORE: onder 16 de cilinder (klarinet), daarboven de kegel, het riet op 6 .. 45 % van de lengte (laag een sax, hoog de dubbelrieten) |
 
 **Blaasdruk op aftertouch.** Zodra er aftertouch binnenkomt (channel pressure of polyfonische aftertouch, via USB- of
@@ -272,9 +274,8 @@ van de stemmen op de adem, van een vleugje tot het instrument erdoor gedreven: m
 blaast de chaos het instrument (de "scream" van de VL1).
 
 KNOB 2 BRIGHTNESS (mondopening/snavel/demping van de hoogte), KNOB 3 DAMPING (hoe lang de buis naklinkt), KNOB 4 MIX.
-Combineer gerust: een noise-programma als adem in de FLUTE (PAN NOISE FLUTE), de pure cyclus in een kattenkeel (CAT
-MEOW), een wolf met shimmer (WOLF HOWL). Nieuwe presets: CAT MEOW, COW MOO, WOLF HOWL, TALKING CHAOS, ELEPHANT, NIGHT
-FLUTE, OVERBLOWN, PAN NOISE FLUTE, BIRD SONG, TWO BIRDS, HAWK CRY.
+Combineer gerust: een noise-programma als adem in de FLUTE, een noise-tik als stok op de DRUM (TIMPANI, TAIKO,
+MELODIC TOM), de ruis van een zaagtandcluster door de VOICE (CHOIR AAHS).
 
 **TAPE (REC).** Een 4-sporen bandrecorder met een tapelus, opgenomen van de eigen uitgang van de synth en eronder
 afgespeeld. De band loopt op het tempo waarop hij is opgenomen: verander je de BPM (of het MIDI-clocktempo), dan loopt
@@ -351,7 +352,7 @@ Alles wordt als één bestand gecompileerd: `firmware/src/felucca.c` bepaalt de 
 | `firmware/src/synth.c` | het Chua-circuit: diode, RK2-solver in Q20 fixed point, stemmen, uitgang, de trace voor het scherm |
 | `firmware/src/noise.c` | de 30 noise-oscillators (naar Befaco's Noise Plethora) |
 | `firmware/src/shimmer.c` | de shimmer reverb: FDN-galm met octaafverschuiver in de terugkoppeling |
-| `firmware/src/waveguide.c` | de waveguides: THROAT (Kelly-Lochbaum), FLUTE, SYRINX, HAWK |
+| `firmware/src/waveguide.c` | de waveguides: VOICE (Kelly-Lochbaum), FLUTE, SYRINX, HAWK, BRASS, BOW, REED; de trom DRUM |
 | `firmware/src/resonator.c` | de FX-resonatoren rond de Rings/DaisySP-port (`phys_dsp.c`, `phys_symp.c`, MIT) |
 | `firmware/src/lpg_tables.h` | gegenereerd door `tools/gen_lpg_tables.py`: ADSR-tijden, cutoff, resonantie |
 | `firmware/src/chua_tables.h` | gegenereerd door `tools/gen_chua_tables.c`: α, omlooptijd en RMS per (SHAPE, CHAOS) |

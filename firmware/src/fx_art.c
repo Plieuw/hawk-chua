@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The FX page's pictures (ui.c): each model as a plate from an acoustics book drawn in 3D vector style: thin
  * antialiased wire frames in perspective, turning slowly, the parts behind dashed and dim; a measured quantity
- * shown in the moving drawing itself, centred; a pictogram of the model (or the animal) with its name top left. In the theme's orange, moving
+ * shown in the moving drawing itself, centred; a pictogram of the model with its name top left. In the theme's orange, moving
  * with the sound (the wet output's level, rz_view) and the FX knobs. Included by ui.c.
  *
  *   MODAL    a bell turning, its wall moving in the modes (2,0), (3,0), (4,0), each as strong as the resonator's
  *            partial (rz_view: the model's own)
  *   SYMP     the played string in front, every resonance behind it as a string of its length (1 / f), swinging
  *   STRING   the normal modes n = 1..4 one behind the other (weighted by the pluck at POSITION), their sum in front
- *   THROAT   the vocal tract as a tube (glottis up, the bend, forward to the lips): its width along it the model's
- *            area function at the VOWEL, its length the animal's; the vocal folds beating, the lips opening
+ *   VOICE    the vocal tract as a tube (glottis up, the bend, forward to the lips): its width along it the model's
+ *            area function at the VOWEL, its length the SIZE's; the vocal folds beating, the lips opening
  *   FLUTE    the flute (crown, head joint, body, foot, the keys over the tone holes, the lip plate), the standing
  *            wave inside dashed (one, two, three half waves: the JET
  *            overblowing), the embouchure, the jet bending across its edge, the pressure's nodes marked
@@ -18,6 +18,7 @@
  *   HAWK     the same, the labia rasping (RASP)
  *   BRASS    a trumpet, its valves; the lips' puffs running along it; a mute in the bell (MUTE)
  *   BOW      a violin, its strings, the bow where POSITION puts it; the Helmholtz corner running on a string
+ *   DRUM     the drum's head moving in its mode, a shell or a kettle (KETTLE)
  *   REED     a clarinet (BORE: the cylinder) or a saxophone (the cone), the reed beating, the standing wave
  *
  * Integer only (np_sin, Q8 coordinates, Wu's lines). Nothing here touches the audio. */
@@ -396,14 +397,12 @@ static void art_sitar(void)
     art_title(ICON_SITAR, "SITAR");
 }
 
-/* ----------------------------------------------------------------- THROAT --- */
-static const int8_t *const ANI_ICON[WA_COUNT] = {ICON_CAT, ICON_MONKEY, ICON_HUMAN, ICON_DOG, ICON_WOLF, ICON_COW,
-                                                 ICON_LION, ICON_ELEPHANT};
+/* ------------------------------------------------------------------ VOICE --- */
 static void art_throat(void)
 {
-    uint32_t an = (sys.fx_struct & 127u) * WA_COUNT / 128u, i;
+    uint32_t an = (sys.fx_struct & 127u) * WV_COUNT / 128u, i;
     uint32_t vq = (sys.fx_pos & 127u) * (WG_NV - 1u) * 256u / 127u, v0 = vq >> 8, v1 = v0 + 1u < WG_NV ? v0 + 1u : v0;
-    int32_t vf = (int32_t)(vq & 255u), nk = (int32_t)WG_ANI[an].n * (int32_t)WG_ANI[an].k;
+    int32_t vf = (int32_t)(vq & 255u), nk = (int32_t)WG_VS[an].n * (int32_t)WG_VS[an].k;
     int32_t lv_ = 30 + nk / 3, R = 14, lh = 34 + nk / 2, len, px[33], py[33], pr[33];
     const int32_t N = 32;
     lv_ = lv_ > 58 ? 58 : lv_;
@@ -419,7 +418,7 @@ static void art_throat(void)
         int32_t a1 = WG_SHAPE[v1][j] + ((WG_SHAPE[v1][j1] - WG_SHAPE[v1][j]) * f >> 8);
         ar = a0 + ((a1 - a0) * vf >> 8);
         if (i == (uint32_t)N)                                    /* (the lips opening with the voice) */
-            ar += art_lv * (int32_t)WG_ANI[an].wah / 512 * (art_sin(art_t * 0x18000000u) + 32768) / 65536;
+            ar += art_lv * (int32_t)WG_VS[an].wah / 512 * (art_sin(art_t * 0x18000000u) + 32768) / 65536;
         pr[i] = (int32_t)art_isqrt((uint32_t)ar * 236000u);
         if (s < lv_) {
             px[i] = Q8(-40); py[i] = Q8(44 - s);
@@ -442,7 +441,7 @@ static void art_throat(void)
             art_ln(sx, sy + 256, sx2, sy2 + 256, art_c, 0);
         }
     }
-    art_title(ANI_ICON[an], WG_ANIMAL[an]);
+    art_title(ICON_HUMAN, WG_VSIZE[an]);
 }
 
 /* ------------------------------------------------------------------ FLUTE --- */
@@ -1015,6 +1014,60 @@ static void art_reed(void)
     art_title(ICON_SAX, cyl ? "REED  CLARINET" : "REED  CONE");
 }
 
+/* DRUM: the drum turning, its head a polar grid moving in its mode (struck in the middle: the round (0,1), a dome
+ * breathing; towards the edge: (1,1), the two halves seesawing about a nodal line), as loud as the sound; a shell
+ * for a tom, a kettle under it for a timpani (KETTLE) */
+static void art_drum(void)
+{
+    int32_t kt = (int32_t)(sys.fx_struct & 127u), pos = (int32_t)(sys.fx_pos & 127u), R = 46, j, k;
+    int32_t ph = art_cos(art_t * 0x20000000u), amp = art_lv * 10 / 256;   /* the head's motion (px at full) */
+    a3_view((uint32_t)(art_t * 0x00600000u), (uint32_t)-ART_DEG(28), 120, 50);
+    for (j = 0; j <= 4; j++) {                                   /* the head: rings */
+        int32_t r = R * j / 4, ox = 0, oy = 0, sx, sy;
+        for (k = 0; k <= 24; k++) {
+            uint32_t th = (uint32_t)k * (0xFFFFFFFFu / 24u);
+            int32_t rr = r * 256 / R;                            /* Q8 0..256 */
+            int32_t m0 = art_cos((uint32_t)rr * 0x00400000u) >> 7, m1 = (rr * (256 - rr) / 64) * (art_cos(th) >> 7) / 256;
+            int32_t d = ((m0 * (127 - pos) + m1 * pos) / 127) * amp / 256 * ph / 32768;   /* Q8 px */
+            a3_proj(a3_rot(r * (art_cos(th) >> 7), -d, r * (art_sin(th) >> 7)), &sx, &sy);
+            if (k)
+                art_ln(ox, oy, sx, sy, j == 4 ? art_c : art_c2, 0);
+            ox = sx; oy = sy;
+        }
+    }
+    for (k = 0; k < 12; k++) {                                   /* the head: spokes */
+        uint32_t th = (uint32_t)k * (0xFFFFFFFFu / 12u);
+        int32_t ox = 0, oy = 0, sx, sy;
+        for (j = 0; j <= 4; j++) {
+            int32_t r = R * j / 4, rr = r * 256 / R;
+            int32_t m0 = art_cos((uint32_t)rr * 0x00400000u) >> 7, m1 = (rr * (256 - rr) / 64) * (art_cos(th) >> 7) / 256;
+            int32_t d = ((m0 * (127 - pos) + m1 * pos) / 127) * amp / 256 * ph / 32768;
+            a3_proj(a3_rot(r * (art_cos(th) >> 7), -d, r * (art_sin(th) >> 7)), &sx, &sy);
+            if (j)
+                art_ln(ox, oy, sx, sy, art_c3, 0);
+            ox = sx; oy = sy;
+        }
+    }
+    for (k = 0; k < 16; k++) {                                   /* below: a shell, or a kettle's bowl */
+        uint32_t th = (uint32_t)k * (0xFFFFFFFFu / 16u), th2 = th + 0xFFFFFFFFu / 16u;
+        int32_t depth = 34, j2;
+        v3_t p0, p1;
+        for (j2 = 0; j2 < 4; j2++) {
+            int32_t f0 = j2 * 64, f1 = (j2 + 1) * 64;            /* Q8 down the side */
+            int32_t r0 = kt > 64 ? R * art_cos((uint32_t)f0 * 0x00400000u) / 32768 : R;
+            int32_t r1 = kt > 64 ? R * art_cos((uint32_t)f1 * 0x00400000u) / 32768 : R;
+            p0 = a3_rot(r0 * (art_cos(th) >> 7), Q8(depth) * f0 / 256, r0 * (art_sin(th) >> 7));
+            p1 = a3_rot(r1 * (art_cos(th) >> 7), Q8(depth) * f1 / 256, r1 * (art_sin(th) >> 7));
+            a3_seg(p0, p1, 0, art_c);
+        }
+        p0 = a3_rot(R * (art_cos(th) >> 7), Q8(depth), R * (art_sin(th) >> 7));
+        p1 = a3_rot(R * (art_cos(th2) >> 7), Q8(depth), R * (art_sin(th2) >> 7));
+        if (kt <= 64)
+            a3_seg(p0, p1, 0, art_c2);                           /* (the shell's bottom rim) */
+    }
+    art_title(ICON_DRUM, kt > 64 ? "DRUM  TIMPANI" : "DRUM");
+}
+
 /* the FX page's picture */
 static void art_draw(void)
 {
@@ -1037,12 +1090,13 @@ static void art_draw(void)
     case RZ_MODAL: art_bell(); break;
     case RZ_SYMP: art_sitar(); break;
     case RZ_STRING: art_string_model(); break;
-    case RZ_THROAT: art_throat(); break;
+    case RZ_VOICE: art_throat(); break;
     case RZ_FLUTE: art_flute(); break;
     case RZ_SYRINX: art_syrinx(0); break;
     case RZ_BRASS: art_brass(); break;
     case RZ_BOW: art_bow(); break;
     case RZ_REED: art_reed(); break;
+    case RZ_DRUM: art_drum(); break;
     default: art_syrinx(1); break;
     }
     if (!sys.fx_mix)

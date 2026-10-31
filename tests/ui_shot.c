@@ -400,9 +400,9 @@ int main(int argc, char **argv)
     frames(3);
     bad |= shot(dir, "f_fx_off");
     for (i = 0; i < RZ_COUNT; i++) {
-        static const uint8_t PI_[RZ_COUNT] = {11, 104, 0, 52, 73, 123, 101, 56, 40, 71};   /* VIBRAPHONE, SITAR, */
+        static const uint8_t PI_[RZ_COUNT] = {11, 104, 0, 52, 73, 123, 101, 56, 40, 71, 47};   /* VIBRAPHONE, SITAR, */
         preset_load(PI_[i]);                                             /* GRAND PIANO, CHOIR AAHS, FLUTE, BIRD TWEET,
-                                                                          * GOBLINS, TRUMPET, VIOLIN, CLARINET */
+                                                                          * GOBLINS, TRUMPET, VIOLIN, CLARINET, TIMPANI */
         synth_note_on(48, 100);
         frames(14);
         snprintf(name, sizeof name, "f_fx_%u", i);
@@ -419,9 +419,9 @@ int main(int argc, char **argv)
     frames(14);
     bad |= shot(dir, "f_hawk");
     synth_kill();
-    for (i = 0; i < WA_COUNT; i++) {     /* THROAT: each animal's head, a vowel each */
-        preset_load(52);                 /* CHOIR AAHS (THROAT) */
-        sys.fx_struct = (uint8_t)(i * 128u / WA_COUNT + 4u);
+    for (i = 0; i < WV_COUNT; i++) {     /* VOICE: each size, a vowel each */
+        preset_load(52);                 /* CHOIR AAHS (VOICE) */
+        sys.fx_struct = (uint8_t)(i * 128u / WV_COUNT + 4u);
         sys.fx_pos = (uint8_t)(i * 18u);
         synth_note_on(48, 110);
         frames(14);
@@ -509,7 +509,7 @@ int main(int argc, char **argv)
     sys.view = V_TIME;
     frames(8);
     bad |= shot(dir, "h_noise_time");
-    preset_load(117);                    /* the MOD ENV page (ENV twice): MELODIC TOM, a note, its envelope falling */
+    preset_load(118);                    /* the MOD ENV page (ENV twice): SYNTH DRUM, a note, its envelope falling */
     edges = btn_bit(B_ENV);
     ui_input();
     edges = btn_bit(B_ENV);

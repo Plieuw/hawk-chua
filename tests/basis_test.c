@@ -1468,7 +1468,7 @@ int main(int argc, char **argv)
                     }
                 }
             }
-            for (j = 0; j < 4u && md < RZ_THROAT; j++) {       /* its share of the energy: > 0.5 % (Rings' models: */
+            for (j = 0; j < 4u && md < RZ_VOICE; j++) {       /* its share of the energy: > 0.5 % (Rings' models: */
                 double e = 2 * (re[j] * re[j] + im[j] * im[j]) / t / tot;   /* the waveguides: tested below) */
                 if (e < 0.005) {
                     printf("   %s: note %u only %.4f of the energy\n", RZ_NAME[md], CH[j], e);
@@ -1562,13 +1562,13 @@ int main(int argc, char **argv)
             okk &= f / 220.0 >= T[q].lo && f / 220.0 <= T[q].hi;
         }
         okk &= fsy[1] > 1.3 * fsy[0];                     /* (the chirp: up) */
-        {   /* the throat: U darker than I (the energy above 1.5 kHz), each animal sounds */
+        {   /* the voice: U darker than I (the energy above 1.5 kHz) */
             double hi2[2];
             uint32_t v2;
             for (v2 = 0; v2 < 2u; v2++) {
                 double eh = 0, et = 0;
                 synth_kill(); sys.fx_mix = 0; run_ms(20);
-                sys.fx_model = RZ_THROAT; sys.fx_struct = 40; sys.fx_pos = v2 ? 127 : 0; sys.fx_mix = 127;
+                sys.fx_model = RZ_VOICE; sys.fx_struct = 40; sys.fx_pos = v2 ? 127 : 0; sys.fx_mix = 127;
                 synth_note_on(57, 110);
                 run_ms(300);
                 for (w2 = 0; w2 < 400u; w2++) {       /* the energy at 2..3 kHz (an I's second formant) against
@@ -1591,16 +1591,16 @@ int main(int argc, char **argv)
                 }
                 hi2[v2] = eh / (et + 1);
             }
-            printf("   (THROAT, HUMAN: 2..3 kHz against 0.5..1 kHz: U %.3f, I %.3f)\n", hi2[0], hi2[1]);
+            printf("   (VOICE, SOPRANO: 2..3 kHz against 0.5..1 kHz: U %.3f, I %.3f)\n", hi2[0], hi2[1]);
             okk &= hi2[1] > 4 * hi2[0];
         }
         {   /* silence in, silence out (no self-oscillation without breath) */
             uint32_t md2;
-            for (md2 = RZ_THROAT; md2 < RZ_COUNT; md2++) {
+            for (md2 = RZ_VOICE; md2 < RZ_COUNT; md2++) {
                 int32_t pk = 0;
                 synth_kill(); sys.fx_mix = 0; run_ms(20);
                 sys.fx_model = (uint8_t)md2; sys.fx_damp = 127; sys.fx_mix = 127;
-                synth_note_on(57, 110); run_ms(200); synth_kill(); run_ms(3000);
+                synth_note_on(57, 110); run_ms(200); synth_kill(); run_ms(md2 == RZ_DRUM ? 9000 : 3000);   /* (the drum rings 4 s) */
                 for (w2 = 0; w2 < 100u; w2++) {
                     synth_render(buf, CTL);
                     for (q = 0; q < CTL; q++) pk = abs(buf[2 * q]) > pk ? abs(buf[2 * q]) : pk;
@@ -1661,7 +1661,7 @@ int main(int argc, char **argv)
             uint32_t md, b2;
             sys.chaos = 110; sys.output = 32; sys.scream = 127;
             midi_in_source[mi_w % MQ] = 1; midi_in(0xD0, 127, 0);
-            for (md = RZ_THROAT; md < RZ_COUNT; md++) {
+            for (md = RZ_VOICE; md < RZ_COUNT; md++) {
                 synth_kill(); sys.fx_model = (uint8_t)md;
                 synth_note_on(45, 127); synth_note_on(57, 127); synth_note_on(64, 127);
                 for (b2 = 0; b2 < 300u; b2++) {
@@ -1707,15 +1707,17 @@ int main(int argc, char **argv)
                     }
         printf("   (shimmer: peak %d, mean of the tails %.1f)\n", pk2, (double)dcs / (64.0 * 100 * 2 * CTL));
         okk &= pk2 <= 32767 && dcs / (64 * 100 * 2 * CTL) < 64 && dcs / (64 * 100 * 2 * CTL) > -64;
-        {   /* it sinks: a high pure note's tail with SHIMMER 100, -OCT: its spectrum's centroid (the energy-weighted
+        {   /* it sinks: a high pure note's tail with SHIMMER 127, -2 OCT: its spectrum's centroid (the energy-weighted
              * frequency) falls by a fifth and more from just after the note to 0.7 s later (the plain tail rings on) */
             static int32_t w0[200u * CTL], w1[200u * CTL];
             double c[2];
             uint32_t j, q2;
-            sys.sh_mix = 0;
+            synth_kill(); memset(voice, 0, sizeof voice); rng_state = 0x1234567u; voice_clock = 0;   /* (the same
+                                                  * voices whatever ran before) */
+            sys.sh_mix = 0; sys.fx_mix = 0; sys.osc = 0; sys.sh_space = 0;
             fx_shimmer(buf, buf, buf, 0);          /* (clear) */
             sys.chaos = 6; sys.output = 64; sys.sustain = 0; sys.decay = 70; sys.release = 60; sys.ring = 30;
-            sys.sh_mix = 127; sys.sh_size = 110; sys.sh_decay = 110; sys.sh_shimmer = 100; sys.sh_interval = SI_OCT;
+            sys.sh_mix = 127; sys.sh_size = 110; sys.sh_decay = 110; sys.sh_shimmer = 127; sys.sh_interval = SI_2OCT;
             sys.sh_tone = 100;
             synth_note_on(84, 110);
             for (b2 = 0; b2 < 1200u; b2++) {
