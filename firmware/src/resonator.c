@@ -31,8 +31,8 @@
 #include "phys_symp.c"
 #include "waveguide.c"                           /* VOICE ... DRUM: this firmware's own models */
 
-enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_VOICE, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_DRUM, RZ_COUNT };
-static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "VOICE", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED", "DRUM"};
+enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_VOICE, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_DRUM, RZ_PIANO, RZ_COUNT };
+static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "VOICE", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED", "DRUM", "PIANO"};
 static const char *const RZ_CHORD_NAME[8] = {"OCT", "5TH", "4TH", "MAJ", "MIN", "SUS", "7TH", "OCTAVES"};
 static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Felucca's PHYS chords) */
     {-12, 12, 24}, {7, 12, 19}, {5, 12, 17}, {4, 7, 12}, {3, 7, 12}, {2, 7, 14}, {4, 7, 10}, {12, 24, 36},
@@ -40,9 +40,9 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000};
-static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
-static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
+static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000, 6000};
+static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
+static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
 static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
@@ -61,6 +61,7 @@ typedef struct {
         wg_bow_t bw;
         wg_reed_t rd;
         wg_drum_t dr;                            /* DRUM */
+        wg_piano_t pn;                           /* PIANO */
     } u;
     uint8_t held;                                /* the model its state is for + 1 (0: nothing: reset at the next use) */
     uint8_t note;                                /* the note it is tuned to */
@@ -93,7 +94,7 @@ static void rz_reset(rz_t *R, uint32_t md)
         R->u.x.rng = 0x9E3779B9u;
         R->u.x.quiet = 1;
     }
-    else if (md == RZ_DRUM)
+    else if (md == RZ_DRUM || md == RZ_PIANO)
         ;                                        /* (all zero: still) */
     else if (md == RZ_VOICE)
         R->u.t.ag = 4096;
@@ -270,6 +271,20 @@ static void rz_run(uint32_t r, uint32_t n)
             rz_view.n = m;
         }
         break;
+    case RZ_PIANO: {
+        uint32_t k2, held = 0;
+        for (k2 = 0; k2 < NVOICE; k2++)          /* the key down: a voice holding this note (else the damper) */
+            held |= voice[k2].note == note && (voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN);
+        wg_piano_run(&R->u.pn, in, y, n, f0, note, strc / 516, pos, brit, damp, (int)held);
+        if (view) {                              /* (its partials, stretched by the stiffness: a sketch) */
+            for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++) {
+                rz_view.f[i] = f0 * (i + 1u) + (f0 >> 12) * (i + 1u) * (i + 1u) * (i + 1u);
+                rz_view.a[i] = (int16_t)(32767 / (int32_t)(i + 1u));
+            }
+            rz_view.n = i;
+        }
+        break;
+    }
     case RZ_DRUM:
         wg_drum_run(&R->u.dr, in, y, n, f0, strc, pos, brit, damp);
         if (view) {                              /* (its modes, as the drum is tuned) */

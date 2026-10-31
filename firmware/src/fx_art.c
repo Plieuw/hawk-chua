@@ -18,6 +18,7 @@
  *   HAWK     the same, the labia rasping (RASP)
  *   BRASS    a trumpet, its valves; the lips' puffs running along it; a mute in the bell (MUTE)
  *   BOW      a violin, its strings, the bow where POSITION puts it; the Helmholtz corner running on a string
+ *   PIANO    the action: two strings of the unison, the hammer striking at HAMMER, the damper lifting
  *   DRUM     the drum's head moving in its mode, a shell or a kettle (KETTLE)
  *   REED     a clarinet (BORE: the cylinder) or a saxophone (the cone), the reed beating, the standing wave
  *
@@ -1014,6 +1015,55 @@ static void art_reed(void)
     art_title(ICON_SAX, cyl ? "REED  CLARINET" : "REED  CONE");
 }
 
+/* PIANO: the action in 3D: the unison's strings over the bridge (the struck one moving in its partials, stretched by
+ * the stiffness), the hammer swinging up to strike them at its place (HAMMER) and falling back, the damper above
+ * lifted while the note sings */
+static void art_piano(void)
+{
+    int32_t amp[4], x0 = Q8(-100), x1 = Q8(100), sx, sy, sx2, sy2, k;
+    int32_t hx = x0 + (x1 - x0) * (8 + (int32_t)(sys.fx_pos & 127u) * 18 / 127) / 100;   /* the hammer's place */
+    int32_t hit = art_lv > 40 ? 0 : 1, swing = art_lv * 6 / 256;     /* (loud: at the strings) */
+    a3_view((uint32_t)ART_DEG(-24) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(18), 120, 50);
+    for (k = 0; k < 4; k++)
+        amp[k] = art_lv * 32767 / 256 / ((k + 1) * (k + 1)) * (k == 0 ? 1 : 2) / 2;
+    for (k = 0; k < 2; k++) {                                    /* the unison: two strings, a little apart */
+        int32_t z = Q8(-3 + k * 6);
+        a3_string(x0, x1, 0, z, amp, 4, 0x26000000u + (uint32_t)k * 0x00400000u, 10 * 256, k ? art_c2 : art_c, 0);
+    }
+    for (k = 0; k < 2; k++) {                                    /* the bridge and the pin */
+        int32_t bx = k ? x1 : x0;
+        a3_proj(a3_rot(bx, Q8(6), Q8(-8)), &sx, &sy);
+        a3_proj(a3_rot(bx, Q8(6), Q8(8)), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c, 0);
+        a3_proj(a3_rot(bx, 0, 0), &sx2, &sy2);
+        art_ln(sx, sy, sx2, sy2, art_c2, 0);
+    }
+    {   /* the hammer: its head under the strings (up when struck), the shank down to the butt */
+        int32_t top = Q8(4) + Q8(hit ? 14 - swing : 2), z;
+        for (z = -1; z <= 1; z += 2) {
+            a3_proj(a3_rot(hx - Q8(4), top, Q8(5) * z), &sx, &sy);
+            a3_proj(a3_rot(hx + Q8(4), top, Q8(5) * z), &sx2, &sy2);
+            art_ln(sx, sy, sx2, sy2, art_c, 0);
+            a3_proj(a3_rot(hx - Q8(4), top + Q8(8), Q8(5) * z), &sx, &sy);
+            art_ln(sx, sy, sx2, sy2, art_c2, 0);
+        }
+        a3_l(hx - Q8(4), top, Q8(-5), hx - Q8(4), top, Q8(5), art_c, 0);
+        a3_l(hx + Q8(4), top, Q8(-5), hx + Q8(4), top, Q8(5), art_c, 0);
+        a3_l(hx, top + Q8(8), 0, hx - Q8(30), Q8(50), 0, art_c2, 0);   /* the shank */
+        a3_proj(a3_rot(hx - Q8(30), Q8(50), 0), &sx, &sy);
+        art_ring(sx, sy, 3, art_c2);
+    }
+    {   /* the damper: on the strings when quiet, lifted while it sings */
+        int32_t dy = art_lv > 8 ? Q8(-16) : Q8(-3), dx = x0 + (x1 - x0) * 70 / 100;
+        a3_l(dx - Q8(10), dy, Q8(-6), dx + Q8(10), dy, Q8(-6), art_c2, 0);
+        a3_l(dx - Q8(10), dy, Q8(6), dx + Q8(10), dy, Q8(6), art_c2, 0);
+        a3_l(dx - Q8(10), dy, Q8(-6), dx - Q8(10), dy, Q8(6), art_c2, 0);
+        a3_l(dx + Q8(10), dy, Q8(-6), dx + Q8(10), dy, Q8(6), art_c2, 0);
+        a3_l(dx, dy, 0, dx, dy - Q8(24), 0, art_c3, 0);
+    }
+    art_title(ICON_PIANO, "PIANO");
+}
+
 /* DRUM: the drum turning, its head a polar grid moving in its mode (struck in the middle: the round (0,1), a dome
  * breathing; towards the edge: (1,1), the two halves seesawing about a nodal line), as loud as the sound; a shell
  * for a tom, a kettle under it for a timpani (KETTLE) */
@@ -1097,6 +1147,7 @@ static void art_draw(void)
     case RZ_BOW: art_bow(); break;
     case RZ_REED: art_reed(); break;
     case RZ_DRUM: art_drum(); break;
+    case RZ_PIANO: art_piano(); break;
     default: art_syrinx(1); break;
     }
     if (!sys.fx_mix)

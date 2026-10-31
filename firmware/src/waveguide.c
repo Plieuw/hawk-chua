@@ -669,3 +669,135 @@ static void wg_drum_run(wg_drum_t *D, const int32_t *in, int32_t *y, uint32_t n,
         D->yp = o;
     }
 }
+
+/* ------------------------------------------------------------------- PIANO --- */
+/* A piano's note (after the digital waveguide pianos, Smith / Bank / Välimäki, simplified): two strings a note (a
+ * unison, tuned a little apart: they beat, and the sound falls in two stages, the prompt sound and the aftersound),
+ * each a delay loop with a loss filter (the highs die first) and two all-passes for the steel's stiffness (the
+ * partials stretched sharp, the more the higher the note: what makes a piano a piano and not a harp); struck by the
+ * hammer: the voices' sound through the felt (a low-pass that opens the harder the strike: a loud note is a bright
+ * note) and the hammer's place on the string (a comb: the partials there, 1/16 .. 1/5 of the length, left out). The
+ * damper falls when the key is let go (no voice holds the note any more), unless the sustain pedal (CC 64) is down;
+ * the bridge into a soundboard (two broad resonances: its warmth). UNISON (STRUCTURE): in tune .. honky-tonk (0 .. 12
+ * cents apart); HAMMER at (POSITION); BRIGHTNESS the felt's hardness; DAMPING how long it sings (x 1/4 .. 4 of a
+ * piano's own: ~20 s in the bass, ~1 s at the top) */
+#define WG_PL 740u                               /* each string's line (half-rate samples: 30 Hz and up; lower: up) */
+#define WG_PH 160u                               /* the hammer's comb (a power of two is not needed: modulo) */
+typedef struct {
+    int32_t s[2][WG_PL];
+    int32_t hb[WG_PH];
+    uint32_t w, hw;
+    int32_t lp[2], a1x[2], a1y[2], a2x[2], a2y[2];   /* the loss filters; the stiffness all-passes */
+    int32_t fx[2], fy[2];                        /* the tuning all-passes (the fraction of a sample: lossless) */
+    int32_t felt, env, b1l, b1d, b2l, b2d, ox, oy, yp;
+} wg_piano_t;
+
+static inline int32_t wg_readm(const int32_t *l, uint32_t len, uint32_t w, uint32_t d)   /* d back, Q16; any length */
+{
+    int32_t t = (int32_t)w - 1 - (int32_t)(d >> 16), a, b;
+    while (t < 0)
+        t += (int32_t)len;
+    a = l[t];
+    b = l[t ? t - 1 : (int32_t)len - 1];
+    return a + px_m(b - a, (int32_t)(d & 0xFFFFu), 16);
+}
+static void wg_piano_run(wg_piano_t *P, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, uint32_t note,
+                         int32_t unison, int32_t pos, int32_t bright, int32_t damp, int held)
+{
+    uint32_t i, k, per = wg_per(f0, WG_PL - 8u), d[2], hd;
+    int32_t env = wg_follow(&P->env, in, n), g[2], la, c, fa, cents;
+    uint32_t t60;
+    {   /* the stiffness: the all-passes' coefficient (-0.1 in the bass .. -0.6 at the top) and their delay at the
+         * fundamental with the loss filter's, taken off the loop (measured) */
+        int32_t tr = note < 21u ? 0 : note > 108u ? 87 : (int32_t)note - 21;   /* 0 .. 87 */
+        c = -3277 - tr * 188;                    /* Q15 */
+        {   /* (their delay at most a quarter of the period: at the top the loop is short) */
+            int32_t L = (int32_t)(per >> 18), cmin = (2 - L) * 32768 / (L + 2);
+            c = c < cmin ? cmin : c;
+            c = c > 0 ? 0 : c;
+        }
+        la = 16000 + tr * 190 + bright / 16;     /* the loss filter (Q15, a pass): dull in the bass, open at the top
+                                                  * (a pass at the fundamental loses little: the top still sings) */
+        la = la > 32600 ? 32600 : la;
+        {
+            uint32_t ap = ((uint32_t)(32768 - c) << 16) / (uint32_t)(32768 + c) * 2u;   /* 2 (1 - c) / (1 + c), Q16 */
+            uint32_t lpd = (uint32_t)((32768 - la) * 65536u / (uint32_t)la);   /* (1 - a) / a, Q16 */
+            uint32_t comp = ap + lpd;
+            cents = unison * unison / 1350;      /* 0 .. 12 cents apart (64: 3) */
+            for (k = 0; k < 2u; k++) {
+                uint32_t pk = (uint32_t)(((uint64_t)per * px_exp2((k ? cents : -cents) * 65536 / 2400)) >> 16);
+                d[k] = pk > comp + (2u << 16) ? pk - comp : 2u << 16;
+            }
+        }
+        /* T60: ~20 s at A0 halving every 20 semitones, x 2^((DAMPING - 64) / 32); the damper: 0.12 s */
+        t60 = (uint32_t)(((uint64_t)441000u * px_exp2(-tr * 3277 + (damp / 516 - 64) * 2048)) >> 16);   /* half-rate
+                                                  * samples */
+        if (!held && !sys.pedal)
+            t60 = 2646u;
+        t60 = t60 < 600u ? 600u : t60;
+        for (k = 0; k < 2u; k++) {               /* the loop gain a period (the second string a little longer) */
+            uint32_t tk = k ? t60 + t60 / 3u : t60;
+            uint32_t e = (uint32_t)(((uint64_t)d[k] * 10u) / tk);   /* periods: log2(1000) x d / T60, Q16 */
+            g[k] = (int32_t)(px_exp2(-(int32_t)e) >> 1);   /* Q15 */
+        }
+    }
+    hd = (uint32_t)(((uint64_t)per * (uint32_t)(4096 + pos * 70)) >> 16);   /* the hammer at 1/16 .. 1/5 */
+    hd = hd >> 16 < WG_PH - 2u ? hd >> 16 : WG_PH - 2u;
+    hd = hd < 1u ? 1u : hd;
+    {   /* the felt: harder the louder (the input's loudness), BRIGHTNESS its base */
+        int32_t e2 = env > PX_ONE / 8 ? 8192 : env / 16;
+        fa = wg_half(1500 + bright / 6 + e2);
+    }
+    for (i = 0; i < n; i += 2u) {
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], ex, o = 0, t;
+        P->felt += px_m(fa, x - P->felt, 15);
+        P->hb[P->hw] = P->felt;                  /* the hammer's comb: the strike less itself a place later */
+        ex = P->felt - P->hb[(P->hw + WG_PH - hd) % WG_PH];
+        P->hw = P->hw + 1u >= WG_PH ? 0u : P->hw + 1u;
+        for (k = 0; k < 2u; k++) {
+            int32_t v, a;
+            {   /* the delay: whole samples, then a first-order all-pass for the fraction (0.5 .. 1.5: Thiran),
+                 * which loses nothing where linear interpolation would damp the top notes' short loops */
+                uint32_t m = (d[k] - 0x8000u) >> 16, fr = d[k] - (m << 16);   /* fr: 0.5 .. 1.5, Q16 */
+                int32_t eta = (int32_t)(((65536 - (int32_t)fr) * 32768) / (65536 + (int32_t)fr)), xr;
+                int32_t t2 = (int32_t)P->w - (int32_t)m;
+                while (t2 < 0)
+                    t2 += (int32_t)WG_PL;
+                xr = P->s[k][t2];
+                v = px_m(eta, xr - P->fy[k], 15) + P->fx[k];
+                P->fx[k] = xr;
+                P->fy[k] = v;
+            }
+            P->lp[k] += px_m(la, v - P->lp[k], 15);
+            v = px_m(P->lp[k], g[k], 15);
+            a = px_m(c, v - P->a1y[k], 15) + P->a1x[k];   /* the stiffness: two first-order all-passes */
+            P->a1x[k] = v;
+            P->a1y[k] = a;
+            v = px_m(c, a - P->a2y[k], 15) + P->a2x[k];
+            P->a2x[k] = a;
+            P->a2y[k] = v;
+            P->s[k][P->w % WG_PL] = px_clamp(v + (ex >> 1), -8 * PX_ONE, 8 * PX_ONE);
+            o += v;
+        }
+        P->w = P->w + 1u >= WG_PL ? 0u : P->w + 1u;
+        {   /* the soundboard: ~140 Hz and ~900 Hz, broad */
+            int32_t hi;
+            P->b1l += px_m(1300, P->b1d, 15);
+            hi = o - P->b1l - px_m(26000, P->b1d, 15);
+            P->b1d = px_clamp(P->b1d + px_m(1300, hi, 15), -32 * PX_ONE, 32 * PX_ONE);
+            P->b1l = px_clamp(P->b1l, -32 * PX_ONE, 32 * PX_ONE);
+            P->b2l += px_m(8400, P->b2d, 15);
+            hi = o - P->b2l - px_m(26000, P->b2d, 15);
+            P->b2d = px_clamp(P->b2d + px_m(8400, hi, 15), -32 * PX_ONE, 32 * PX_ONE);
+            P->b2l = px_clamp(P->b2l, -32 * PX_ONE, 32 * PX_ONE);
+            o = o + P->b1d / 3 + P->b2d / 4;
+        }
+        t = o - P->ox + px_m(P->oy, 32440, 15);
+        P->ox = o;
+        P->oy = t;
+        y[i] = (P->yp + t) >> 1;
+        if (i + 1u < n)
+            y[i + 1u] = t;
+        P->yp = t;
+    }
+}

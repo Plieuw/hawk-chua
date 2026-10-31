@@ -168,6 +168,8 @@ static void midi_in_block(void)
             sys.mw = (uint8_t)d2;
             sys.mw_seen = 1;
         }
+        else if (st == 0xB0u && d1 == 64u)        /* the sustain pedal: the PIANO's dampers (resonator.c) */
+            sys.pedal = d2 >= 64u;
         else if (st == 0xD0u) {                  /* aftertouch (channel pressure): the breath (resonator.c) */
             sys.at = (uint8_t)d1;
             sys.at_seen = 1;

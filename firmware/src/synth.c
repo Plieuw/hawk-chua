@@ -211,6 +211,7 @@ typedef struct {
     uint32_t ctl;                /* the gate's control (the vactrol), 0..ENV_MAX */
     uint32_t age;                /* started at (voice clock): the oldest is stolen first */
     int32_t dc;                  /* the DC blocker's state (Q15 << 8) */
+    int32_t hp1, hp2;            /* the circuit's high-pass under the note (Q15 << 8) */
     int32_t ic1, ic2;            /* the filter's states (Q23) */
     int32_t a1, a2, a3;          /* its coefficients for the cutoff now (Q28) */
     uint32_t trace_t;            /* time since its last trace point (Q24) */
@@ -455,6 +456,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
 {
     int32_t hs = 0, ahs = 0, bhs = 0, src[CTL];
     uint32_t ns = 0, i, j, h_all = 0, osc = sys.osc, k = (uint32_t)(v - voice);
+    int32_t hpk = (int32_t)(((uint64_t)v->inc * 144121u) >> 32);   /* 1.4 pi f_note / FS, Q16: poles at 0.7 x the note */
     if (osc > NP_COUNT)
         osc = 0;
     if (osc != v->osc) {                                /* (the oscillator changed under the note: its state anew) */
@@ -492,9 +494,18 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
         if (v->fresh) {
             v->fresh = 0;
             v->dc = s * 256;
+            v->hp1 = v->hp2 = 0;
         }
         v->dc += (s * 256 - v->dc) >> 9;                /* DC blocker, ~14 Hz */
         s -= v->dc >> 8;
+        if (!osc) {   /* the circuit: what lies an octave and more under the note taken off (two poles at 0.7 x the
+                       * note): in the chaotic regimes x's slow switching between the scrolls (2..3 octaves down)
+                       * would sound under the note, not at it; the note and what is above it are kept */
+            v->hp1 += (int32_t)(((int64_t)(s * 256 - v->hp1) * hpk) >> 16);
+            s -= v->hp1 >> 8;
+            v->hp2 += (int32_t)(((int64_t)(s * 256 - v->hp2) * hpk) >> 16);
+            s -= v->hp2 >> 8;
+        }
         sum[i] += lpg_frame(v, s) >> 1;
         if (v == render_tv) {
             if (osc) {                                  /* the noise: the output against itself 8 and 16 samples back */

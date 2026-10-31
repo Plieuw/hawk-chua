@@ -20,7 +20,7 @@
  *   FX       KNOB 1..4      STRUCTURE, BRIGHTNESS, DAMPING, MIX of the resonators (resonator.c: Rings' models, 4 voices;
  *            and the waveguides of waveguide.c: VOICE (KNOB 1 the SIZE, SELECT the VOWEL), FLUTE (JET, BREATH),
  *            SYRINX (CHIRP, TWO VOICE), HAWK (SCREAM, RASP), BRASS (LIP, MUTE), BOW (PRESSURE, BOW AT),
- *            REED (REED, BORE), DRUM (KETTLE, STRIKE));
+ *            REED (REED, BORE), DRUM (KETTLE, STRIKE), PIANO (UNISON, HAMMER));
  *            ALGORITHM the model (MODAL, SYMP STRING, STRING), SELECT the POSITION; its resonances and output drawn
  *   FX (2nd) KNOB 1..4      SIZE, DECAY, SHIMMER, MIX of the shimmer reverb (shimmer.c); ALGORITHM the INTERVAL,
  *            SELECT the TONE; the tail's level over the last seconds drawn (the undertow building)
@@ -120,10 +120,11 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
 #define AIR 110, 100, 60, 45, SI_OCT, 90         /* a hall that sinks a little */
 static const preset_t PRESETS[] = {
     /* PIANO 1-8 */
-    {"GRAND PIANO", NZK, 0, 50, 0, 50, 10, RZ_STRING, 100, 70, 72, 20, 85, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"BRIGHT PIANO", NZK, 0, 46, 0, 46, 10, RZ_STRING, 108, 100, 72, 16, 85, ROOM, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"ELECTRIC GRAND", NZK, 0, 46, 0, 46, 10, RZ_STRING, 90, 85, 67, 30, 70, NOSH, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
-    {"HONKY-TONK", NZK, 0, 64, 40, 70, 40, RZ_STRING, 100, 80, 67, 20, 70, ROOM, NZ(1, 0), 10, 0},
+    {"GRAND PIANO", NZK, 0, 50, 0, 50, 10, RZ_PIANO, 40, 80, 70, 40, 127, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
+    {"BRIGHT PIANO", NZK, 0, 46, 0, 46, 10, RZ_PIANO, 50, 110, 70, 30, 127, ROOM, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
+    {"ELECTRIC GRAND", NZK, 0, 46, 0, 46, 10, RZ_PIANO, 30, 100, 60, 20, 110, NOSH, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0,
+     127},
+    {"HONKY-TONK", NZK, 0, 50, 0, 50, 10, RZ_PIANO, 115, 90, 70, 40, 127, ROOM, NZ(1, 8), 0, 63, 0, 0, 0, 0, 0, 127},
     {"E.PIANO 1", NZK, 0, 92, 0, 84, 20, NOFX, ROOM, NZ(1, 3), 2, 18},
     {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8, 45},
     {"HARPSICHORD", NZK, 0, 42, 0, 42, 0, RZ_STRING, 40, 90, 45, 50, 90, NOSH, NZ(1, 1), 0, 63, 0, 0, 0, 0, 0, 127},
@@ -289,7 +290,8 @@ static const fx_preset_t FX_PRESETS[] = {
     {"PLUCKED STRING", RZ_STRING, 40, 90, 45, 50, 90}, {"SOPRANO AAH", RZ_VOICE, 30, 80, 48, 60, 120},
     {"TENOR OOH", RZ_VOICE, 90, 60, 48, 4, 120},   {"BASS OH", RZ_VOICE, 115, 50, 52, 26, 120},
     {"TOM", RZ_DRUM, 10, 80, 70, 40, 127},         {"TIMPANI", RZ_DRUM, 120, 90, 95, 30, 127},
-    {"TAIKO", RZ_DRUM, 0, 60, 80, 20, 127},
+    {"TAIKO", RZ_DRUM, 0, 60, 80, 20, 127},       {"GRAND", RZ_PIANO, 40, 80, 70, 40, 127},
+    {"HONKY-TONK", RZ_PIANO, 115, 90, 70, 40, 127},
     {"NIGHT FLUTE", RZ_FLUTE, 30, 70, 78, 50, 127}, {"OVERBLOWN", RZ_FLUTE, 115, 90, 88, 20, 120},
     {"BIRD", RZ_SYRINX, 90, 70, 48, 15, 127},      {"TWO BIRDS", RZ_SYRINX, 60, 90, 58, 110, 127},
     {"HAWK", RZ_HAWK, 70, 90, 58, 70, 127},
@@ -1274,8 +1276,8 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
     uint32_t md = sys.fx_model % RZ_COUNT, p = sys.fx_pos & 127u;
     char v[12];
     static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP", "MUTE", "BOW AT", "BORE",
-                                                  "STRIKE"};
-    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE", "AT"};
+                                                  "STRIKE", "HAMMER"};
+    static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE", "AT", "HAM"};
     str_cpy(d, brief ? S[md] : L[md], n);
     ui_cat(d, n, " ");
     if (md == RZ_VOICE) {                       /* the vowel: U O A E I, or between two */
@@ -1581,7 +1583,7 @@ static void ui_draw(void)
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
         static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
-                                                   "1 PRESSURE", "1 REED", "1 KETTLE"};
+                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON"};
         if (md == RZ_SYMP)
             str_cpy(b, RZ_CHORD_NAME[(sys.fx_struct & 127u) >> 4], sizeof b);
         else if (md == RZ_VOICE)
