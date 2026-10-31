@@ -284,12 +284,23 @@ int main(int argc, char **argv)
             enc_steps[panel.enc[EN_PRESET]] = 1;
             ui_input();
             ok &= sys.preset == 256u;                        /* (wraps inside bank 3) */
-            fm1_in.buttons |= btn_bit(B_HOME);
-            fm1_ms += 1000;
-            enc_steps[panel.enc[EN_PRESET]] = 1;
+            rm_btn = btn_bit(B_HOME);                        /* HOME on HOME: the BANK menu */
             ui_input();
-            fm1_in.buttons &= ~btn_bit(B_HOME);
+            ok &= sys.page == 14u;
+            fm1_ms += 1000;
+            enc_steps[panel.enc[EN_PRESET]] = 1;             /* PRESETS there: the next bank, the same program */
+            ui_input();
             ok &= sys.preset == 384u && !strcmp(PRESETS[384].name, "DOUBLE SCROLL");
+            frames(3);
+            bad |= shot(dir, "c_bank_menu");
+            fm1_ms += 1000;
+            enc_steps[panel.enc[EN_SELECT]] = 1;             /* SELECT too: round to bank 1 */
+            ui_input();
+            ok &= sys.preset == 0u;
+            rm_btn = btn_bit(B_HOME);                        /* HOME again: back */
+            ui_input();
+            ok &= sys.page == 0u;
+            preset_load(384);
             sys.chaos = 7;
             ok &= upre_save(384) == 0 && upre_has(384) && !upre_has(256) && !upre_has(0) && !upre_has(128);
             preset_load(0);

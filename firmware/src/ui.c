@@ -1677,6 +1677,28 @@ static void draw_edit(void)
 }
 
 /* the MIDI page's picture: where notes come in and go out, and the clock */
+/* the BANK menu (HOME on HOME): the four banks, each with the program playing as it is there, the bank playing lit */
+static const char *const BANK_NAME[NBANKS] = {"GM", "GM ALT", "SYNTH", "LAB"};
+static void draw_bank(void)
+{
+    uint32_t k, cur = sys.preset >> 7, pg = sys.preset & 127u;
+    char a[40], v[8];
+    cv_begin(240, PLOT_H, T_BG);
+    for (k = 0; k < NBANKS; k++) {
+        int32_t y = 6 + (int32_t)k * 29;
+        uint16_t c = k == cur ? T_ACCENT : T_MID;
+        if (k == cur)
+            cv_frame(4, y - 3, 232, 27, T_THEME);
+        fmt_int(v, (int32_t)k + 1);
+        str_cpy(a, v, sizeof a);
+        ui_cat(a, sizeof a, " ");
+        ui_cat(a, sizeof a, BANK_NAME[k]);
+        cv_text(12, y, &AF_M, a, c);
+        cv_text(100, y + 3, &AF_S, PRESETS[(k * 128u + pg) % NPRESETS].name, k == cur ? T_TEXT : T_DIM);
+    }
+    cv_blit(0, PLOT_Y);
+}
+
 static void draw_midi(void)
 {
     char a[40], v[12];
@@ -1885,7 +1907,17 @@ static void ui_draw(void)
     ui_head(a, b);
 
     ui_val_c = sys.page == 5u ? T_FM : 0;   /* (the MOD ENV: its values green) */
-    if (sys.page == 13u) {                       /* TAPE's SPEED: the BPM, the ratio, the tape's own tempo, the pitch */
+    if (sys.page == 14u) {                       /* BANK: which, the program, how */
+        fmt_int(v, (int32_t)(sys.preset >> 7) + 1);
+        str_cpy(b, v, sizeof b);
+        ui_cat(b, sizeof b, " ");
+        ui_cat(b, sizeof b, BANK_NAME[(sys.preset >> 7) % NBANKS]);
+        ui_cell(T_C1, "1 BANK", b);
+        fmt_int(v, (int32_t)(sys.preset & 127u) + 1);
+        ui_cell(T_C2, "PROGRAM", v);
+        ui_cell(T_C3, "TURN", "PRESETS");
+        ui_cell(T_C4, "BACK", "HOME");
+    } else if (sys.page == 13u) {                       /* TAPE's SPEED: the BPM, the ratio, the tape's own tempo, the pitch */
         const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
         int32_t st = (int32_t)(sys.tape_spd % TAPE_NSPD) - 12, c = tape_cents(tape.speed);
         fmt_int(v, (int32_t)arp_bpm_now());
@@ -2281,6 +2313,8 @@ static void ui_draw(void)
         draw_pan();
     else if (sys.page == 11u)
         draw_edit();
+    else if (sys.page == 14u)
+        draw_bank();
     else if (sys.page == 12u || sys.page == 13u) {
         art_t++;
         art_c = T_THEME;
@@ -2393,7 +2427,7 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_OCTDN]);
     if (sys.octave > 0)
         led_on(nl, panel.btn[B_OCTUP]);
-    if (sys.page == 0u)
+    if (sys.page == 0u || sys.page == 14u)
         led_on(nl, panel.btn[B_HOME]);
     if (sys.page == 1u || sys.page == 5u)
         led_on(nl, panel.btn[B_ENV]);
@@ -2497,8 +2531,8 @@ static void ui_input(void)
             ui_say(!e ? "PRESET SAVED" : flash_ok ? "SAVE FAILED" : "NO FLASH");
             break;
         }
-        case B_HOME:                                    /* the oscillator's page */
-            sys.page = 0;
+        case B_HOME:                                    /* the oscillator's page; there: the BANK menu, again: back */
+            sys.page = sys.page == 0u ? 14u : 0u;
             ui_force = 1;
             break;
         case B_ENV:                                     /* the ENV page, the MOD ENV page, back HOME */
@@ -2707,6 +2741,19 @@ static void ui_input(void)
         knob(&sys.sustain, EN_K3, 2);
         knob(&sys.release, EN_K4, 3);
     }
+    if (sys.page == 14u) {                       /* BANK: SELECT and KNOB 1 turn it too (as PRESETS) */
+        int32_t s2 = ui_enc(EN_SELECT) + ui_enc(EN_K1);
+        if (s2) {
+            uint32_t bk = (uint32_t)(((int32_t)(sys.preset >> 7) + (int32_t)NBANKS * 8 + (s2 > 0 ? 1 : -1)) % (int32_t)NBANKS);
+            preset_load(bk * 128u + (sys.preset & 127u));
+            str_cpy(t, "BANK ", sizeof t);
+            fmt_int(v, (int32_t)bk + 1);
+            ui_cat(t, sizeof t, v);
+            ui_cat(t, sizeof t, ": ");
+            ui_cat(t, sizeof t, PRESETS[sys.preset % NPRESETS].name);
+            ui_say(t);
+        }
+    }
     if ((s = ui_enc(EN_SELECT)) != 0 && (sys.page == 12u || sys.page == 13u)) {   /* TAPE: its two menus */
         uint8_t pg = (uint8_t)(s > 0 ? 13u : 12u);
         if (pg != sys.page) {
@@ -2818,8 +2865,9 @@ static void ui_input(void)
         ui_cat(t, sizeof t, h->name);
         ui_say(t);
         ui_force = 1;
-    } else if (s && (fm1_in.buttons & btn_bit(B_HOME))) {   /* HOME held: the bank (the same program in it) */
-        uint32_t bk = (uint32_t)(((int32_t)(sys.preset >> 7) + (int32_t)NBANKS * 8 + s) % (int32_t)NBANKS);
+    } else if (s && ((fm1_in.buttons & btn_bit(B_HOME)) || sys.page == 14u)) {   /* the BANK menu (or HOME held):
+                                                              * the bank (the same program in it) */
+        uint32_t bk = (uint32_t)(((int32_t)(sys.preset >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) % (int32_t)NBANKS);
         preset_load(bk * 128u + (sys.preset & 127u));
         str_cpy(t, "BANK ", sizeof t);
         fmt_int(v, (int32_t)bk + 1);

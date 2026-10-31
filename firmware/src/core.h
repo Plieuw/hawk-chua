@@ -44,7 +44,8 @@ static volatile struct {
     uint8_t view;                /* ui.c: the screen's view */
     uint16_t preset;             /* ui.c: the last preset loaded: bank x 128 + program (0 .. 511) */
     uint8_t cpu2;                /* 2ND CORE: 0 off, 1 all, 2 voices only, 3 FX only (main.c starts it at power-on; GLO) */
-    uint8_t page;                /* ui.c: 0 the oscillator (HOME), 1 ENV, 2 FX: resonator, 3 FX: shimmer, 4 MOD (HOME 2x), 5 MOD ENV (ENV 2x), 6 ARP, 7 MIDI (GLO), 8 FREE EG (REC), 9 KARMA (SEQ) */
+    uint8_t page;                /* ui.c: 0 the oscillator (HOME), 1 ENV, 2 FX: resonator, 3 FX: shimmer, 4 MOD (HOME 2x), 5 MOD ENV (ENV 2x), 6 ARP, 7 MIDI (GLO), 8 FREE EG (REC), 9 KARMA (SEQ),
+                                  * 10 PAN, 11 EDIT, 12 / 13 TAPE, 14 BANK (HOME on HOME) */
     uint8_t fx_model, fx_struct, fx_bright, fx_damp, fx_pos, fx_mix;   /* resonator.c: the FX resonator, 0..127 */
     uint8_t sh_size, sh_decay, sh_shimmer, sh_mix, sh_interval, sh_tone, sh_space;   /* shimmer.c: the shimmer reverb */
     uint8_t osc;                 /* the oscillator: 0 the CHUA circuit, 1 .. 30 a noise program (noise.c: osc - 1) */
