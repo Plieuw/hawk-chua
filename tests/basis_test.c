@@ -640,10 +640,10 @@ int main(int argc, char **argv)
                     np_t keep;
                     int32_t o1[CTL], o2[CTL];
                     keep = np_state[0];
-                    np_render(0, 3, voice[0].inc, o1, CTL);
+                    np_render(0, 3, voice[0].inc, o1, CTL, 0);
                     np_state[0] = keep;
                     sys.menv_height = 0;
-                    np_render(0, 3, voice[0].inc, o2, CTL);
+                    np_render(0, 3, voice[0].inc, o2, CTL, 0);
                     sys.menv_height = 127;
                     np_state[0] = keep;
                     synth_render(buf, CTL);
@@ -957,8 +957,40 @@ int main(int argc, char **argv)
             printf("   (FREE EG AUDIO X2: 3rd harmonic / fundamental %.4f off, %.4f on)\n", h[0], h[1]);
             okk &= h[1] > 10 * h[0] + 0.01;
         }
+        {   /* FM X2: tonal on the note through most of DEPTH, noise only near the top */
+            double sh[2];
+            uint32_t q2, hk;
+            static int32_t ob[8192];
+            static const uint8_t dd[2] = { 96, 127 };
+            for (q2 = 0; q2 < 2u; q2++) {
+                double tot = 0, hs = 0;
+                synth_kill(); sys.osc = 0; sys.chaos = 6; sys.shape = 64; sys.output = 64; sys.attack = 0;
+                sys.sustain = 127; sys.ring = 0; sys.fx_mix = 0; sys.sh_mix = 0;
+                for (k = 0; k < FEG_N; k++)
+                    feg.curve[k] = (uint8_t)(64 + 63 * sin(2 * M_PI * k / FEG_N));
+                sys.feg_len = FEG_FM0 + 2u; sys.feg_depth = dd[q2]; sys.feg_on = 1;
+                synth_note_on(57, 100);
+                run_ms(200);
+                for (w3 = 0; w3 < 8192u / CTL; w3++) { block(); for (b2 = 0; b2 < CTL; b2++) ob[w3 * CTL + b2] = buf[2 * b2]; }
+                for (b2 = 0; b2 < 8192u; b2++) {
+                    double wv = 0.5 - 0.5 * cos(2 * M_PI * b2 / 8192.0);
+                    tot += (double)ob[b2] * ob[b2] * wv * wv;
+                }
+                for (hk = 1; hk <= 40u; hk++) {
+                    double rr = 0, ii = 0;
+                    for (b2 = 0; b2 < 8192u; b2++) {
+                        double wv = 0.5 - 0.5 * cos(2 * M_PI * b2 / 8192.0), ph = 2 * M_PI * 220.0 * hk * b2 / FS;
+                        rr += ob[b2] * wv * cos(ph); ii += ob[b2] * wv * sin(ph);
+                    }
+                    hs += (rr * rr + ii * ii) * 2 / 8192.0 / 0.375;
+                }
+                sh[q2] = hs / (tot + 1);
+            }
+            printf("   (FREE EG FM X2: on the note's harmonics %.2f at DEPTH 96, %.2f at 127)\n", sh[0], sh[1]);
+            okk &= sh[0] > 0.5 && sh[1] < 0.5 * sh[0];
+        }
         sys.feg_on = 0; sys.feg_len = 9; synth_kill(); run_ms(10);
-        check("FREE EG loops on its own (LFO) and at audio rate (AUDIO: sidebands)", okk);
+        check("FREE EG loops on its own (LFO) and at audio rate (AUDIO: sidebands; FM: tonal, noise at the top)", okk);
     }
     {   /* SHIMMER's SPACEs: each rings on after a note, bounded, unlike the plain HALL */
         int okk = 1;

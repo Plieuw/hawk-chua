@@ -22,7 +22,8 @@
  * its own AD envelope (the MOD ENV page: LENGTH, SKEW, HEIGHT), started by each note. With both 0 nothing of it runs.
  *
  *   np_start(k, seed)                 a voice's state at a new note
- *   np_render(k, alg, inc, out, n)    voice k, program alg (0..29), the note's increment: n samples Q15 into out */
+ *   np_render(k, alg, inc, out, n, ext)  voice k, program alg (0..29), the note's increment (ext: FREE EG FM's factor
+ *                                     a sample, Q16, or 0): n samples Q15 into out */
 #define NP_COUNT 30
 static const char *const NP_NAME[NP_COUNT] = {
     "RADIO OH NO", "RWALK FLANGE", "XMOD RING SQR", "XMOD RING SINE", "CROSS MOD RING",
@@ -226,7 +227,7 @@ static int32_t np_bend(int32_t x, uint32_t bend)
 }
 
 /* ---------------------------------------------------------------- render --- */
-static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint32_t n)
+static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint32_t n, const uint32_t *ext)
 {
     np_t *S = &np_state[k];
     int16_t *b = np_buf[k];
@@ -284,6 +285,11 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
                 fk[i] = pf > 0x80000u ? 0x80000u : pf;
             }
         }
+    }
+    if (ext) {   /* FREE EG FM (synth.c): its factor each sample, on the MOD ENV's (Q16) */
+        for (i = 0; i < n; i++)
+            fk[i] = fm ? np_mul(fk[i], ext[i]) : ext[i];
+        fm = 1;
     }
 #define NPF(v) (fm ? np_mul((v), fk[i]) : (v))   /* an audio-rate increment, the FM on it */
     switch (alg) {

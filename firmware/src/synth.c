@@ -457,8 +457,9 @@ static uint32_t voice_h(const voice_t *v, int32_t *hs)
 #define C1_RUN(fn, arg) 0                        /* hand it fn(arg): 1 = taken */
 #define C1_WAIT() 0                              /* wait for it: 0 = done */
 #endif
-/* FREE EG at audio rate (feg.c, LENGTH AUDIO): its loop read at x 1/2 .. 4 the note, every sample, on the voice's level */
-static struct { uint8_t on, depth; uint32_t r16; const uint8_t *curve; } feg_am;
+/* FREE EG at audio rate (feg.c, LENGTH AM / FM): its loop read at x 1/2 .. 4 the note, every sample, on the voice's
+ * level (AM) or its pitch (FM) */
+static struct { uint8_t on, depth, fm, mid; uint32_t r16; const uint8_t *curve; } feg_am;   /* mid: the loop's mean */
 #include "resonator.c"                          /* the FX resonators (Rings' models), after the voices */
 #include "shimmer.c"                            /* the shimmer reverb, after the resonator: the stereo output */
 static voice_t *render_tv;                       /* the voice the trace follows (set before the voices render) */
@@ -470,9 +471,36 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     int32_t hs = 0, ahs = 0, bhs = 0, src[CTL];
     uint32_t ns = 0, i, j, h_all = 0, osc = sys.osc, k = (uint32_t)(v - voice);
     int32_t hpk = (int32_t)(((uint64_t)v->inc * 144121u) >> 32);   /* 1.4 pi f_note / FS, Q16: poles at 0.7 x the note */
-    const uint8_t *am = feg_am.on ? feg_am.curve : 0;
-    uint32_t amr = feg_am.r16;
+    const uint8_t *am = feg_am.on && !feg_am.fm ? feg_am.curve : 0;
+    uint32_t amr = feg_am.r16, fmk[CTL], *fmp = 0;
     int32_t amd = feg_am.depth;
+    if (feg_am.on && feg_am.fm) {   /* FREE EG FM: the pitch moved by the loop at x r / 16 the note, every sample. The
+                                     * deviation from DEPTH: up to 0.9 of the note over most of the knob (no
+                                     * clamping, the mean pitch kept: tonal, the sidebands on the partials: the
+                                     * ratios are harmonic), then up to 4 x only in the last eighth (DEPTH 110 ..
+                                     * 127: clamped, the pitch thrown about: there it turns to noise) */
+        int32_t d = amd, dv = d <= 110 ? 230 * d * d / 12100 : 230 + (d - 110) * 794 / 17;   /* deviation, Q8 */
+        uint32_t hi = osc ? 4u << 16 : 2u << 16;      /* (the circuit: at most twice: the solver's steps) */
+        const uint8_t *c = feg_am.curve;
+        int32_t mid = feg_am.mid;
+        uint32_t fcomp = (uint32_t)(dv * dv) / 52u;   /* Q16: ~2 % at the tonal top */
+        for (i = 0; i < n; i++) {
+            uint32_t ix, fr;
+            int32_t c0, c1, f;
+            v->amph += (v->inc >> 4) * amr;
+            ix = v->amph >> 25;
+            fr = v->amph >> 17 & 255u;
+            c0 = c[ix];
+            c1 = c[(ix + 1u) & 127u];
+            c0 += ((c1 - c0) * (int32_t)fr) >> 8;
+            f = 65536 + dv * (c0 - mid) * 4;          /* 1 + deviation x m (m: the loop about its mean: the pitch
+                                                       * stays the note's), Q16 */
+            f = f < 4096 ? 4096 : (uint32_t)f > hi ? (int32_t)hi : f;   /* (no through zero: 1/16 at least) */
+            fmk[i] = (uint32_t)f + (uint32_t)(((uint32_t)f >> 8) * fcomp >> 8);   /* (+ the pitch lost to the
+                                                       * oscillators' bend: their rate is concave in the step) */
+        }
+        fmp = fmk;
+    }
     if (osc > NP_COUNT)
         osc = 0;
     if (osc != v->osc) {                                /* (the oscillator changed under the note: its state anew) */
@@ -484,9 +512,15 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
         v->fresh = 1;
     }
     if (osc)
-        np_render(k, osc - 1u, v->inc, src, n);
+        np_render(k, osc - 1u, v->inc, src, n, fmp);
     else {
         ns = voice_h(v, &hs);
+        if (fmp) {   /* (FM: the substeps sized for twice the step, the step then scaled each sample) */
+            uint32_t h2 = (uint32_t)(((uint64_t)v->inc * (uint32_t)cc.period) >> 24) * 2u;
+            ns = (h2 + CHUA_HMAX - 1u) / CHUA_HMAX;
+            ns = ns > CHUA_NSUB ? CHUA_NSUB : ns < 1u ? 1u : ns;
+            hs = (int32_t)((h2 > CHUA_HMAX * CHUA_NSUB ? CHUA_HMAX * CHUA_NSUB : h2) / ns / 2u);
+        }
         ahs = (int32_t)(((int64_t)cc.alpha * hs) >> 16);
         bhs = (int32_t)(((int64_t)cc.beta * hs) >> 16);
         h_all = (uint32_t)hs * ns;
@@ -497,8 +531,14 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
         if (osc)
             s = src[i];
         else {
-            for (j = 0; j < ns; j++)
-                chua_step(&v->s, hs, ahs, bhs);
+            if (fmp) {                                  /* FM: this sample's step */
+                int32_t h1 = (int32_t)(((int64_t)hs * fmp[i]) >> 16);
+                int32_t a1 = (int32_t)(((int64_t)cc.alpha * h1) >> 16), b1 = (int32_t)(((int64_t)cc.beta * h1) >> 16);
+                for (j = 0; j < ns; j++)
+                    chua_step(&v->s, h1, a1, b1);
+            } else
+                for (j = 0; j < ns; j++)
+                    chua_step(&v->s, hs, ahs, bhs);
             if (chua_out_of_range(&v->s)) {             /* (the solver lost it: start over on the attractor) */
                 (*restarts)++;
                 v->s = ghost;

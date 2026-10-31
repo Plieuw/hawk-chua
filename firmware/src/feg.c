@@ -16,17 +16,18 @@
  *   feg_block(n)   keys.c, the audio ISR, after the arpeggiator: once a block */
 #define FEG_N 128u
 #define FEG_NOTE_STEP 2048u                      /* NOTE: samples a point (128 points ~ 5.9 s) */
-#define FEG_NLEN 28
+#define FEG_NLEN 33
 #define FEG_PHRASE 13u                           /* PHRASE: KARMA's phrase (karma.c), each trigger from its start */
 #define FEG_LFO0 14u                             /* LFO: the recording a free-running loop, 0.1 .. 32 Hz */
-#define FEG_AUD0 23u                             /* AUDIO: a loop at audio rate, x 1/2 .. 4 the note: the voices'
-                                                  * level moved by it, every sample (AM: sidebands) */
+#define FEG_AUD0 23u                             /* AM, FM: a loop at audio rate, x 1/2 .. 4 the note: the voices'
+                                                  * level (AM) or pitch (FM) moved by it, every sample (sidebands) */
+#define FEG_FM0 28u
 static const char *const FEG_LEN_NAME[FEG_NLEN] = {"NOTE", "1 STEP", "2 STEPS", "3 STEPS", "4 STEPS", "5 STEPS",
                                                    "6 STEPS", "7 STEPS", "8 STEPS", "1 BAR", "2 BARS", "3 BARS",
                                                    "4 BARS", "PHRASE", "LFO 0.1 HZ", "LFO 0.25 HZ", "LFO 0.5 HZ",
                                                    "LFO 1 HZ", "LFO 2 HZ", "LFO 4 HZ", "LFO 8 HZ", "LFO 16 HZ",
-                                                   "LFO 32 HZ", "AUDIO X1/2", "AUDIO X1", "AUDIO X2", "AUDIO X3",
-                                                   "AUDIO X4"};
+                                                   "LFO 32 HZ", "AM X1/2", "AM X1", "AM X2", "AM X3", "AM X4",
+                                                   "FM X1/2", "FM X1", "FM X2", "FM X3", "FM X4"};
 static const uint16_t FEG_LFO_CHZ[9] = {10, 25, 50, 100, 200, 400, 800, 1600, 3200};   /* centihertz */
 static const uint8_t FEG_AUD_R4[5] = {8, 16, 32, 48, 64};   /* the note x this / 16 */
 static uint32_t feg_ticks(uint32_t len)          /* MIDI clocks a cycle (24 a quarter, a step a sixteenth) */
@@ -214,9 +215,16 @@ static void feg_block(uint32_t n, uint32_t note_ons)
     }
     if (len >= FEG_AUD0 && sys.feg_on && sys.feg_has) {   /* AUDIO: the voices take it, every sample */
         feg_release();
-        feg_am.r16 = FEG_AUD_R4[len - FEG_AUD0];
+        feg_am.r16 = FEG_AUD_R4[(len - FEG_AUD0) % 5u];
+        feg_am.fm = (uint8_t)(len >= FEG_FM0);
         feg_am.depth = (uint8_t)(sys.feg_depth & 127u);
         feg_am.curve = feg.curve;
+        {   /* (its mean: FM moves the pitch about the note, whatever the drawing's middle) */
+            uint32_t q, sm = 0;
+            for (q = 0; q < FEG_N; q++)
+                sm += feg.curve[q];
+            feg_am.mid = (uint8_t)((sm + FEG_N / 2u) / FEG_N);
+        }
         feg_am.on = 1;
         feg.pos = (uint8_t)idx;
         return;

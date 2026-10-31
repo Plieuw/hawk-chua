@@ -159,7 +159,8 @@ contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de wa
 | 1..4 BARS | een lus van 1 tot 4 maten (4/4) |
 | PHRASE | precies zo lang als de frase van KARMA (5/4, 6/8, 3 tegen 4: wat de GE ook is) en elke keer dat de frase opnieuw begint begint hij mee; zonder KARMA één maat |
 | LFO 0.1 .. 32 HZ | de opname als vrijlopende lus (een LFO van je eigen vorm), los van het tempo, op elk doel |
-| AUDIO X1/2 .. X4 | de opname als lus op audiosnelheid, 1/2 tot 4 keer de noot, elke sample op het niveau van de stemmen (amplitudemodulatie: zijbanden, van tremolo-achtige ruwheid tot belachtige klanken); opnemen gaat dan op 1 Hz, zodat je de golfvorm rustig met KNOB 1 tekent |
+| AM X1/2 .. X4 | de opname als lus op audiosnelheid, 1/2 tot 4 keer de noot, elke sample op het niveau van de stemmen (amplitudemodulatie: zijbanden, van tremolo-achtige ruwheid tot belachtige klanken); opnemen gaat dan op 1 Hz, zodat je de golfvorm rustig met KNOB 1 tekent |
+| FM X1/2 .. X4 | dezelfde lus als frequentiemodulatie van de oscillator (CHUA: de stapgrootte, NOISE: de filters), 1/2 tot 4 keer de noot: zijbanden op de harmonischen, de toonhoogte blijft de noot; DEPTH tot ~110 blijft tonaal (van zacht naar metaalachtig), daarboven slaat het om naar ruis |
 
 STEPS en BARS lopen op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de lus opnieuw);
 de opname begint aan het begin van een lus en stopt vanzelf na één lengte. DEPTH 127 speelt de opname precies af, lager
