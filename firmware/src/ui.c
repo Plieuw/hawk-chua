@@ -793,7 +793,10 @@ static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not
  * load it instead of the built-in one; the remote's PRESETS sends all 128 as C (remote.c), for ui.c's table */
 #define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
 typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
-static upre_t upre[NPRESETS / 64u] __attribute__((section(".pool")));   /* (zeroed at start: none) */
+/* (in RAM: which are saved, and one flash object at a time, the one last used: 512 x 30 values stay in the flash) */
+static uint8_t upre_bits[NPRESETS / 8u];
+static upre_t upre_buf __attribute__((section(".pool")));
+static uint8_t upre_cur = 0xFF;                  /* the object in upre_buf (0xFF: none) */
 static volatile uint8_t *const PR_SYS[PR_N] = {
     &sys.chaos, &sys.shape, &sys.output, &sys.attack, &sys.decay, &sys.sustain, &sys.release, &sys.ring,
     &sys.fx_model, &sys.fx_struct, &sys.fx_bright, &sys.fx_damp, &sys.fx_pos, &sys.fx_mix,
@@ -801,14 +804,30 @@ static volatile uint8_t *const PR_SYS[PR_N] = {
     &sys.osc, &sys.np_x, &sys.np_y, &sys.menv_len, &sys.menv_skew, &sys.menv_height, &sys.scream,
     &sys.sh_space, &sys.np_level, &sys.menv_bend,
 };
-static int upre_has(uint32_t i) { i %= NPRESETS; return upre[i >> 6].has[(i & 63u) >> 3] >> (i & 7u) & 1; }
-static const uint8_t *upre_v(uint32_t i) { i %= NPRESETS; return upre[i >> 6].v[i & 63u]; }
+static upre_t *upre_obj(uint32_t h)              /* object h (64 presets) in upre_buf */
+{
+    if (upre_cur != h) {
+        if (st_load(OBJ_USER0 + h, &upre_buf, sizeof upre_buf) != (int)sizeof upre_buf)
+            memset(&upre_buf, 0, sizeof upre_buf);
+        upre_cur = (uint8_t)h;
+    }
+    return &upre_buf;
+}
+static int upre_has(uint32_t i) { i %= NPRESETS; return upre_bits[i >> 3] >> (i & 7u) & 1; }
+static const uint8_t *upre_v(uint32_t i)        /* (valid until the next upre_ call on another object) */
+{
+    i %= NPRESETS;
+    return upre_obj(i >> 6)->v[i & 63u];
+}
 static void upre_boot(void)                      /* (settings_boot: the flash there) */
 {
-    uint32_t h;
-    for (h = 0; h < NPRESETS / 64u; h++)
-        if (st_load(OBJ_USER0 + h, &upre[h], sizeof upre[h]) != (int)sizeof upre[h])
-            memset(&upre[h], 0, sizeof upre[h]);
+    uint32_t h, b;
+    for (h = 0; h < NPRESETS / 64u; h++) {
+        upre_cur = 0xFF;
+        upre_obj(h);
+        for (b = 0; b < 8u; b++)
+            upre_bits[h * 8u + b] = upre_buf.has[b];
+    }
 }
 static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq);
 static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq);
@@ -816,22 +835,25 @@ static int upre_save(uint32_t i)                 /* the sound now over preset i:
 {
     uint32_t k, h = (i % NPRESETS) >> 6, j = i & 63u, irq;
     uint8_t was = 0;
+    upre_t *u = upre_obj(h);
     volatile uint8_t *t = feg_hold(&was, &irq);
     for (k = 0; k < PR_N; k++)
-        upre[h].v[j][k] = (uint8_t)(*PR_SYS[k] & 127u);
+        u->v[j][k] = (uint8_t)(*PR_SYS[k] & 127u);
     feg_unhold(t, was, irq);
-    upre[h].v[j][27] = (uint8_t)(sys.sh_space % SS_COUNT | ((uint32_t)sys.transpose & 7u) << 2);   /* (+ the octave) */
-    upre[h].has[j >> 3] |= (uint8_t)(1u << (j & 7u));
-    return st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
+    u->v[j][27] = (uint8_t)(sys.sh_space % SS_COUNT | ((uint32_t)sys.transpose & 7u) << 2);   /* (+ the octave) */
+    u->has[j >> 3] |= (uint8_t)(1u << (j & 7u));
+    upre_bits[(i % NPRESETS) >> 3] = u->has[j >> 3];
+    return st_save(OBJ_USER0 + h, u, sizeof *u);
 }
 static int upre_clear(void)                      /* the built-in presets back (the remote's RESET PRESETS) */
 {
     uint32_t h;
     int e = 0;
-    for (h = 0; h < NPRESETS / 64u; h++) {
-        memset(&upre[h], 0, sizeof upre[h]);
-        e |= st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
-    }
+    memset(&upre_buf, 0, sizeof upre_buf);
+    memset(upre_bits, 0, sizeof upre_bits);
+    for (h = 0; h < NPRESETS / 64u; h++)
+        e |= st_save(OBJ_USER0 + h, &upre_buf, sizeof upre_buf);
+    upre_cur = 0xFF;
     return e;
 }
 

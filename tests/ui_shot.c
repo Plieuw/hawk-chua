@@ -220,7 +220,8 @@ int main(int argc, char **argv)
         ok &= sys.chaos != 17u || sys.sh_space != SS_MOSQUE;
         preset_load(5);
         ok &= sys.chaos == 17u && sys.sh_space == SS_MOSQUE && sys.sh_mix == 50u && sys.fx_damp == 33u && !preset_edited();
-        memset(upre, 0, sizeof upre);                    /* (as after a power cycle: from the flash) */
+        memset(upre_bits, 0, sizeof upre_bits);          /* (as after a power cycle: from the flash) */
+        memset(&upre_buf, 0, sizeof upre_buf); upre_cur = 0xFF;
         upre_boot();
         ok &= upre_has(5);
         rm_cmd(PRE, sizeof PRE);
