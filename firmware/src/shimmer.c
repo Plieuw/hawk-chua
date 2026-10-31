@@ -44,10 +44,12 @@ enum { SI_OCT, SI_FIFTH, SI_OCT5, SI_2OCT, SI_COUNT };
 static const char *const SH_INTERVAL_NAME[SI_COUNT] = {"-OCT", "-5TH", "-OCT-5TH", "-2 OCT"};
 static const uint32_t SH_INC[SI_COUNT] = {1u << 21, 699051u, 1398101u, 3u << 20};   /* (1 - ratio) 2^32 / SH_WIN:
                                                   * 1/2, 2/3, 1/3, 1/4 */
-enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_PIANO, SS_GUITAR, SS_VIOLIN, SS_CELLO, SS_HARP, SS_COUNT };
+enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_PIANO, SS_GUITAR, SS_VIOLIN, SS_CELLO, SS_HARP, SS_ACCORDION,
+       SS_BAGPIPE, SS_ORGAN, SS_LESLIE, SS_COUNT };
 #define SS_BODY SS_PIANO                         /* (from here: an instrument's body) */
 static const char *const SH_SPACE_NAME[SS_COUNT] = {"HALL", "TEMPLE", "CATHEDRAL", "MOSQUE", "PIANO BODY",
-                                                    "GUITAR BODY", "VIOLIN BODY", "CELLO BODY", "HARP BODY"};
+                                                    "GUITAR BODY", "VIOLIN BODY", "CELLO BODY", "HARP BODY",
+                                                    "ACCORDION", "BAGPIPE", "PIPE ORGAN", "LESLIE"};
 /* each space: its three modes (two-pole resonators: a1 = 2 r cos w, a2 = r^2, b = (1 - r) 2 sin w x 2 gain: the peak
  * twice the gain; Q28), its early
  * reflections (taps in ms, gains Q15; MOSQUE: one tap fed back, the flutter), its damping (x / 16 of TONE's) */
@@ -63,14 +65,22 @@ static const int32_t SH_MODE[SS_COUNT][SH_NMODE][3] = {
     { {535802439, 267778914, 23160}, {535204750, 267662099, 31243}, {534920932, 267636966, 47100}, {534347587, 267498341, 64882}, {532540743, 266767416, 83171}, {528285561, 265267171, 180486}, {481261067, 245565346, 4891466}, {455329254, 239518297, 6547333} },   /* VIOLIN: 275 405 460 540 700 1000 2500 3200 Hz */
     { {536543337, 268162412, 3891}, {536448414, 268127543, 5090}, {536311136, 268072369, 8848}, {536165207, 268005538, 12407}, {535664599, 267719309, 18373}, {534338501, 267005072, 45884}, {522050322, 259042343, 672823}, {510826845, 254469771, 1200621} },   /* CELLO: 100 145 190 225 300 450 1000 1500 Hz */
     { {536540034, 268148767, 3677}, {536264423, 268005538, 8823}, {535744104, 267798786, 21777}, {534814527, 267481018, 42844}, {533025493, 266886218, 86086}, {530030326, 265988037, 156843}, {522823954, 263509293, 364564}, {503131388, 255984922, 1062461} },   /* HARP: 90 180 300 450 650 900 1300 2000 Hz */
+    { {535793242, 267481018, 16331}, {534308940, 266833938, 67144}, {532511541, 266371794, 152968}, {528968991, 265424693, 285191}, {521926912, 263321642, 589350}, {508640692, 259504095, 1445123}, {485241603, 252363614, 2954088}, {452635619, 243648574, 4729046} },   /* ACCORDION: 150 420 650 950 1350 1900 2600 3400 Hz */
+    { {536685594, 268324089, 1479}, {536352503, 268212768, 5914}, {535760620, 267990265, 11084}, {535095604, 267842032, 23636}, {525158688, 262136280, 539854}, {513140401, 258427951, 1369859}, {485565710, 249977914, 3930517}, {448556555, 242955281, 6244884} },   /* BAGPIPE: 116.5 233 349.5 466 1000 1600 2500 3500 Hz */
+    { {536644126, 268225188, 1318}, {536454553, 268085100, 3845}, {535906832, 267735202, 13176}, {535018389, 267176315, 29624}, {533130235, 266055719, 67905}, {528344945, 263384177, 230892}, {520075121, 259411678, 464527}, {497193038, 249977914, 1056203} },   /* ORGAN: 55 110 220 330 500 800 1200 2000 Hz */
+    {{0, 0, 0}},                                 /* LESLIE: none (its rotors, fx_shimmer) */
 };
-static const uint8_t SH_NMODES[SS_COUNT] = {0, 3, 3, 3, 8, 8, 8, 8, 8};
+static const uint8_t SH_NMODES[SS_COUNT] = {0, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 0};
+static const uint8_t SH_ROOM8[SS_COUNT] = {8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 2, 8, 1};   /* the tank's share, / 8 (the
+                                                  * bodies: a small room; PIPE ORGAN: its church) */
 static const uint8_t SH_ER_MS[SS_COUNT][4] = {{0, 0, 0, 0}, {7, 13, 19, 29}, {23, 41, 67, 89}, {31, 0, 0, 0},
-                                              {3, 5, 8, 12}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {4, 9, 0, 0}};
+                                              {3, 5, 8, 12}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {4, 9, 0, 0},
+                                              {0, 0, 0, 0}, {0, 0, 0, 0}, {29, 53, 0, 0}, {0, 0, 0, 0}};
 static const uint16_t SH_ER_G[SS_COUNT][4] = {{0, 0, 0, 0}, {16384, 13107, 9830, 6554}, {14746, 13107, 11469, 9830},
                                               {18022, 0, 0, 0}, {9830, 8192, 6554, 4915}, {0, 0, 0, 0}, {0, 0, 0, 0},
-                                              {0, 0, 0, 0}, {8192, 4915, 0, 0}};
-static const uint8_t SH_DAMP16[SS_COUNT] = {16, 9, 12, 20, 12, 12, 14, 10, 12};
+                                              {0, 0, 0, 0}, {8192, 4915, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0},
+                                              {13107, 9830, 0, 0}, {0, 0, 0, 0}};
+static const uint8_t SH_DAMP16[SS_COUNT] = {16, 9, 12, 20, 12, 12, 14, 10, 12, 14, 16, 10, 12};
 #define SH_ER 4096u                              /* the early reflections' line (93 ms, a power of two) */
 
 static struct {
@@ -86,6 +96,8 @@ static struct {
     int32_t hp_x, hp_y;                          /* the shifter's high-pass */
     int32_t dc[2], dcx[2];                       /* the wet output's DC blockers (~23 Hz), Q15 x 256 */
     uint32_t ph;                                 /* the shifter's phase, Q32 */
+    uint32_t rh, rd;                             /* LESLIE: the horn's and the drum's turn, Q32 */
+    int32_t rlo, rlo1;                           /* LESLIE: the crossover's low part (two poles) */
     uint8_t on;                                  /* the tank holds something: cleared when MIX goes to 0 */
 } sh __attribute__((section(".pool")));
 
@@ -131,7 +143,7 @@ static int32_t sh_dry = 32768;                   /* this block's dry level, Q15 
 static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
 {
     uint32_t i, k, size = sys.sh_size & 127u, iv = sys.sh_interval % SI_COUNT, sp = sys.sh_space % SS_COUNT;
-    uint32_t etap[4];
+    uint32_t etap[4], rinc;
     int32_t mix = sys.sh_mix > 127u ? 127 : (int32_t)sys.sh_mix, g[SH_NLINE], damp, fa, fb_, dry, wet;
     uint32_t inc = SH_INC[iv], peak = 0;
     sh_dry = 32768;
@@ -153,6 +165,8 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         uint32_t rt = (uint32_t)(((uint64_t)17640u * px_exp2((int32_t)((sys.sh_decay & 127u) * 408220u / 127u))) >> 16);
         int32_t fc_oct = (int32_t)((sys.sh_tone & 127u) * 222822u / 127u);   /* 1.5 kHz x 2^(0 .. 3.4) */
         uint32_t fc = (uint32_t)(((uint64_t)1500u * px_exp2(fc_oct)) >> 16) * SH_DAMP16[sp] / 16u;
+        /* LESLIE: the rotors' speed from SIZE, 0.8 Hz (chorale) .. 7 Hz (tremolo), a turn in Q32 per sample */
+        rinc = (uint32_t)((((uint64_t)52429u * px_exp2((int32_t)(size * 205128u / 127u)) >> 16) * 97391u) >> 16);
         for (k = 0; k < 4u; k++)                 /* the early reflections' taps, samples */
             etap[k] = (uint32_t)SH_ER_MS[sp][k] * 441u / 10u;
         for (k = 0; k < SH_NLINE; k++) {
@@ -192,13 +206,40 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             x = d2 - (v * 19661 >> 15);
             sh.a2 = sh.a2 + 1u == SH_AP2 ? 0u : sh.a2 + 1u;
         }
-        if (sp >= SS_BODY) {                     /* the instrument's body: its modes rung by the dry sound (left and
+        if (sp == SS_LESLIE) {                   /* the rotary speaker: the highs from a turning horn (its Doppler:
+                                                  * a delay of 1 ms +- 0.4; louder facing the microphone, a quarter
+                                                  * turn later), the lows from a turning drum (louder and softer);
+                                                  * two microphones half a turn apart */
+            int32_t xi = in[i], hi, sh_, ch, sd, a, b;
+            uint32_t d, p;
+            sh.rlo1 += (int32_t)(((int64_t)(xi - sh.rlo1) * 3542 + 16384) >> 15);   /* (~800 Hz, two poles: little */
+            sh.rlo += (int32_t)(((int64_t)(sh.rlo1 - sh.rlo) * 3542 + 16384) >> 15);  /* of the horn's in the drum) */
+            hi = xi - sh.rlo;
+            sh.er[sh.ew & (SH_ER - 1u)] = sh_sat(hi);
+            sh_ = px_sin(sh.rh) >> 15;
+            ch = px_sin(sh.rh + 0x40000000u) >> 15;
+            sd = px_sin(sh.rd) >> 15;
+            d = (uint32_t)((44 << 8) + 18 * sh_ / 128);      /* Q8 samples */
+            p = sh.ew - (d >> 8);
+            a = sh.er[p & (SH_ER - 1u)]; b = sh.er[(p - 1u) & (SH_ER - 1u)];
+            bm = a + (((b - a) * (int32_t)(d & 255u)) >> 8);
+            bm = (int32_t)(((int64_t)bm * (32768 + ch / 3)) >> 15) + (int32_t)(((int64_t)sh.rlo * (32768 + sd / 6)) >> 15);
+            d = (uint32_t)((44 << 8) - 18 * sh_ / 128);      /* (the other microphone: the horn half a turn on) */
+            p = sh.ew - (d >> 8);
+            a = sh.er[p & (SH_ER - 1u)]; b = sh.er[(p - 1u) & (SH_ER - 1u)];
+            bs = a + (((b - a) * (int32_t)(d & 255u)) >> 8);
+            bs = (int32_t)(((int64_t)bs * (32768 - ch / 3)) >> 15) + (int32_t)(((int64_t)sh.rlo * (32768 - sd / 6)) >> 15);
+            sh.ew++;
+            sh.rh += rinc;
+            sh.rd += rinc - (rinc >> 3);         /* (the drum a little slower) */
+            x += (bm + bs) / 8;
+        } else if (sp >= SS_BODY) {              /* the instrument's body: its modes rung by the dry sound (left and
                                                   * right: the odd modes turned over, a little width) */
             sh_body(sp, in[i], &bm, &bs);
             x += bm / 4;                         /* (the room hears the body) */
         }
         /* the building: early reflections (MOSQUE: the flutter, fed back) into the tank's input */
-        if (sp != SS_HALL) {
+        if (sp != SS_HALL && sp != SS_LESLIE) {
             int32_t e = 0, w = in[i] >> 1;
             for (k = 0; k < 4u; k++)
                 if (etap[k])
@@ -255,9 +296,12 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         /* out: left and right from different lines */
         v = o[0] - o[2] + o[1] / 2;
         y = o[1] - o[3] + o[0] / 2;
-        if (sp >= SS_BODY) {                     /* the body (x 2), the room an eighth */
-            v = v / 8 + bm * 2;
-            y = y / 8 + bm + bs;
+        if (sp == SS_LESLIE) {                   /* the rotors, a small room */
+            v = v / 8 + bm;
+            y = y / 8 + bs;
+        } else if (sp >= SS_BODY) {              /* the body (x 2), the room (bodies: an eighth) */
+            v = v * SH_ROOM8[sp] / 8 + bm * 2;
+            y = y * SH_ROOM8[sp] / 8 + bm + bs;
         } else if (sp != SS_HALL) {              /* the building's modes, rung by the input and the tail */
             int32_t e = x + s / 4, m = 0;
             for (k = 0; k < SH_NMODES[sp]; k++) {

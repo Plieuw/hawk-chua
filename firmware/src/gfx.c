@@ -226,8 +226,11 @@ static void cv_blit(uint32_t x, uint32_t y)
         if (b < nb) {
             const uint32_t *p = (const uint32_t *)(const void *)(cv_px + b * CV_BAND * 240u);
             uint32_t rows = (b + 1u) * CV_BAND > cv_h ? cv_h - b * CV_BAND : CV_BAND, i, h = 2166136261u;
-            for (i = 0; i < rows * 120u; i++)
+            for (i = 0; i < rows * 120u; i++) {   /* (the product rotated: a word's high bits reach the low ones,
+                                                   * or changes there could cancel out unseen) */
                 h = (h ^ p[i]) * 16777619u;
+                h = h << 13 | h >> 19;
+            }
             changed = all || h != cv_hash[b];
             cv_hash[b] = h;
         }

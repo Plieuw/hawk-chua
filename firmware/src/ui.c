@@ -124,6 +124,11 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
 #define VLNB 30, 20, 0, 72, SI_OCT, 100
 #define CELB 40, 30, 0, 72, SI_OCT, 90
 #define HRPB 50, 40, 0, 72, SI_OCT, 90
+#define ACCB 40, 30, 0, 72, SI_OCT, 90           /* the accordion's reed box; the bagpipe (its drones ring) */
+#define BAGB 70, 60, 0, 72, SI_OCT, 90
+#define ORGB 120, 110, 0, 64, SI_OCT, 80         /* the pipe organ: its case and its church */
+#define LESS 20, 20, 0, 90, SI_OCT, 90           /* the rotary speaker: slow (chorale), fast (tremolo) */
+#define LESF 120, 20, 0, 90, SI_OCT, 90
 static const preset_t PRESETS[] = {
     /* PIANO 1-8 */
     {"GRAND PIANO", NZK, 0, 50, 0, 50, 10, RZ_PIANO, 40, 80, 70, 40, 127, PNOB, NZ(1, 8), 0, 63, 0, 0, 0, 0, SS_PIANO, 127},
@@ -148,15 +153,15 @@ static const preset_t PRESETS[] = {
     {"TUBULAR BELLS", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 104, 100, 84, 16, 127, NOSH, NZ(0, 4), 63, 0, 0, 0, 0, 0, 0, 127},
     {"DULCIMER", NZK, 0, 42, 0, 42, 0, RZ_SYMP, 4, 100, 82, 60, 90, HRPB, NZ(0, 4), 63, 0, 0, 0, 0, 0, SS_HARP, 127},
     /* ORGAN 17-24 */
-    {"DRAWBAR ORGAN", NZK, 2, 64, 127, 50, 0, NOFX, NOSH, NZ(1, 9), 0, 12},
-    {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, NOSH, NZ(1, 9), 2, 20},
-    {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, ROOM, NZ(1, 9), 6, 70},
-    {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, HALL, NZ(1, 9), 2, 8},
-    {"REED ORGAN", CYC, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ROOM, .eg = EG_REEDSWELL},
-    {"ACCORDION", CYC, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ROOM, .eg = EG_REEDSWELL},
+    {"DRAWBAR ORGAN", NZK, 2, 64, 127, 50, 0, NOFX, LESS, NZ(1, 9), 0, 12, .sh_space = SS_LESLIE},
+    {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, LESS, NZ(1, 9), 2, 20, .sh_space = SS_LESLIE},
+    {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, LESF, NZ(1, 9), 6, 70, .sh_space = SS_LESLIE},
+    {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, ORGB, NZ(1, 9), 2, 8, .sh_space = SS_ORGAN},
+    {"REED ORGAN", CYC, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"ACCORDION", CYC, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     {"HARMONICA", NZK, 24, 64, 115, 56, 30, RZ_REED, 90, 110, 83, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 15,
      .eg = EG_REEDSWELL},
-    {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ROOM, .eg = EG_REEDSWELL},
+    {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"NYLON GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 67, 40, 100, GTRB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_GUITAR, 127, .oct = -1},
     {"STEEL GUITAR", NZK, 0, 44, 0, 44, 0, RZ_STRING, 40, 100, 75, 30, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127, .oct = -1},
@@ -264,7 +269,7 @@ static const preset_t PRESETS[] = {
     {"SHAMISEN", NZK, 0, 38, 0, 38, 0, RZ_STRING, 10, 110, 37, 30, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127},
     {"KOTO", NZK, 0, 46, 0, 46, 0, RZ_STRING, 60, 70, 72, 20, 85, HRPB, NZ(1, 8), 0, 63, 0, 0, 0, 0, SS_HARP, 127},
     {"KALIMBA", NZK, 0, 42, 0, 42, 0, RZ_MODAL, 40, 90, 60, 30, 100, HRPB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_HARP, 127},
-    {"BAGPIPE", CYC, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 88, 120, 127, ROOM},
+    {"BAGPIPE", CYC, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 88, 120, 127, BAGB, .sh_space = SS_BAGPIPE},
     {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, VLNB, NZ(1, 6), 63, 63, 0, 0, 0, 12, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
@@ -312,16 +317,15 @@ static const preset_t PRESETS[] = {
      .sh_space = SS_CATHEDRAL, .np_level = 127, .oct = -1},
     {"SANTUR", NZK, 0, 40, 0, 40, 0, RZ_SYMP, 10, 120, 80, 40, 90, HRPB, NZ(1, 1), 0, 63, .sh_space = SS_HARP, .np_level = 127},
     /* ORGAN 17-24 */
-    {"70S ORGAN", NZK, 2, 64, 127, 50, 10, NOFX, NOSH, NZ(1, 9), 4, 30},
-    {"DETUNED PERC", NZK, 0, 58, 90, 50, 50, NOFX, ROOM, NZ(1, 9), 8, 24},
-    {"ROTARY ORGAN", NZK, 2, 64, 127, 54, 30, RZ_SYMP, 60, 90, 70, 60, 60, ROOM, NZ(1, 9), 6, 90},
-    {"CHURCH OCT MIX", NZK, 30, 64, 127, 90, 0, NOFX, 120, 110, 20, 45, SI_OCT, 70, NZ(1, 9), 4, 4,
-     .sh_space = SS_CATHEDRAL},
-    {"PUFF ORGAN", CYC, 30, 64, 120, 66, 10, RZ_REED, 60, 50, 88, 110, 110, ROOM, .eg = EG_CHIFF},
-    {"ITALIAN ACCORD", CYC, 16, 64, 120, 56, 10, RZ_REED, 120, 110, 88, 118, 120, ROOM, .eg = EG_REEDSWELL},
+    {"70S ORGAN", NZK, 2, 64, 127, 50, 10, NOFX, LESS, NZ(1, 9), 4, 30, .sh_space = SS_LESLIE},
+    {"DETUNED PERC", NZK, 0, 58, 90, 50, 50, NOFX, LESS, NZ(1, 9), 8, 24, .sh_space = SS_LESLIE},
+    {"ROTARY ORGAN", NZK, 2, 64, 127, 54, 30, RZ_SYMP, 60, 90, 70, 60, 60, LESF, NZ(1, 9), 6, 90, .sh_space = SS_LESLIE},
+    {"CHURCH OCT MIX", NZK, 30, 64, 127, 90, 0, NOFX, ORGB, NZ(1, 9), 4, 4, .sh_space = SS_ORGAN},
+    {"PUFF ORGAN", CYC, 30, 64, 120, 66, 10, RZ_REED, 60, 50, 88, 110, 110, ACCB, .sh_space = SS_ACCORDION, .eg = EG_CHIFF},
+    {"ITALIAN ACCORD", CYC, 16, 64, 120, 56, 10, RZ_REED, 120, 110, 88, 118, 120, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     {"BLUES HARP", NZK, 20, 64, 115, 56, 40, RZ_REED, 100, 120, 78, 90, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
      .eg = EG_GROWL},
-    {"BANDONEON", CYC, 24, 64, 120, 60, 20, RZ_REED, 90, 80, 88, 112, 120, HALL, .eg = EG_REEDSWELL},
+    {"BANDONEON", CYC, 24, 64, 120, 60, 20, RZ_REED, 90, 80, 88, 112, 120, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"UKULELE", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 80, 66, 34, 127, GTRB, NZ(1, 8), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
     {"12-STRING GTR", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 40, 110, 75, 30, 90, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127, .oct = -1},
@@ -448,7 +452,7 @@ static const preset_t PRESETS[] = {
     {"TSUGARU", NZK, 0, 42, 0, 42, 0, RZ_STRING, 10, 127, 45, 16, 100, GTRB, NZ(1, 1), 0, 90, .sh_space = SS_GUITAR, .np_level = 127},
     {"TAISHO KOTO", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 60, 90, 72, 30, 85, HRPB, NZ(1, 1), 0, 63, .sh_space = SS_HARP, .np_level = 127},
     {"MBIRA", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 60, 100, 70, 20, 100, HRPB, NZ(1, 8), 0, 30, .sh_space = SS_HARP, .np_level = 127},
-    {"DRONE PIPES", CYC, 10, 70, 127, 64, 20, RZ_REED, 110, 120, 88, 122, 127, HALL, .sh_space = SS_TEMPLE},
+    {"DRONE PIPES", CYC, 10, 70, 127, 64, 20, RZ_REED, 110, 120, 88, 122, 127, BAGB, .sh_space = SS_BAGPIPE},
     {"FOLK FIDDLE", NZK, 30, 72, 115, 62, 30, RZ_BOW, 100, 120, 78, 30, 127, VLNB, NZ(1, 6), 63, 63, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"ZURNA", CYC, 16, 72, 115, 58, 30, RZ_REED, 127, 127, 68, 127, 127, ROOM, NOOSC, 30, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
@@ -527,9 +531,9 @@ static const preset_t PRESETS[] = {
     {"SYNTH PIANO", 85, 76, 0, 0, 60, 30, 56, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 12, 4, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"FM E.PIANO", 85, 76, 0, 0, 90, 0, 84, 20, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 14, 2, 18, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"BELL E.PIANO", 85, 76, 0, 0, 88, 10, 80, 30, RZ_MODAL, 60, 100, 76, 16, 50, 85, 72, 0, 30, SI_OCT, 70, 14, 8, 45, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"SYNTH ORGAN", 85, 76, 0, 2, 64, 127, 50, 0, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 20, 0, 12, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"PERC SYN ORGAN", 85, 76, 0, 0, 60, 100, 50, 40, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 20, 2, 20, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"CHUA ORGAN", 6, 100, 127, 2, 64, 127, 50, 10, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"SYNTH ORGAN", 85, 76, 0, 2, 64, 127, 50, 0, RZ_MODAL, 0, 0, 0, 0, 0, LESS, 20, 0, 12, 0, 0, 0, 0, SS_LESLIE, 0, 0},
+    {"PERC SYN ORGAN", 85, 76, 0, 0, 60, 100, 50, 40, RZ_MODAL, 0, 0, 0, 0, 0, LESS, 20, 2, 20, 0, 0, 0, 0, SS_LESLIE, 0, 0},
+    {"CHUA ORGAN", 6, 100, 127, 2, 64, 127, 50, 10, RZ_MODAL, 0, 0, 0, 0, 0, LESF, 0, 0, 0, 0, 0, 0, 0, SS_LESLIE, 0, 0},
     {"SQUARE KEYS", 85, 76, 0, 0, 70, 60, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 12, 2, 64, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SAW KEYS", 85, 76, 0, 0, 70, 60, 60, 50, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 4, 10, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"CLAV SYNTH", 38, 120, 48, 0, 50, 0, 50, 110, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
@@ -779,6 +783,11 @@ static const sh_preset_t SH_PRESETS[] = {
     {"VIOLIN BODY", 30, 20, 0, 72, SI_OCT, 100, SS_VIOLIN},
     {"CELLO BODY", 40, 30, 0, 72, SI_OCT, 90, SS_CELLO},
     {"HARP BODY", 50, 40, 0, 72, SI_OCT, 90, SS_HARP},
+    {"ACCORDION BOX", 40, 30, 0, 72, SI_OCT, 90, SS_ACCORDION},
+    {"BAGPIPE", 70, 60, 0, 72, SI_OCT, 90, SS_BAGPIPE},
+    {"PIPE ORGAN", 120, 110, 0, 64, SI_OCT, 80, SS_ORGAN},
+    {"LESLIE SLOW", 20, 20, 0, 90, SI_OCT, 90, SS_LESLIE},
+    {"LESLIE FAST", 120, 20, 0, 90, SI_OCT, 90, SS_LESLIE},
 };
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
 static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not saved: the knobs are) */
@@ -789,7 +798,7 @@ static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not
 #define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
 typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
 /* value 27: the SPACE (bits 0, 1 and 5, 6) with the sound's octave (bits 2 .. 4, two's complement) */
-#define PR_SPACE(b) (((uint32_t)(b) & 3u | (uint32_t)(b) >> 3 & 12u) % SS_COUNT)
+#define PR_SPACE(b) ((((uint32_t)(b) & 3u) | ((uint32_t)(b) >> 3 & 12u)) % SS_COUNT)
 #define PR_PACK27(sp, oct) ((uint8_t)(((uint32_t)(sp) & 3u) | ((uint32_t)(oct) & 7u) << 2 | ((uint32_t)(sp) & 12u) << 3))
 /* (in RAM: which are saved, and one flash object at a time, the one last used: 512 x 30 values stay in the flash) */
 static uint8_t upre_bits[NPRESETS / 8u];

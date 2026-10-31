@@ -639,7 +639,7 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
         orn_beat += d * (bpm ? bpm : 120u) * 1118u / 1024u;     /* (beats, Q16: 65536 / 60000 a ms a BPM) */
     }
     static const uint8_t RATIO8[SI_COUNT] = {16, 12, 24, 32};    /* the interval's ratio (down) x 8 */
-    static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8, 6, 6, 6, 6, 6};
+    static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8, 6, 6, 6, 6, 6, 6, 6, 12, 6};
     /* the knobs, each across its whole range: SIZE the window (28 .. 52 px) and its rings (4 .. 7); DECAY how far back
      * the rings reach into the tail (0.8 .. 7.6 s); SHIMMER how many steps the outer rings sink (0 .. 3); TONE how
      * bright the outer rings stay; MIX how bright it all is */
