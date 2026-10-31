@@ -1052,7 +1052,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.decay = (uint8_t)(s.decay & 127u);
         sys.sustain = (uint8_t)(s.sustain & 127u);
         sys.ring = (uint8_t)(s.ring & 127u);
-        sys.view = (uint8_t)(s.view % V_COUNT);
+        sys.view = V_3D;                         /* (the turning 3D picture: SELECT on HOME is the octave) */
         sys.preset = (uint16_t)((s.preset & 127u) + 128u * (s.bank % NBANKS));
         sys.cpu2 = (uint8_t)(s.cpu2 & 3u);
         sys.fx_model = (uint8_t)(s.fx_model % RZ_COUNT);
@@ -2194,14 +2194,17 @@ static void ui_draw(void)
             else
                 str_cpy(v, "OFF", sizeof v);
             ui_cat(a, sizeof a, v);
-        } else {                                 /* HOME: the oscillator and the view */
+        } else {                                 /* HOME: the oscillator and its octave (SELECT) */
             osc_code(a, sizeof a, sys.osc);
-            if (sys.osc) {                       /* (the program's name: no room for the view as well) */
+            if (sys.osc) {                       /* (the program's name: no room for the octave as well) */
                 ui_cat(a, sizeof a, " ");
                 ui_cat(a, sizeof a, NP_NAME[(sys.osc - 1u) % NP_COUNT]);
             } else {
-                ui_cat(a, sizeof a, "   ");
-                ui_cat(a, sizeof a, VIEW_NAME[sys.view % V_COUNT]);
+                ui_cat(a, sizeof a, "   SOUND ");
+                if (sys.transpose > 0)
+                    ui_cat(a, sizeof a, "+");
+                fmt_int(v, sys.transpose);
+                ui_cat(a, sizeof a, v);
             }
         }
         ui_cat(a, sizeof a, "   OCT ");
@@ -2662,12 +2665,8 @@ static void ui_input(void)
             sys.page = pg;
             ui_force = 1;
         }
-    } else if (s && sys.page == 0u) {           /* HOME: SELECT turns the view */
-        sys.view = (uint8_t)((sys.view + V_COUNT * 8 + s) % V_COUNT);
-        str_cpy(t, "VIEW ", sizeof t);
-        ui_cat(t, sizeof t, VIEW_NAME[sys.view]);
-        ui_say(t);
-    } else if (s && sys.page == 11u) {          /* EDIT: the sound's octave, -3 .. +3 (notes held keep theirs) */
+    } else if (s && (sys.page == 0u || sys.page == 11u)) {   /* HOME, EDIT: the sound's octave, -3 .. +3 (every
+                                                              * oscillator; notes held keep theirs) */
         sys.transpose = (int8_t)clamp((int32_t)sys.transpose + (s > 0 ? 1 : -1), -3, 3);
         str_cpy(t, "SOUND OCTAVE ", sizeof t);
         if (sys.transpose > 0)
