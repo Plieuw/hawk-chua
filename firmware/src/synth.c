@@ -253,22 +253,16 @@ static uint32_t chua_restarts;                   /* voices restarted because the
 
 /* the knobs' envelope and ring, per block (read by both cores while they render: written before) */
 static struct { uint32_t att, dec, sus, rel; int32_t k, comp; } eg;
-/* MIDI CCs (keys.c, the XG / GM map): MAIN VOLUME and EXPRESSION, PAN (the balance), and the sound's controls 71 .. 74
- * (64: the sound as it is: HARMONIC CONTENT = the ring, RELEASE / ATTACK TIME = the envelope, BRIGHTNESS = the gate) */
-static struct { uint8_t vol, expr, pan, res, rel, att, bri, soft; } mcc = { 100, 127, 64, 64, 64, 64, 64, 0 };
-static uint32_t mcc_off(uint32_t knob, uint32_t cc)   /* the knob moved by the CC's offset from 64 (x 1, -64 .. +63) */
-{
-    return (uint32_t)clamp((int32_t)(knob & 127u) + (int32_t)(cc & 127u) - 64, 0, 127);
-}
+/* MIDI CCs (keys.c, the XG / GM map): MAIN VOLUME and EXPRESSION, PAN (the balance), SOFT PEDAL */
+static struct { uint8_t vol, expr, pan, soft; } mcc = { 100, 127, 64, 0 };
 static void env_params(void)
 {
-    uint32_t ring = mcc_off(sys.ring, mcc.res);
-    eg.att = ENV_MAX / ENV_FRAMES[mcc_off(sys.attack, mcc.att)];
+    eg.att = ENV_MAX / ENV_FRAMES[sys.attack & 127u];
     eg.dec = ENV_COEF[sys.decay & 127u];
     eg.sus = (uint32_t)(sys.sustain & 127u) * (ENV_MAX / 127u);
-    eg.rel = ENV_COEF[mcc_off(sys.release, mcc.rel)];
-    eg.k = (int32_t)LPG_K[ring];
-    eg.comp = LPG_COMP[ring];
+    eg.rel = ENV_COEF[sys.release & 127u];
+    eg.k = (int32_t)LPG_K[sys.ring & 127u];
+    eg.comp = LPG_COMP[sys.ring & 127u];
 }
 
 static void synth_note_on(uint32_t key, uint32_t vel)
@@ -410,11 +404,6 @@ static void lpg_coefs(voice_t *v)
     int64_t g, k = (int64_t)eg.k << 4;
     if (v->vbr)                                         /* (velocity: a soft note's gate opens less) */
         c = c * (255u - v->vbr) / 255u;
-    if (mcc.bri != 64u) {                               /* (BRIGHTNESS, CC 74: the gate opens 1/2 .. 3/2 as far) */
-        c = c * (mcc.bri + 64u) / 128u;
-        if (c > 255u)
-            c = 255u;
-    }
     g = (int64_t)LPG_G[c] << 4;
     uint32_t d = (uint32_t)((1 << 28) + ((g * (g + k)) >> 28));               /* 1 + g (g + k): 1 .. ~8, Q28 */
     v->a1 = (int32_t)(((1u << 31) / (d >> 13)) << 12);                         /* 1 / d (32-bit division) */

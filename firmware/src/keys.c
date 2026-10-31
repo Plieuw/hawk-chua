@@ -167,7 +167,7 @@ static void pedal_release(void)
 }
 
 /* MIDI control changes: the XG / GM map (as on a Yamaha MU90) where the sound has the thing (bank select: 4 banks of
- * 128 presets, LSB or MSB 0 .. 3). Not here: portamento (5, 65, 84: no glide), RPN / NRPN (no pitch bend), omni / mono */
+ * 128 presets, LSB or MSB 0 .. 3; 71 .. 74: the HOME page's knobs). Not here: portamento (5, 65, 84: no glide), RPN / NRPN (no pitch bend), omni / mono */
 static void midi_cc(uint32_t cc, uint32_t v)
 {
     uint32_t k;
@@ -199,10 +199,25 @@ static void midi_cc(uint32_t cc, uint32_t v)
         sost_on = v >= 64u;
         break;
     case 67: mcc.soft = v >= 64u; break;         /* SOFT PEDAL: new notes softer */
-    case 71: mcc.res = (uint8_t)v; break;        /* HARMONIC CONTENT: the ring (64: as the sound has it) */
-    case 72: mcc.rel = (uint8_t)v; break;        /* RELEASE TIME */
-    case 73: mcc.att = (uint8_t)v; break;        /* ATTACK TIME */
-    case 74: mcc.bri = (uint8_t)v; break;        /* BRIGHTNESS: how far the gate opens */
+    case 71:                                     /* 71 .. 74: the oscillator's KNOB 1 .. 4 as on the HOME page (the */
+        if (sys.osc)                             /* circuit: CHAOS, SHAPE, OUTPUT, RING; a noise program: X, Y, */
+            sys.np_x = (uint8_t)v;               /* LEVEL, RING) */
+        else
+            sys.chaos = (uint8_t)v;
+        break;
+    case 72:
+        if (sys.osc)
+            sys.np_y = (uint8_t)v;
+        else
+            sys.shape = (uint8_t)v;
+        break;
+    case 73:
+        if (sys.osc)
+            sys.np_level = (uint8_t)v;
+        else
+            sys.output = (uint8_t)v;
+        break;
+    case 74: sys.ring = (uint8_t)v; break;
     case 91: sys.sh_mix = (uint8_t)v; break;     /* EFFECT 1 (reverb send): the SHIMMER's mix */
     case 93: sys.fx_mix = (uint8_t)v; break;     /* EFFECT 3 (chorus send): the FX resonator's mix */
     case 94: sys.sh_shimmer = (uint8_t)v; break; /* EFFECT 4 (variation): the SHIMMER's shimmer */
@@ -214,7 +229,6 @@ static void midi_cc(uint32_t cc, uint32_t v)
         sys.mw = 0;
         mcc.expr = 127;
         mcc.soft = 0;
-        mcc.res = mcc.rel = mcc.att = mcc.bri = 64;
         sys.at = 0;
         for (k = 0; k < 128u; k++)
             note_sus[k] &= 1u, at_poly[k] = 0;

@@ -236,8 +236,7 @@ int main(int argc, char **argv)
 
     {   /* the XG / GM CC map: HOLD, SOSTENUTO, VOLUME / EXPRESSION / PAN, the sound's controls 71 .. 74, RESET */
         int okk = 1;
-        uint32_t q, att0, rel0;
-        int32_t k0;
+        uint32_t q;
         double el = 0, er = 0, e0 = 0;
 #define VST(nt) ({ uint32_t _s = ST_OFF, _q; for (_q = 0; _q < NVOICE; _q++) if (voice[_q].note == (nt) && voice[_q].stage != ST_OFF && voice[_q].stage != ST_TAIL) _s = voice[_q].stage; _s; })
         midi_in(0xB0, 64, 127);                  /* HOLD down, a note played and let go: it sounds on */
@@ -264,15 +263,15 @@ int main(int argc, char **argv)
         okk &= VST(62) != ST_SUSTAIN && VST(62) != ST_ATTACK;
         run_ms(2000);
         printf("   (HOLD, SOSTENUTO: %s)\n", okk ? "ok" : "wrong");
-        att0 = eg.att; rel0 = eg.rel; k0 = eg.k;  /* 71 .. 73 move the ring and the envelope off the knobs */
-        midi_in(0xB0, 71, 127); midi_in(0xB0, 72, 127); midi_in(0xB0, 73, 127);
-        midi_in(0x90, 60, 100);
-        run_ms(20);
-        okk &= eg.k != k0 && eg.rel != rel0 && eg.att != att0;
-        midi_in(0xB0, 121, 0);                   /* RESET ALL CONTROLLERS: back */
-        midi_in(0x80, 60, 0);
-        run_ms(20);
-        okk &= eg.k == k0 && eg.rel == rel0 && eg.att == att0 && mcc.bri == 64u;
+        sys.osc = 0;                             /* 71 .. 74: the HOME page's knobs (the circuit; a noise program) */
+        midi_in(0xB0, 71, 11); midi_in(0xB0, 72, 22); midi_in(0xB0, 73, 33); midi_in(0xB0, 74, 44);
+        run_ms(10);
+        okk &= sys.chaos == 11u && sys.shape == 22u && sys.output == 33u && sys.ring == 44u;
+        sys.osc = 3;
+        midi_in(0xB0, 71, 55); midi_in(0xB0, 72, 66); midi_in(0xB0, 73, 77);
+        run_ms(10);
+        okk &= sys.np_x == 55u && sys.np_y == 66u && sys.np_level == 77u && sys.chaos == 11u;
+        sys.osc = 0; sys.chaos = 85; sys.shape = 76; sys.output = 0; sys.ring = 50;
         run_ms(2000);
         for (q = 0; q < 3u; q++) {               /* VOLUME 0: silence; PAN 0: all left */
             static const uint8_t vv[3] = { 100, 100, 0 }, pp[3] = { 64, 0, 64 };
@@ -293,7 +292,7 @@ int main(int argc, char **argv)
         midi_in(0xB0, 7, 100); midi_in(0xB0, 10, 64);
         run_ms(10);
 #undef VST
-        check("MIDI CCs (the XG map): HOLD, SOSTENUTO, VOLUME, PAN, 71 .. 73, RESET ALL CONTROLLERS", okk);
+        check("MIDI CCs (the XG map): HOLD, SOSTENUTO, VOLUME, PAN, 71 .. 74 = HOME KNOB 1 .. 4", okk);
     }
 
     /* a ring overflow: everything let go */
