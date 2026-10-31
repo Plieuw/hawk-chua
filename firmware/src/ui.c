@@ -112,8 +112,10 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
  * its chaos rumbles below the note; the bright harmonic sources are the clusters (PW CLUSTER: centroid 6 x the
  * note, -5 dB/oct; PARTIAL CLUST x 0: a saw Y darkens), the inharmonic clicks CROSS MOD RING and ARRAY ROCKS
  * (centroid 11 .. 18 x), the noise around the note PRIME C NOISE (x high: breath, rosin, a felt mallet). Plucks and
- * strikes: a short burst of the brightness the instrument's hammer, plectrum or mallet has, at full level; bows,
- * reeds and flutes: the noise around the note on the breath; the choir: detuned saws */
+ * strikes: a short burst of the brightness the instrument's hammer, plectrum or mallet has, at full level (the
+ * pianos: their own hammer, the burst only the action's knock); bows, reeds, flutes, accordions and bagpipes: the
+ * noise around the note on the breath (PRIME C NOISE), the rosin, the air; brass: the clean cycle (the lips buzz
+ * in the model); the choir: detuned saws */
 #define CYC 6, 64, 64                            /* the pure cycle, Y: near a sine (a soft mallet, a clean breath) */
 #define NZK 85, 76, 0                            /* (a noise program: the circuit's knobs kept for going back) */
 #define ROOM 85, 72, 0, 30, SI_OCT, 70           /* the shimmer as a plain room (SHIMMER 0) */
@@ -157,11 +159,11 @@ static const preset_t PRESETS[] = {
     {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, LESS, NZ(1, 9), 2, 20, .sh_space = SS_LESLIE},
     {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, LESF, NZ(1, 9), 6, 70, .sh_space = SS_LESLIE},
     {"CHURCH ORGAN", NZK, 20, 64, 127, 80, 0, NOFX, ORGB, NZ(1, 9), 2, 8, .sh_space = SS_ORGAN},
-    {"REED ORGAN", CYC, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
-    {"ACCORDION", CYC, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"REED ORGAN", NZK, 20, 64, 120, 60, 10, RZ_REED, 80, 70, 88, 110, 110, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"ACCORDION", NZK, 20, 64, 120, 56, 10, RZ_REED, 100, 100, 88, 115, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     {"HARMONICA", NZK, 24, 64, 115, 56, 30, RZ_REED, 90, 110, 83, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 15,
      .eg = EG_REEDSWELL},
-    {"TANGO ACCORD.", CYC, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"TANGO ACCORD.", NZK, 16, 64, 120, 56, 20, RZ_REED, 110, 110, 88, 120, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"NYLON GUITAR", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 67, 40, 100, GTRB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_GUITAR, 127, .oct = -1},
     {"STEEL GUITAR", NZK, 0, 44, 0, 44, 0, RZ_STRING, 40, 100, 75, 30, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127, .oct = -1},
@@ -219,14 +221,14 @@ static const preset_t PRESETS[] = {
      .eg = EG_GROWL, .oct = -1},
     {"BARITONE SAX", NZK, 24, 76, 115, 62, 20, RZ_REED, 50, 65, 78, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
      .eg = EG_GROWL, .oct = -1},
-    {"OBOE", CYC, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 78, 120, 127, ROOM, .eg = EG_REEDSWELL},
-    {"ENGLISH HORN", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 78, 110, 127, ROOM, .eg = EG_REEDSWELL},
-    {"BASSOON", CYC, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 83, 105, 127, .eg = EG_REEDSWELL, .oct = -1},
+    {"OBOE", NZK, 20, 76, 115, 60, 20, RZ_REED, 110, 100, 78, 120, 127, ROOM, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .eg = EG_REEDSWELL},
+    {"ENGLISH HORN", NZK, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 78, 110, 127, ROOM, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .eg = EG_REEDSWELL},
+    {"BASSOON", NZK, 24, 76, 115, 62, 20, RZ_REED, 90, 60, 83, 105, 127, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .eg = EG_REEDSWELL, .oct = -1},
     {"CLARINET", 124, 64, 64, 30, 76, 118, 60, 20, RZ_REED, 40, 80, 83, 0, 127, ROOM, .eg = EG_REEDSWELL},
     /* PIPE 73-80: the FLUTE waveguide */
-    {"PICCOLO", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 78, 40, 127, ROOM, .eg = EG_OVERTONE, .oct = 1},
-    {"FLUTE", CYC, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 78, 50, 127, ROOM, .eg = EG_OVERTONE},
-    {"RECORDER", CYC, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 78, 20, 127, .eg = EG_OVERTONE},
+    {"PICCOLO", NZK, 30, 76, 110, 64, 20, RZ_FLUTE, 40, 90, 78, 40, 127, ROOM, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .eg = EG_OVERTONE, .oct = 1},
+    {"FLUTE", NZK, 34, 78, 110, 70, 20, RZ_FLUTE, 30, 70, 78, 50, 127, ROOM, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .eg = EG_OVERTONE},
+    {"RECORDER", NZK, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 78, 20, 127, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .eg = EG_OVERTONE},
     {"PAN FLUTE", NZK, 40, 80, 110, 76, 20, RZ_FLUTE, 30, 60, 78, 100, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
     {"BLOWN BOTTLE", NZK, 50, 80, 110, 74, 20, RZ_FLUTE, 0, 30, 78, 110, 127, NOSH, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
     {"SHAKUHACHI", NZK, 50, 84, 105, 80, 20, RZ_FLUTE, 50, 60, 78, 120, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
@@ -269,7 +271,7 @@ static const preset_t PRESETS[] = {
     {"SHAMISEN", NZK, 0, 38, 0, 38, 0, RZ_STRING, 10, 110, 37, 30, 100, GTRB, NZ(1, 1), 0, 63, 0, 0, 0, 0, SS_GUITAR, 127},
     {"KOTO", NZK, 0, 46, 0, 46, 0, RZ_STRING, 60, 70, 72, 20, 85, HRPB, NZ(1, 8), 0, 63, 0, 0, 0, 0, SS_HARP, 127},
     {"KALIMBA", NZK, 0, 42, 0, 42, 0, RZ_MODAL, 40, 90, 60, 30, 100, HRPB, NZ(1, 8), 0, 0, 0, 0, 0, 0, SS_HARP, 127},
-    {"BAGPIPE", CYC, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 88, 120, 127, BAGB, .sh_space = SS_BAGPIPE},
+    {"BAGPIPE", NZK, 10, 70, 127, 60, 20, RZ_REED, 100, 110, 88, 120, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, VLNB, NZ(1, 6), 63, 63, 0, 0, 0, 12, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
@@ -321,11 +323,11 @@ static const preset_t PRESETS[] = {
     {"DETUNED PERC", NZK, 0, 58, 90, 50, 50, NOFX, LESS, NZ(1, 9), 8, 24, .sh_space = SS_LESLIE},
     {"ROTARY ORGAN", NZK, 2, 64, 127, 54, 30, RZ_SYMP, 60, 90, 70, 60, 60, LESF, NZ(1, 9), 6, 90, .sh_space = SS_LESLIE},
     {"CHURCH OCT MIX", NZK, 30, 64, 127, 90, 0, NOFX, ORGB, NZ(1, 9), 4, 4, .sh_space = SS_ORGAN},
-    {"PUFF ORGAN", CYC, 30, 64, 120, 66, 10, RZ_REED, 60, 50, 88, 110, 110, ACCB, .sh_space = SS_ACCORDION, .eg = EG_CHIFF},
-    {"ITALIAN ACCORD", CYC, 16, 64, 120, 56, 10, RZ_REED, 120, 110, 88, 118, 120, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"PUFF ORGAN", NZK, 30, 64, 120, 66, 10, RZ_REED, 60, 50, 88, 110, 110, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_CHIFF},
+    {"ITALIAN ACCORD", NZK, 16, 64, 120, 56, 10, RZ_REED, 120, 110, 88, 118, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     {"BLUES HARP", NZK, 20, 64, 115, 56, 40, RZ_REED, 100, 120, 78, 90, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
      .eg = EG_GROWL},
-    {"BANDONEON", CYC, 24, 64, 120, 60, 20, RZ_REED, 90, 80, 88, 112, 120, ACCB, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
+    {"BANDONEON", NZK, 24, 64, 120, 60, 20, RZ_REED, 90, 80, 88, 112, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
     {"UKULELE", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 80, 66, 34, 127, GTRB, NZ(1, 8), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
     {"12-STRING GTR", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 40, 110, 75, 30, 90, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127, .oct = -1},
@@ -393,10 +395,9 @@ static const preset_t PRESETS[] = {
      .eg = EG_GROWL, .oct = -1},
     {"BARI ROCK", NZK, 20, 72, 115, 60, 30, RZ_REED, 45, 90, 73, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 60,
      .eg = EG_GROWL, .oct = -1},
-    {"BAROQUE OBOE", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 83, 124, 127, HALL, .sh_space = SS_TEMPLE,
-     .eg = EG_REEDSWELL},
-    {"DARK ENG HORN", CYC, 30, 78, 115, 64, 20, RZ_REED, 90, 60, 83, 110, 127, HALL, .eg = EG_REEDSWELL},
-    {"CONTRABASSOON", CYC, 30, 78, 115, 64, 20, RZ_REED, 80, 50, 88, 100, 127, ROOM, .eg = EG_REEDSWELL, .oct = -2},
+    {"BAROQUE OBOE", NZK, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 83, 124, 127, HALL, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_TEMPLE, .eg = EG_REEDSWELL},
+    {"DARK ENG HORN", NZK, 30, 78, 115, 64, 20, RZ_REED, 90, 60, 83, 110, 127, HALL, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .eg = EG_REEDSWELL},
+    {"CONTRABASSOON", NZK, 30, 78, 115, 64, 20, RZ_REED, 80, 50, 88, 100, 127, ROOM, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .eg = EG_REEDSWELL, .oct = -2},
     {"BASS CLARINET", 124, 64, 64, 30, 76, 118, 62, 20, RZ_REED, 30, 60, 88, 0, 127, ROOM, .eg = EG_REEDSWELL,
      .oct = -1},
     /* PIPE 73-80 */
@@ -404,7 +405,7 @@ static const preset_t PRESETS[] = {
      .oct = 1},
     {"BREATHY FLUTE", NZK, 40, 80, 110, 72, 20, RZ_FLUTE, 30, 60, 78, 60, 127, HALL, NZ(1, 6), 126, 90,
      .eg = EG_OVERTONE},
-    {"ALTO RECORDER", CYC, 36, 78, 110, 66, 20, RZ_FLUTE, 10, 50, 83, 20, 127, ROOM, .eg = EG_OVERTONE},
+    {"ALTO RECORDER", NZK, 36, 78, 110, 66, 20, RZ_FLUTE, 10, 50, 83, 20, 127, ROOM, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .eg = EG_OVERTONE},
     {"KENA", NZK, 36, 80, 110, 74, 20, RZ_FLUTE, 50, 80, 78, 80, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
     {"JUG", NZK, 40, 76, 110, 70, 20, RZ_FLUTE, 0, 20, 83, 120, 127, NOSH, NZ(1, 6), 126, 30, .eg = EG_CHIFF,
      .oct = -1},
@@ -448,11 +449,11 @@ static const preset_t PRESETS[] = {
     {"STARTHEME", NZK, 30, 90, 110, 96, 30, RZ_MODAL, 100, 120, 90, 30, 60, AIR, NZ(1, 9), 8, 80},
     /* ETHNIC 105-112 */
     {"SITAR 2", NZK, 0, 50, 0, 50, 10, RZ_SYMP, 30, 100, 82, 40, 100, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
-    {"MUTED BANJO", NZK, 0, 34, 0, 34, 0, RZ_STRING, 20, 110, 25, 20, 100, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
+    {"MUTED BANJO", NZK, 0, 40, 0, 40, 0, RZ_STRING, 20, 110, 40, 20, 127, GTRB, NZ(1, 1), 0, 63, .sh_space = SS_GUITAR, .np_level = 127},
     {"TSUGARU", NZK, 0, 42, 0, 42, 0, RZ_STRING, 10, 127, 45, 16, 100, GTRB, NZ(1, 1), 0, 90, .sh_space = SS_GUITAR, .np_level = 127},
     {"TAISHO KOTO", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 60, 90, 72, 30, 85, HRPB, NZ(1, 1), 0, 63, .sh_space = SS_HARP, .np_level = 127},
     {"MBIRA", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 60, 100, 70, 20, 100, HRPB, NZ(1, 8), 0, 30, .sh_space = SS_HARP, .np_level = 127},
-    {"DRONE PIPES", CYC, 10, 70, 127, 64, 20, RZ_REED, 110, 120, 88, 122, 127, BAGB, .sh_space = SS_BAGPIPE},
+    {"DRONE PIPES", NZK, 10, 70, 127, 64, 20, RZ_REED, 110, 120, 88, 122, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FOLK FIDDLE", NZK, 30, 72, 115, 62, 30, RZ_BOW, 100, 120, 78, 30, 127, VLNB, NZ(1, 6), 63, 63, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"ZURNA", CYC, 16, 72, 115, 58, 30, RZ_REED, 127, 127, 68, 127, 127, ROOM, NOOSC, 30, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
@@ -542,7 +543,7 @@ static const preset_t PRESETS[] = {
     {"HARPSI SYNTH", 85, 76, 0, 0, 44, 0, 44, 60, RZ_STRING, 40, 100, 45, 50, 70, 0, 0, 0, 0, SI_OCT, 0, 12, 4, 40, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"REED KEYS", 6, 64, 64, 6, 60, 110, 56, 20, RZ_REED, 100, 100, 88, 115, 100, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
     {"VOX KEYS", 85, 76, 0, 4, 70, 90, 64, 40, RZ_VOICE, 40, 90, 48, 40, 90, 85, 72, 0, 30, SI_OCT, 70, 11, 4, 20, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"CHIME KEYS", 6, 64, 64, 0, 70, 0, 74, 20, RZ_MODAL, 90, 110, 84, 24, 90, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHIME KEYS", 85, 76, 0, 0, 70, 0, 74, 20, RZ_MODAL, 90, 110, 84, 24, 110, 85, 72, 0, 30, SI_OCT, 70, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"SOFT POLY", 85, 76, 0, 10, 80, 80, 80, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 11, 10, 40, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SAW PLUCK", 85, 76, 0, 0, 52, 0, 52, 60, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SQUARE PLUCK", 85, 76, 0, 0, 50, 0, 50, 50, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 12, 4, 64, 0, 0, 0, 0, SS_HALL, 0, 0},
