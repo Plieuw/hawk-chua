@@ -289,7 +289,7 @@ int main(int argc, char **argv)
             enc_steps[panel.enc[EN_PRESET]] = 1;
             ui_input();
             fm1_in.buttons &= ~btn_bit(B_HOME);
-            ok &= sys.preset == 384u && !strncmp(PRESETS[384].name, "CHUA ", 5);
+            ok &= sys.preset == 384u && !strcmp(PRESETS[384].name, "DOUBLE SCROLL");
             sys.chaos = 7;
             ok &= upre_save(384) == 0 && upre_has(384) && !upre_has(256) && !upre_has(0) && !upre_has(128);
             preset_load(0);
