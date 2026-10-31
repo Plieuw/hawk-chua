@@ -12,7 +12,7 @@
     python3 tools/fm1_remote.py cc 1 64              a control change (CC 1: the mod wheel)
     python3 tools/fm1_remote.py program 12           a program change (preset 13)
     python3 tools/fm1_remote.py watch 10 shots/      a screen every half second for 10 s
-    python3 tools/fm1_remote.py presets presets.txt  all 128 presets as lines of ui.c's table (C; the ones SAVE
+    python3 tools/fm1_remote.py presets presets.txt  all 512 presets (4 banks) as lines of ui.c's table (C; the ones SAVE
                                                      overwrote marked SAVED), to paste into the code
     python3 tools/fm1_remote.py reset-presets        the saved presets cleared: the built-in ones back
 
@@ -72,9 +72,9 @@ class FM1:
         return got
 
     def presets(self):
-        """the 128 presets as text lines (C)"""
+        """the 512 presets (4 banks of 128) as text lines (C)"""
         self.send(0x06)
-        r = self.replies({0x53}, timeout=10.0)
+        r = self.replies({0x53}, timeout=40.0)
         return [p.decode() for cmd, p in r if cmd == 0x52]
 
     def reset_presets(self):

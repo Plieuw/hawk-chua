@@ -78,7 +78,7 @@ static void midi_out_event(uint32_t pkt) { (void)pkt; }   /* (usb.c: not in this
 #include "../firmware/src/panel.c"
 #include "../firmware/src/synth.c"
 static volatile uint8_t keys_panic_req;   /* (keys.c: not in this test) */
-static volatile uint8_t keys_prog_req;
+static volatile uint16_t keys_prog_req;
 #include "../firmware/src/ui.c"
 /* remote.c over a fake USB: frames in from rm_in, messages out into rm_log */
 #define FELUCCA_OTA 1
@@ -267,8 +267,40 @@ int main(int argc, char **argv)
             ok &= sys.transpose == 0;
             if (!ok) printf("the sound's octave: failed\n");
         }
+        {   /* the banks: program change after BANK SELECT (keys.c: bank x 128 + program + 1); PRESETS turns within the
+             * bank, HOME held + PRESETS goes to the same program in the next bank; a SAVE in bank 4 stays there */
+            uint32_t pg = sys.page;
+            sys.page = 0;
+            keys_prog_req = 2u * 128u + 5u + 1u;
+            ui_input();
+            ok &= sys.preset == 261u;
+            fm1_ms += 1000;
+            enc_steps[panel.enc[EN_PRESET]] = 1;
+            ui_input();
+            ok &= sys.preset == 262u;
+            preset_load(383);
+            fm1_ms += 1000;
+            enc_steps[panel.enc[EN_PRESET]] = 1;
+            ui_input();
+            ok &= sys.preset == 256u;                        /* (wraps inside bank 3) */
+            fm1_in.buttons |= btn_bit(B_HOME);
+            fm1_ms += 1000;
+            enc_steps[panel.enc[EN_PRESET]] = 1;
+            ui_input();
+            fm1_in.buttons &= ~btn_bit(B_HOME);
+            ok &= sys.preset == 384u && !strncmp(PRESETS[384].name, "CHUA ", 5);
+            sys.chaos = 7;
+            ok &= upre_save(384) == 0 && upre_has(384) && !upre_has(256) && !upre_has(0) && !upre_has(128);
+            preset_load(0);
+            preset_load(384);
+            ok &= sys.chaos == 7u;
+            ok &= upre_clear() == 0 && !upre_has(384);
+            preset_load(0);
+            sys.page = (uint8_t)pg;
+            if (!ok) printf("banks: failed (preset %u)\n", sys.preset);
+        }
         if (!ok) { printf("SAVE over a preset / remote PRESETS / RESET PRESETS: failed\n"); return 1; }
-        printf("SAVE over a preset, remote PRESETS (128 lines), RESET PRESETS ok\n");
+        printf("SAVE over a preset, remote PRESETS (512 lines), RESET PRESETS, 4 banks ok\n");
     }
     {   /* REMOTE: PING, a BUTTON (the ARP page), STATE, a TURN, SCREEN (the plot, back as it is), not ours ignored */
         static const uint8_t PING[] = {0x7D, 0x43, 0x48, 0x05}, BTN[] = {0x7D, 0x43, 0x48, 0x03, B_ARP},
@@ -501,7 +533,7 @@ int main(int argc, char **argv)
     bad |= shot(dir, "g_shimmer_off");
     synth_kill();
     {   /* PRESETS on FX and SHIMMER: their own presets, the sound preset kept */
-        uint8_t pr = sys.preset;
+        uint16_t pr = sys.preset;
         sys.page = 2; fx_pre = 0;
         enc_steps[panel.enc[EN_PRESET]] = 1;
         ui_input();

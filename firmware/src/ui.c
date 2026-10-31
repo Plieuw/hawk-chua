@@ -290,9 +290,464 @@ static const preset_t PRESETS[] = {
     {"HELICOPTER", NZK, 20, 80, 120, 80, 30, NOFX, NOSH, NZ(0, 9), 20, 40},
     {"APPLAUSE", NZK, 40, 80, 110, 90, 10, NOFX, HALL, NZ(0, 8), 100, 80},
     {"GUNSHOT", NZK, 0, 60, 0, 60, 30, NOFX, HALL, NZ(2, 0), 80, 20},
+    /* ---- BANK 2 (bank select LSB / MSB 1): an alternative take on each GM program, in the same order ---- */
+    /* PIANO 1-8 */
+    {"MELLOW GRAND", NZK, 0, 54, 0, 54, 6, RZ_PIANO, 30, 50, 74, 60, 127, ROOM, NZ(1, 8), 0, 30, .np_level = 127},
+    {"ROCK PIANO", NZK, 0, 44, 0, 44, 14, RZ_PIANO, 60, 120, 66, 22, 127, NOSH, NZ(1, 1), 0, 90, .np_level = 127},
+    {"DETUNED CP", NZK, 0, 46, 0, 46, 10, RZ_PIANO, 90, 110, 60, 24, 110, ROOM, NZ(1, 1), 0, 63, .np_level = 127},
+    {"SALOON PIANO", NZK, 0, 48, 0, 48, 14, RZ_PIANO, 127, 100, 66, 30, 127, NOSH, NZ(1, 1), 0, 63, .np_level = 127},
+    {"DETUNED EP 1", NZK, 0, 92, 0, 84, 20, RZ_MODAL, 10, 60, 70, 20, 50, ROOM, NZ(1, 3), 2, 18},
+    {"FM BELL EP", NZK, 0, 84, 0, 80, 30, RZ_MODAL, 60, 100, 76, 16, 60, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8,
+     70},
+    {"COUPLED HARPSI", NZK, 0, 44, 0, 44, 0, RZ_SYMP, 40, 110, 50, 60, 90, ROOM, NZ(1, 1), 0, 63, .np_level = 127},
+    {"PULSE CLAV", 38, 120, 48, 0, 50, 0, 50, 120, RZ_STRING, 50, 110, 30, 10, 60},
+    /* CHROMATIC PERCUSSION 9-16 */
+    {"SOFT CELESTA", NZK, 0, 40, 0, 40, 0, RZ_MODAL, 100, 90, 84, 30, 127, ROOM, NZ(0, 4), 30, 0, .np_level = 127,
+     .oct = 1},
+    {"GLOCK HALL", NZK, 0, 36, 0, 36, 0, RZ_MODAL, 104, 120, 84, 28, 127, HALL, NZ(0, 4), 63, 0,
+     .sh_space = SS_CATHEDRAL, .np_level = 127, .oct = 1},
+    {"MUSIC BOX 2", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 96, 120, 92, 50, 80, AIR, NZ(2, 4), 63, 0, .np_level = 127,
+     .oct = 1},
+    {"WET VIBES", CYC, 0, 60, 0, 62, 0, RZ_MODAL, 92, 80, 88, 24, 110, 110, 100, 30, 50, SI_OCT, 80},
+    {"BALAFON", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 80, 80, 52, 30, 80, NOSH, NZ(0, 4), 63, 0, .np_level = 127},
+    {"HARD XYLO", NZK, 0, 36, 0, 36, 0, RZ_MODAL, 120, 127, 44, 16, 110, NOSH, NZ(2, 4), 63, 0, .np_level = 127,
+     .oct = 1},
+    {"CHURCH BELL", NZK, 0, 50, 0, 50, 0, RZ_MODAL, 110, 90, 90, 10, 127, HALL, NZ(0, 4), 63, 0,
+     .sh_space = SS_CATHEDRAL, .np_level = 127, .oct = -1},
+    {"SANTUR", NZK, 0, 40, 0, 40, 0, RZ_SYMP, 10, 120, 80, 40, 90, ROOM, NZ(1, 1), 0, 63, .np_level = 127},
+    /* ORGAN 17-24 */
+    {"70S ORGAN", NZK, 2, 64, 127, 50, 10, NOFX, NOSH, NZ(1, 9), 4, 30},
+    {"DETUNED PERC", NZK, 0, 58, 90, 50, 50, NOFX, ROOM, NZ(1, 9), 8, 24},
+    {"ROTARY ORGAN", NZK, 2, 64, 127, 54, 30, RZ_SYMP, 60, 90, 70, 60, 60, ROOM, NZ(1, 9), 6, 90},
+    {"CHURCH OCT MIX", NZK, 30, 64, 127, 90, 0, NOFX, 120, 110, 20, 45, SI_OCT, 70, NZ(1, 9), 4, 4,
+     .sh_space = SS_CATHEDRAL},
+    {"PUFF ORGAN", CYC, 30, 64, 120, 66, 10, RZ_REED, 60, 50, 88, 110, 110, ROOM, .eg = EG_CHIFF},
+    {"ITALIAN ACCORD", CYC, 16, 64, 120, 56, 10, RZ_REED, 120, 110, 88, 118, 120, ROOM, .eg = EG_REEDSWELL},
+    {"BLUES HARP", NZK, 20, 64, 115, 56, 40, RZ_REED, 100, 120, 78, 90, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 30,
+     .eg = EG_GROWL},
+    {"BANDONEON", CYC, 24, 64, 120, 60, 20, RZ_REED, 90, 80, 88, 112, 120, HALL, .eg = EG_REEDSWELL},
+    /* GUITAR 25-32 */
+    {"UKULELE", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 80, 66, 34, 127, NOSH, NZ(1, 8), 0, 63, .np_level = 127},
+    {"12-STRING GTR", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 40, 110, 75, 30, 90, ROOM, NZ(1, 1), 0, 63, .np_level = 127,
+     .oct = -1},
+    {"PEDAL STEEL", NZK, 10, 60, 60, 60, 0, RZ_STRING, 50, 90, 80, 40, 100, ROOM, NZ(1, 8), 0, 63,
+     .np_level = 127, .eg = EG_SWELL, .oct = -1},
+    {"CHORUS GUITAR", NZK, 0, 50, 0, 50, 0, RZ_STRING, 45, 100, 75, 40, 100, AIR, NZ(1, 8), 0, 63,
+     .np_level = 127, .oct = -1},
+    {"FUNK GUITAR", NZK, 0, 36, 0, 36, 0, RZ_STRING, 40, 110, 30, 20, 100, NOSH, NZ(1, 1), 0, 63,
+     .np_level = 127, .oct = -1},
+    {"GUITAR PINCH", 110, 80, 96, 0, 76, 90, 64, 70, RZ_STRING, 50, 120, 72, 10, 60, ROOM, .oct = -1},
+    {"FEEDBACK GTR", 124, 64, 96, 10, 80, 120, 70, 70, RZ_STRING, 45, 110, 90, 40, 40, ROOM, .eg = EG_OPEN,
+     .oct = -1},
+    {"BELL HARMONICS", 54, 90, 64, 0, 76, 0, 80, 60, RZ_MODAL, 20, 127, 82, 30, 120, ROOM},
+    /* BASS 33-40 */
+    {"UPRIGHT JAZZ", NZK, 0, 54, 0, 54, 0, RZ_STRING, 40, 20, 58, 40, 100, ROOM, NZ(1, 8), 0, 0,
+     .np_level = 127, .oct = -2},
+    {"FINGER SLAP", NZK, 0, 56, 0, 56, 0, RZ_STRING, 40, 80, 64, 16, 127, NOSH, NZ(1, 1), 0, 63,
+     .np_level = 127, .oct = -2},
+    {"MUTED PICK BS", NZK, 0, 40, 0, 40, 0, RZ_STRING, 40, 70, 24, 20, 90, NOSH, NZ(1, 1), 0, 63,
+     .np_level = 127, .oct = -2},
+    {"FRETLESS 2", 6, 40, 64, 20, 76, 100, 60, 50, RZ_STRING, 60, 30, 72, 50, 60, ROOM, .oct = -2},
+    {"POP BASS", 54, 60, 64, 0, 50, 0, 50, 110, RZ_STRING, 40, 100, 50, 10, 50, .oct = -2},
+    {"THUMB BASS", 38, 50, 32, 0, 58, 30, 54, 90, .oct = -2},
+    {"ACID BASS", 85, 30, 0, 0, 56, 60, 48, 110, .eg = EG_OPEN, .oct = -2},
+    {"RUBBER BASS", 6, 40, 64, 0, 64, 90, 56, 60, .oct = -2},
+    /* STRINGS 41-48 */
+    {"SLOW VIOLIN", NZK, 80, 90, 118, 80, 20, RZ_BOW, 110, 80, 88, 60, 127, HALL, NZ(1, 6), 63, 63,
+     .eg = EG_SWELL},
+    {"SUL PONT VIOLA", NZK, 46, 80, 118, 70, 20, RZ_BOW, 100, 110, 83, 10, 127, ROOM, NZ(1, 6), 63, 63,
+     .eg = EG_SWELL},
+    {"SLOW CELLO", NZK, 84, 90, 118, 82, 20, RZ_BOW, 115, 55, 93, 70, 127, HALL, NZ(1, 6), 63, 63,
+     .eg = EG_SWELL, .oct = -1},
+    {"BOWED BASS", NZK, 40, 76, 118, 66, 30, RZ_BOW, 120, 60, 88, 60, 127, NOSH, NZ(1, 6), 63, 63,
+     .eg = EG_SWELL, .oct = -2},
+    {"SLOW TREMOLO", NZK, 80, 90, 110, 90, 30, RZ_BOW, 105, 75, 93, 60, 127, AIR, NZ(1, 6), 63, 63,
+     .eg = EG_SWELL},
+    {"HALL PIZZ", NZK, 0, 46, 0, 46, 0, RZ_STRING, 40, 60, 40, 40, 100, HALL, NZ(1, 8), 0, 63, .np_level = 127},
+    {"YANG QIN", NZK, 0, 44, 0, 44, 0, RZ_SYMP, 20, 110, 72, 30, 90, ROOM, NZ(1, 1), 0, 63, .np_level = 127},
+    {"TIMPANI HALL", NZK, 0, 46, 0, 46, 50, RZ_DRUM, 120, 80, 98, 30, 127, HALL, NZ(1, 6), 126, 0,
+     .sh_space = SS_CATHEDRAL, .oct = -1},
+    /* ENSEMBLE 49-56 */
+    {"ORCHESTRA", NZK, 70, 96, 115, 96, 20, RZ_BOW, 110, 70, 93, 64, 110, 120, 110, 20, 45, SI_OCT, 70, NZ(1, 0),
+     40, 30, .sh_space = SS_CATHEDRAL, .eg = EG_SWELL},
+    {"LEGATO STRINGS", NZK, 90, 100, 120, 100, 20, RZ_BOW, 105, 70, 98, 70, 110, AIR, NZ(1, 0), 40, 30,
+     .eg = EG_SWELL},
+    {"RESO STRINGS", NZK, 60, 90, 110, 90, 70, NOFX, AIR, NZ(1, 0), 20, 100, .eg = EG_OPEN},
+    {"SOLINA", NZK, 60, 90, 115, 90, 20, RZ_SYMP, 60, 60, 80, 40, 60, AIR, NZ(1, 0), 10, 60},
+    {"CHORUS AAHS", NZK, 90, 100, 115, 104, 20, RZ_VOICE, 40, 70, 48, 50, 110, 120, 110, 20, 45, SI_OCT, 70,
+     NZ(1, 0), 8, 40, .sh_space = SS_CATHEDRAL, .eg = EG_VOWEL},
+    {"HUMMING", NZK, 80, 96, 115, 100, 10, RZ_VOICE, 90, 40, 52, 0, 110, HALL, NZ(1, 0), 8, 20},
+    {"ANALOG VOICE", NZK, 60, 90, 110, 96, 50, RZ_VOICE, 64, 100, 48, 30, 100, AIR, NZ(1, 9), 10, 60,
+     .eg = EG_VOWEL},
+    {"BASS HIT", CYC, 0, 74, 0, 78, 40, RZ_BRASS, 60, 80, 73, 0, 110, HALL, .oct = -1},
+    /* BRASS 57-64 */
+    {"DARK TRUMPET", CYC, 30, 80, 112, 62, 20, RZ_BRASS, 80, 70, 73, 0, 127, ROOM, .eg = EG_BLOOM},
+    {"BRIGHT BONE", CYC, 30, 78, 112, 62, 20, RZ_BRASS, 80, 110, 68, 0, 127, ROOM, NOOSC, 10, .eg = EG_BLOOM,
+     .oct = -1},
+    {"SOFT TUBA", CYC, 44, 84, 112, 66, 20, RZ_BRASS, 20, 40, 83, 0, 127, ROOM, .eg = EG_BLOOM, .oct = -2},
+    {"WAH TRUMPET", CYC, 24, 76, 110, 60, 20, RZ_BRASS, 90, 100, 68, 90, 127, ROOM, .eg = EG_OPEN},
+    {"HORN SECTION", CYC, 50, 84, 112, 80, 20, RZ_BRASS, 30, 60, 83, 0, 127, HALL, .sh_space = SS_TEMPLE,
+     .eg = EG_BLOOM, .oct = -1},
+    {"BRIGHT BRASS", CYC, 24, 76, 112, 60, 30, RZ_BRASS, 100, 120, 63, 0, 127, ROOM, NOOSC, 20, .eg = EG_BLOOM},
+    {"JUMP BRASS", NZK, 10, 66, 90, 56, 90, RZ_BRASS, 110, 127, 63, 0, 90, ROOM, NZ(1, 0), 4, 60},
+    {"ANALOG BRASS", 85, 76, 0, 40, 80, 100, 70, 70, NOFX, ROOM, .eg = EG_OPEN},
+    /* REED 65-72 */
+    {"SOFT SOPRANO", NZK, 30, 80, 115, 64, 20, RZ_REED, 80, 70, 83, 30, 127, HALL, NZ(1, 6), 126, 63,
+     .eg = EG_REEDSWELL},
+    {"BREATHY ALTO", NZK, 24, 78, 115, 62, 20, RZ_REED, 60, 70, 78, 60, 127, ROOM, NZ(1, 6), 126, 90,
+     .eg = EG_REEDSWELL},
+    {"GROWL TENOR", NZK, 20, 76, 115, 60, 20, RZ_REED, 55, 100, 73, 80, 127, ROOM, NZ(1, 6), 126, 63, 0, 0, 0, 50,
+     .eg = EG_GROWL, .oct = -1},
+    {"BARI ROCK", NZK, 20, 72, 115, 60, 30, RZ_REED, 45, 90, 73, 100, 127, NOSH, NZ(1, 6), 126, 63, 0, 0, 0, 60,
+     .eg = EG_GROWL, .oct = -1},
+    {"BAROQUE OBOE", CYC, 24, 76, 115, 62, 20, RZ_REED, 100, 80, 83, 124, 127, HALL, .sh_space = SS_TEMPLE,
+     .eg = EG_REEDSWELL},
+    {"DARK ENG HORN", CYC, 30, 78, 115, 64, 20, RZ_REED, 90, 60, 83, 110, 127, HALL, .eg = EG_REEDSWELL},
+    {"CONTRABASSOON", CYC, 30, 78, 115, 64, 20, RZ_REED, 80, 50, 88, 100, 127, ROOM, .eg = EG_REEDSWELL, .oct = -2},
+    {"BASS CLARINET", 124, 64, 64, 30, 76, 118, 62, 20, RZ_REED, 30, 60, 88, 0, 127, ROOM, .eg = EG_REEDSWELL,
+     .oct = -1},
+    /* PIPE 73-80 */
+    {"FIFE", NZK, 20, 72, 110, 60, 20, RZ_FLUTE, 60, 110, 73, 30, 127, NOSH, NZ(1, 6), 126, 63, .eg = EG_CHIFF,
+     .oct = 1},
+    {"BREATHY FLUTE", NZK, 40, 80, 110, 72, 20, RZ_FLUTE, 30, 60, 78, 60, 127, HALL, NZ(1, 6), 126, 90,
+     .eg = EG_OVERTONE},
+    {"ALTO RECORDER", CYC, 36, 78, 110, 66, 20, RZ_FLUTE, 10, 50, 83, 20, 127, ROOM, .eg = EG_OVERTONE},
+    {"KENA", NZK, 36, 80, 110, 74, 20, RZ_FLUTE, 50, 80, 78, 80, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
+    {"JUG", NZK, 40, 76, 110, 70, 20, RZ_FLUTE, 0, 20, 83, 120, 127, NOSH, NZ(1, 6), 126, 30, .eg = EG_CHIFF,
+     .oct = -1},
+    {"DIZI", NZK, 30, 76, 110, 66, 20, RZ_FLUTE, 70, 110, 73, 60, 127, ROOM, NZ(1, 6), 126, 63, .eg = EG_OVERTONE},
+    {"TIN WHISTLE", NZK, 20, 70, 115, 62, 20, RZ_FLUTE, 40, 100, 78, 30, 120, ROOM, NZ(1, 6), 126, 63,
+     .eg = EG_CHIFF, .oct = 1},
+    {"XUN", 6, 64, 127, 40, 80, 110, 70, 20, RZ_FLUTE, 0, 20, 83, 30, 127, HALL, .sh_space = SS_TEMPLE,
+     .eg = EG_OVERTONE},
+    /* SYNTH LEAD 81-88 */
+    {"SINE LEAD", CYC, 2, 64, 115, 60, 20, NOFX, ROOM},
+    {"DOUBLE SAW", NZK, 2, 64, 115, 60, 60, NOFX, ROOM, NZ(1, 0), 10, 40},
+    {"VENT SYNTH", NZK, 20, 72, 110, 64, 30, RZ_FLUTE, 80, 110, 73, 90, 100, ROOM, NZ(1, 9), 4, 60, .eg = EG_CHIFF},
+    {"RUBBY", CYC, 0, 72, 110, 62, 60, RZ_FLUTE, 60, 90, 83, 40, 100, ROOM, .eg = EG_OPEN},
+    {"DIST LEAD", 124, 50, 96, 2, 70, 115, 64, 80, NOFX, ROOM},
+    {"VOX LEAD", NZK, 10, 70, 110, 64, 40, RZ_VOICE, 90, 70, 48, 20, 110, ROOM, NZ(1, 0), 4, 20, .eg = EG_VOWEL},
+    {"FOURTHS LEAD", NZK, 4, 70, 110, 64, 50, RZ_SYMP, 50, 90, 75, 80, 80, ROOM, NZ(1, 0), 4, 0},
+    {"FAT LEAD", 85, 60, 0, 4, 80, 115, 70, 70, NOFX, ROOM},
+    /* SYNTH PAD 89-96 */
+    {"ICE PAD", 6, 100, 64, 90, 100, 110, 104, 30, RZ_MODAL, 110, 127, 92, 30, 60, 110, 98, 100, 62, SI_2OCT, 110,
+     .eg = EG_SHIMRISE},
+    {"SINE PAD", CYC, 96, 100, 115, 104, 10, NOFX, AIR},
+    {"POLY KING", NZK, 30, 90, 90, 84, 70, NOFX, AIR, NZ(1, 0), 12, 60, .eg = EG_OPEN},
+    {"ITOPIA", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 30, 90, 48, 90, 90, 127, 115, 100, 58, SI_OCT5, 90,
+     NZ(1, 0), 8, 30, .sh_space = SS_CATHEDRAL, .eg = EG_VOWEL},
+    {"GLASS BOW", CYC, 96, 100, 115, 104, 20, RZ_BOW, 70, 110, 98, 20, 110, 127, 113, 90, 58, SI_OCT, 100,
+     .eg = EG_SHIMRISE},
+    {"TINE PAD", NZK, 90, 100, 110, 104, 30, RZ_MODAL, 60, 110, 88, 20, 80, AIR, NZ(1, 3), 8, 40},
+    {"VOICE HALO", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 90, 60, 52, 50, 90, 127, 115, 90, 58, SI_FIFTH, 90,
+     NZ(1, 0), 6, 20, .sh_space = SS_MOSQUE, .eg = EG_VOWEL},
+    {"POLAR SWEEP", 85, 100, 64, 100, 104, 115, 104, 80, NOFX, 120, 108, 60, 52, SI_OCT, 90, .eg = EG_OPEN},
+    /* SYNTH EFFECTS 97-104 */
+    {"STORM", NZK, 20, 90, 80, 96, 30, NOFX, 127, 115, 60, 62, SI_OCT, 70, NZ(0, 7), 110, 30},
+    {"DARK SCORE", 85, 60, 127, 110, 110, 120, 115, 50, NOFX, 127, 120, 40, 65, SI_FIFTH, 50,
+     .sh_space = SS_CATHEDRAL},
+    {"SYN MALLET", NZK, 0, 50, 0, 54, 30, RZ_MODAL, 90, 110, 80, 24, 110, ROOM, NZ(0, 4), 63, 0, .np_level = 127},
+    {"WARM ATMOS", CYC, 20, 90, 60, 96, 20, RZ_STRING, 40, 60, 80, 40, 90, 127, 108, 30, 52, SI_OCT, 60},
+    {"SHIMMER BELL", 6, 100, 64, 0, 84, 0, 90, 20, RZ_MODAL, 104, 127, 88, 20, 90, 127, 115, 110, 60, SI_2OCT, 110},
+    {"GOBLIN SYNTH", 54, 90, 64, 40, 90, 100, 90, 60, RZ_HAWK, 40, 110, 58, 90, 100, 110, 88, 40, 22, SI_FIFTH, 90},
+    {"ECHO BELL", NZK, 0, 70, 0, 80, 20, RZ_MODAL, 104, 110, 86, 12, 100, 127, 115, 0, 58, SI_OCT, 70, NZ(0, 4), 63,
+     0, .sh_space = SS_TEMPLE, .np_level = 127},
+    {"STARTHEME", NZK, 30, 90, 110, 96, 30, RZ_MODAL, 100, 120, 90, 30, 60, AIR, NZ(1, 9), 8, 80},
+    /* ETHNIC 105-112 */
+    {"SITAR 2", NZK, 0, 50, 0, 50, 10, RZ_SYMP, 30, 100, 82, 40, 100, ROOM, NZ(1, 1), 0, 63, .np_level = 127},
+    {"MUTED BANJO", NZK, 0, 34, 0, 34, 0, RZ_STRING, 20, 110, 25, 20, 100, NOSH, NZ(1, 1), 0, 63, .np_level = 127},
+    {"TSUGARU", NZK, 0, 42, 0, 42, 0, RZ_STRING, 10, 127, 45, 16, 100, ROOM, NZ(1, 1), 0, 90, .np_level = 127},
+    {"TAISHO KOTO", NZK, 0, 46, 0, 46, 0, RZ_SYMP, 60, 90, 72, 30, 85, ROOM, NZ(1, 1), 0, 63, .np_level = 127},
+    {"MBIRA", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 60, 100, 70, 20, 100, ROOM, NZ(1, 8), 0, 30, .np_level = 127},
+    {"DRONE PIPES", CYC, 10, 70, 127, 64, 20, RZ_REED, 110, 120, 88, 122, 127, HALL, .sh_space = SS_TEMPLE},
+    {"FOLK FIDDLE", NZK, 30, 72, 115, 62, 30, RZ_BOW, 100, 120, 78, 30, 127, ROOM, NZ(1, 6), 63, 63,
+     .eg = EG_SWELL},
+    {"ZURNA", CYC, 16, 72, 115, 58, 30, RZ_REED, 127, 127, 68, 127, 127, ROOM, NOOSC, 30, .eg = EG_GROWL},
+    /* PERCUSSIVE 113-120 */
+    {"WIND CHIMES", NZK, 0, 40, 0, 44, 0, RZ_MODAL, 80, 127, 88, 20, 120, AIR, NZ(2, 4), 63, 0, .np_level = 127,
+     .oct = 1},
+    {"COWBELL", NZK, 0, 34, 0, 34, 0, RZ_MODAL, 120, 90, 50, 30, 110, NOSH, NZ(2, 4), 63, 0, .np_level = 127},
+    {"GLASS DRUM", NZK, 0, 46, 0, 46, 0, RZ_MODAL, 96, 127, 84, 30, 127, ROOM, NZ(1, 8), 0, 30, .np_level = 127},
+    {"CASTANETS", NZK, 0, 30, 0, 30, 0, RZ_MODAL, 40, 110, 30, 10, 90, NOSH, NZ(0, 4), 63, 0, .np_level = 127,
+     .oct = 1},
+    {"CONCERT BD", NZK, 0, 46, 0, 46, 0, RZ_DRUM, 0, 40, 90, 20, 127, HALL, NZ(0, 2), 126, 0,
+     .sh_space = SS_CATHEDRAL, .np_level = 127, .oct = -2},
+    {"DEEP TOM", NZK, 0, 44, 0, 44, 0, RZ_DRUM, 20, 60, 80, 40, 127, ROOM, NZ(0, 2), 126, 0, .np_level = 127,
+     .oct = -1},
+    {"808 TOM", CYC, 0, 56, 0, 56, 20, NOFX, NOSH, NZ(0, 3), 30, 30, 50, 0, 100},
+    {"REVERSE SNARE", NZK, 90, 30, 0, 30, 10, NOFX, ROOM, NZ(0, 3), 60, 90},
+    /* SOUND EFFECTS 121-128 */
+    {"STRING SLAP", NZK, 0, 34, 0, 36, 60, RZ_STRING, 40, 100, 30, 20, 60, NOSH, NZ(0, 6), 40, 40, 30, 0, 50},
+    {"FLUTE KEY CLK", NZK, 0, 30, 0, 30, 20, RZ_FLUTE, 30, 60, 30, 127, 60, NOSH, NZ(0, 4), 63, 0, .np_level = 127},
+    {"WIND", NZK, 110, 110, 100, 115, 40, NOFX, HALL, NZ(1, 6), 110, 40, .eg = EG_OPEN},
+    {"TWO BIRDS", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 60, 90, 58, 110, 127, 100, 78, 30, 26, SI_OCT, 100},
+    {"DIAL TONE", CYC, 0, 64, 127, 40, 0, NOFX, NOSH},
+    {"ENGINE", NZK, 20, 80, 120, 80, 40, NOFX, NOSH, NZ(0, 9), 60, 20, .oct = -1},
+    {"CROWD", NZK, 60, 90, 110, 96, 10, NOFX, HALL, NZ(0, 8), 60, 100},
+    {"THUNDER", NZK, 20, 90, 0, 96, 20, NOFX, 127, 120, 0, 60, SI_OCT, 40, NZ(2, 0), 40, 10,
+     .sh_space = SS_CATHEDRAL, .oct = -2},
+    /* ---- BANK 3: AIR (from bank 1: each GM sound slower and wider, in a SPACE that rises) ---- */
+    {"AIR GRAND PIANO", 85, 76, 0, 16, 74, 0, 86, 0, RZ_PIANO, 40, 80, 70, 40, 114, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 63, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR BRIGHT PIANO", 85, 76, 0, 16, 70, 0, 82, 0, RZ_PIANO, 50, 110, 70, 30, 114, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR E.GRAND", 85, 76, 0, 16, 70, 0, 82, 0, RZ_PIANO, 30, 100, 60, 20, 99, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR HONKY-TONK", 85, 76, 0, 16, 74, 0, 86, 0, RZ_PIANO, 115, 90, 70, 40, 114, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 63, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR E.PIANO 1", 85, 76, 0, 16, 112, 0, 116, 10, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 14, 2, 18, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR E.PIANO 2", 85, 76, 0, 64, 88, 10, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 14, 8, 45, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR HARPSICHORD", 85, 76, 0, 16, 66, 0, 78, 0, RZ_STRING, 40, 90, 45, 50, 81, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR CLAVINET", 38, 100, 32, 16, 78, 0, 90, 100, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR CELESTA", 85, 76, 0, 16, 60, 0, 72, 0, RZ_MODAL, 100, 120, 84, 30, 114, 120, 112, 50, 44, SI_OCT, 86, 5, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE, .oct = 1},
+    {"AIR GLOCKENSPIEL", 85, 76, 0, 16, 60, 0, 72, 0, RZ_MODAL, 104, 127, 81, 28, 114, 120, 112, 50, 44, SI_OCT, 86, 5, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE, .oct = 1},
+    {"AIR MUSIC BOX", 85, 76, 0, 16, 58, 0, 70, 0, RZ_MODAL, 100, 127, 90, 40, 72, 120, 112, 50, 44, SI_OCT, 86, 25, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE, .oct = 1},
+    {"AIR VIBRAPHONE", 6, 64, 64, 16, 82, 0, 94, 0, RZ_MODAL, 92, 90, 84, 24, 99, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR MARIMBA", 6, 64, 64, 16, 76, 0, 88, 0, RZ_MODAL, 90, 70, 60, 24, 54, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR XYLOPHONE", 85, 76, 0, 16, 64, 0, 76, 0, RZ_MODAL, 116, 110, 48, 20, 90, 120, 112, 50, 44, SI_OCT, 86, 5, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE, .oct = 1},
+    {"AIR TUBULAR BELLS", 85, 76, 0, 16, 70, 0, 82, 0, RZ_MODAL, 104, 100, 84, 16, 114, 120, 112, 50, 44, SI_OCT, 86, 5, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR DULCIMER", 85, 76, 0, 16, 66, 0, 78, 0, RZ_SYMP, 4, 100, 82, 60, 81, 120, 112, 50, 44, SI_OCT, 86, 5, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR DRAWBAR ORGAN", 85, 76, 0, 64, 64, 127, 104, 0, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 0, 12, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR PERC. ORGAN", 85, 76, 0, 64, 60, 100, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 2, 20, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR ROCK ORGAN", 85, 76, 0, 64, 64, 127, 104, 10, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 6, 70, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR CHURCH ORGAN", 85, 76, 0, 64, 64, 127, 104, 0, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 2, 8, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR REED ORGAN", 6, 64, 64, 64, 64, 120, 104, 0, RZ_REED, 80, 70, 88, 110, 99, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR ACCORDION", 6, 64, 64, 64, 64, 120, 104, 0, RZ_REED, 100, 100, 88, 115, 108, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR HARMONICA", 85, 76, 0, 64, 64, 115, 104, 20, RZ_REED, 90, 110, 83, 100, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 15, SS_MOSQUE, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR TANGO ACCORD.", 6, 64, 64, 64, 64, 120, 104, 10, RZ_REED, 110, 110, 88, 120, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR NYLON GUITAR", 85, 76, 0, 16, 70, 0, 82, 0, RZ_STRING, 40, 60, 67, 40, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR STEEL GUITAR", 85, 76, 0, 16, 68, 0, 80, 0, RZ_STRING, 40, 100, 75, 30, 90, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR JAZZ GUITAR", 85, 76, 0, 16, 70, 0, 82, 0, RZ_STRING, 44, 40, 63, 50, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR CLEAN GUITAR", 85, 76, 0, 16, 70, 0, 82, 0, RZ_STRING, 45, 90, 72, 40, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR MUTED GUITAR", 85, 76, 0, 16, 64, 0, 76, 0, RZ_STRING, 40, 70, 22, 40, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR OVERDRIVE GTR", 110, 64, 96, 64, 80, 100, 104, 50, RZ_STRING, 45, 90, 72, 40, 45, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR DIST GTR", 124, 64, 96, 64, 64, 110, 104, 40, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR GTR HARMONICS", 54, 90, 64, 16, 94, 0, 106, 50, RZ_MODAL, 8, 120, 75, 50, 108, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR ACOUSTIC BASS", 85, 76, 0, 16, 74, 0, 86, 0, RZ_STRING, 40, 30, 54, 30, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR FINGER BASS", 85, 76, 0, 16, 74, 0, 86, 0, RZ_STRING, 40, 50, 60, 30, 81, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR PICK BASS", 85, 76, 0, 16, 70, 0, 82, 0, RZ_STRING, 40, 90, 60, 20, 81, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR FRETLESS BASS", 6, 30, 64, 64, 70, 90, 104, 30, RZ_STRING, 50, 40, 67, 40, 45, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR SLAP BASS 1", 54, 50, 64, 16, 76, 0, 88, 90, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR SLAP BASS 2", 38, 70, 32, 64, 56, 20, 104, 110, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR SYNTH BASS 1", 85, 20, 0, 64, 60, 100, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR SYNTH BASS 2", 54, 70, 16, 64, 60, 40, 104, 110, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE, .oct = -2},
+    {"AIR VIOLIN", 85, 76, 0, 68, 80, 118, 104, 10, RZ_BOW, 110, 90, 88, 60, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 63, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SWELL},
+    {"AIR VIOLA", 85, 76, 0, 70, 80, 118, 104, 10, RZ_BOW, 110, 75, 88, 64, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 63, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SWELL},
+    {"AIR CELLO", 85, 76, 0, 72, 80, 118, 104, 10, RZ_BOW, 115, 60, 93, 70, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 63, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SWELL, .oct = -1},
+    {"AIR CONTRABASS", 85, 76, 0, 74, 80, 118, 104, 10, RZ_BOW, 120, 45, 93, 74, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 63, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SWELL, .oct = -2},
+    {"AIR TREMOLO STR.", 85, 76, 0, 64, 80, 110, 104, 20, RZ_BOW, 105, 85, 88, 60, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 63, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SWELL},
+    {"AIR PIZZICATO", 85, 76, 0, 16, 66, 0, 78, 0, RZ_STRING, 40, 70, 37, 40, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 63, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR HARP", 85, 76, 0, 16, 70, 0, 82, 0, RZ_STRING, 40, 90, 45, 50, 81, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 63, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR TIMPANI", 85, 76, 0, 16, 64, 0, 76, 40, RZ_DRUM, 120, 90, 95, 30, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR STRINGS", 85, 76, 0, 80, 96, 115, 104, 10, RZ_BOW, 110, 80, 93, 64, 99, 120, 112, 50, 44, SI_OCT, 86, 11, 40, 30, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SWELL},
+    {"AIR SLOW STRINGS", 85, 76, 0, 96, 100, 115, 104, 10, RZ_BOW, 110, 70, 93, 70, 99, 120, 112, 50, 44, SI_OCT, 86, 11, 40, 30, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SWELL},
+    {"AIR SYN STRINGS 1", 85, 76, 0, 84, 90, 110, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 11, 20, 100, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR SYN STRINGS 2", 85, 76, 0, 94, 90, 110, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 6, 40, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR CHOIR AAHS", 85, 76, 0, 80, 96, 115, 104, 10, RZ_VOICE, 64, 80, 48, 60, 99, 120, 112, 50, 44, SI_OCT, 86, 11, 8, 40, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_VOWEL},
+    {"AIR VOICE OOHS", 85, 76, 0, 80, 96, 115, 104, 10, RZ_VOICE, 64, 60, 48, 4, 99, 120, 112, 50, 44, SI_OCT, 86, 11, 8, 40, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_VOWEL},
+    {"AIR SYNTH VOICE", 85, 76, 0, 94, 90, 110, 104, 20, RZ_VOICE, 40, 90, 48, 90, 90, 120, 112, 50, 44, SI_OCT, 86, 12, 10, 80, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_VOWEL},
+    {"AIR ORCHESTRA HIT", 6, 64, 64, 16, 94, 0, 106, 30, RZ_BRASS, 110, 110, 68, 0, 99, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR TRUMPET", 6, 64, 64, 64, 80, 112, 104, 10, RZ_BRASS, 100, 100, 68, 0, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 10, SS_HALL, 0, 0, .eg = EG_BLOOM},
+    {"AIR TROMBONE", 6, 64, 64, 64, 80, 112, 104, 10, RZ_BRASS, 70, 80, 73, 0, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM, .oct = -1},
+    {"AIR TUBA", 6, 64, 64, 64, 80, 112, 104, 10, RZ_BRASS, 30, 55, 78, 0, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM, .oct = -2},
+    {"AIR MUTED TRUMPET", 6, 64, 64, 64, 76, 110, 104, 10, RZ_BRASS, 90, 100, 68, 110, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
+    {"AIR FRENCH HORN", 6, 64, 64, 68, 84, 112, 104, 10, RZ_BRASS, 20, 50, 83, 0, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM, .oct = -1},
+    {"AIR BRASS SECTION", 6, 64, 64, 64, 80, 112, 104, 20, RZ_BRASS, 90, 95, 68, 0, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 10, SS_HALL, 0, 0, .eg = EG_BLOOM},
+    {"AIR SYNTH BRASS 1", 85, 76, 0, 64, 70, 90, 104, 70, RZ_BRASS, 110, 120, 63, 0, 81, 120, 112, 50, 44, SI_OCT, 86, 11, 10, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR SYNTH BRASS 2", 85, 76, 0, 64, 80, 100, 104, 50, RZ_BRASS, 80, 100, 68, 40, 81, 120, 112, 50, 44, SI_OCT, 86, 11, 16, 80, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
+    {"AIR SOPRANO SAX", 85, 76, 0, 64, 76, 115, 104, 10, RZ_REED, 70, 100, 78, 40, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 10, SS_CATHEDRAL, 0, 0, .eg = EG_GROWL},
+    {"AIR ALTO SAX", 85, 76, 0, 64, 76, 115, 104, 10, RZ_REED, 60, 90, 78, 60, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 15, SS_CATHEDRAL, 0, 0, .eg = EG_GROWL},
+    {"AIR TENOR SAX", 85, 76, 0, 64, 76, 115, 104, 10, RZ_REED, 55, 80, 78, 80, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 25, SS_CATHEDRAL, 0, 0, .eg = EG_GROWL, .oct = -1},
+    {"AIR BARITONE SAX", 85, 76, 0, 64, 76, 115, 104, 10, RZ_REED, 50, 65, 78, 100, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 30, SS_CATHEDRAL, 0, 0, .eg = EG_GROWL, .oct = -1},
+    {"AIR OBOE", 6, 64, 64, 64, 76, 115, 104, 10, RZ_REED, 110, 100, 78, 120, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR ENGLISH HORN", 6, 64, 64, 64, 76, 115, 104, 10, RZ_REED, 100, 80, 78, 110, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR BASSOON", 6, 64, 64, 64, 76, 115, 104, 10, RZ_REED, 90, 60, 83, 105, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_REEDSWELL, .oct = -1},
+    {"AIR CLARINET", 124, 64, 64, 64, 76, 118, 104, 10, RZ_REED, 40, 80, 83, 0, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_REEDSWELL},
+    {"AIR PICCOLO", 6, 64, 64, 64, 76, 110, 104, 10, RZ_FLUTE, 40, 90, 78, 40, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_OVERTONE, .oct = 1},
+    {"AIR FLUTE", 6, 64, 64, 64, 78, 110, 104, 10, RZ_FLUTE, 30, 70, 78, 50, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_OVERTONE},
+    {"AIR RECORDER", 6, 64, 64, 64, 76, 110, 104, 10, RZ_FLUTE, 20, 60, 78, 20, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_OVERTONE},
+    {"AIR PAN FLUTE", 85, 76, 0, 64, 80, 110, 104, 10, RZ_FLUTE, 30, 60, 78, 100, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_CHIFF},
+    {"AIR BLOWN BOTTLE", 85, 76, 0, 74, 80, 110, 104, 10, RZ_FLUTE, 0, 30, 78, 110, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_CHIFF},
+    {"AIR SHAKUHACHI", 85, 76, 0, 74, 84, 105, 104, 10, RZ_FLUTE, 50, 60, 78, 120, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 126, 63, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_CHIFF},
+    {"AIR WHISTLE", 6, 64, 64, 64, 70, 115, 104, 10, RZ_FLUTE, 30, 90, 78, 20, 108, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_OVERTONE, .oct = 1},
+    {"AIR OCARINA", 6, 64, 127, 64, 76, 110, 104, 10, RZ_FLUTE, 10, 30, 78, 10, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_OVERTONE},
+    {"AIR SQUARE LEAD", 85, 76, 0, 64, 64, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR SAW LEAD", 85, 76, 0, 64, 64, 115, 104, 40, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 11, 4, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR CALLIOPE", 85, 76, 0, 64, 70, 110, 104, 10, RZ_FLUTE, 60, 100, 78, 80, 90, 120, 112, 50, 44, SI_OCT, 86, 20, 0, 4, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_CHIFF},
+    {"AIR CHIFF LEAD", 6, 64, 64, 64, 70, 110, 104, 30, RZ_FLUTE, 40, 100, 88, 90, 99, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_CHIFF},
+    {"AIR CHARANG", 120, 50, 96, 64, 66, 110, 104, 50, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR VOICE LEAD", 85, 76, 0, 64, 70, 110, 104, 30, RZ_VOICE, 40, 90, 48, 64, 99, 120, 112, 50, 44, SI_OCT, 86, 11, 4, 20, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_VOWEL},
+    {"AIR FIFTHS LEAD", 85, 76, 0, 64, 70, 110, 104, 40, RZ_SYMP, 20, 90, 75, 110, 72, 120, 112, 50, 44, SI_OCT, 86, 11, 4, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR BASS + LEAD", 85, 76, 0, 64, 80, 110, 104, 40, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR NEW AGE PAD", 6, 64, 64, 90, 100, 110, 104, 20, RZ_MODAL, 100, 127, 90, 40, 54, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR WARM PAD", 6, 30, 64, 92, 100, 115, 104, 10, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR POLYSYNTH", 85, 76, 0, 64, 90, 80, 104, 50, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 11, 8, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR CHOIR PAD", 85, 76, 0, 96, 100, 115, 104, 20, RZ_VOICE, 64, 80, 48, 64, 81, 120, 112, 50, 44, SI_OCT, 86, 11, 8, 30, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_VOWEL},
+    {"AIR BOWED PAD", 6, 64, 64, 96, 100, 115, 104, 10, RZ_BOW, 90, 70, 98, 100, 99, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR METALLIC PAD", 85, 76, 0, 90, 100, 110, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 16, 30, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR HALO PAD", 85, 76, 0, 96, 100, 115, 104, 20, RZ_VOICE, 40, 60, 48, 20, 81, 120, 112, 50, 44, SI_OCT, 86, 11, 6, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_VOWEL},
+    {"AIR SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 50, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"AIR RAIN", 85, 76, 0, 64, 70, 60, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 8, 90, 50, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR SOUNDTRACK", 85, 100, 127, 110, 110, 120, 115, 50, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR CRYSTAL", 6, 100, 64, 16, 108, 0, 116, 10, RZ_MODAL, 100, 127, 90, 40, 72, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR ATMOSPHERE", 6, 64, 64, 16, 104, 0, 116, 30, RZ_STRING, 40, 90, 75, 40, 81, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR BRIGHTNESS", 85, 76, 0, 64, 90, 110, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 20, 8, 60, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR GOBLINS", 6, 64, 64, 64, 90, 100, 104, 20, RZ_HAWK, 70, 90, 58, 70, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR ECHOES", 54, 90, 64, 16, 94, 0, 106, 30, RZ_MODAL, 70, 100, 82, 12, 72, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR SCI-FI", 85, 76, 0, 64, 80, 100, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 22, 50, 30, 100, 127, 60, 0, SS_CATHEDRAL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR SITAR", 85, 76, 0, 16, 70, 0, 82, 0, RZ_SYMP, 16, 80, 78, 70, 81, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR BANJO", 85, 76, 0, 16, 64, 0, 76, 0, RZ_STRING, 20, 120, 45, 20, 90, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR SHAMISEN", 85, 76, 0, 16, 62, 0, 74, 0, RZ_STRING, 10, 110, 37, 30, 90, 120, 112, 50, 44, SI_OCT, 86, 12, 0, 63, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR KOTO", 85, 76, 0, 16, 70, 0, 82, 0, RZ_STRING, 60, 70, 72, 20, 76, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 63, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR KALIMBA", 85, 76, 0, 16, 66, 0, 78, 0, RZ_MODAL, 40, 90, 60, 30, 90, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR BAGPIPE", 6, 64, 64, 64, 70, 127, 104, 10, RZ_REED, 100, 110, 88, 120, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR FIDDLE", 85, 76, 0, 64, 76, 115, 104, 20, RZ_BOW, 100, 110, 83, 45, 114, 120, 112, 50, 44, SI_OCT, 86, 17, 63, 63, 0, 0, 0, 12, SS_TEMPLE, 0, 0, .eg = EG_SWELL},
+    {"AIR SHANAI", 6, 64, 64, 64, 76, 115, 104, 10, RZ_REED, 120, 120, 73, 125, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 20, SS_TEMPLE, 0, 0, .eg = EG_GROWL},
+    {"AIR TINKLE BELL", 85, 76, 0, 16, 58, 0, 70, 0, RZ_MODAL, 70, 120, 82, 12, 108, 120, 112, 50, 44, SI_OCT, 86, 25, 63, 0, 0, 0, 0, 0, SS_MOSQUE, 127, 0, .eg = EG_SHIMRISE, .oct = 1},
+    {"AIR AGOGO", 85, 76, 0, 16, 62, 0, 74, 0, RZ_MODAL, 116, 100, 60, 40, 99, 120, 112, 50, 44, SI_OCT, 86, 25, 63, 0, 0, 0, 0, 0, SS_MOSQUE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR STEEL DRUMS", 85, 76, 0, 16, 70, 0, 82, 0, RZ_MODAL, 90, 110, 81, 40, 114, 120, 112, 50, 44, SI_OCT, 86, 19, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR WOODBLOCK", 85, 76, 0, 16, 58, 0, 70, 0, RZ_MODAL, 30, 70, 37, 20, 81, 120, 112, 50, 44, SI_OCT, 86, 5, 63, 0, 0, 0, 0, 0, SS_MOSQUE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR TAIKO", 85, 76, 0, 16, 66, 0, 78, 0, RZ_DRUM, 0, 60, 80, 20, 114, 120, 112, 50, 44, SI_OCT, 86, 3, 126, 0, 0, 0, 0, 0, SS_MOSQUE, 127, 0, .eg = EG_SHIMRISE, .oct = -1},
+    {"AIR MELODIC TOM", 85, 76, 0, 16, 64, 0, 76, 0, RZ_DRUM, 10, 80, 70, 40, 114, 120, 112, 50, 44, SI_OCT, 86, 3, 126, 0, 0, 0, 0, 0, SS_MOSQUE, 127, 0, .eg = EG_SHIMRISE},
+    {"AIR SYNTH DRUM", 85, 76, 0, 16, 76, 0, 88, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 4, 30, 30, 44, 0, 120, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR REV CYMBAL", 85, 76, 0, 110, 54, 0, 66, 10, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 17, 110, 90, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR GTR FRET NOIS", 85, 76, 0, 16, 64, 0, 76, 50, RZ_STRING, 40, 90, 45, 40, 54, 120, 112, 50, 44, SI_OCT, 86, 7, 40, 40, 30, 0, 50, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR BREATH NOISE", 85, 76, 0, 64, 70, 60, 104, 0, RZ_FLUTE, 30, 60, 78, 127, 63, 120, 112, 50, 44, SI_OCT, 86, 17, 127, 127, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_CHIFF},
+    {"AIR SEASHORE", 85, 76, 0, 110, 110, 100, 115, 0, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 17, 127, 127, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR BIRD TWEET", 6, 64, 64, 16, 112, 0, 116, 20, RZ_SYRINX, 90, 70, 48, 15, 114, 120, 112, 50, 44, SI_OCT, 86, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR TELEPHONE", 85, 76, 0, 64, 64, 127, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 3, 30, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR HELICOPTER", 85, 76, 0, 64, 80, 120, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 10, 20, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR APPLAUSE", 85, 76, 0, 64, 80, 110, 104, 0, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 9, 100, 80, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"AIR GUNSHOT", 85, 76, 0, 16, 84, 0, 96, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 112, 50, 44, SI_OCT, 86, 21, 80, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    /* ---- BANK 4: CHUA (from bank 2: the circuit's chaos instead of the exciter, through the same model) ---- */
+    {"CHUA MELLOW GRAND", 124, 64, 0, 0, 70, 90, 62, 26, RZ_PIANO, 30, 50, 84, 60, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 30, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA ROCK PIANO", 124, 64, 0, 0, 70, 90, 60, 34, RZ_PIANO, 60, 120, 76, 22, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 90, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA DETUNED CP", 124, 64, 0, 0, 70, 90, 60, 30, RZ_PIANO, 90, 110, 70, 24, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA SALOON PIANO", 124, 64, 0, 0, 70, 90, 60, 34, RZ_PIANO, 127, 100, 76, 30, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA DETUNED EP 1", 119, 64, 0, 0, 100, 0, 92, 40, RZ_MODAL, 10, 60, 70, 20, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 2, 18, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA FM BELL EP", 124, 64, 0, 0, 92, 0, 88, 50, RZ_MODAL, 60, 100, 76, 16, 127, 100, 78, 40, 26, SI_OCT, 90, 0, 8, 70, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA COUPLED HARP", 124, 64, 0, 0, 70, 90, 60, 20, RZ_SYMP, 40, 110, 60, 60, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA PULSE CLAV", 124, 64, 0, 0, 70, 90, 60, 127, RZ_STRING, 50, 110, 40, 10, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA SOFT CELESTA", 113, 64, 0, 0, 48, 0, 48, 20, RZ_MODAL, 100, 90, 84, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = 1},
+    {"CHUA GLOCK HALL", 118, 64, 0, 0, 44, 0, 44, 20, RZ_MODAL, 104, 120, 84, 28, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 63, 0, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .oct = 1},
+    {"CHUA MUSIC BOX 2", 123, 64, 0, 0, 42, 0, 42, 20, RZ_MODAL, 96, 120, 92, 50, 127, 110, 100, 60, 45, SI_OCT, 90, 0, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = 1},
+    {"CHUA WET VIBES", 115, 64, 0, 0, 68, 0, 70, 20, RZ_MODAL, 92, 80, 88, 24, 127, 110, 100, 30, 50, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA BALAFON", 120, 64, 0, 0, 54, 0, 54, 20, RZ_MODAL, 80, 80, 52, 30, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA HARD XYLO", 112, 64, 0, 0, 44, 0, 44, 20, RZ_MODAL, 120, 127, 44, 16, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = 1},
+    {"CHUA CHURCH BELL", 117, 64, 0, 0, 58, 0, 58, 20, RZ_MODAL, 110, 90, 90, 10, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 63, 0, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .oct = -1},
+    {"CHUA SANTUR", 124, 64, 0, 0, 70, 90, 60, 20, RZ_SYMP, 10, 120, 90, 40, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA 70S ORGAN", 112, 47, 64, 2, 64, 127, 50, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 4, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA DETUNED PERC", 119, 60, 64, 0, 58, 90, 50, 70, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 8, 24, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA ROTARY ORGAN", 101, 73, 64, 2, 64, 127, 54, 50, RZ_SYMP, 60, 90, 70, 60, 60, 85, 72, 0, 30, SI_OCT, 70, 0, 6, 90, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA CHURCH OCT M", 108, 45, 64, 30, 64, 127, 90, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 110, 20, 45, SI_OCT, 70, 0, 4, 4, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
+    {"CHUA PUFF ORGAN", 115, 58, 64, 30, 64, 120, 66, 30, RZ_REED, 60, 50, 88, 110, 110, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_CHIFF},
+    {"CHUA ITALIAN ACCO", 122, 71, 64, 16, 64, 120, 56, 30, RZ_REED, 120, 110, 88, 118, 120, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
+    {"CHUA BLUES HARP", 104, 84, 64, 20, 64, 115, 56, 60, RZ_REED, 100, 120, 78, 90, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_GROWL},
+    {"CHUA BANDONEON", 111, 56, 64, 24, 64, 120, 60, 40, RZ_REED, 90, 80, 88, 112, 120, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
+    {"CHUA UKULELE", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 40, 80, 70, 34, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA 12-STRING GT", 124, 64, 0, 0, 70, 90, 60, 20, RZ_SYMP, 40, 110, 85, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
+    {"CHUA PEDAL STEEL", 107, 54, 64, 10, 60, 60, 60, 20, RZ_STRING, 50, 90, 80, 40, 100, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .eg = EG_SWELL, .oct = -1},
+    {"CHUA CHORUS GTR", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 45, 100, 85, 40, 127, 110, 100, 60, 45, SI_OCT, 90, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
+    {"CHUA FUNK GUITAR", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 40, 110, 40, 20, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
+    {"CHUA GUITAR PINCH", 103, 52, 64, 0, 76, 90, 64, 90, RZ_STRING, 50, 120, 72, 10, 60, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -1},
+    {"CHUA FEEDBACK GTR", 110, 65, 64, 10, 80, 120, 70, 90, RZ_STRING, 45, 110, 90, 40, 40, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN, .oct = -1},
+    {"CHUA BELL HARM", 124, 64, 0, 0, 84, 0, 88, 80, RZ_MODAL, 20, 127, 82, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA UPRIGHT JAZZ", 124, 64, 0, 0, 70, 90, 62, 20, RZ_STRING, 40, 20, 68, 40, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -2},
+    {"CHUA FINGER SLAP", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 40, 80, 70, 16, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -2},
+    {"CHUA MUTED PICK B", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 40, 70, 34, 20, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -2},
+    {"CHUA FRETLESS 2", 120, 48, 64, 20, 76, 100, 60, 70, RZ_STRING, 60, 30, 72, 50, 60, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
+    {"CHUA POP BASS", 124, 64, 0, 0, 70, 90, 60, 127, RZ_STRING, 40, 100, 60, 10, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
+    {"CHUA THUMB BASS", 109, 74, 64, 0, 58, 30, 54, 110, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
+    {"CHUA ACID BASS", 116, 46, 64, 0, 56, 60, 48, 127, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN, .oct = -2},
+    {"CHUA RUBBER BASS", 123, 59, 64, 0, 64, 90, 56, 80, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
+    {"CHUA SLOW VIOLIN", 105, 72, 64, 80, 90, 118, 80, 40, RZ_BOW, 110, 80, 88, 60, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 63, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL},
+    {"CHUA SUL PONT VIO", 112, 44, 64, 46, 80, 118, 70, 40, RZ_BOW, 100, 110, 83, 10, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 63, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL},
+    {"CHUA SLOW CELLO", 119, 57, 64, 84, 90, 118, 82, 40, RZ_BOW, 115, 55, 93, 70, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 63, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL, .oct = -1},
+    {"CHUA BOWED BASS", 101, 70, 64, 40, 76, 118, 66, 50, RZ_BOW, 120, 60, 88, 60, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 63, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL, .oct = -2},
+    {"CHUA SLOW TREMOLO", 108, 83, 64, 80, 90, 110, 90, 50, RZ_BOW, 105, 75, 93, 60, 127, 110, 100, 60, 45, SI_OCT, 90, 0, 63, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL},
+    {"CHUA HALL PIZZ", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 40, 60, 50, 40, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA YANG QIN", 124, 64, 0, 0, 70, 90, 60, 20, RZ_SYMP, 20, 110, 82, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA TIMPANI HALL", 113, 64, 0, 0, 54, 0, 54, 70, RZ_DRUM, 120, 80, 98, 30, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 126, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .oct = -1},
+    {"CHUA ORCHESTRA", 111, 53, 64, 70, 96, 115, 96, 40, RZ_BOW, 110, 70, 93, 64, 110, 120, 110, 20, 45, SI_OCT, 70, 0, 40, 30, 0, 0, 0, 40, SS_CATHEDRAL, 0, 0, .eg = EG_SWELL},
+    {"CHUA LEGATO STR", 118, 66, 64, 90, 100, 120, 100, 40, RZ_BOW, 105, 70, 98, 70, 110, 110, 100, 60, 45, SI_OCT, 90, 0, 40, 30, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL},
+    {"CHUA RESO STRINGS", 100, 79, 64, 60, 90, 110, 90, 90, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 0, 20, 100, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA SOLINA", 107, 51, 64, 60, 90, 115, 90, 40, RZ_SYMP, 60, 60, 80, 40, 60, 110, 100, 60, 45, SI_OCT, 90, 0, 10, 60, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA CHORUS AAHS", 114, 64, 64, 90, 100, 115, 104, 40, RZ_VOICE, 40, 70, 48, 50, 110, 120, 110, 20, 45, SI_OCT, 70, 0, 8, 40, 0, 0, 0, 40, SS_CATHEDRAL, 0, 0, .eg = EG_VOWEL},
+    {"CHUA HUMMING", 121, 77, 64, 80, 96, 115, 100, 30, RZ_VOICE, 90, 40, 52, 0, 110, 115, 96, 0, 40, SI_OCT, 80, 0, 8, 20, 0, 0, 0, 40, SS_HALL, 0, 0},
+    {"CHUA ANALOG VOICE", 103, 49, 64, 60, 90, 110, 96, 70, RZ_VOICE, 64, 100, 48, 30, 100, 110, 100, 60, 45, SI_OCT, 90, 0, 10, 60, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_VOWEL},
+    {"CHUA BASS HIT", 114, 64, 0, 0, 82, 0, 86, 60, RZ_BRASS, 60, 80, 73, 0, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .oct = -1},
+    {"CHUA DARK TRUMPET", 117, 75, 64, 30, 80, 112, 62, 40, RZ_BRASS, 80, 70, 73, 0, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_BLOOM},
+    {"CHUA BRIGHT BONE", 124, 47, 64, 30, 78, 112, 62, 40, RZ_BRASS, 80, 110, 68, 0, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_BLOOM, .oct = -1},
+    {"CHUA SOFT TUBA", 106, 60, 64, 44, 84, 112, 66, 40, RZ_BRASS, 20, 40, 83, 0, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_BLOOM, .oct = -2},
+    {"CHUA WAH TRUMPET", 113, 73, 64, 24, 76, 110, 60, 40, RZ_BRASS, 90, 100, 68, 90, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA HORN SECTION", 120, 45, 64, 50, 84, 112, 80, 40, RZ_BRASS, 30, 60, 83, 0, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_TEMPLE, 0, 0, .eg = EG_BLOOM, .oct = -1},
+    {"CHUA BRIGHT BRASS", 102, 58, 64, 24, 76, 112, 60, 50, RZ_BRASS, 100, 120, 63, 0, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_BLOOM},
+    {"CHUA JUMP BRASS", 109, 71, 64, 10, 66, 90, 56, 110, RZ_BRASS, 110, 127, 63, 0, 90, 85, 72, 0, 30, SI_OCT, 70, 0, 4, 60, 0, 0, 0, 40, SS_HALL, 0, 0},
+    {"CHUA ANALOG BRASS", 116, 84, 64, 40, 80, 100, 70, 90, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA SOFT SOPRANO", 123, 56, 64, 30, 80, 115, 64, 40, RZ_REED, 80, 70, 83, 30, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
+    {"CHUA BREATHY ALTO", 105, 69, 64, 24, 78, 115, 62, 40, RZ_REED, 60, 70, 78, 60, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 126, 90, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
+    {"CHUA GROWL TENOR", 112, 82, 64, 20, 76, 115, 60, 40, RZ_REED, 55, 100, 73, 80, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_GROWL, .oct = -1},
+    {"CHUA BARI ROCK", 119, 54, 64, 20, 72, 115, 60, 50, RZ_REED, 45, 90, 73, 100, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_GROWL, .oct = -1},
+    {"CHUA BAROQUE OBOE", 101, 67, 64, 24, 76, 115, 62, 40, RZ_REED, 100, 80, 83, 124, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_TEMPLE, 0, 0, .eg = EG_REEDSWELL},
+    {"CHUA DARK ENG HOR", 108, 80, 64, 30, 78, 115, 64, 40, RZ_REED, 90, 60, 83, 110, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
+    {"CHUA CONTRABSN", 115, 52, 64, 30, 78, 115, 64, 40, RZ_REED, 80, 50, 88, 100, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL, .oct = -2},
+    {"CHUA BASS CLAR", 122, 65, 64, 30, 76, 118, 62, 40, RZ_REED, 30, 60, 88, 0, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_REEDSWELL, .oct = -1},
+    {"CHUA FIFE", 104, 78, 64, 20, 72, 110, 60, 40, RZ_FLUTE, 60, 110, 73, 30, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_CHIFF, .oct = 1},
+    {"CHUA BREATHY FLUT", 111, 50, 64, 40, 80, 110, 72, 40, RZ_FLUTE, 30, 60, 78, 60, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 126, 90, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_OVERTONE},
+    {"CHUA ALTO RECRDR", 118, 63, 64, 36, 78, 110, 66, 40, RZ_FLUTE, 10, 50, 83, 20, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_OVERTONE},
+    {"CHUA KENA", 100, 76, 64, 36, 80, 110, 74, 40, RZ_FLUTE, 50, 80, 78, 80, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_CHIFF},
+    {"CHUA JUG", 107, 48, 64, 40, 76, 110, 70, 40, RZ_FLUTE, 0, 20, 83, 120, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 126, 30, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_CHIFF, .oct = -1},
+    {"CHUA DIZI", 114, 61, 64, 30, 76, 110, 66, 40, RZ_FLUTE, 70, 110, 73, 60, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_OVERTONE},
+    {"CHUA TIN WHISTLE", 121, 74, 64, 20, 70, 115, 62, 40, RZ_FLUTE, 40, 100, 78, 30, 120, 85, 72, 0, 30, SI_OCT, 70, 0, 126, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_CHIFF, .oct = 1},
+    {"CHUA XUN", 103, 46, 64, 40, 80, 110, 70, 40, RZ_FLUTE, 0, 20, 83, 30, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_TEMPLE, 0, 0, .eg = EG_OVERTONE},
+    {"CHUA SINE LEAD", 110, 59, 64, 2, 64, 115, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA DOUBLE SAW", 117, 72, 64, 2, 64, 115, 60, 80, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 10, 40, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA VENT SYNTH", 124, 44, 64, 20, 72, 110, 64, 50, RZ_FLUTE, 80, 110, 73, 90, 100, 85, 72, 0, 30, SI_OCT, 70, 0, 4, 60, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_CHIFF},
+    {"CHUA RUBBY", 106, 57, 64, 0, 72, 110, 62, 80, RZ_FLUTE, 60, 90, 83, 40, 100, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA DIST LEAD", 113, 70, 64, 2, 70, 115, 64, 100, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA VOX LEAD", 120, 83, 64, 10, 70, 110, 64, 60, RZ_VOICE, 90, 70, 48, 20, 110, 85, 72, 0, 30, SI_OCT, 70, 0, 4, 20, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_VOWEL},
+    {"CHUA FOURTHS LEAD", 102, 55, 64, 4, 70, 110, 64, 70, RZ_SYMP, 50, 90, 75, 80, 80, 85, 72, 0, 30, SI_OCT, 70, 0, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA FAT LEAD", 109, 68, 64, 4, 80, 115, 70, 90, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA ICE PAD", 116, 81, 64, 90, 100, 110, 104, 50, RZ_MODAL, 110, 127, 92, 30, 60, 110, 98, 100, 62, SI_2OCT, 110, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"CHUA SINE PAD", 123, 53, 64, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA POLY KING", 105, 66, 64, 30, 90, 90, 84, 90, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 0, 12, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA ITOPIA", 112, 79, 64, 96, 100, 115, 104, 50, RZ_VOICE, 30, 90, 48, 90, 90, 127, 115, 100, 58, SI_OCT5, 90, 0, 8, 30, 0, 0, 0, 40, SS_CATHEDRAL, 0, 0, .eg = EG_VOWEL},
+    {"CHUA GLASS BOW", 119, 51, 64, 96, 100, 115, 104, 40, RZ_BOW, 70, 110, 98, 20, 110, 127, 113, 90, 58, SI_OCT, 100, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
+    {"CHUA TINE PAD", 101, 64, 64, 90, 100, 110, 104, 50, RZ_MODAL, 60, 110, 88, 20, 80, 110, 100, 60, 45, SI_OCT, 90, 0, 8, 40, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA VOICE HALO", 108, 77, 64, 96, 100, 115, 104, 50, RZ_VOICE, 90, 60, 52, 50, 90, 127, 115, 90, 58, SI_FIFTH, 90, 0, 6, 20, 0, 0, 0, 40, SS_MOSQUE, 0, 0, .eg = EG_VOWEL},
+    {"CHUA POLAR SWEEP", 115, 49, 64, 100, 104, 115, 104, 100, RZ_MODAL, 0, 0, 0, 0, 0, 120, 108, 60, 52, SI_OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA STORM", 122, 62, 64, 20, 90, 80, 96, 50, RZ_MODAL, 0, 0, 0, 0, 0, 127, 115, 60, 62, SI_OCT, 70, 0, 110, 30, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA DARK SCORE", 104, 75, 64, 110, 110, 120, 115, 70, RZ_MODAL, 0, 0, 0, 0, 0, 127, 120, 40, 65, SI_FIFTH, 50, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
+    {"CHUA SYN MALLET", 121, 64, 0, 0, 58, 0, 62, 50, RZ_MODAL, 90, 110, 80, 24, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA WARM ATMOS", 118, 60, 64, 20, 90, 60, 96, 40, RZ_STRING, 40, 60, 80, 40, 90, 127, 108, 30, 52, SI_OCT, 60, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA SHIMMER BELL", 118, 64, 0, 0, 92, 0, 98, 40, RZ_MODAL, 104, 127, 88, 20, 127, 127, 115, 110, 60, SI_2OCT, 110, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA GOBLIN SYNTH", 107, 45, 64, 40, 90, 100, 90, 80, RZ_HAWK, 40, 110, 58, 90, 100, 110, 88, 40, 22, SI_FIFTH, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA ECHO BELL", 115, 64, 0, 0, 78, 0, 88, 40, RZ_MODAL, 104, 110, 86, 12, 127, 127, 115, 0, 58, SI_OCT, 70, 0, 63, 0, 0, 0, 0, 0, SS_TEMPLE, 127, 0},
+    {"CHUA STARTHEME", 121, 71, 64, 30, 90, 110, 96, 50, RZ_MODAL, 100, 120, 90, 30, 60, 110, 100, 60, 45, SI_OCT, 90, 0, 8, 80, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA SITAR 2", 124, 64, 0, 0, 70, 90, 60, 30, RZ_SYMP, 30, 100, 92, 40, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA MUTED BANJO", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 20, 110, 35, 20, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA TSUGARU", 124, 64, 0, 0, 70, 90, 60, 20, RZ_STRING, 10, 127, 55, 16, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 90, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA TAISHO KOTO", 124, 64, 0, 0, 70, 90, 60, 20, RZ_SYMP, 60, 90, 82, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA MBIRA", 119, 64, 0, 0, 54, 0, 54, 20, RZ_MODAL, 60, 100, 70, 20, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 30, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA DRONE PIPES", 113, 67, 64, 10, 70, 127, 64, 40, RZ_REED, 110, 120, 88, 122, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 40, SS_TEMPLE, 0, 0},
+    {"CHUA FOLK FIDDLE", 120, 80, 64, 30, 72, 115, 62, 50, RZ_BOW, 100, 120, 78, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 63, 63, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_SWELL},
+    {"CHUA ZURNA", 102, 52, 64, 16, 72, 115, 58, 50, RZ_REED, 127, 127, 68, 127, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_GROWL},
+    {"CHUA WIND CHIMES", 113, 64, 0, 0, 48, 0, 52, 20, RZ_MODAL, 80, 127, 88, 20, 127, 110, 100, 60, 45, SI_OCT, 90, 0, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = 1},
+    {"CHUA COWBELL", 118, 64, 0, 0, 42, 0, 42, 20, RZ_MODAL, 120, 90, 50, 30, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA GLASS DRUM", 123, 64, 0, 0, 54, 0, 54, 20, RZ_MODAL, 96, 127, 84, 30, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 30, 0, 0, 0, 0, SS_HALL, 127, 0},
+    {"CHUA CASTANETS", 115, 64, 0, 0, 38, 0, 38, 20, RZ_MODAL, 40, 110, 30, 10, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = 1},
+    {"CHUA CONCERT BD", 120, 64, 0, 0, 54, 0, 54, 20, RZ_DRUM, 0, 40, 90, 20, 127, 115, 96, 0, 40, SI_OCT, 80, 0, 126, 0, 0, 0, 0, 0, SS_CATHEDRAL, 127, 0, .oct = -2},
+    {"CHUA DEEP TOM", 112, 64, 0, 0, 52, 0, 52, 20, RZ_DRUM, 20, 60, 80, 40, 127, 85, 72, 0, 30, SI_OCT, 70, 0, 126, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
+    {"CHUA 808 TOM", 117, 64, 0, 0, 64, 0, 64, 40, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 30, 30, 50, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA REV SNARE", 122, 64, 0, 90, 38, 0, 38, 30, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 60, 90, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA STRING SLAP", 124, 64, 0, 0, 70, 90, 60, 80, RZ_STRING, 40, 100, 40, 20, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 40, 40, 30, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA FLUTE KEY CL", 119, 64, 0, 0, 38, 0, 38, 40, RZ_FLUTE, 30, 60, 30, 127, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 63, 0, 0, 0, 0, 40, SS_HALL, 127, 0},
+    {"CHUA WIND", 104, 72, 64, 110, 110, 100, 115, 60, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 0, 110, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
+    {"CHUA TWO BIRDS", 116, 64, 0, 0, 98, 0, 68, 50, RZ_SYRINX, 60, 90, 58, 110, 127, 100, 78, 30, 26, SI_OCT, 100, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA DIAL TONE", 118, 57, 64, 0, 64, 127, 40, 20, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA ENGINE", 100, 70, 64, 20, 80, 120, 80, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 60, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -1},
+    {"CHUA CROWD", 107, 83, 64, 60, 90, 110, 96, 30, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 0, 60, 100, 0, 0, 0, 0, SS_HALL, 0, 0},
+    {"CHUA THUNDER", 123, 64, 0, 20, 98, 0, 104, 40, RZ_MODAL, 0, 0, 0, 0, 0, 127, 120, 0, 60, SI_OCT, 40, 0, 40, 10, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .oct = -2},
 };
 #define NPRESETS (sizeof PRESETS / sizeof PRESETS[0])
-typedef char presets_are_128[NPRESETS == 128u ? 1 : -1];   /* (one for each MIDI program) */
+#define NBANKS 4u                                /* four banks of 128 (bank select; HOME held + PRESETS) */
+typedef char presets_are_512[NPRESETS == 128u * NBANKS ? 1 : -1];   /* (one for each MIDI program, per bank) */
 
 /* the FX page's own presets (PRESETS turned there): the resonator / waveguide alone, the sound left as it is */
 typedef struct { const char *name; uint8_t model, st, br, dm, pos, mix; } fx_preset_t;
@@ -338,7 +793,7 @@ static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not
  * load it instead of the built-in one; the remote's PRESETS sends all 128 as C (remote.c), for ui.c's table */
 #define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
 typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
-static upre_t upre[2] __attribute__((section(".pool")));   /* (zeroed at start: none) */
+static upre_t upre[NPRESETS / 64u] __attribute__((section(".pool")));   /* (zeroed at start: none) */
 static volatile uint8_t *const PR_SYS[PR_N] = {
     &sys.chaos, &sys.shape, &sys.output, &sys.attack, &sys.decay, &sys.sustain, &sys.release, &sys.ring,
     &sys.fx_model, &sys.fx_struct, &sys.fx_bright, &sys.fx_damp, &sys.fx_pos, &sys.fx_mix,
@@ -351,7 +806,7 @@ static const uint8_t *upre_v(uint32_t i) { i %= NPRESETS; return upre[i >> 6].v[
 static void upre_boot(void)                      /* (settings_boot: the flash there) */
 {
     uint32_t h;
-    for (h = 0; h < 2u; h++)
+    for (h = 0; h < NPRESETS / 64u; h++)
         if (st_load(OBJ_USER0 + h, &upre[h], sizeof upre[h]) != (int)sizeof upre[h])
             memset(&upre[h], 0, sizeof upre[h]);
 }
@@ -373,7 +828,7 @@ static int upre_clear(void)                      /* the built-in presets back (t
 {
     uint32_t h;
     int e = 0;
-    for (h = 0; h < 2u; h++) {
+    for (h = 0; h < NPRESETS / 64u; h++) {
         memset(&upre[h], 0, sizeof upre[h]);
         e |= st_save(OBJ_USER0 + h, &upre[h], sizeof upre[h]);
     }
@@ -387,7 +842,7 @@ static void preset_apply(uint32_t i)
         const uint8_t *v = upre_v(i);
         uint32_t k;
         mwd.on = 0;
-        sys.preset = (uint8_t)(i % NPRESETS);
+        sys.preset = (uint16_t)(i % NPRESETS);
         for (k = 0; k < PR_N; k++)
             *PR_SYS[k] = v[k];
         sys.fx_model = (uint8_t)(sys.fx_model % RZ_COUNT);
@@ -401,7 +856,7 @@ static void preset_apply(uint32_t i)
         return;
     }
     mwd.on = 0;                                         /* (the mod wheel takes the new value as its base) */
-    sys.preset = (uint8_t)(i % NPRESETS);
+    sys.preset = (uint16_t)(i % NPRESETS);
     sys.chaos = p->chaos;
     sys.shape = p->shape;
     sys.output = p->output;
@@ -554,6 +1009,7 @@ typedef struct {
     uint8_t mw_target, mw_depth, vel_to, vel_amt;
     uint8_t tape_lv[4], tape_len, tape_arm, sh_space, tape_spd;
     int8_t transpose;
+    uint8_t bank;                                /* (the preset's bank; settings saved before: bank 1) */
 } settings_t;
 
 static void settings_boot(void)    /* power-on, before the audio */
@@ -565,7 +1021,8 @@ static void settings_boot(void)    /* power-on, before the audio */
     if (!flash_ok)
         return;
     upre_boot();
-    if (st_load(OBJ_SETTINGS, &s, sizeof s) == (int)sizeof s && s.magic == SET_MAGIC) {
+    memset(&s, 0, sizeof s);                     /* (saved before the bank: its byte 0, bank 1) */
+    if (st_load(OBJ_SETTINGS, &s, sizeof s) >= (int)__builtin_offsetof(settings_t, bank) && s.magic == SET_MAGIC) {
         sys.octave = (int8_t)clamp(s.octave, OCT_MIN, OCT_MAX);
         sys.chaos = (uint8_t)(s.chaos & 127u);
         sys.shape = (uint8_t)(s.shape & 127u);
@@ -576,7 +1033,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.sustain = (uint8_t)(s.sustain & 127u);
         sys.ring = (uint8_t)(s.ring & 127u);
         sys.view = (uint8_t)(s.view % V_COUNT);
-        sys.preset = (uint8_t)(s.preset % NPRESETS);
+        sys.preset = (uint16_t)((s.preset & 127u) + 128u * (s.bank % NBANKS));
         sys.cpu2 = (uint8_t)(s.cpu2 & 3u);
         sys.fx_model = (uint8_t)(s.fx_model % RZ_COUNT);
         sys.fx_struct = (uint8_t)(s.fx_struct & 127u);
@@ -655,7 +1112,8 @@ static int settings_save(void)     /* 0 = saved */
     s.sustain = sys.sustain;
     s.ring = sys.ring;
     s.view = sys.view;
-    s.preset = sys.preset;
+    s.preset = (uint8_t)(sys.preset & 127u);
+    s.bank = (uint8_t)(sys.preset >> 7);
     s.cpu2 = sys.cpu2;
     s.fx_model = sys.fx_model;
     s.fx_struct = sys.fx_struct;
@@ -1951,7 +2409,7 @@ static void ui_input(void)
     char t[24], v[12];
     rm_btn = 0;
     if (keys_prog_req) {                                /* MIDI program change: that preset */
-        uint32_t pg = keys_prog_req - 1u;
+        uint32_t pg = keys_prog_req - 1u;               /* (bank x 128 + program) */
         keys_prog_req = 0;
         preset_load(pg);
         str_cpy(t, PRESETS[sys.preset % NPRESETS].name, sizeof t);
@@ -2293,6 +2751,15 @@ static void ui_input(void)
         ui_cat(t, sizeof t, h->name);
         ui_say(t);
         ui_force = 1;
-    } else if (s)
-        preset_load((uint32_t)((int32_t)sys.preset + (int32_t)NPRESETS * 8 + s));
+    } else if (s && (fm1_in.buttons & btn_bit(B_HOME))) {   /* HOME held: the bank (the same program in it) */
+        uint32_t bk = (uint32_t)(((int32_t)(sys.preset >> 7) + (int32_t)NBANKS * 8 + s) % (int32_t)NBANKS);
+        preset_load(bk * 128u + (sys.preset & 127u));
+        str_cpy(t, "BANK ", sizeof t);
+        fmt_int(v, (int32_t)bk + 1);
+        ui_cat(t, sizeof t, v);
+        ui_cat(t, sizeof t, ": ");
+        ui_cat(t, sizeof t, PRESETS[sys.preset % NPRESETS].name);
+        ui_say(t);
+    } else if (s)                                       /* (through the bank playing) */
+        preset_load((sys.preset & ~127u) + (uint32_t)(((int32_t)(sys.preset & 127u) + 128 * 8 + s) % 128));
 }

@@ -66,7 +66,7 @@ pre { margin: 0; white-space: pre-wrap; color: var(--fg); font: 12px/1.35 ui-mon
     <button id="play">Speel</button>
   </div>
   <div class="row">Mod wheel <input id="cc1" type="range" min="0" max="127" value="0"> <span id="cc1v">0</span></div>
-  <div class="row">Program <input id="prog" type="number" value="1" min="1" max="128" style="width:64px"> <button id="sendprog">Stuur</button></div>
+  <div class="row">Bank <input id="bank" type="number" value="1" min="1" max="4" style="width:48px"> Program <input id="prog" type="number" value="1" min="1" max="128" style="width:64px"> <button id="sendprog">Stuur</button></div>
 </section>
 <section>
   <h2>Audio (USB-audio-ingang van de FM-1)</h2>
@@ -140,7 +140,7 @@ ENCODERS.forEach((n, i) => {
 });
 $("play").onclick = () => { if (!out) return say("Eerst verbinden."); const n = +$("note").value, v = +$("vel").value; out.send([0x90, n, v]); setTimeout(() => out.send([0x80, n, 0]), +$("dur").value * 1000); };
 $("cc1").oninput = e => { $("cc1v").textContent = e.target.value; if (out) out.send([0xB0, 1, +e.target.value]); };
-$("sendprog").onclick = () => { if (out) out.send([0xC0, (+$("prog").value - 1) & 127]); };
+$("sendprog").onclick = () => { if (out) { out.send([0xB0, 0, 0]); out.send([0xB0, 32, (+$("bank").value - 1) & 3]); out.send([0xC0, (+$("prog").value - 1) & 127]); } };
 
 /* audio: the FM-1's USB audio input, its level and spectrum, as numbers too (for a remote reader) */
 let actx = null, an = null, stream = null, araf = 0;

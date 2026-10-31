@@ -19,7 +19,8 @@
 
 static volatile uint8_t kb_boot_hold;            /* set from power-on to the end of the splash (main.c): keys silent */
 static volatile uint8_t keys_panic_req;
-static volatile uint8_t keys_prog_req;           /* a MIDI program change: its number + 1 (ui.c loads the preset) */
+static volatile uint16_t keys_prog_req;          /* a MIDI program change: bank x 128 + its number + 1 (ui.c loads it) */
+static uint8_t bank_msb, bank_lsb;               /* BANK SELECT (CC 0, 32): taken by the next program change */
 static uint32_t kb_prev;                         /* fm1_in.notes at the last block */
 static uint8_t kb_note[NKEYS];                   /* the note key k started (KB_SILENT: none) */
 static uint8_t kb_ch[NKEYS];                     /* the MIDI channel its note on went out on (its off: the same) */
@@ -165,12 +166,14 @@ static void pedal_release(void)
         }
 }
 
-/* MIDI control changes: the XG / GM map (as on a Yamaha MU90) where the sound has the thing. Not here: bank select
- * (program change alone picks the preset), portamento (5, 65, 84: no glide), RPN / NRPN (no pitch bend), omni / mono */
+/* MIDI control changes: the XG / GM map (as on a Yamaha MU90) where the sound has the thing (bank select: 4 banks of
+ * 128 presets, LSB or MSB 0 .. 3). Not here: portamento (5, 65, 84: no glide), RPN / NRPN (no pitch bend), omni / mono */
 static void midi_cc(uint32_t cc, uint32_t v)
 {
     uint32_t k;
     switch (cc) {
+    case 0: bank_msb = (uint8_t)v; break;        /* BANK SELECT MSB, LSB: the bank for the next program change */
+    case 32: bank_lsb = (uint8_t)v; break;
     case 1:                                      /* MODULATION: the mod wheel (feg.c mw_block, the EDIT page) */
         sys.mw = (uint8_t)v;
         sys.mw_seen = 1;
@@ -256,7 +259,10 @@ static void midi_in_block(void)
             sys.at_seen = 1;
         }
         else if (st == 0xC0u)                    /* program change: the preset (ui.c, the main loop) */
-            keys_prog_req = (uint8_t)(d1 + 1u);
+        {   /* (the bank: LSB as XG has it, else MSB as GS; 1 .. 3 = banks 2 .. 4, others bank 1: XG's drums 127 ...) */
+            uint32_t bk = bank_lsb ? bank_lsb : bank_msb;
+            keys_prog_req = (uint16_t)((bk < 4u ? bk : 0u) * 128u + d1 + 1u);
+        }
         else if (((pkt >> 8) & 0xFFu) >= 0xF8u)   /* realtime: the clock for the arpeggiator */
             arp_midi_rt((pkt >> 8) & 0xFFu);
         /* add here: pitch bend ... */

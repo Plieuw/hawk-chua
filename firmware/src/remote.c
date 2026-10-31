@@ -11,7 +11,7 @@
  *                            OCT- OCT+), as the panel's would be
  *   04 e s        TURN    -> encoder e (SELECT ALGORITHM PRESETS KNOB 1..4) turned s - 64 detents
  *   05            PING    -> 51 the firmware's identity
- *   06            PRESETS -> 52 a line each, all 128 as ui.c's table (C, the saved ones as saved), then 53
+ *   06            PRESETS -> 52 a line each, all 512 (4 banks) as ui.c's table (C, the saved ones as saved), then 53
  *   07 'C' 'L' 'R'  RESET PRESETS: the user's saved presets cleared (the built-in back) -> 53
  * Notes, CCs and program changes need nothing new: they are MIDI. */
 
@@ -145,7 +145,7 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
         ui_cat(t, sizeof t, upre_has(i) ? "},   /* SAVED */" : "},");
         rm_send(0x52, (const uint8_t *)t, str_len(t), 1);
     }
-    rm_send(0x53, (const uint8_t *)"128", 3, 1);
+    rm_send(0x53, (const uint8_t *)"512", 3, 1);
 }
 static void rm_screen(void)
 {
