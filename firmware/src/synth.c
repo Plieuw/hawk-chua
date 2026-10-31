@@ -223,12 +223,12 @@ typedef struct {
     uint8_t vbr, vfm;            /* velocity on the sound (EDIT): taken off the gate's opening, the FM depth, /255 (0: none) */
     uint8_t osc;                 /* the oscillator its state belongs to (sys.osc when it started; a change restarts it) */
     uint8_t rz;                  /* the FX resonator it feeds (resonator.c: the one tuned to its note) */
-    int16_t pan;                 /* its place in the stereo field at BASIS 127, Q15 (- left): VOICE_PAN (KARMA: its own) */
+    int16_t pan;                 /* its place in the stereo field at BASIS 127, Q15 (- left): its seat (KARMA: its own) */
     int32_t orb;                 /* ORBIT: its picture's slow movement, Q15 (- left): the circuit's x low-passed (the
                                   * scroll it is on), a noise program a slow random drift */
     uint32_t orng, ocnt;         /* (the drift's random numbers, blocks to its next target) */
     int32_t otgt;
-    int32_t apx[2], apy[2];      /* ORBIT: its two all-passes' last in and out */
+    int32_t apx[4][2], apy[4][2];   /* ORBIT: its four all-passes' last ins and outs */
 } voice_t;
 static voice_t voice[NVOICE];
 #define NP_COUNT 31                              /* the noise programs (noise.c, included below; the last: BIG BANG) */
@@ -238,7 +238,13 @@ static uint32_t rz_assign(uint32_t note, uint32_t vel);
  * notes cycle through the voices (a new note takes the next free one); BASIS scales the places, held notes too. The
  * pan law is a balance: the far side turned down, the centre at full level (BASIS 0: the mono output as it was, bit
  * for bit) */
-static const int16_t VOICE_PAN[4] = {-32767, 32767, -16384, 16384};
+/* BASIS: the seats, an orchestra's: twelve places across the field, each new note the next seat (the players in
+ * turn, whichever voice plays it): by the golden ratio, so that notes one after another sit far apart and the seats
+ * fill the field evenly (frac(k 0.618), k = 1 .. 12, to -1 .. 1) */
+#define NSEAT 12u
+static const int16_t SEAT_PAN[NSEAT] = {7735, -17297, 23206, -1826, -26858, 13644, -11387, 29115, 4083, -20949, 19554,
+                                        -32767};
+static uint32_t seat_next;                       /* the seat the next note takes */
 /* ORBIT: the pan also follows the voice's picture: the circuit's x (the double scroll's two lobes: left and right),
  * low-passed to ~7 Hz, or for a noise program (whose picture is noise) a drift to a new random place every ~0.2 s;
  * ORBIT how far (added to BASIS's place, together at most full left / right). The resonators follow their voices */
@@ -312,11 +318,17 @@ static void synth_note_on(uint32_t key, uint32_t vel)
     v->key = (uint8_t)key;
     v->rz = (uint8_t)rz_assign(note, vel);
     voice_rr = (uint32_t)(v - voice + 1) % NVOICE;
-    v->pan = synth_pan_set ? synth_pan_next : VOICE_PAN[(v - voice) & 3];
+    if (synth_pan_set)
+        v->pan = synth_pan_next;
+    else {                                       /* (the next seat) */
+        v->pan = SEAT_PAN[seat_next % NSEAT];
+        seat_next = (seat_next + 1u) % NSEAT;
+    }
     if (v->stage == ST_OFF || v->stage == ST_TAIL) {  /* (a new voice: its picture's place from the middle) */
         v->orb = 0;
         v->ocnt = 0;
-        v->apx[0] = v->apx[1] = v->apy[0] = v->apy[1] = 0;
+        memset(v->apx, 0, sizeof v->apx);
+        memset(v->apy, 0, sizeof v->apy);
         v->orng = 0x9E3779B9u * (uint32_t)(v - voice + 1) + voice_clock;
     }
     v->inc = note_inc(note);
@@ -356,6 +368,7 @@ static void synth_kill(void)
     for (i = 0; i < NVOICE; i++)
         voice[i].stage = ST_OFF;
     voice_rr = 0;                                   /* (the cycle from the first voice again) */
+    seat_next = 0;
 }
 
 /* the ADSR and the gate's control, one frame; 1 = the voice is done */
@@ -610,13 +623,16 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
  * or stopped: then it is held for good) C1_RUN takes nothing and this core renders them all. */
 static int32_t c1_bus[RZ_POLY][CTL];            /* its voices' output, per resonator they feed */
 static int32_t c1_dl[CTL], c1_dr[CTL];           /* and what BASIS takes off the left, the right */
-static int32_t vpan[NVOICE];                     /* this block's pan per voice (VOICE_PAN x BASIS), Q15 */
+static int32_t vpan[NVOICE];                     /* this block's pan per voice (its seat x BASIS), Q15 */
 
-/* a voice into the bus of its resonator; BASIS: what its pan takes off the far side into dl / dr. ORBIT: its phase
- * moves with its picture: two first-order all-passes whose coefficient follows the circuit's x (or a noise program's
- * drift) make the voice's side signal (it, less itself phase-shifted, halved), added to the left and taken off the
- * right: the frequencies near the all-passes' 180 degrees spread wide, the rest stays in the middle, and that
- * moves with the chaos. L + R is the voice as before (mono: unchanged) */
+/* a voice into the bus of its resonator; BASIS: what its pan takes off the far side into dl / dr. ORBIT: the
+ * spread, by phase, on the harmonic series: four second-order all-passes centred on the note's even harmonics (2, 4,
+ * 6, 8 x the note, a quarter of the note wide), each turning its harmonic half round and what is above it a whole
+ * turn: the even harmonics come out turned over, the odd ones as they were, so the voice's side signal (it less
+ * itself phase-shifted, halved, added to the left and taken off the right) holds the even harmonics and the middle
+ * the odd ones: the two halves of the series part, as the players of a section spread a chord. The centres move with
+ * the picture (the circuit's x, a noise program's drift: +-25 %), so the spread breathes with the chaos. L + R is
+ * the voice as before (mono: unchanged) */
 static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, int32_t *dr, uint32_t *restarts)
 {
     int32_t t[CTL], *b = bus[v->rz % RZ_POLY], p = vpan[v - voice], orbit = (int32_t)(sys.orbit & 127u);
@@ -638,16 +654,28 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
                                                          * circling within a lobe at the note's pitch smoothed off);
                                                          * the drift ~3.4 Hz */
         {
-            /* the all-passes' 90 degrees (two: 180) where the picture is: ~150 Hz (left) .. ~3 kHz (right); their
-             * coefficient cos(w) ~ 1 - w^2 / 2 (w = 2 pi f / FS, Q15) */
-            int32_t w = 700 + (v->orb + 32767) / 2 * (14005 - 700) / 32767, k;   /* (32 bits) */
-            int32_t a = 32768 - ((w * w) >> 16);
+            /* each all-pass at 2 (k + 1) x the note, moved by the picture: a2 = r^2, a1 = -2 r cos w (Q28), r from
+             * the width (1 - r ~ pi bw / FS, bw a quarter of the note); over 0.45 FS: left out */
+            int32_t a1[4], a2[4], k, nk = 0;
+            uint32_t om = (uint32_t)(65536 + (v->orb >> 1)), wd = (uint32_t)(((uint64_t)v->inc * 3217u) >> 16);   /* (1 - r) Q28 */
+            int32_t r = 268435456 - (int32_t)(wd > 134217728u ? 134217728u : wd);
+            for (k = 0; k < 4; k++) {
+                uint64_t ik = (((uint64_t)v->inc * (uint32_t)(2 * k + 2)) * om) >> 16;   /* Q32 cycles a sample */
+                if (ik > 0x73333333u)            /* (0.45 FS) */
+                    break;
+                a1[k] = (int32_t)(-(((int64_t)r * px_sin((uint32_t)ik + 0x40000000u)) >> 29));
+                a2[k] = (int32_t)(((int64_t)r * r) >> 28);
+                nk++;
+            }
             for (i = 0; i < n; i++) {
                 int32_t x = t[i], s;
-                for (k = 0; k < 2; k++) {               /* y = -a x + x[-1] + a y[-1] */
-                    int32_t y = (int32_t)(((int64_t)-a * x + (int64_t)a * v->apy[k]) >> 15) + v->apx[k];
-                    v->apx[k] = x;
-                    v->apy[k] = y;
+                for (k = 0; k < nk; k++) {       /* y = a2 x + a1 x1 + x2 - a1 y1 - a2 y2 */
+                    int32_t y = (int32_t)(((int64_t)a2[k] * x + (int64_t)a1[k] * (v->apx[k][0] - v->apy[k][0]) -
+                                           (int64_t)a2[k] * v->apy[k][1]) >> 28) + v->apx[k][1];
+                    v->apx[k][1] = v->apx[k][0];
+                    v->apx[k][0] = x;
+                    v->apy[k][1] = v->apy[k][0];
+                    v->apy[k][0] = y;
                     x = y;
                 }
                 s = (t[i] - x) / 2 * orbit / 127 / 2;   /* the side, at most half the voice */

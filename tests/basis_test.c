@@ -583,22 +583,22 @@ int main(int argc, char **argv)
         check("every sound parameter at random every block, presets, 0..127 notes: in bounds", okk);
     }
 
-    /* BASIS's places belong to the voices: notes one after another cycle through the four, each voice always at its
-     * own place (left, right, half left, half right), a note held keeps its voice and place */
+    /* BASIS's seats: notes one after another cycle through the voices and, apart from them, through the twelve seats
+     * (an orchestra's players in turn); a note held keeps its voice and seat */
     {
         uint32_t okk = 1, j;
         synth_kill();
         for (j = 0; j < 9u; j++) {
             synth_note_on(60u + j, 100);
-            okk &= voice[j % 4u].note == 60u + j && voice[j % 4u].pan == VOICE_PAN[j % 4u];
+            okk &= voice[j % 4u].note == 60u + j && voice[j % 4u].pan == SEAT_PAN[j % NSEAT];
             synth_note_off(60u + j);
             voice[j % 4u].stage = ST_OFF;                /* (its tail over) */
         }
         synth_note_on(48, 100);                          /* voice 1 (after voice 0, the 9th): held */
         synth_note_on(50, 100);                          /* voice 2 */
-        okk &= voice[1].note == 48u && voice[2].note == 50u && voice[2].pan == VOICE_PAN[2];
+        okk &= voice[1].note == 48u && voice[2].note == 50u && voice[2].pan == SEAT_PAN[10] && voice[1].pan == SEAT_PAN[9];
         synth_kill();
-        check("BASIS: the notes cycle through the voices, each voice at its own place", okk);
+        check("BASIS: the notes cycle through the voices and the seats", okk);
     }
 
     /* the CPU governor: a half over budget lets one voice go, the least heard (a tail before a held note) */
@@ -723,8 +723,8 @@ int main(int argc, char **argv)
         sys.osc = 0;
     }
 
-    /* BASIS: at 0 left = right, bit for bit; at 127 the notes go left, right, half left, half right (the far side
-     * down to 0, to half), the resonator's ring with them; held notes follow the knob */
+    /* BASIS: at 0 left = right, bit for bit; at 127 the notes take the seats in turn (the far side turned down by the
+     * seat's place), the resonator's ring with them */
     {
         uint32_t fx, j, b, okk = 1, mono = 1;
         for (fx = 0; fx < 2u; fx++) {
@@ -735,6 +735,7 @@ int main(int argc, char **argv)
                 synth_kill(); run_ms(1500);
                 sys.basis = b ? 127 : 0;
                 voice_rr = 0;
+                seat_next = 0;
                 for (j = 0; j < 4u; j++) {
                     uint32_t q;
                     e[j][0] = e[j][1] = 0;
@@ -754,8 +755,11 @@ int main(int argc, char **argv)
             }
             printf("   (BASIS 127%s: L/R energy per note %.3f %.3f %.3f %.3f)\n", fx ? ", resonator" : "",
                    e[0][0] / (e[0][1] + 1), e[1][0] / (e[1][1] + 1), e[2][0] / (e[2][1] + 1), e[3][0] / (e[3][1] + 1));
-            okk &= e[0][0] > 20 * e[0][1] && e[1][1] > 20 * e[1][0];          /* hard left, hard right */
-            okk &= e[2][0] > 2.5 * e[2][1] && e[3][1] > 2.5 * e[3][0];        /* half: the far side at ~1/4 the energy */
+            for (j = 0; j < 4u; j++) {           /* the far side's energy: (1 - |seat|)^2 of the near side's */
+                double p = SEAT_PAN[j] / 32767.0, want = (1 - fabs(p)) * (1 - fabs(p)), got;
+                got = p > 0 ? e[j][0] / (e[j][1] + 1) : e[j][1] / (e[j][0] + 1);
+                okk &= fabs(got - want) < 0.15 + want * 0.3;
+            }
         }
         {   /* ORBIT, BASIS 0: the voice's phase moves with the double scroll (all-passes): a side signal that comes and
              * goes with the chaos, the middle the voice itself; the circuit on one scroll (SPIRAL) still has a side */
@@ -796,7 +800,7 @@ int main(int argc, char **argv)
         }
         synth_kill();
         sys.basis = 0; sys.fx_mix = 0; sys.orbit = 0; sys.chaos = 85;
-        check("BASIS: 0 mono bit for bit; 127 cycles L, R, half L, half R (resonator too); ORBIT: a phase that moves with the scroll", okk && mono);
+        check("BASIS: 0 mono bit for bit; 127 the seats in turn (resonator too); ORBIT: the harmonics part, moving with the scroll", okk && mono);
     }
 
     /* FREE EG: 1 BAR at 120 BPM (2 s) records a ramp of the knob and plays it onto CHAOS, looping; DEPTH scales it
@@ -1190,6 +1194,35 @@ int main(int argc, char **argv)
         okk &= hs[0] > 0.5 && hs[1] > 0.5 && hs[2] < 0.2 * hs[0] && early > 2 * late;
         synth_kill(); sys.osc = 0; sys.chaos = 85; sys.output = 0; run_ms(20);
         check("BIG BANG: the standard waves from the series, ENTROPY, BANG", okk);
+    }
+    {   /* ORBIT on the harmonic series: a saw (BIG BANG), its 1st harmonic stays in the middle, the 2nd goes to the
+         * sides (the all-passes between them turn it half round) */
+        static int32_t sl[8192], sm[8192];
+        double r1[2] = {0, 0}, r2[2] = {0, 0};
+        uint32_t w, b, q;
+        int okk = 1;
+        synth_kill(); run_ms(20);
+        sys.osc = NP_COUNT; sys.np_x = 85; sys.np_y = 0; sys.chaos = 0; sys.output = 0; sys.attack = 0; sys.sustain = 127;
+        sys.ring = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.basis = 0; sys.orbit = 127; sys.feg_on = 0;
+        synth_note_on(57, 100);
+        run_ms(300);
+        for (w = 0; w < 8192u / CTL; w++) {
+            block();
+            for (b = 0; b < CTL; b++) { sl[w * CTL + b] = buf[2 * b] - buf[2 * b + 1]; sm[w * CTL + b] = buf[2 * b] + buf[2 * b + 1]; }
+        }
+        for (q = 0; q < 2u; q++) {               /* q: side, mid */
+            const int32_t *x = q ? sm : sl;
+            double a1 = 0, b1 = 0, a2 = 0, b2 = 0;
+            for (b = 0; b < 8192u; b++) {
+                double p = 2 * M_PI * 220.0 * b / FS;
+                a1 += x[b] * cos(p); b1 += x[b] * sin(p); a2 += x[b] * cos(2 * p); b2 += x[b] * sin(2 * p);
+            }
+            r1[q] = a1 * a1 + b1 * b1; r2[q] = a2 * a2 + b2 * b2;
+        }
+        printf("   (ORBIT, a saw: side / mid at the 1st harmonic %.3f, at the 2nd %.3f)\n", r1[0] / (r1[1] + 1), r2[0] / (r2[1] + 1));
+        okk &= r2[0] / (r2[1] + 1) > 10 * (r1[0] / (r1[1] + 1)) && r2[0] / (r2[1] + 1) > 0.05;
+        synth_kill(); sys.osc = 0; sys.orbit = 0; sys.chaos = 85; run_ms(20);
+        check("ORBIT: on the harmonic series (the 2nd harmonic to the sides, the 1st in the middle)", okk);
     }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */

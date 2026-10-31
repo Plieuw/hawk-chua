@@ -98,21 +98,21 @@ Er is geen aparte FM-oscillator meer: de MOD ENV is de FM, direct op de toon
 de vorm en rechts hoe ver de nieuwste stem nu omhoog staat.
 Nog een keer ENV: terug naar HOME.
 
-**BASIS (SCL, KNOB 1).** De stereo-spreiding van de stemmen. Elk van de vier stemmen heeft een vaste plek:
-links, rechts, half links, half rechts. De noten lopen de stemmen rond (elke nieuwe noot neemt de volgende vrije stem),
-dus ook de plekken, en een stem staat altijd op dezelfde plek. BASIS schaalt die plekken: 0 is mono (precies zoals voorheen), 127 de volle breedte.
-Ook noten die al klinken schuiven mee als je draait. De resonator van een noot klinkt op dezelfde plek als die noot; de
-shimmer krijgt het midden en maakt er zijn eigen stereo van. De pan-wet is een balans: het midden blijft op vol niveau,
-de andere kant gaat zachter (bij volle breedte uit).
+**BASIS (SCL, KNOB 1).** De startplek van elke noot, zoals een orkestopstelling: twaalf zitplaatsen verspreid over
+het stereobeeld, en elke nieuwe noot neemt de volgende plaats (de spelers om de beurt, los van welke stem hem speelt).
+De plaatsen volgen de gulden snede: opeenvolgende noten zitten ver uit elkaar en samen vullen ze het beeld gelijkmatig.
+BASIS schaalt de plaatsen: 0 is mono, 127 de volle breedte; ook noten die al klinken schuiven mee als je draait. De
+resonator van een noot klinkt op dezelfde plek als die noot; de shimmer krijgt het midden en maakt er zijn eigen stereo
+van. De pan-wet is een balans: het midden blijft op vol niveau, de andere kant gaat zachter.
 
-**ORBIT (SCL, KNOB 2).** De tweede stereo-parameter naast BASIS: de fase van elke stem beweegt mee met zijn eigen
-plaatje. Twee all-pass filters per stem verschuiven de fase; waar ze samen 180° draaien gaat dat deel van de klank
-wijd uit elkaar (links en rechts in tegenfase), de rest blijft in het midden. Dat punt volgt de x van de attractor:
-in de double scroll springt het mee van de ene lus (~150 Hz) naar de andere (~3 kHz), in één lus (SPIRAL) blijft het
-op één plek, een noise-programma zwerft elke ~0,2 s naar een nieuw punt. ORBIT bepaalt hoe sterk. Mono (links +
-rechts) blijft de stem zelf, dus niets valt weg op een mono-speaker. ORBIT werkt ook met BASIS op 0. De PAN-pagina
-tekent het stereobeeld van links naar rechts: de plekken van BASIS (de volgende noot krijgt de hoge streep) en de
-stemmen die klinken, met hun noot.
+**ORBIT (SCL, KNOB 2).** De spreiding, via de fase en op de harmonische reeks: vier all-pass filters per stem staan op
+de even boventonen van de noot (2, 4, 6, 8 × de grondtoon) en draaien die elk een halve slag; de oneven boventonen
+blijven zoals ze zijn. Het verschil gaat naar de zijkanten (links in fase, rechts in tegenfase), zodat de twee helften
+van de reeks uit elkaar gaan, zoals de spelers van een sectie een akkoord spreiden. De filters bewegen mee met het
+plaatje van de stem (de x van de attractor, of het zwerven van een noise-programma: ±25 %), dus de spreiding ademt
+met de chaos. ORBIT bepaalt hoe sterk. Mono (links + rechts) blijft de stem zelf, dus niets valt weg op een
+mono-speaker. ORBIT werkt ook met BASIS op 0. De PAN-pagina tekent het stereobeeld van links naar rechts: de twaalf
+plaatsen van BASIS (de volgende noot krijgt de hoge streep) en de stemmen die klinken, met hun noot.
 
 **De arpeggiator (ARP).** ARP opent de ARP-pagina; PLAY zet hem aan of uit (het lampje brandt zolang
 hij aan staat). Aan: de noten die je vasthoudt (toetsen en MIDI in) klinken niet zelf, de arpeggiator speelt ze.
