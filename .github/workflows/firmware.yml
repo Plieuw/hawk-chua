@@ -110,7 +110,7 @@ jobs:
       - name: Tests
         run: sh tests/run_tests.sh
 
-      - name: Browser version (web/emu: the firmware as WebAssembly)
+      - name: Browser version (web/emu, the firmware as WebAssembly)
         run: FELUCCA_VERSION="${{ steps.ver.outputs.label }}" sh web/emu/build.sh
 
       - name: Installer site
