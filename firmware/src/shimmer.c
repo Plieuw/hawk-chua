@@ -30,6 +30,7 @@
  *                    GUITAR (the air in the box at 100 Hz, the top's modes 204 / 395 / 550 Hz ...), VIOLIN (A0 275 Hz,
  *                    the B1 modes 460 / 540 Hz, the bridge hill ~2.5 .. 3 kHz), CELLO (the same an octave and more
  *                    down), HARP (a box: wide, soft modes 90 Hz .. 2 kHz)
+ *                    DELAYS (the last three SPACEs, in the tempo): PING PONG, PATTERN, BOUNCE; see fx_delay below
  * Fixed point: signals Q15 in int32, the lines int16 (saturating), coefficients Q15 / Q16; the modes Q28.
  *
  *   fx_shimmer(in, l, r, n)   audio ISR, core 0: in[] mono Q15 -> l[], r[] Q15 */
@@ -45,11 +46,14 @@ static const char *const SH_INTERVAL_NAME[SI_COUNT] = {"-OCT", "-5TH", "-OCT-5TH
 static const uint32_t SH_INC[SI_COUNT] = {1u << 21, 699051u, 1398101u, 3u << 20};   /* (1 - ratio) 2^32 / SH_WIN:
                                                   * 1/2, 2/3, 1/3, 1/4 */
 enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_PIANO, SS_GUITAR, SS_VIOLIN, SS_CELLO, SS_HARP, SS_ACCORDION,
-       SS_BAGPIPE, SS_ORGAN, SS_LESLIE, SS_COUNT };
+       SS_BAGPIPE, SS_ORGAN, SS_LESLIE, SS_PINGPONG, SS_PATTERN, SS_BOUNCE, SS_COUNT };   /* (16 at most: a preset
+                                                  * keeps it in 4 bits, ui.c PR_SPACE) */
+#define SS_DELAY SS_PINGPONG                     /* (from here: the delays) */
 #define SS_BODY SS_PIANO                         /* (from here: an instrument's body) */
 static const char *const SH_SPACE_NAME[SS_COUNT] = {"HALL", "TEMPLE", "CATHEDRAL", "MOSQUE", "PIANO BODY",
                                                     "GUITAR BODY", "VIOLIN BODY", "CELLO BODY", "HARP BODY",
-                                                    "ACCORDION", "BAGPIPE", "PIPE ORGAN", "LESLIE"};
+                                                    "ACCORDION", "BAGPIPE", "PIPE ORGAN", "LESLIE", "PING PONG",
+                                                    "PATTERN DLY", "BOUNCE DLY"};
 /* each space: its three modes (two-pole resonators: a1 = 2 r cos w, a2 = r^2, b = (1 - r) 2 sin w x 2 gain: the peak
  * twice the gain; Q28), its early
  * reflections (taps in ms, gains Q15; MOSQUE: one tap fed back, the flutter), its damping (x / 16 of TONE's) */
@@ -69,25 +73,36 @@ static const int32_t SH_MODE[SS_COUNT][SH_NMODE][3] = {
     { {536685594, 268324089, 1479}, {536352503, 268212768, 5914}, {535760620, 267990265, 11084}, {535095604, 267842032, 23636}, {525158688, 262136280, 539854}, {513140401, 258427951, 1369859}, {485565710, 249977914, 3930517}, {448556555, 242955281, 6244884} },   /* BAGPIPE: 116.5 233 349.5 466 1000 1600 2500 3500 Hz */
     { {536644126, 268225188, 1318}, {536454553, 268085100, 3845}, {535906832, 267735202, 13176}, {535018389, 267176315, 29624}, {533130235, 266055719, 67905}, {528344945, 263384177, 230892}, {520075121, 259411678, 464527}, {497193038, 249977914, 1056203} },   /* ORGAN: 55 110 220 330 500 800 1200 2000 Hz */
     {{0, 0, 0}},                                 /* LESLIE: none (its rotors, fx_shimmer) */
+    {{0, 0, 0}}, {{0, 0, 0}}, {{0, 0, 0}},       /* the delays: none */
 };
-static const uint8_t SH_NMODES[SS_COUNT] = {0, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 0};
-static const uint8_t SH_ROOM8[SS_COUNT] = {8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 2, 8, 1};   /* the tank's share, / 8 (the
+static const uint8_t SH_NMODES[SS_COUNT] = {0, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0};
+static const uint8_t SH_ROOM8[SS_COUNT] = {8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 2, 8, 1, 0, 0, 0};   /* the tank's share, / 8 (the
                                                   * bodies: a small room; PIPE ORGAN: its church) */
 static const uint8_t SH_ER_MS[SS_COUNT][4] = {{0, 0, 0, 0}, {7, 13, 19, 29}, {23, 41, 67, 89}, {31, 0, 0, 0},
                                               {3, 5, 8, 12}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {4, 9, 0, 0},
-                                              {0, 0, 0, 0}, {0, 0, 0, 0}, {29, 53, 0, 0}, {0, 0, 0, 0}};
+                                              {0, 0, 0, 0}, {0, 0, 0, 0}, {29, 53, 0, 0}, {0, 0, 0, 0}, {0}, {0}, {0}};
 static const uint16_t SH_ER_G[SS_COUNT][4] = {{0, 0, 0, 0}, {16384, 13107, 9830, 6554}, {14746, 13107, 11469, 9830},
                                               {18022, 0, 0, 0}, {9830, 8192, 6554, 4915}, {0, 0, 0, 0}, {0, 0, 0, 0},
                                               {0, 0, 0, 0}, {8192, 4915, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0},
-                                              {13107, 9830, 0, 0}, {0, 0, 0, 0}};
-static const uint8_t SH_DAMP16[SS_COUNT] = {16, 9, 12, 20, 12, 12, 14, 10, 12, 14, 16, 10, 12};
+                                              {13107, 9830, 0, 0}, {0, 0, 0, 0}, {0}, {0}, {0}};
+static const uint8_t SH_DAMP16[SS_COUNT] = {16, 9, 12, 20, 12, 12, 14, 10, 12, 14, 16, 10, 12, 16, 16, 16};
 #define SH_ER 4096u                              /* the early reflections' line (93 ms, a power of two) */
 
+#define SH_DLEN (SH_NLINE * SH_MAXLEN + SH_AP1 + SH_AP2 + SH_PS + SH_ER)   /* the delays' line: the reverb's memory */
 static struct {
-    int16_t line[SH_NLINE][SH_MAXLEN];
-    int16_t ap1[SH_AP1], ap2[SH_AP2];
-    int16_t ps[SH_PS];
-    int16_t er[SH_ER];
+    union {
+        struct {
+            int16_t line[SH_NLINE][SH_MAXLEN];
+            int16_t ap1[SH_AP1], ap2[SH_AP2];
+            int16_t ps[SH_PS];
+            int16_t er[SH_ER];
+        };
+        int16_t dl[SH_DLEN];                     /* the delays (at a quarter rate, 11025 Hz: ~2.5 s) */
+    };
+    uint32_t dw, dsub;                           /* the delays: the line's write place; samples into the quarter */
+    int32_t dacc, dlp[2], dfb[2], dtap[12][2], dout[2], dprev[2], dhp;   /* decimation, feedback filters, the taps'
+                                                  * filters, the output's last two (interpolated up) */
+    uint8_t dmode;                               /* what the memory holds: 1 the reverb, 2 a delay */
     int32_t my[SH_NMODE][2];                     /* the modes' last two outputs */
     uint32_t ew;
     uint32_t wp[SH_NLINE], a1, a2, pw;
@@ -139,6 +154,136 @@ static void sh_body(uint32_t sp, int32_t x, int32_t *bm, int32_t *bs)
     *bs = d;
 }
 
+/* ------------------------------------------------------------------ the DELAYS --- */
+/* Three delays in the tempo (the BPM, or MIDI clock's), in the reverb's memory (a quarter rate, 11025 Hz: up to ~2.5 s,
+ * dark and soft as a tape echo), each a pattern of taps on one line: a tap a time after the note (in a step's 24ths),
+ * a place left .. right, a level and its own filter (a resonant low-pass, the pattern's cutoff: the echoes darker,
+ * brighter, in turn); the line's loop (the pattern's length) fed back, so the pattern comes round again, softer.
+ *   PING PONG   STRAIGHT (left a step, right two), DOTTED (1.5 steps), TRIPLET (2/3), FILTER (left dark, right bright)
+ *   PATTERN     TRESILLO (3 + 3 + 2), DUB (dotted, then the step after, dark), GALLOP, CLAVE (the son's 3-2, a bar)
+ *   BOUNCE      BALL (a ball dropped: each bounce sooner and softer), BALL PONG (bouncing left, right), RISE (the
+ *               ball backwards: slowing, swelling, sweeping across), SCATTER (taps strewn, each its own filter)
+ *   SIZE    TIME: the step, 1/32, 1/16T, 1/16, 1/8T, 1/8, 1/4T, 1/8. (dotted), 1/4 (halved while a pattern would not
+ *           fit the line)
+ *   DECAY   FEEDBACK: how much of the pattern comes round again (0 .. 95 %)
+ *   SHIMMER FILTER: the taps' cutoff, 150 Hz .. 2.6 kHz (each tap's offset from it), 127 open (no filter)
+ *   TONE    the filters' resonance (none .. a whistle)
+ *   MIX     as the reverb's */
+enum { SH_DTIMES = 8 };
+static const uint8_t SH_DCLK[SH_DTIMES] = {3, 4, 6, 8, 12, 16, 18, 24};   /* MIDI clocks a step */
+static const char *const SH_DTIME_NAME[SH_DTIMES] = {"1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/8.", "1/4"};
+typedef struct { uint16_t t; int8_t pan, cut; uint8_t lvl; } sh_tap_t;   /* 24ths of a step; -127 .. 127; quarter
+                                                  * octaves; / 255 */
+typedef struct { const char *name; uint16_t loop; uint8_t n; sh_tap_t tap[10]; } sh_dpat_t;
+static const sh_dpat_t SH_DPAT[3][SI_COUNT] = {
+    {   /* PING PONG */
+        {"STRAIGHT", 48, 2, {{24, -110, 0, 255}, {48, 110, 0, 235}}},
+        {"DOTTED", 72, 2, {{36, -110, 0, 255}, {72, 110, 0, 235}}},
+        {"TRIPLET", 32, 2, {{16, -110, 0, 255}, {32, 110, 0, 235}}},
+        {"FILTER", 48, 2, {{24, -120, -5, 255}, {48, 120, 5, 235}}},
+    },
+    {   /* PATTERN */
+        {"TRESILLO", 192, 3, {{72, -100, 0, 255}, {144, 100, 2, 225}, {192, 0, -2, 200}}},
+        {"DUB", 96, 2, {{72, -90, -3, 255}, {96, 90, -1, 220}}},
+        {"GALLOP", 96, 4, {{24, -60, 2, 170}, {36, 60, 1, 200}, {72, -100, 0, 255}, {96, 100, -2, 210}}},
+        {"CLAVE", 384, 5, {{72, -100, -2, 255}, {144, 100, 0, 235}, {240, -60, 2, 215}, {288, 60, 4, 200},
+                           {384, 0, 0, 190}}},
+    },
+    {   /* BOUNCE */
+        {"BALL", 192, 10, {{48, -24, 0, 255}, {84, -12, 0, 209}, {111, -2, -1, 171}, {131, 6, -1, 140},
+                           {146, 12, -2, 115}, {157, 17, -2, 94}, {165, 21, -3, 77}, {171, 24, -3, 63},
+                           {176, 26, -4, 52}, {180, 28, -4, 43}}},   /* (rolling a little to the right) */
+        {"BALL PONG", 192, 10, {{48, -110, 0, 255}, {84, 110, 0, 209}, {111, -100, -1, 171}, {131, 100, -1, 140},
+                                {146, -90, -2, 115}, {157, 90, -2, 94}, {165, -80, -3, 77}, {171, 80, -3, 63},
+                                {176, -70, -4, 52}, {180, 70, -4, 43}}},
+        {"RISE", 192, 10, {{4, -120, -4, 43}, {9, -95, -4, 52}, {15, -70, -3, 63}, {23, -45, -3, 77}, {34, -20, -2, 94},
+                           {49, 5, -2, 115}, {69, 30, -1, 140}, {96, 55, -1, 171}, {132, 80, 0, 209},
+                           {180, 110, 0, 255}}},
+        {"SCATTER", 192, 8, {{20, -80, 3, 200}, {44, 90, -4, 120}, {58, -30, 0, 180}, {90, 60, 5, 150},
+                             {101, -95, -2, 90}, {130, 20, 2, 160}, {155, -60, -5, 110}, {178, 100, 1, 140}}},
+    },
+};
+static uint32_t arp_bpm_now(void);               /* (arp.c: the tempo, its own or MIDI clock's) */
+static const char *sh_iv_name(uint32_t sp, uint32_t iv)   /* the INTERVAL's name, a delay's pattern */
+{
+    return sp >= SS_DELAY ? SH_DPAT[sp - SS_DELAY][iv % SI_COUNT].name : SH_INTERVAL_NAME[iv % SI_COUNT];
+}
+static uint32_t sh_dtime(void) { return (sys.sh_size & 127u) * SH_DTIMES / 128u; }
+
+static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint32_t sp, int32_t dry, int32_t wet)
+{
+    const sh_dpat_t *P = &SH_DPAT[sp - SS_DELAY][sys.sh_interval % SI_COUNT];
+    uint32_t i, k, bpm = arp_bpm_now(), spt, loop, tap[10], peak = 0;
+    int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, ff[10], q, open = (sys.sh_shimmer & 127u) >= 127u;
+    bpm = bpm < 20u ? 20u : bpm > 300u ? 300u : bpm;
+    /* samples (11025 Hz) a tick, Q16: 60 / BPM s a quarter, clocks / 24 of it a step, a 24th of that a tick */
+    spt = (uint32_t)(((uint64_t)11025u * 60u * 65536u / bpm) * SH_DCLK[sh_dtime()] / 576u);
+    while ((uint32_t)(((uint64_t)P->loop * spt) >> 16) > SH_DLEN - 4u)   /* (too long for the line: halved) */
+        spt >>= 1;
+    loop = (uint32_t)(((uint64_t)P->loop * spt) >> 16);
+    for (k = 0; k < P->n; k++) {
+        tap[k] = (uint32_t)(((uint64_t)P->tap[k].t * spt) >> 16);
+        tap[k] = tap[k] < 1u ? 1u : tap[k];
+        {   /* its filter: 150 Hz x 2^(FILTER 0 .. 4.1 oct + its offset), f = 2 sin(pi fc / 11025), Q15 */
+            int32_t oc = (int32_t)(sys.sh_shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
+            uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2(oc < 0 ? 0 : oc)) >> 16);
+            fc = fc > 2600u ? 2600u : fc < 60u ? 60u : fc;
+            ff[k] = px_sin((uint32_t)(((uint64_t)fc << 32) / 22050u)) >> 14;   /* (Q30 -> 2 x Q15) */
+        }
+    }
+    q = 32768 - (int32_t)(sys.sh_tone & 127u) * 210;   /* 1 / Q: 1 .. ~0.19 */
+    for (i = 0; i < n; i++) {
+        sh.dacc += in[i];
+        if (++sh.dsub >= 4u) {                   /* a quarter-rate sample: in, the feedback, the taps */
+            int32_t x = sh.dacc / 8, f, yl = 0, yr = 0;   /* (the four's mean, / 2: headroom) */
+            uint32_t w = sh.dw;
+            sh.dsub = 0;
+            sh.dacc = 0;
+            f = sh.dl[(w + SH_DLEN - loop) % SH_DLEN];   /* the loop's end, back in: darker, no rumble */
+            sh.dfb[0] += ((f - sh.dfb[0]) * 13000) >> 15;    /* (~2.6 kHz) */
+            sh.dhp += ((sh.dfb[0] - sh.dhp) * 2200) >> 15;   /* (~120 Hz) */
+            f = (int32_t)(((int64_t)(sh.dfb[0] - sh.dhp) * fb) >> 15);
+            sh.dl[w] = sh_sat(x + f);
+            for (k = 0; k < P->n; k++) {
+                int32_t v = sh.dl[(w + SH_DLEN - tap[k]) % SH_DLEN], gl, gr, p = P->tap[k].pan;
+                if (!open) {                     /* the tap's filter: a state-variable low-pass */
+                    int32_t *z = sh.dtap[k], hi;
+                    z[0] += (int32_t)(((int64_t)ff[k] * z[1]) >> 15);
+                    hi = v - z[0] - (int32_t)(((int64_t)q * z[1]) >> 15);
+                    z[1] += (int32_t)(((int64_t)ff[k] * hi) >> 15);
+                    z[1] = z[1] > 98304 ? 98304 : z[1] < -98304 ? -98304 : z[1];
+                    z[0] = z[0] > 98304 ? 98304 : z[0] < -98304 ? -98304 : z[0];
+                    v = z[0];
+                }
+                v = v * P->tap[k].lvl >> 8;
+                gl = p > 0 ? 256 - 2 * p : 256;  /* (a balance: the middle full on both) */
+                gr = p < 0 ? 256 + 2 * p : 256;
+                yl += v * gl >> 8;
+                yr += v * gr >> 8;
+            }
+            sh.dw = w + 1u >= SH_DLEN ? 0u : w + 1u;
+            sh.dprev[0] = sh.dout[0];
+            sh.dprev[1] = sh.dout[1];
+            sh.dout[0] = yl * 2;                 /* (x 2: the headroom back) */
+            sh.dout[1] = yr * 2;
+        }
+        {   /* up to the full rate: between the last two, linearly */
+            int32_t t = (int32_t)sh.dsub, v, y;
+            v = sh.dprev[0] + (sh.dout[0] - sh.dprev[0]) * (t + 1) / 4;
+            y = sh.dprev[1] + (sh.dout[1] - sh.dprev[1]) * (t + 1) / 4;
+            sh.dlp[0] += (v - sh.dlp[0]) / 2;    /* (a little smoothing: the steps' edges) */
+            sh.dlp[1] += (y - sh.dlp[1]) / 2;
+            l[i] = (int32_t)(((int64_t)in[i] * dry + (int64_t)sh.dlp[0] * wet) >> 15);
+            r[i] = (int32_t)(((int64_t)in[i] * dry + (int64_t)sh.dlp[1] * wet) >> 15);
+            {
+                uint32_t a2 = (uint32_t)(sh.dlp[0] < 0 ? -sh.dlp[0] : sh.dlp[0]) + (uint32_t)(sh.dlp[1] < 0 ? -sh.dlp[1] : sh.dlp[1]);
+                peak = a2 > peak ? a2 : peak;
+            }
+        }
+    }
+    sh_view.env[sh_view.w++ & (SH_ENV - 1u)] = (uint16_t)(peak > 65535u ? 65535u : peak);
+}
+
 static int32_t sh_dry = 32768;                   /* this block's dry level, Q15 (synth.c pans the dry with it) */
 static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
 {
@@ -153,6 +298,17 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         if (sh.on) {                             /* (off: the next use starts from silence) */
             memset(&sh, 0, sizeof sh);
         }
+        return;
+    }
+    if (sh.dmode != (sp >= SS_DELAY ? 2u : 1u)) {   /* (the memory changing hands: from silence) */
+        memset(&sh, 0, sizeof sh);
+        sh.dmode = sp >= SS_DELAY ? 2u : 1u;
+    }
+    if (sp >= SS_DELAY) {                        /* a delay: in the tempo (above) */
+        int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = mix > 64 ? 32768 : mix * 32768 / 64;
+        sh_dry = dr;
+        sh.on = 1;
+        fx_delay(in, l, r, n, sp, dr, wt);
         return;
     }
     if (!sh.on) {

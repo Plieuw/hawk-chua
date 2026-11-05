@@ -1114,6 +1114,48 @@ int main(int argc, char **argv)
         sys.sh_mix = 0; sys.sh_space = 0;
         check("SHIMMER bodies (PIANO, GUITAR, VIOLIN, CELLO, HARP, ACCORDION, BAGPIPE, PIPE ORGAN): their modes ring", okk);
     }
+    {   /* the DELAYS: PING PONG 1/8 at 120 BPM: an impulse comes back left at 250 ms, right at 500 ms, left again at
+         * 750 ms (fed back), softer; BOUNCE BALL: its bounces come sooner and sooner; every pattern bounded */
+        static int32_t xin[CTL], ol[CTL], orr[CTL];
+        uint32_t b2, i, t, best[2] = {0, 0}, okk = 1, p2;
+        double el[4] = {0, 0, 0, 0}, er[4] = {0, 0, 0, 0};
+        uint8_t keep[8] = {sys.arp_bpm, sys.sh_size, sys.sh_decay, sys.sh_shimmer, sys.sh_tone, sys.sh_mix, sys.sh_interval, sys.sh_space};
+        memset(&sh, 0, sizeof sh);
+        sys.arp_bpm = 120; sys.sh_space = SS_PINGPONG; sys.sh_interval = 0; sys.sh_size = 64; sys.sh_decay = 80;
+        sys.sh_shimmer = 127; sys.sh_tone = 0; sys.sh_mix = 64;
+        for (b2 = 0, t = 0; b2 < FS / CTL; b2++) {
+            for (i = 0; i < CTL; i++, t++)
+                xin[i] = t < 64u ? 20000 : 0;
+            fx_shimmer(xin, ol, orr, CTL);
+            for (i = 0; i < CTL; i++) {
+                uint32_t tt = b2 * CTL + i, w = tt < FS / 8u ? 9u : (tt - FS / 8u) / (FS / 4u);   /* 125..375 375..625 .. */
+                if (w < 4u) { el[w] += (double)ol[i] * ol[i]; er[w] += (double)orr[i] * orr[i]; }
+                (void)best;
+            }
+        }
+        printf("   (PING PONG L/R energy around 250, 500, 750 ms: %.2g/%.2g %.2g/%.2g %.2g/%.2g)\n", el[0], er[0], el[1], er[1], el[2], er[2]);
+        okk &= el[0] > 20 * er[0] && er[1] > 20 * el[1] && el[2] > 20 * er[2] && el[2] < el[0] && el[0] > 1e6;
+        for (p2 = 0; p2 < 12u; p2++) {           /* every pattern, every step: bounded, no DC left */
+            int32_t pk = 0;
+            memset(&sh, 0, sizeof sh);
+            sys.sh_space = (uint8_t)(SS_DELAY + p2 / 4u); sys.sh_interval = (uint8_t)(p2 % 4u);
+            sys.sh_size = (uint8_t)(p2 * 11u); sys.sh_decay = 127; sys.sh_shimmer = (uint8_t)(p2 * 10u); sys.sh_tone = 127;
+            for (b2 = 0, t = 0; b2 < 3u * FS / CTL; b2++) {
+                for (i = 0; i < CTL; i++, t++)
+                    xin[i] = (int32_t)((t * 2654435761u) >> 17) - 16384;   /* (noise, loud) */
+                fx_shimmer(xin, ol, orr, CTL);
+                for (i = 0; i < CTL; i++) {
+                    int32_t a2 = ol[i] < 0 ? -ol[i] : ol[i];
+                    pk = a2 > pk ? a2 : pk;
+                }
+            }
+            if (pk > 120000) { printf("   (delay %s %s: peak %d)\n", SH_SPACE_NAME[sys.sh_space], sh_iv_name(sys.sh_space, sys.sh_interval), pk); okk = 0; }
+        }
+        memset(&sh, 0, sizeof sh);
+        sys.arp_bpm = keep[0]; sys.sh_size = keep[1]; sys.sh_decay = keep[2]; sys.sh_shimmer = keep[3]; sys.sh_tone = keep[4];
+        sys.sh_mix = keep[5]; sys.sh_interval = keep[6]; sys.sh_space = keep[7];
+        check("DELAYS: PING PONG left, right, fed back, in the tempo; every pattern bounded", okk);
+    }
     {   /* PIANO's hammer: with the voices all but silent the note still sounds (the hammer strikes it), louder and
          * brighter (more above 2 kHz) the harder the key is struck */
         double pk[2], hi[2];
@@ -1287,6 +1329,7 @@ int main(int argc, char **argv)
         double hm[2][4];
         for (q = 0; q < 2u; q++) {
             synth_kill(); sys.fx_mix = 0; run_ms(20);
+            rng_state = 0x1234567u;              /* (the noise from the same start: the tests before don't move it) */
             sys.osc = 17; sys.np_x = 126; sys.np_y = 63; sys.np_level = 30; sys.attack = 20; sys.decay = 80;
             sys.sustain = 115; sys.release = 60; sys.ring = 20; sys.sh_mix = 0; sys.feg_on = 0;
             sys.fx_model = q ? RZ_SHAKU : RZ_DIDGE; sys.fx_struct = q ? 70 : 10; sys.fx_bright = 70;

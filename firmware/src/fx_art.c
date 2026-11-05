@@ -630,6 +630,72 @@ static void orn_lobe(int32_t rc, uint32_t th, int32_t rl, uint16_t c)
 }
 /* the ornament moves with the tempo (the BPM's or the MIDI clock's): its rings step on the beat's subdivisions */
 static uint32_t orn_beat, orn_ms;
+/* a DELAY (the SHIMMER page): the stage seen from the front, left .. right; each tap a ring on the floor where it
+ * sounds (its size its level), and a ball thrown from the middle (the note) bouncing from tap to tap in the tempo,
+ * each hop as high as it is long; the rings flash as the ball lands, the dim arcs the pattern's whole path; the loop
+ * fed back: the ball thrown again, as high as FEEDBACK lets the echoes come round */
+static void art_delay(const uint8_t *hist, uint32_t nh)
+{
+    const sh_dpat_t *P = &SH_DPAT[sys.sh_space % SS_COUNT - SS_DELAY][sys.sh_interval % SI_COUNT];
+    uint32_t loopq = (uint32_t)P->loop * SH_DCLK[sh_dtime()] * 65536u / 576u;   /* the loop in beats, Q16 */
+    uint32_t ph = loopq ? (uint32_t)(((uint64_t)orn_beat % loopq) * 4096u / loopq) : 0u;   /* 0 .. 4095 */
+    int32_t flr = Q8(108), top = Q8(30), lv = nh ? hist[nh - 1u] : 0, k, m;
+    int32_t px[11], pt[11], pl[11], dtmax = 1;
+    uint32_t n = P->n;
+    (void)lv;
+    px[0] = Q8(120);                             /* (the throw: from the middle, at 0) */
+    pt[0] = 0;
+    pl[0] = 255;
+    for (k = 0; k < (int32_t)n; k++) {
+        px[k + 1] = Q8(120) + Q8(96) * P->tap[k].pan / 127;
+        pt[k + 1] = (int32_t)P->tap[k].t * 4096 / P->loop;
+        pl[k + 1] = P->tap[k].lvl;
+        dtmax = pt[k + 1] - pt[k] > dtmax ? pt[k + 1] - pt[k] : dtmax;
+    }
+    art_ln(Q8(16), flr, Q8(224), flr, art_c3, 0);           /* the flr; L and R */
+    cv_text(8, 112, &AF_S, "L", art_c3);
+    cv_text(226, 112, &AF_S, "R", art_c3);
+    for (k = 1; k <= (int32_t)n; k++) {                          /* the path: each hop a parabola, dim */
+        int32_t h = (flr - top) * (pt[k] - pt[k - 1]) / dtmax, qx = px[k - 1], qy = flr;
+        for (m = 1; m <= 12; m++) {
+            int32_t x = px[k - 1] + (px[k] - px[k - 1]) * m / 12, y = flr - h * 4 * m * (12 - m) / 144;
+            if (k == 1)                          /* (the first: dropped from the top) */
+                y = top + (flr - top) * m * m / 144, qy = m == 1 ? top : qy;
+            art_ln(qx, qy, x, y, art_c3, 2u | 3u << 8);
+            qx = x;
+            qy = y;
+        }
+    }
+    for (k = 1; k <= (int32_t)n; k++) {                          /* the taps: rings, flashing as the ball lands */
+        int32_t since = (int32_t)ph - pt[k], fl;
+        since = since < 0 ? since + 4096 : since;
+        fl = since < 400 ? 100 - since / 4 : 0;
+        art_ring(px[k], flr - Q8(4), 2 + pl[k] * 5 / 255, ux_mix(art_c3, art_c, fl > 0 ? fl : 0));
+    }
+    {   /* the ball */
+        int32_t bx = px[n], by = flr - Q8(6), seg = (int32_t)n + 1;
+        for (k = 1; k <= (int32_t)n; k++)
+            if ((int32_t)ph < pt[k]) { seg = k; break; }
+        if (seg <= (int32_t)n) {
+            int32_t d = pt[seg] - pt[seg - 1], u = d ? ((int32_t)ph - pt[seg - 1]) * 256 / d : 0;
+            int32_t h = (flr - top) * d / dtmax;
+            bx = px[seg - 1] + (px[seg] - px[seg - 1]) * u / 256;
+            by = seg == 1 ? top + (flr - top) * u / 256 * u / 256 : flr - h * 4 * u / 256 * (256 - u) / 256;
+            by -= Q8(6);
+        }
+        art_ring(bx, by, 5, art_c);
+        art_ring(bx, by, 3, art_c2);
+    }
+    {   /* the pattern's name and the step */
+        char t[24];
+        str_cpy(t, P->name, sizeof t);
+        ui_cat(t, sizeof t, "  ");
+        ui_cat(t, sizeof t, SH_DTIME_NAME[sh_dtime()]);
+        cv_text(150, 6, &AF_S, t, art_c2);
+    }
+    art_title(ICON_SHIMMER, SH_SPACE_NAME[sys.sh_space % SS_COUNT]);
+}
+
 static void art_shimmer(const uint8_t *hist, uint32_t nh)
 {
     {
@@ -638,8 +704,12 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
         d = d > 200u ? 200u : d;                                 /* (after a pause: no jump) */
         orn_beat += d * (bpm ? bpm : 120u) * 1118u / 1024u;     /* (beats, Q16: 65536 / 60000 a ms a BPM) */
     }
+    if (sys.sh_space % SS_COUNT >= SS_DELAY) {                   /* a delay: its pattern, a ball bouncing on it */
+        art_delay(hist, nh);
+        return;
+    }
     static const uint8_t RATIO8[SI_COUNT] = {16, 12, 24, 32};    /* the interval's ratio (down) x 8 */
-    static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8, 6, 6, 6, 6, 6, 6, 6, 12, 6};
+    static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8, 6, 6, 6, 6, 6, 6, 6, 12, 6, 6, 6, 6};
     /* the knobs, each across its whole range: SIZE the window (28 .. 52 px) and its rings (4 .. 7); DECAY how far back
      * the rings reach into the tail (0.8 .. 7.6 s); SHIMMER how many steps the outer rings sink (0 .. 3); TONE how
      * bright the outer rings stay; MIX how bright it all is */

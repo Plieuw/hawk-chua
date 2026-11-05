@@ -770,6 +770,21 @@ static const sh_preset_t SH_PRESETS[] = {
     {"PIPE ORGAN", 120, 110, 0, 64, SI_OCT, 80, SS_ORGAN},
     {"LESLIE SLOW", 20, 20, 0, 90, SI_OCT, 90, SS_LESLIE},
     {"LESLIE FAST", 120, 20, 0, 90, SI_OCT, 90, SS_LESLIE},
+    /* the delays: SIZE the step (0 1/32, 16 1/16T, 32 1/16, 48 1/8T, 64 1/8, 80 1/4T, 96 1/8., 112 1/4), DECAY the
+     * feedback, SHIMMER the filter (127 open), TONE its resonance; the INTERVAL the pattern */
+    {"PING PONG 1/8", 64, 70, 127, 40, 0, 0, SS_PINGPONG},
+    {"DOTTED PONG", 64, 80, 100, 40, 1, 20, SS_PINGPONG},
+    {"TRIPLET PONG", 64, 75, 110, 40, 2, 10, SS_PINGPONG},
+    {"FILTER PONG", 64, 85, 70, 44, 3, 70, SS_PINGPONG},
+    {"SLAPBACK", 0, 10, 110, 36, 0, 0, SS_PINGPONG},
+    {"TRESILLO ECHO", 32, 60, 95, 44, 0, 30, SS_PATTERN},
+    {"DUB SIREN", 32, 110, 55, 50, 1, 90, SS_PATTERN},
+    {"GALLOP", 32, 55, 105, 40, 2, 20, SS_PATTERN},
+    {"CLAVE ECHO", 32, 40, 90, 42, 3, 40, SS_PATTERN},
+    {"BOUNCING BALL", 64, 20, 115, 50, 0, 10, SS_BOUNCE},
+    {"BALL PONG", 64, 30, 110, 50, 1, 20, SS_BOUNCE},
+    {"RISING BALL", 64, 25, 100, 50, 2, 30, SS_BOUNCE},
+    {"SCATTER DELAY", 64, 50, 80, 46, 3, 60, SS_BOUNCE},
 };
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
 static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not saved: the knobs are) */
@@ -2187,6 +2202,28 @@ static void ui_draw(void)
         }
         fmt_int(v, sys.ring);
         ui_cell(T_C4, "4 RING", v);
+    } else if (sys.page == 3u && sys.sh_space % SS_COUNT >= SS_DELAY) {   /* a delay: TIME, FEEDBACK, FILTER, MIX */
+        ui_cell(T_C1, "1 TIME", SH_DTIME_NAME[sh_dtime()]);
+        fmt_int(v, (int32_t)((sys.sh_decay & 127u) * 95u / 127u));
+        str_cpy(b, v, sizeof b);
+        ui_cat(b, sizeof b, " %");
+        ui_cell(T_C2, "2 FEEDBACK", b);
+        if ((sys.sh_shimmer & 127u) >= 127u)
+            str_cpy(b, "OPEN", sizeof b);
+        else {
+            uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2((int32_t)(sys.sh_shimmer & 127u) * 268697 / 127)) >> 16);
+            fmt_int(v, (int32_t)fc);
+            str_cpy(b, v, sizeof b);
+            ui_cat(b, sizeof b, " HZ");
+        }
+        ui_cell(T_C3, "3 FILTER", b);
+        if (sys.sh_mix) {
+            fmt_int(v, (int32_t)(sys.sh_mix * 100u / 127u));
+            str_cpy(b, v, sizeof b);
+            ui_cat(b, sizeof b, " %");
+        } else
+            str_cpy(b, "OFF", sizeof b);
+        ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 3u) {
         fmt_int(v, sys.sh_size);
         ui_cell(T_C1, "1 SIZE", v);
@@ -2253,8 +2290,8 @@ static void ui_draw(void)
         if (sys.page == 3u) {
             str_cpy(a, SH_SPACE_NAME[sys.sh_space % SS_COUNT], sizeof a);
             ui_cat(a, sizeof a, " ");
-            ui_cat(a, sizeof a, SH_INTERVAL_NAME[sys.sh_interval % SI_COUNT]);
-            ui_cat(a, sizeof a, "  TONE ");
+            ui_cat(a, sizeof a, sh_iv_name(sys.sh_space % SS_COUNT, sys.sh_interval));
+            ui_cat(a, sizeof a, sys.sh_space % SS_COUNT >= SS_DELAY ? "  RESO " : "  TONE ");
             fmt_int(v, sys.sh_tone);
             ui_cat(a, sizeof a, v);
         } else if (sys.page == 2u) {
@@ -2926,7 +2963,7 @@ static void ui_input(void)
         sys.sh_interval = (uint8_t)(q % SI_COUNT);
         str_cpy(t, SH_SPACE_NAME[sys.sh_space], sizeof t);
         ui_cat(t, sizeof t, " ");
-        ui_cat(t, sizeof t, SH_INTERVAL_NAME[sys.sh_interval]);
+        ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
         ui_say(t);
     } else if (s && sys.page == 2u) {
         sys.fx_model = (uint8_t)((sys.fx_model + RZ_COUNT * 8 + s) % RZ_COUNT);
