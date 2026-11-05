@@ -54,7 +54,7 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | SEQ | de KARMA-pagina (de frasegenerator); nog een keer: terug naar HOME (het lampje brandt zolang KARMA speelt) |
 | PLAY | start en stopt de ARP of KARMA: op de ARP-pagina de ARP, op de SEQ-pagina KARMA, op andere pagina's de laatste van de twee die je opende. Brandt (ook groen) zolang er een speelt |
 | OCT- / OCT+ | octaaf −3..+3 |
-| SAVE | alle instellingen in flash (terug na herstart), én de klank zoals hij nu is over de preset die speelt (de naam blijft); PRESETS en program change laden daarna die opgeslagen versie. Via USB: `python3 tools/fm1_remote.py presets presets.txt` of de knop *Presets → C* op de Remote-pagina geeft alle 512 als regels voor de tabel in `firmware/src/ui.c` (de opgeslagen gemarkeerd `SAVED`); `reset-presets` of *Opgeslagen presets wissen* zet de ingebouwde terug |
+| SAVE | (knippert altijd in het tempo; alle knipperende LEDs volgen de BPM) alle instellingen in flash (terug na herstart), én de klank zoals hij nu is over de preset die speelt (de naam blijft); PRESETS en program change laden daarna die opgeslagen versie. Via USB: `python3 tools/fm1_remote.py presets presets.txt` of de knop *Presets → C* op de Remote-pagina geeft alle 512 als regels voor de tabel in `firmware/src/ui.c` (de opgeslagen gemarkeerd `SAVED`); `reset-presets` of *Opgeslagen presets wissen* zet de ingebouwde terug |
 | (blokjes rechtsonder) | knoppen met twee pagina's (ENV + MOD ENV, FX + SHIMMER) tonen rechtsonder twee blokjes: de pagina waar je bent oranje gevuld, de andere een leeg vakje |
 | LFO | de FREE EG-pagina (nog een keer: terug naar HOME); daar neemt REC op |
 | EDIT | de EDIT-pagina (nog een keer: terug naar HOME); SELECT zet het octaaf van de klank (-3 .. +3: alle oscillatoren, de FX stemmen mee; de presets zetten het op het register van hun instrument, bassen -2, cello en gitaren -1, piccolo en glockenspiel +1; opgeslagen met SAVE); KNOB 1 welke parameter het MOD WHEEL (MIDI CC 1) beweegt (de lijst van FREE EG), KNOB 2 hoe ver (DEPTH; wiel omhoog = tot 127, wiel omlaag = de oude waarde terug; speelt FREE EG op dezelfde parameter, dan regelt het wiel de diepte van FREE EG: wiel omlaag = stil, omhoog = FREE EG's DEPTH; pas zodra er een mod wheel binnenkomt), KNOB 3 VELOCITY op de klank (OFF, BRIGHT: zacht = donkerder, SWEEP: zacht = minder MOD ENV-sweep, BRIGHT + SWEEP), KNOB 4 hoeveel |
@@ -190,7 +190,7 @@ Een GE is, zoals bij KARMA, een paar kleine generatoren die samenwerken:
 | PLAY | KARMA aan/uit |
 | ALGORITHM | de GE (24, zie hieronder) |
 | KNOB 1..4 | de vier *Realtime Controls* van die GE; de cellen tonen wat ze doen. 64 is de GE zoals hij geschreven is |
-| SELECT | LATCH: rechtsom aan (de frase loopt door als je loslaat, een nieuw akkoord vervangt het oude), linksom uit |
+| SELECT | LATCH (standaard aan): rechtsom aan (de frase loopt door als je loslaat, een nieuw akkoord vervangt het oude), linksom uit |
 | PRESETS | het tempo (BPM 40..250, hetzelfde als KNOB 1 op de ARP-pagina); op deze pagina kies je dus geen preset |
 
 De Realtime Controls: DENSITY (0 niets, laag alleen de zware aanslagen, 64 het patroon, hoger ook de spooknoten en
@@ -306,8 +306,9 @@ hetzelfde aantal tellen. Lo-fi zoals tape: 11 kHz, 8-bit mu-law, de hoogte rolt 
 | ALGORITHM | ook armen, voor een spoor dat al is opgenomen (om het opnieuw op te nemen) |
 | SELECT | wisselt tussen de twee menu's: TAPE (links) en SPEED (rechts) |
 | PRESETS | de BPM (dezelfde als ARP en KARMA): snelheid en toonhoogte van de band volgen |
-| PLAY | de band starten (vanaf het begin van de lus) / stoppen |
+| PLAY | (knippert in het tempo zolang ARP of KARMA aan staat) de band starten (vanaf het begin van de lus) / stoppen |
 | REC | één ronde opnemen op het ARM-spoor (de band start als hij stilstaat); nog een keer: stoppen. Met PLAY ingedrukt: het ARM-spoor wissen |
+| OCT- + OCT+ | (ze knipperen op de TAPE-pagina's) beide kort indrukken = BOUNCE: alle sporen, elk op zijn fader, samen op spoor 1 (op 100); sporen 2..4 leeg voor nieuwe opnames, spoor 2 geARMd. (5 s vasthouden blijft UBOOT) |
 
 **SPEED (REC, SELECT rechtsom).** Draai SELECT rechtsom op de TAPE-pagina: het SPEED-menu (linksom: terug naar TAPE;
 REC en PLAY werken hier ook). KNOB 1 de globale BPM (40..250; ARP, KARMA en de band volgen; vrije varispeed). KNOB 2 SPEED: de snelheid van de

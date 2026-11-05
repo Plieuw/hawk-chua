@@ -1327,6 +1327,22 @@ int main(int argc, char **argv)
         sys.tape_lv[0] = 127; sys.arp_bpm = 60;
         run_ms(10);
         okk &= tape.speed >= 2040u && tape.speed <= 2056u && tape.len == 22050u;   /* half the tempo: half the speed */
+        {   /* BOUNCE: track 2 recorded too, then all onto track 1: 2 blank, 1 holds both, armed 2 */
+            uint32_t c, diff = 0;
+            sys.arp_bpm = 120; run_ms(10);
+            for (c = 0; c < TAPE_N; c++)
+                tape_buf[1][c] = tape_enc((int32_t)(c % 200u) * 40 - 4000);
+            tape.has[1] = 1; sys.tape_lv[1] = 100; sys.tape_lv[0] = 100;
+            {   uint8_t was0 = tape_buf[0][1000]; (void)was0; }
+            tape.req = 4;
+            run_ms(60);
+            okk &= !tape.bounce && tape.has[0] && !tape.has[1] && tape_buf[1][1000] == 0xFF && sys.tape_arm == 1u;
+            for (c = 0; c < 2000u; c++)
+                diff += tape_buf[0][c] != 0xFF;
+            okk &= diff > 1000u;
+            if (!okk) printf("   (bounce: %u %u %u %u %u)\n", tape.bounce, tape.has[0], tape.has[1], sys.tape_arm, diff);
+            sys.tape_arm = 0; sys.arp_bpm = 60; sys.tape_lv[0] = 127; run_ms(10);
+        }
         tape.req = 3;                                            /* erased: blank again, silent */
         run_ms(10);
         okk &= !tape.spb && !tape.has[0];
@@ -1337,7 +1353,7 @@ int main(int argc, char **argv)
         okk &= !tape.playing;
         sys.arp_bpm = 120; sys.tape_lv[0] = 100;
 #undef TAPE_PEAK
-        check("TAPE: recorded, played back, its fader, varispeed with the BPM, erased, stopped", okk);
+        check("TAPE: recorded, played back, its fader, varispeed with the BPM, BOUNCE, erased, stopped", okk);
     }
     {   /* velocity on the sound: BRIGHT closes a soft note's gate, FM makes its depth shallower; OFF changes nothing */
         int okk = 1;

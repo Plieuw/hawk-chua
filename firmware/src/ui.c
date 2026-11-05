@@ -2405,9 +2405,9 @@ static void ui_leds(void)
     for (i = 0; i < 14u; i++)
         if ((btns >> i) & 1u)
             led_on(nl, i);
-    if (sys.octave < 0)
+    if (sys.octave < 0 && sys.page != 12u && sys.page != 13u)   /* (TAPE: they blink, BOUNCE) */
         led_on(nl, panel.btn[B_OCTDN]);
-    if (sys.octave > 0)
+    if (sys.octave > 0 && sys.page != 12u && sys.page != 13u)
         led_on(nl, panel.btn[B_OCTUP]);
     if (sys.page == 0u || sys.page == 14u)
         led_on(nl, panel.btn[B_HOME]);
@@ -2438,6 +2438,10 @@ static void ui_leds(void)
             led_on(nl, panel.btn[B_REC]);
         if (on)                                  /* SAVE: always, in the tempo */
             led_on(nl, panel.btn[B_SAVE]);
+        if ((sys.page == 12u || sys.page == 13u) && on) {   /* TAPE: both OCTs (press both: BOUNCE) */
+            led_on(nl, panel.btn[B_OCTDN]);
+            led_on(nl, panel.btn[B_OCTUP]);
+        }
     }
     if ((sys.page >= 2u && sys.page <= 3u) || sys.fx_mix || sys.sh_mix)   /* (FX lit: its pages, or FX on) */
         led_on(nl, panel.btn[B_FX]);
@@ -2510,8 +2514,14 @@ static void ui_input(void)
         switch (b) {
         case B_OCTDN:
         case B_OCTUP:
-            if ((fm1_in.buttons & (btn_bit(B_OCTDN) | btn_bit(B_OCTUP))) == (btn_bit(B_OCTDN) | btn_bit(B_OCTUP)))
+            if ((fm1_in.buttons & (btn_bit(B_OCTDN) | btn_bit(B_OCTUP))) == (btn_bit(B_OCTDN) | btn_bit(B_OCTUP))) {
+                if (sys.page == 12u || sys.page == 13u) {   /* TAPE: both = BOUNCE all onto track 1 (held 5 s it is
+                                                             * still UBOOT, main.c) */
+                    tape.req = 4;
+                    ui_say("BOUNCE: ALL ON TRACK 1");
+                }
                 break;                                  /* both: the UBOOT combo (main.c), not an octave */
+            }
             sys.octave = (int8_t)clamp(sys.octave + (b == B_OCTUP ? 1 : -1), OCT_MIN, OCT_MAX);
             break;
         case B_SAVE: {                                  /* the settings, and the sound over the preset playing */

@@ -32,7 +32,9 @@ static struct {
     int32_t acc, accn, lp, lvl[TAPE_NT];
     int32_t meter[TAPE_NT];                      /* each track's level for the screen, 0..32767 */
     uint8_t playing, rec, has[TAPE_NT];
-    volatile uint8_t req;                        /* from the UI: 1 play/stop, 2 rec, 3 erase the armed track */
+    volatile uint8_t req;                        /* from the UI: 1 play/stop, 2 rec, 3 erase the armed track, 4 bounce
+                                                  * all onto track 1 */
+    uint32_t bounce;                             /* BOUNCE: the next cell to mix down (0: none going) */
 } tape;
 
 /* SPEED (the TAPE page's second menu): the tape's speed in ratios of the harmonic series (5-limit just intonation),
@@ -133,10 +135,38 @@ static void tape_block(void)
         if (!(tape.has[0] | tape.has[1] | tape.has[2] | tape.has[3]))
             tape.spb = 0;
         break;
+    case 4:                                      /* BOUNCE: the four tracks at their faders onto track 1, a slice a
+                                                  * block (below), 2 .. 4 blank for new takes */
+        if (!tape.bounce && (tape.has[0] | tape.has[1] | tape.has[2] | tape.has[3])) {
+            tape.rec = 0;
+            tape.bounce = 1;
+        }
+        break;
     default:
         break;
     }
     tape.req = 0;
+    if (tape.bounce) {                           /* (1024 cells a block: the 40000 in ~30 ms) */
+        uint32_t c, e = tape.bounce - 1u + 1024u, k;
+        e = e > TAPE_N ? TAPE_N : e;
+        for (c = tape.bounce - 1u; c < e; c++) {
+            int32_t m = 0;
+            for (k = 0; k < TAPE_NT; k++)
+                if (tape.has[k])
+                    m += tape_mu[tape_buf[k][c]] * (int32_t)(sys.tape_lv[k] & 127u) / 100;
+            m = m > 32767 ? 32767 : m < -32768 ? -32768 : m;
+            tape_buf[0][c] = tape_enc(m);
+            for (k = 1; k < TAPE_NT; k++)
+                tape_buf[k][c] = 0xFF;
+        }
+        tape.bounce = e >= TAPE_N ? 0u : e + 1u;
+        if (!tape.bounce) {                      /* (done: track 1 holds all, at 100; the others blank, armed 2) */
+            tape.has[0] = 1;
+            tape.has[1] = tape.has[2] = tape.has[3] = 0;
+            sys.tape_lv[0] = 100;
+            sys.tape_arm = 1;
+        }
+    }
     if (arp.starts != tape.starts) {             /* MIDI START: the loop's start */
         tape.starts = arp.starts;
         tape.pos = 0;
@@ -176,7 +206,7 @@ static void tape_run(int32_t *l, int32_t *r, uint32_t n)
         int32_t mix = 0;
         for (t = 0; t < TAPE_NT; t++) {
             int32_t s0, s1;
-            if (!tape.lvl[t] || (tape.rec && t == a))
+            if (!tape.lvl[t] || (tape.rec && t == a) || tape.bounce)   /* (BOUNCE: quiet meanwhile) */
                 continue;
             s0 = tape_mu[tape_buf[t][c]];
             s1 = tape_mu[tape_buf[t][c1]];
