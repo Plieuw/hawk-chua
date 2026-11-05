@@ -1064,6 +1064,31 @@ static void art_piano(void)
     art_title(ICON_PIANO, "PIANO");
 }
 
+/* DIDGERIDOO: the long tube, widening to its bell, the mouth's ring at the top breathing with the level */
+static void art_didge(void)
+{
+    int32_t r = 6 + art_lv / 40, k;
+    art_ln(Q8(30), Q8(40), Q8(210), Q8(52), art_c, 0);
+    art_ln(Q8(30), Q8(52), Q8(210), Q8(80), art_c, 0);
+    art_ln(Q8(210), Q8(52), Q8(210), Q8(80), art_c2, 0);
+    for (k = 1; k < 6; k++)                      /* (the termite-eaten wood's rings) */
+        art_ln(Q8(30 + 30 * k), Q8(40 + 2 * k), Q8(30 + 30 * k), Q8(52 + 5 * k), art_c3, 0);
+    art_ring(Q8(24), Q8(46), r, art_c2);
+    art_title(ICON_SAX, "DIDGERIDOO");
+}
+/* SHAKUHACHI: the bamboo, its nodes, the five holes, the cut mouthpiece at the top */
+static void art_shaku(void)
+{
+    int32_t k;
+    art_ln(Q8(110), Q8(14), Q8(110), Q8(118), art_c, 0);
+    art_ln(Q8(126), Q8(10), Q8(126), Q8(118), art_c, 0);
+    art_ln(Q8(110), Q8(14), Q8(126), Q8(10), art_c2, 0);   /* the utaguchi, cut */
+    for (k = 0; k < 4; k++)                      /* the nodes */
+        art_ln(Q8(108), Q8(36 + 24 * k), Q8(128), Q8(36 + 24 * k), art_c3, 0);
+    for (k = 0; k < 4; k++)                      /* the holes (and one behind) */
+        art_ring(Q8(118), Q8(64 + 12 * k), 2 + (k == 1 ? art_lv / 64 : 0), art_c2);
+    art_title(ICON_SAX, "SHAKUHACHI");
+}
 /* KALIMBA: the tines fanned on the box (the one playing swings with the level), the sound hole */
 static void art_kalimba(void)
 {
@@ -1216,6 +1241,8 @@ static void art_draw(void)
     case RZ_ACCORD: art_accord(); break;
     case RZ_BAGPIPE: art_bagpipe(); break;
     case RZ_KALIMBA: art_kalimba(); break;
+    case RZ_DIDGE: art_didge(); break;
+    case RZ_SHAKU: art_shaku(); break;
     default: art_syrinx(1); break;
     }
     if (!sys.fx_mix)

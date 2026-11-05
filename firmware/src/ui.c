@@ -224,7 +224,7 @@ static const preset_t PRESETS[] = {
     {"RECORDER", NZK, 30, 76, 110, 64, 20, RZ_FLUTE, 20, 60, 78, 20, 127, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .eg = EG_OVERTONE},
     {"PAN FLUTE", NZK, 40, 80, 110, 76, 20, RZ_FLUTE, 30, 60, 78, 100, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
     {"BLOWN BOTTLE", NZK, 50, 80, 110, 74, 20, RZ_FLUTE, 0, 30, 78, 110, 127, NOSH, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
-    {"SHAKUHACHI", NZK, 50, 84, 105, 80, 20, RZ_FLUTE, 50, 60, 78, 120, 127, HALL, NZ(1, 6), 126, 63, .eg = EG_CHIFF},
+    {"SHAKUHACHI", 85, 76, 0, 50, 84, 105, 80, 20, RZ_SHAKU, 70, 70, 78, 0, 127, 115, 96, 0, 40, SI_OCT, 80, 17, 126, 63, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_CHIFF},
     {"WHISTLE", 6, 64, 64, 20, 70, 115, 70, 20, RZ_FLUTE, 30, 90, 78, 20, 120, .eg = EG_OVERTONE, .oct = 1},
     {"OCARINA", 6, 64, 127, 30, 76, 110, 66, 20, RZ_FLUTE, 10, 30, 78, 10, 127, ROOM, .eg = EG_OVERTONE},
     /* SYNTH LEAD 81-88 */
@@ -625,7 +625,7 @@ static const preset_t PRESETS[] = {
     {"REED HOWL", 70, 64, 64, 20, 80, 115, 70, 30, 9, 60, 90, 78, 60, 127, 0, 103, 12, 38, 1, 100, 8, 110, 110, 80, 10, 0, 14, 3, 64, 64},   /* (yours: saved on the FM-1) */
     {"BOW SCRAPE", 110, 64, 64, 20, 80, 115, 70, 30, RZ_BOW, 100, 127, 78, 8, 120, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 72, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"THROAT SINGER", 90, 64, 64, 20, 80, 115, 70, 30, 3, 119, 50, 52, 26, 120, 115, 96, 0, 40, 0, 80, 2, 110, 110, 80, 10, 0, 76, 0, 64, 64, .oct = 3},   /* (yours: saved on the FM-1) */
-    {"DIDGERIDOO", 70, 64, 64, 20, 80, 115, 70, 30, RZ_FLUTE, 0, 20, 88, 120, 120, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 80, SS_HALL, 0, 0, .eg = EG_GROWL},
+    {"DIDGERIDOO", 70, 64, 64, 20, 80, 115, 70, 30, RZ_DIDGE, 10, 60, 60, 40, 127, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 80, SS_HALL, 0, 0, .eg = EG_GROWL, .oct = -2},
     {"HAWK CRY", 110, 64, 64, 20, 80, 115, 70, 30, RZ_HAWK, 70, 90, 58, 70, 120, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 84, SS_HALL, 0, 0},
     {"BIRD SWARM", 90, 64, 64, 20, 80, 115, 70, 30, RZ_SYRINX, 60, 90, 58, 110, 120, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 88, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"WOLF TONE", 70, 64, 64, 20, 80, 115, 70, 30, RZ_BOW, 120, 60, 93, 70, 120, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 92, SS_HALL, 0, 0},
@@ -744,6 +744,7 @@ static const fx_preset_t FX_PRESETS[] = {
     {"MUSETTE", RZ_ACCORD, 70, 80, 60, 64, 127}, {"BANDONEON", RZ_ACCORD, 15, 40, 80, 30, 127},
     {"HIGHLAND PIPES", RZ_BAGPIPE, 20, 100, 80, 0, 127},
     {"KALIMBA", RZ_KALIMBA, 20, 80, 70, 0, 110},  {"MBIRA BUZZ", RZ_KALIMBA, 60, 90, 80, 60, 110},
+    {"DIDGERIDOO", RZ_DIDGE, 10, 60, 60, 40, 127}, {"SHAKUHACHI", RZ_SHAKU, 60, 70, 80, 0, 127},
 };
 #define NFX_PRESETS (sizeof FX_PRESETS / sizeof FX_PRESETS[0])
 /* the SHIMMER page's own presets */
@@ -1794,9 +1795,10 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
     uint32_t md = sys.fx_model % RZ_COUNT, p = sys.fx_pos & 127u;
     char v[12];
     static const char *const L[RZ_COUNT] = {"POSITION", "AMOUNT", "POSITION", "VOWEL", "BREATH", "TWO VOICE", "RASP", "MUTE", "BOW AT", "BORE",
-                                                  "STRIKE", "HAMMER", "REGISTER", "DRONES IN", "BUZZ"};
+                                                  "STRIKE", "HAMMER", "REGISTER", "DRONES IN", "BUZZ", "MOUTH",
+                                                  "MERI"};
     static const char *const S[RZ_COUNT] = {"POS", "AMT", "POS", "VOWEL", "BREATH", "TWO", "RASP", "MUTE", "BOW", "BORE", "AT", "HAM",
-                                            "REG", "KEY", "BUZZ"};
+                                            "REG", "KEY", "BUZZ", "MOUTH", "MERI"};
     str_cpy(d, brief ? S[md] : L[md], n);
     ui_cat(d, n, " ");
     if (md == RZ_VOICE) {                       /* the vowel: U O A E I, or between two */
@@ -2141,7 +2143,8 @@ static void ui_draw(void)
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
         static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
-                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON", "1 MUSETTE", "1 SOFT REED", "1 TINE"};
+                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON", "1 MUSETTE", "1 SOFT REED", "1 TINE", "1 LIPS",
+                                                   "1 MURAIKI"};
         if (md == RZ_SYMP)
             str_cpy(b, RZ_CHORD_NAME[(sys.fx_struct & 127u) >> 4], sizeof b);
         else if (md == RZ_VOICE)

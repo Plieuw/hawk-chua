@@ -1259,6 +1259,37 @@ int main(int argc, char **argv)
         synth_kill(); sys.fx_mix = 0; sys.osc = 0; run_ms(20);
         check("ACCORDION speaks, BAGPIPE drones, KALIMBA's tine (6.27 x)", okk);
     }
+    {   /* DIDGERIDOO drones at the note (its mouth's formants change the colour, not the pitch); SHAKUHACHI speaks
+         * at the note (its fundamental the strongest harmonic), MERI bends it down */
+        static int32_t ob[16384];
+        uint32_t q, w, b, k;
+        int okk = 1;
+        double hm[2][4];
+        for (q = 0; q < 2u; q++) {
+            synth_kill(); sys.fx_mix = 0; run_ms(20);
+            sys.osc = 17; sys.np_x = 126; sys.np_y = 63; sys.np_level = 30; sys.attack = 20; sys.decay = 80;
+            sys.sustain = 115; sys.release = 60; sys.ring = 20; sys.sh_mix = 0; sys.feg_on = 0;
+            sys.fx_model = q ? RZ_SHAKU : RZ_DIDGE; sys.fx_struct = q ? 70 : 10; sys.fx_bright = 70;
+            sys.fx_damp = q ? 80 : 60; sys.fx_pos = q ? 0 : 40; sys.fx_mix = 127;
+            synth_note_on(q ? 60 : 36, 100);
+            run_ms(1500);
+            for (w = 0; w < 16384u / CTL; w++) { block(); for (b = 0; b < CTL; b++) ob[w * CTL + b] = buf[2 * b]; }
+            for (k = 1; k <= 4u; k++) {
+                double rr = 0, ii = 0, f = (q ? 261.63 : 65.41) * k;
+                for (b = 0; b < 16384u; b++) {
+                    double wv = 0.5 - 0.5 * cos(2 * M_PI * b / 16384.0);
+                    rr += ob[b] * wv * cos(2 * M_PI * f * b / FS); ii += ob[b] * wv * sin(2 * M_PI * f * b / FS);
+                }
+                hm[q][k - 1u] = rr * rr + ii * ii;
+            }
+        }
+        printf("   (DIDGERIDOO 65 Hz drone: h1..4 %.0f %.0f %.0f %.0f dB; SHAKUHACHI h1..4 %.0f %.0f %.0f %.0f dB)\n",
+               0.0, 10 * log10(hm[0][1] / hm[0][0]), 10 * log10(hm[0][2] / hm[0][0]), 10 * log10(hm[0][3] / hm[0][0]),
+               0.0, 10 * log10(hm[1][1] / hm[1][0]), 10 * log10(hm[1][2] / hm[1][0]), 10 * log10(hm[1][3] / hm[1][0]));
+        okk &= hm[0][0] > 1e9 && hm[1][0] > hm[1][1] && hm[1][0] > hm[1][2] && hm[1][0] > hm[1][3];
+        synth_kill(); sys.fx_mix = 0; sys.osc = 0; run_ms(20);
+        check("DIDGERIDOO drones, SHAKUHACHI speaks at the note", okk);
+    }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */
         int okk = 1;

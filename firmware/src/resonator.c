@@ -32,9 +32,10 @@
 #include "waveguide.c"                           /* VOICE ... DRUM: this firmware's own models */
 
 enum { RZ_MODAL, RZ_SYMP, RZ_STRING, RZ_VOICE, RZ_FLUTE, RZ_SYRINX, RZ_HAWK, RZ_BRASS, RZ_BOW, RZ_REED, RZ_DRUM, RZ_PIANO,
-       RZ_ACCORD, RZ_BAGPIPE, RZ_KALIMBA, RZ_COUNT };
+       RZ_ACCORD, RZ_BAGPIPE, RZ_KALIMBA, RZ_DIDGE, RZ_SHAKU, RZ_COUNT };
 static const char *const RZ_NAME[RZ_COUNT] = {"MODAL", "SYMP STRING", "STRING", "VOICE", "FLUTE", "SYRINX", "HAWK", "BRASS", "BOW", "REED", "DRUM", "PIANO",
-                                              "ACCORDION", "BAGPIPE", "KALIMBA"};
+                                              "ACCORDION", "BAGPIPE", "KALIMBA", "DIDGERIDOO",
+                                              "SHAKUHACHI"};
 static const char *const RZ_CHORD_NAME[8] = {"OCT", "5TH", "4TH", "MAJ", "MIN", "SUS", "7TH", "OCTAVES"};
 static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Felucca's PHYS chords) */
     {-12, 12, 24}, {7, 12, 19}, {5, 12, 17}, {4, 7, 12}, {3, 7, 12}, {2, 7, 14}, {4, 7, 10}, {12, 24, 36},
@@ -42,9 +43,9 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000, 6000, 14000, 4500, 6000};
-static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
-static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
+static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000, 6000, 14000, 4500, 6000, 4500, 1800};
+static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
+static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
 static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
@@ -64,6 +65,7 @@ typedef struct {
         wg_reed_t rd;                            /* (BAGPIPE: its chanter) */
         wg_accord_t ac;                          /* ACCORDION */
         wg_kalimba_t kl;                         /* KALIMBA */
+        wg_didge_t dg;                           /* DIDGERIDOO (SHAKUHACHI: the FLUTE's f) */
         wg_drum_t dr;                            /* DRUM */
         wg_piano_t pn;                           /* PIANO */
     } u;
@@ -93,7 +95,7 @@ static void rz_reset(rz_t *R, uint32_t md)
     memset(&R->u, 0, sizeof R->u);
     if (md == RZ_MODAL)
         R->u.m.rng = 0x9E3779B9u;
-    else if (md == RZ_FLUTE)
+    else if (md == RZ_FLUTE || md == RZ_SHAKU)
         R->u.f.rng = 0x9E3779B9u;
     else if (md == RZ_SYRINX || md == RZ_HAWK) {
         R->u.x.rng = 0x9E3779B9u;
@@ -105,6 +107,8 @@ static void rz_reset(rz_t *R, uint32_t md)
         R->u.t.ag = 4096;
     else if (md == RZ_BRASS)
         R->u.br.ag = 4096;
+    else if (md == RZ_DIDGE)
+        R->u.dg.br.ag = 4096;
     else if (md == RZ_BOW)
         R->u.bw.ag = 4096;
     else if (md == RZ_ACCORD)
@@ -262,6 +266,29 @@ static void rz_run(uint32_t r, uint32_t n)
             rz_view.n = 2;
         }
         break;
+    case RZ_DIDGE:
+        wg_didge_run(&R->u.dg, in, y, n, f0, strc / 516, pos, brit, damp);
+        if (view) {                              /* (the drone's harmonics) */
+            for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++) {
+                rz_view.f[i] = f0 * (i + 1u);
+                rz_view.a[i] = (int16_t)(32767 / (int32_t)(i + 1u));
+            }
+            rz_view.n = i;
+        }
+        break;
+    case RZ_SHAKU: {   /* the FLUTE, end-blown: a long jet, much breath (MURAIKI, STRUCTURE), MERI (POSITION): the
+                        * chin down, the pitch bent down to a semitone and darker */
+        uint32_t fm = (uint32_t)(((uint64_t)f0 * px_exp2(-(pos * 65536 / 127) / 12)) >> 16);
+        wg_flute_run(&R->u.f, in, y, n, fm, 20, 40000 + strc / 3, brit - pos * 200 > 0 ? brit - pos * 200 : 0, damp);
+        if (view) {
+            for (i = 0; i < 10u && (uint64_t)fm * (i + 1u) < 0x7F000000u; i++) {
+                rz_view.f[i] = fm * (i + 1u);
+                rz_view.a[i] = (int16_t)(32767 / (int32_t)(i * i + 1u));
+            }
+            rz_view.n = i;
+        }
+        break;
+    }
     case RZ_BRASS:
     case RZ_BOW:
     case RZ_REED:

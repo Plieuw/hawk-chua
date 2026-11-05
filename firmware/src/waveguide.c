@@ -1055,3 +1055,40 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
         K->yp = o;
     }
 }
+
+/* ------------------------------------------------------------- DIDGERIDOO --- */
+/* The didgeridoo: the lips buzzing into a long, widening bore (the BRASS waveguide, low: the drone), and what makes
+ * it a didgeridoo, the player's mouth and throat in front of it: two formants the vocal tract shapes over the drone
+ * (POSITION: the mouth, oo .. aw .. ee: F1 250 .. 700 Hz, F2 600 .. 2400 Hz), moved by the breath (louder: wider
+ * open), and a voice hummed into the lips (DAMPING: how much of the formants' growl). STRUCTURE the lips: low the
+ * drone, high a toot (the bore's next mode, overblown). The voices' sound is the breath (circular, so held notes
+ * drone on); FREE EG on POSITION is the "wa-wa" */
+typedef struct {
+    wg_brass_t br;
+    int32_t a1, b1, a2, b2, env;                 /* the formants (state-variable: low, band), the breath */
+} wg_didge_t;
+static void wg_didge_run(wg_didge_t *D, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t lip,
+                         int32_t mouth, int32_t bright, int32_t growl)
+{
+    uint32_t i;
+    int32_t env = wg_follow(&D->env, in, n), op = env * 8 > PX_ONE ? PX_ONE : env * 8, m, f1, f2, c1, c2, q;
+    wg_brass_run(&D->br, in, y, n, f0, lip, 0, bright, 58000);
+    m = mouth * 516 + (op >> 6) * 4;             /* (the breath opens the mouth a little) */
+    m = m > 65535 ? 65535 : m;
+    f1 = 250 + (int32_t)(((int64_t)m * 450) >> 16);                    /* Hz */
+    f2 = 600 + (int32_t)(((int64_t)m * 1800) >> 16);
+    c1 = f1 * 4669 / 1000;                       /* 2 pi f / FS, Q15 */
+    c2 = f2 * 4669 / 1000;
+    q = 6000 + growl / 32;                       /* 1 / Q: sharp formants (growl: wider, louder) */
+    for (i = 0; i < n; i++) {
+        int32_t x = y[i], h1, h2;
+        h1 = x - D->a1 - px_m(D->b1, q, 15);
+        D->b1 += px_m(c1, h1, 15);
+        D->a1 += px_m(c1, D->b1, 15);
+        h2 = x - D->a2 - px_m(D->b2, q, 15);
+        D->b2 += px_m(c2, h2, 15);
+        D->a2 += px_m(c2, D->b2, 15);
+        y[i] = px_clamp(x / 4 + px_m(D->b1, 22000 + growl / 8, 15) + px_m(D->b2, 16000 + growl / 8, 15),
+                        -64 * PX_ONE, 64 * PX_ONE);
+    }
+}
