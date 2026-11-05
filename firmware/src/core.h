@@ -77,9 +77,9 @@ static volatile struct {
          .osc = 0, .np_x = 64, .np_y = 64, .np_level = 64,
          
          .menv_len = 80, .menv_skew = 10, .menv_height = 0, .menv_bend = 64, .basis = 0, .orbit = 0,
-         .arp_on = 0, .arp_type = 0, .arp_bpm = 120, .arp_div = 7, .arp_gate = 80, .arp_swing = 0, .arp_hold = 0,
+         .arp_on = 0, .arp_type = 0, .arp_bpm = 120, .arp_div = 7, .arp_gate = 80, .arp_swing = 0, .arp_hold = 1,
          .midi_trs = 1, .midi_usb = 3, .midi_rx = 0, .midi_tx = 0,
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
-         .k_on = 0, .k_ge = 0, .k_latch = 0, .k_m = {64, 64, 64, 64},
+         .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,
          .tape_lv = {100, 100, 100, 100}, .tape_len = 2, .tape_arm = 0, .tape_spd = 12};
