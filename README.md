@@ -134,8 +134,15 @@ UPDW A (de uitersten één keer), UPDW B (de uitersten twee keer) en RANDOM, elk
 (Euro), TECHNO-B (UK, met velocity), TECHNO-C (Japans), TECHNO-D (Duits), DA HOUSE (bas links, akkoorden rechts),
 SYNCOPA A, SYNCOPA B (grote octaafsprongen), SYNCO ECHO, TEKK ECHO A en B, PULSE LINE, BASSLINE A–D. Daarna ECHO en
 SWEEP van de DJX. De Data List geeft van 16–30 alleen de naam en één regel commentaar, de handleidingen geen noten: die
-stappen zijn mijn invulling van die beschrijvingen ("moving filter" bij TEKK ECHO als een velocity-zwaai). Het scherm
-toont de laatste 32 stappen als een rol.
+stappen zijn mijn invulling van die beschrijvingen ("moving filter" bij TEKK ECHO als een velocity-zwaai). Daarna
+zestien naar de Arpeggio Styles van de Roland MC-303 (ook hier: naam en beschrijving uit de handleiding, de stappen
+zijn eigen werk): GLISSANDO (halve toon voor halve toon van de laagste naar de hoogste noot en terug), SYN BASS,
+SLAP BASS (duim laag, pop een octaaf hoger, gedempte tussennoten), WALK BASS, RHYTHM GTR (akkoordstoten met
+gedempte chops), STRUM GTR (het akkoord echt aangeslagen: neer en op, 12 ms per snaar), 3 FINGER (Travis: de duim
+wisselt laag, de melodie op de hoogste noot), PIANO BACK (bas en akkoord), CLAVI CHORD, WALTZ, SWING WALTZ (in
+triolen: zet SUBDIVIDE op 1/12), REGGAE (de skank op de tweede en vierde tel, kort), PERCUSSION, HARP, SHAMISEN (de
+hoogste noot met loopjes eronder) en BOUND BALL (een stuiterende bal: steeds snellere herhalingen; mooi op 1/32).
+Gedempte stappen klinken een kwart stap, wat de GATE ook is. Het scherm toont de laatste 32 stappen als een rol.
 
 **FREE EG (LFO).** Neemt een knopbeweging op en speelt die af op een parameter, zoals de Free EG van de AN1x. LFO
 opent de pagina; daar zet KNOB 4 het doel (TARGET: CHAOS, SHAPE, RING, NOISE X/Y, MOD ENV HEIGHT, FX STRUCTURE/BRIGHTNESS/
@@ -207,7 +214,12 @@ noten, vier echo's), FUNK CLAV, POLY 3 OVER 4 (een figuur van drie zestienden te
 akkoorden, SHIMMER MIX zwelt), CHAOS MACHINE (de toonladder over vier octaven terwijl CHAOS oploopt: het circuit raakt
 steeds verder uit zijn baan), SCROLL HOPPER (OUTPUT golft over de frase: van de scroll naar de spiraal en terug), NOISE
 PERC (voor de noise-programma's: korte tikken laag en hoog), BIRD CALLS (trillers in 1/32 en stilte: mooi met de
-SYRINX-waveguide), MINIMAL 5/4 (Reich-achtig, 20 zestienden, met echo een octaaf hoger) en LULLABY. De GE's met een
+SYRINX-waveguide), MINIMAL 5/4 (Reich-achtig, 20 zestienden, met echo een octaaf hoger) en LULLABY. Daarna tien
+naar de stijlen van de Roland MC-303: REGGAE SKANK (bas en korte skank-akkoorden op de achtertel), WALTZ (bas, akkoord,
+akkoord; de bas wisselt grondtoon en kwint), SWING WALTZ (in triolen), PIANO COMP (bas en gesyncopeerde akkoorden),
+SLAP POP (duim en pop, octaven), GUITAR CHOP (korte aangeslagen akkoorden), SHAMISEN (de hoogste noot met loopjes,
+pentatonisch), SEQ LINE (een 16e-sequencerlijn met octaafsprongen, de helderheid golft mee), BOUNCING BALL (elke
+nieuwe noot stuitert uit: steeds snellere, zachtere herhalingen, van links naar rechts) en THREE FINGER. De GE's met een
 envelope (TECHNO STAB, ACID LINE, TRANCE GATE, SWELL PAD, CHAOS MACHINE, SCROLL HOPPER, MINIMAL 5/4) spelen dus ook
 met de klank, niet alleen met de noten.
 

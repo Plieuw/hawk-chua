@@ -53,9 +53,15 @@ static const char *const ARP_DIV_NAME[ARP_NDIV] = {"3/8", "1/4", "3/16", "1/6", 
  * steps are this firmware's reading of them (TekkEcho's "moving filter" as a velocity sweep: the gate opens wider).
  * A step: sel the held note by place (0 the lowest; past the highest: on into the next octave), or ARP_REST,
  * ARP_TIE (the last goes on), ARP_ALL (the chord), ARP_UPPER (the chord but the lowest: DAHouse's right hand),
- * ARP_PREV (an echo: the last note again); oct octaves up (-1 .. 3); acc 0 normal, 1 accent, 2 soft, 3 a ghost */
-enum { ARP_REST = 100, ARP_TIE, ARP_ALL, ARP_UPPER, ARP_PREV };
-enum { AN, AA, AS, AG };                         /* (accents) */
+ * ARP_PREV (an echo: the last note again); oct octaves up (-1 .. 3); acc 0 normal, 1 accent, 2 soft, 3 a ghost.
+ * After the Roland MC-303's Arpeggio Styles (its manual, p. 38-41, 98: names and one-line descriptions; the steps
+ * are this firmware's reading of them, as for the AN1x): ARP_TOP (the highest note held: SHAMISEN, 3 FINGER's
+ * melody), ARP_GLS (GLISSANDO: semitone by semitone between the lowest and the highest held, up and down),
+ * ARP_STRUP / ARP_STRDN (the chord strummed up from the lowest / down from the highest, a few ms a string: the
+ * guitar styles), acc AM (muted: short, a little softer: the MC-303's MUTE beat patterns, slap bass, the guitars'
+ * chops, reggae's skank) */
+enum { ARP_REST = 100, ARP_TIE, ARP_ALL, ARP_UPPER, ARP_PREV, ARP_TOP, ARP_GLS, ARP_STRUP, ARP_STRDN };
+enum { AN, AA, AS, AG, AM };                     /* (accents; AM muted) */
 typedef struct { uint8_t sel; int8_t oct; uint8_t acc; } arp_step_t;
 typedef struct { const char *name; uint8_t n; arp_step_t s[32]; } arp_pat_t;
 #define R_ {ARP_REST, 0, AN}
@@ -102,6 +108,38 @@ static const arp_pat_t ARP_STEPS[] = {
                    {8, 0, AA}, {9, 0, AN}, {10, 0, AN}, {11, 0, AN}, {12, 0, AA}, {13, 0, AN}, {14, 0, AN}, {15, 0, AA},
                    {15, 0, AA}, {14, 0, AN}, {13, 0, AN}, {12, 0, AN}, {11, 0, AA}, {10, 0, AN}, {9, 0, AN}, {8, 0, AN},
                    {7, 0, AA}, {6, 0, AN}, {5, 0, AN}, {4, 0, AN}, {3, 0, AA}, {2, 0, AN}, {1, 0, AN}, {0, 0, AS}}},
+    /* the MC-303's styles (see above) */
+    {"GLISSANDO", 1, {{ARP_GLS, 0, AN}}},
+    {"SYN BASS", 16, {{0, -1, AA}, {0, 0, AS}, {0, -1, AM}, {1, -1, AN}, {0, -1, AA}, {0, 0, AM}, {2, -1, AN}, {0, -1, AM},
+                      {0, -1, AA}, {0, 0, AS}, {0, -1, AM}, {1, -1, AN}, {0, 0, AA}, {0, -1, AM}, {2, -1, AN}, {1, -1, AS}}},
+    {"SLAP BASS", 16, {{0, -1, AA}, {0, -1, AM}, {0, 0, AA}, {0, -1, AM}, R_, {0, -1, AG}, {0, 0, AA}, {0, -1, AM},
+                       {0, -1, AA}, R_, {0, 0, AA}, {0, -1, AM}, {0, -1, AG}, {1, -1, AN}, {0, 0, AA}, {0, -1, AM}}},
+    {"WALK BASS", 8, {{0, -1, AA}, {1, -1, AN}, {2, -1, AN}, {1, -1, AS}, {0, -1, AA}, {2, -1, AN}, {0, 0, AN},
+                      {2, -1, AS}}},
+    {"RHYTHM GTR", 16, {C_(AA), C_(AM), R_, C_(AM), C_(AN), R_, C_(AM), C_(AA), R_, C_(AM), C_(AN), C_(AM),
+                        R_, C_(AM), C_(AA), C_(AM)}},
+    {"STRUM GTR", 8, {{ARP_STRDN, 0, AA}, R_, {ARP_STRDN, 0, AN}, {ARP_STRUP, 0, AS}, R_, {ARP_STRUP, 0, AS},
+                      {ARP_STRDN, 0, AN}, {ARP_STRUP, 0, AS}}},
+    {"3 FINGER", 8, {{0, -1, AA}, {ARP_TOP, 0, AN}, {2, -1, AN}, {1, 0, AS}, {0, -1, AA}, {ARP_TOP, 0, AN},
+                     {2, -1, AN}, {ARP_TOP, 0, AS}}},
+    {"PIANO BACK", 16, {{0, -1, AA}, R_, U_(AN), R_, {0, 0, AS}, R_, U_(AN), U_(AM), {0, -1, AA}, R_, U_(AN), R_,
+                        {2, -1, AS}, R_, U_(AA), R_}},
+    {"CLAVI CHORD", 16, {U_(AA), R_, U_(AM), U_(AN), R_, U_(AM), U_(AA), R_, U_(AM), U_(AN), R_, U_(AA), R_, U_(AM),
+                         U_(AN), U_(AM)}},
+    {"WALTZ", 6, {{0, -1, AA}, R_, U_(AN), R_, U_(AS), R_}},
+    {"SWING WALTZ", 9, {{0, -1, AA}, R_, R_, U_(AN), R_, U_(AG), U_(AS), R_, U_(AG)}},
+    {"REGGAE", 16, {{0, -1, AA}, R_, U_(AM), R_, R_, R_, U_(AM), R_, {0, -1, AN}, R_, U_(AM), R_, R_, R_, U_(AM),
+                    U_(AG)}},
+    {"PERCUSSION", 16, {{0, 0, AA}, {0, 0, AG}, {0, 1, AM}, {0, 0, AS}, {0, 0, AA}, {0, 1, AM}, R_, {0, 0, AS},
+                        {0, 0, AA}, {0, 0, AG}, {0, 1, AM}, {0, 1, AN}, R_, {0, 0, AS}, {0, 1, AA}, {0, 0, AG}}},
+    {"HARP", 16, {{0, 0, AS}, {1, 0, AS}, {2, 0, AS}, {3, 0, AN}, {4, 0, AN}, {5, 0, AN}, {6, 0, AN}, {7, 0, AA},
+                  {8, 0, AA}, {9, 0, AA}, {10, 0, AA}, {11, 0, AA}, R_, R_, R_, R_}},
+    {"SHAMISEN", 16, {{ARP_TOP, 0, AA}, R_, {ARP_TOP, 0, AM}, {0, 0, AN}, {1, 0, AN}, {ARP_TOP, 0, AA}, R_,
+                      {ARP_TOP, -1, AM}, {ARP_TOP, 0, AA}, {2, 0, AN}, {ARP_TOP, 0, AM}, R_, {1, 0, AN}, {0, 0, AN},
+                      {ARP_TOP, 0, AA}, R_}},
+    {"BOUND BALL", 32, {{0, 1, AA}, R_, R_, R_, R_, R_, R_, R_, {0, 1, AA}, R_, R_, R_, R_, R_, {0, 1, AN}, R_, R_, R_,
+                        R_, {0, 1, AN}, R_, R_, R_, {0, 1, AS}, R_, R_, {0, 1, AS}, R_, {0, 1, AG}, {0, 1, AG},
+                        {0, 1, AG}, R_}},
 };
 #undef R_
 #undef C_
@@ -141,14 +179,19 @@ static struct {
     uint32_t rng;
     uint8_t running;                             /* a step is due at the next block (the first note at once) */
     uint32_t swing_wait;                         /* a swung step: samples into the step it is due at (0: none) */
+    uint32_t gls;                                /* GLISSANDO: semitones played */
+    uint8_t pend[ARP_MAXN], pvel[ARP_MAXN], npend;   /* a strum's strings to come (one each ARP_STRUM samples) */
+    uint32_t pt;                                 /* samples to the next of them */
 } arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu};
 
 /* the ARP page's picture (ui.c): the last steps played, their notes (0: a rest) */
 static struct { uint8_t note[32]; volatile uint32_t w; } arp_view;
 
+#define ARP_STRUM 529u                           /* samples between a strum's strings (12 ms) */
 static void arp_off_all(void)
 {
     uint32_t i;
+    arp.npend = 0;
     for (i = 0; i < arp.non; i++)
         gen_off(arp.on[i]);
     arp.non = 0;
@@ -238,7 +281,8 @@ static void arp_sound(uint32_t note, uint32_t vel)
 static uint8_t arp_last;                          /* the last note played (ARP_PREV: the echo) */
 static uint32_t arp_vel(uint32_t v, uint32_t acc)
 {
-    return acc == AA ? v + (127u - v) / 2u : acc == AS ? v * 2u / 3u : acc == AG ? v / 3u + 1u : v;
+    return acc == AA ? v + (127u - v) / 2u : acc == AS ? v * 2u / 3u : acc == AG ? v / 3u + 1u :
+           acc == AM ? v * 3u / 4u + 1u : v;
 }
 
 /* one step: the notes of the last off (unless tied), the pattern's next on */
@@ -286,14 +330,42 @@ static void arp_do_step(void)
             arp_view.note[arp_view.w++ & 31u] = 0;
             return;
         }
+        if (st->acc == AM && arp.gate > arp.len / 4u)   /* (muted: a quarter of the step at most) */
+            arp.gate = arp.len / 4u;
         if (st->sel == ARP_PREV) {               /* an echo: the last note again, softer */
             if (arp_last)
                 arp_sound(arp_last, arp_vel(v[0], st->acc));
             arp_view.note[arp_view.w++ & 31u] = arp_last;
             return;
         }
+        if (st->sel == ARP_GLS) {                /* semitone by semitone, lowest to highest and back */
+            uint32_t lo = s[0], r = s[n - 1u] > lo ? s[n - 1u] - lo : 12u, c = arp.gls++ % (2u * r);
+            nt = lo + (c <= r ? c : 2u * r - c) + 12u * (uint32_t)(st->oct < 0 ? 0 : st->oct);
+            arp_sound(nt, arp_vel(v[0], st->acc));
+            arp_last = (uint8_t)nt;
+            arp_view.note[arp_view.w++ & 31u] = (uint8_t)nt;
+            return;
+        }
+        if (st->sel == ARP_STRUP || st->sel == ARP_STRDN) {   /* strummed: the first string now, the others after */
+            for (i = 0; i < n; i++) {
+                uint32_t k = st->sel == ARP_STRUP ? i : n - 1u - i;
+                int32_t x = (int32_t)s[k] + 12 * st->oct;
+                while (x < 12)
+                    x += 12;
+                if (!i)
+                    arp_sound((uint32_t)x, arp_vel(v[k], st->acc));
+                else if (arp.npend < ARP_MAXN) {
+                    arp.pend[arp.npend] = (uint8_t)x;
+                    arp.pvel[arp.npend++] = (uint8_t)arp_vel(v[k], st->acc) * 7u / 8u + 1u;
+                }
+            }
+            arp.pt = ARP_STRUM;
+            arp_last = s[st->sel == ARP_STRUP ? 0u : n - 1u];
+            arp_view.note[arp_view.w++ & 31u] = arp_last;
+            return;
+        }
         for (i = st->sel == ARP_UPPER && n > 1u ? 1u : 0u; i < n; i++) {
-            uint32_t k = st->sel == ARP_ALL || st->sel == ARP_UPPER ? i : st->sel;
+            uint32_t k = st->sel == ARP_ALL || st->sel == ARP_UPPER ? i : st->sel == ARP_TOP ? n - 1u : st->sel;
             int32_t o = (int32_t)(k / n) + st->oct, x = (int32_t)s[k % n] + 12 * o;
             while (x < 12)                       /* (an octave down from the bottom: up again) */
                 x += 12;
@@ -366,6 +438,7 @@ static void arp_block(uint32_t n)
         arp.q8 = 0;
         arp.ticks = 0;
         arp.pos = 0;
+        arp.gls = 0;
     }
     if (due) {
         arp.t = 0;
@@ -380,6 +453,20 @@ static void arp_block(uint32_t n)
         return;
     }
     arp.t += n;
+    if (arp.npend) {                             /* a strum: its next strings */
+        if (arp.pt > n)
+            arp.pt -= n;
+        else {
+            uint32_t j;
+            arp_sound(arp.pend[0], arp.pvel[0]);
+            for (j = 1; j < arp.npend; j++) {
+                arp.pend[j - 1u] = arp.pend[j];
+                arp.pvel[j - 1u] = arp.pvel[j];
+            }
+            arp.npend--;
+            arp.pt = ARP_STRUM;
+        }
+    }
     if (arp.swing_wait && arp.t >= arp.swing_wait) {   /* the swung step, now (shorter by as much) */
         uint32_t left = arp.len > arp.swing_wait ? arp.len - arp.swing_wait : 1u;
         arp.swing_wait = 0;
@@ -389,7 +476,7 @@ static void arp_block(uint32_t n)
         arp.step++;
         return;
     }
-    if (!arp.swing_wait && arp.t >= arp.gate && arp.non && gate < 100u) {
+    if (!arp.swing_wait && arp.t >= arp.gate && arp.non && (gate < 100u || arp.gate < arp.len)) {
         const arp_pat_t *P = sys.arp_type % ARP_NTYPE >= AT_BASIC ? &ARP_STEPS[sys.arp_type % ARP_NTYPE - AT_BASIC] : 0;
         if (!P || P->s[arp.pos % P->n].sel != ARP_TIE)   /* (a tie next: they go on) */
             arp_off_all();

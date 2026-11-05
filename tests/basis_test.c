@@ -1438,7 +1438,8 @@ int main(int argc, char **argv)
      * gate ends each note; turning it off lets the held notes sound as they are */
     {
         uint32_t okk = 1, w0, j, b, ons;
-        okk &= ARP_NTYPE == 32u && !strcmp(arp_type_name(15), "TECHNO-A") && !strcmp(arp_type_name(29), "BASSLINE D");   /* (the AN1x's 30 + 2) */
+        okk &= ARP_NTYPE == 48u && !strcmp(arp_type_name(15), "TECHNO-A") && !strcmp(arp_type_name(29), "BASSLINE D") &&
+               !strcmp(arp_type_name(32), "GLISSANDO") && !strcmp(arp_type_name(47), "BOUND BALL");   /* (the AN1x's 30 + 2, the MC-303's 16) */
         static const uint8_t UP2[6] = {60, 64, 67, 72, 76, 79};
         synth_kill(); keys_all_off(); run_ms(50);
         sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100; sys.release = 20;
@@ -1522,6 +1523,34 @@ int main(int argc, char **argv)
                     okk &= arp_view.note[(w0 + 1u) & 31u] == arp_view.note[w0 & 31u];
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "DA HOUSE"))   /* the bass, then the right hand */
                     okk &= arp_view.note[w0 & 31u] == 48u && arp_view.note[(w0 + 2u) & 31u] == 64u;
+                if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "GLISSANDO"))  /* semitones up from the lowest */
+                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 61u &&
+                           arp_view.note[(w0 + 2u) & 31u] == 62u;
+                if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "3 FINGER"))   /* the thumb low, the melody on top */
+                    okk &= arp_view.note[w0 & 31u] == 48u && arp_view.note[(w0 + 1u) & 31u] == 67u;
+            }
+            {   /* STRUM GTR: the chord strummed down, a string each 12 ms; RHYTHM GTR's muted chop: a quarter step */
+                uint32_t t4, n1 = 0, n2 = 0, mut = 0;
+                for (t4 = AT_BASIC; t4 < ARP_NTYPE; t4++)
+                    if (!strcmp(ARP_STEPS[t4 - AT_BASIC].name, "STRUM GTR"))
+                        sys.arp_type = (uint8_t)t4;
+                arp.running = 1;
+                block(); block();
+                n1 = arp.non;
+                run_ms(30);
+                n2 = arp.non;
+                okk &= n1 == 1u && n2 == 3u && arp.on[0] == 67u && arp.on[2] == 60u;
+                for (t4 = AT_BASIC; t4 < ARP_NTYPE; t4++)
+                    if (!strcmp(ARP_STEPS[t4 - AT_BASIC].name, "RHYTHM GTR"))
+                        sys.arp_type = (uint8_t)t4;
+                arp.running = 1;
+                w3 = arp_view.w;
+                for (t4 = 0; t4 < 2000u && arp_view.w - w3 < 2u; t4++)
+                    block();
+                mut = arp.gate <= arp.len / 4u;
+                okk &= mut;
+                if (!(n1 == 1u && n2 == 3u) || !mut)
+                    printf("   (strum: %u then %u notes; muted gate %u of %u)\n", n1, n2, arp.gate, arp.len);
             }
             sys.arp_type = AT_UP1; sys.arp_swing = 127; arp.running = 1;
             w3 = arp_view.w;
@@ -1558,7 +1587,15 @@ int main(int argc, char **argv)
         synth_kill(); keys_all_off(); run_ms(50);
         sys.arp_on = 0; sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100;
         sys.release = 20; sys.arp_bpm = 120; sys.arp_swing = 0; sys.feg_on = 0; sys.feg_has = 0;
-        KOK(KGE_N == 24u);
+        KOK(KGE_N == 34u);
+        for (g = 0; g < KGE_N; g++) {                        /* every GE's strings as long as its rhythm */
+            uint32_t L = str_len(KGE[g].rhy);
+            if ((KGE[g].vel && str_len(KGE[g].vel) != L) || (KGE[g].clu && str_len(KGE[g].clu) != L) ||
+                (KGE[g].idx && str_len(KGE[g].idx) != L) || (KGE[g].oct && str_len(KGE[g].oct) != L)) {
+                printf("   (KARMA %s: a string not %u long)\n", KGE[g].name, L);
+                okk = 0;
+            }
+        }
         sys.k_ge = 0; sys.k_latch = 0; sys.k_m[0] = sys.k_m[1] = sys.k_m[2] = sys.k_m[3] = 64;
         sys.k_on = 1;
         run_ms(10);

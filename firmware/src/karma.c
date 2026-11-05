@@ -116,6 +116,31 @@ static const ge_t KGE[] = {
      MC_ACCENT}},
     {"LULLABY", 12, "11211121", "75657565", 0, "01210121", 0, NS_CHORD, 2, IX_DIRECT, 1, 12, 2, 35, 100, 0, PN_PITCH,
      EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_RANGE, MC_REPEAT, MC_GATE}},
+    /* after the Roland MC-303's Arpeggio Styles (its manual, p. 38-41: the names and their one-line descriptions; the
+     * phrases are this firmware's own, as the GEs above) */
+    {"REGGAE SKANK", 6, "1.1...121.1...12", "9.7...759.7...75", "1.3...311.3...31", 0, "-.0...0--.0...0-", NS_CHORD,
+     1, IX_DIRECT, 0, 0, 1, 50, 22, 3, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_GATE, MC_ACCENT, MC_STRUM}},
+    {"WALTZ", 24, "122122", "966866", "133133", "000200", "-00-00", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 60, 4,
+     PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_GATE, MC_STRUM, MC_TRANSPOSE}},
+    {"SWING WALTZ", 8, "1..2.32.3", "9..7.57.4", "1..3.33.3", "0..0.00.0", "-..0.00.0", NS_CHORD, 1, IX_DIRECT, 0, 0,
+     1, 50, 50, 3, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_GATE, MC_ACCENT, MC_STRUM}},
+    {"PIANO COMP", 6, "1..2..1.1.2.2.1.", "9..6..8.8.6.6.8.", "1..3..3.1.3.1.3.", "0..0..0.0.0.2.0.",
+     "-..1..1.-.1.-.1.", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 45, 2, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_ACCENT, MC_GATE, MC_CLUSTER}},
+    {"SLAP POP", 6, "1.213.21.2.1.21.", "9.683.79.6.8.79.", 0, "0.000.00.0.2.00.", "-.0--.0-.0.-.0-.", NS_CHORD, 1,
+     IX_DIRECT, 0, 0, 1, 50, 22, 0, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_ACCENT, MC_GATE, MC_RANDOM}},
+    {"GUITAR CHOP", 6, "1.21.21.1.21.212", "9.59.59.8.59.597", "4.44.44.4.44.444", 0, 0, NS_CHORD, 1, IX_UP, 0, 0,
+     1, 50, 20, 6, PN_NONE, EV_NONE, 0, 0, 0, TR_ANY, {MC_DENSITY, MC_STRUM, MC_ACCENT, MC_GATE}},
+    {"SHAMISEN", 6, "1.21121.1.2111.2", "9.67759.9.6877.6", 0, "h.0^^hh.h.v^^h.^", "0.0000-.0.0000.0", NS_PENTA, 1,
+     IX_DIRECT, 0, 0, 1, 50, 30, 0, PN_PITCH, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_RANGE, MC_ACCENT, MC_GATE}},
+    {"SEQ LINE", 6, "1111111111111111", "9575957595759575", 0, "0012011201120313", "0010001000100110", NS_CHORD, 1,
+     IX_DIRECT, 0, 0, 1, 50, 55, 0, PN_NONE, EV_TRI, ET_BRIGHT, 60, 0, TR_AKR, {MC_DENSITY, MC_RANGE, MC_ENV,
+     MC_ACCENT}},
+    {"BOUNCING BALL", 3, "1.......1.....1....1...1..1.1111", "9.......8.....7....6...5..4.3321", 0, 0, 0,
+     NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 50, 0, PN_SWEEP, EV_NONE, 0, 0, 0, TR_ANY, {MC_DENSITY, MC_ACCENT, MC_GATE,
+     MC_TRANSPOSE}},
+    {"THREE FINGER", 12, "11211121", "86857685", 0, "0h2h0h2^", "-0-0-0-0", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 75,
+     0, PN_PITCH, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_RANGE, MC_ACCENT, MC_GATE}},
 };
 #define KGE_N (sizeof KGE / sizeof KGE[0])
 
