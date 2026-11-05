@@ -440,6 +440,7 @@ Elke push naar `main` bouwt de firmware op GitHub (Actions), draait de tests en 
 **https://plieuw.github.io/hawk-chua/** → open in Chrome of Edge, sluit de FM-1 met een USB-datakabel aan, druk op
 *Installeren*. Volgende versies gaan op dezelfde manier; terug naar de officiële firmware kan op dezelfde pagina.
 
+- **Handleiding (PDF):** https://plieuw.github.io/hawk-chua/HAWK-CHUA-handleiding.pdf (ook in `docs/`).
 - **In de browser spelen, zonder FM-1:** https://plieuw.github.io/hawk-chua/webapp/try/ — dezelfde broncode
   (synth, toetsen, scherm, LEDs) als WebAssembly (`web/emu/`, `sh web/emu/build.sh`; clang + lld). Toetsen met muis,
   touch of het toetsenbord (A W S E D …, Z/X = OCT), een MIDI-keyboard via Web MIDI (CC 20–26 = de draaiknoppen,

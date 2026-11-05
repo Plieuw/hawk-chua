@@ -14,6 +14,7 @@
   web/make_site.py build/hawk-chua-X.Y.fwsc X.Y OUT_DIR
 
   chua.html                   docs/chua.html: how CHUA works (interactive)
+  HAWK-CHUA-handleiding.pdf   docs/: the manual (Dutch)
   SOURCE_URL (environment)    the source repository, linked from the installer (GitHub Actions: the repository's URL)
 
 The package must be one made by tools/fm1pkg_make.py (Felucca's own loader, no vendor files).
@@ -94,6 +95,9 @@ def main(pkg, version, out):
         '<!doctype html><meta charset="utf-8"><title>HAWK CHUA</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
         '<a href="webapp/installer/">CHUA installer</a>\n', encoding="utf-8")
+    manual = HERE.parent / "docs" / "HAWK-CHUA-handleiding.pdf"   # the manual (Dutch)
+    if manual.exists():
+        shutil.copy(manual, out / manual.name)
     explainer = HERE.parent / "docs" / "chua.html"
     if explainer.exists():
         shutil.copy(explainer, out / "chua.html")
