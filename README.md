@@ -428,6 +428,11 @@ Elke push naar `main` bouwt de firmware op GitHub (Actions), draait de tests en 
 **https://plieuw.github.io/hawk-chua/** → open in Chrome of Edge, sluit de FM-1 met een USB-datakabel aan, druk op
 *Installeren*. Volgende versies gaan op dezelfde manier; terug naar de officiële firmware kan op dezelfde pagina.
 
+- **In de browser spelen, zonder FM-1:** https://plieuw.github.io/hawk-chua/webapp/try/ — dezelfde broncode
+  (synth, toetsen, scherm, LEDs) als WebAssembly (`web/emu/`, `sh web/emu/build.sh`; clang + lld). Toetsen met muis,
+  touch of het toetsenbord (A W S E D …, Z/X = OCT), een MIDI-keyboard via Web MIDI (CC 20–26 = de draaiknoppen,
+  CC 27 = volume), SAVE bewaart in de browser. Opzet naar Felucca's (inmiddels verwijderde) browserversie: elke
+  knop/toets-wissel blijft 24 ms staan; hier draait de firmware in een Worker die de audio vooruit rendert.
 - Het `.fwsc`-bestand zelf staat bij elke run onder *Actions → firmware → Artifacts*.
 - Een tag `v1.0` (één cijfer per deel) maakt een release-build en een GitHub Release met het bestand.
 - Eenmalig instellen: *Settings → Pages → Build and deployment → Source: GitHub Actions*.

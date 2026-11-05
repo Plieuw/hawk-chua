@@ -8,6 +8,7 @@
                               JieLi SDK files under Apache-2.0, see LICENSING.md)
   webapp/installer/index.html index_pkg.html, self-contained (fm1pkg.js, fm1ota.js, metadata inlined)
   webapp/remote/index.html    remote.html: the FM-1 over Web MIDI (firmware/src/remote.c) and its USB audio
+  webapp/try/                 web/emu: the firmware in the browser (build/emu/emu.wasm, web/emu/build.sh), if built
   src/                        not touched
 
   web/make_site.py build/hawk-chua-X.Y.fwsc X.Y OUT_DIR
@@ -70,6 +71,13 @@ def main(pkg, version, out):
     rem.mkdir(parents=True, exist_ok=True)
     shutil.copy(HERE / "remote.html", rem / "index.html")
     shutil.copy(pkg, fw / name)
+    wasm = HERE.parent / "build" / "emu" / "emu.wasm"   # the browser version (web/emu/build.sh)
+    if wasm.exists():
+        emu = out / "webapp" / "try"
+        emu.mkdir(parents=True, exist_ok=True)
+        for f in ("index.html", "emu-worker.js", "emu-worklet.js"):
+            shutil.copy(HERE / "emu" / f, emu / f)
+        shutil.copy(wasm, emu / "emu.wasm")
     lic = HERE.parent / "LICENSES"                  # the package holds JieLi SDK files (Apache-2.0): their
     (fw / "LICENSES").mkdir(exist_ok=True)          # licence travels next to it, with Felucca's own
     names = sorted(f.name for f in lic.glob("*.txt"))

@@ -1,0 +1,333 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HAWK CHUA — play in the browser</title>
+<meta name="description" content="The HAWK CHUA firmware for the M-VAVE FM-1, running in the browser: the same sound, screen and panel, compiled to WebAssembly.">
+<style>
+:root {
+  --bg: #121110; --case: #1d1b19; --case2: #262320; --line: #3a352f; --fg: #ece6dc; --mid: #a39b8f; --dim: #6d665c;
+  --or: #f5a623; --or2: #ffcf73; --key: #e9e4da; --keyd: #2a2724; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 16px; }
+a { color: var(--or); }
+header { max-width: 980px; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+h1 { color: var(--or); font-size: 20px; margin: 0; letter-spacing: .06em; }
+header p { margin: 0; color: var(--mid); }
+header nav { margin-left: auto; display: flex; gap: 14px; }
+.dev { max-width: 980px; margin: 0 auto; background: linear-gradient(#24211e, var(--case)); border: 1px solid var(--line);
+  border-radius: 18px; padding: 18px; box-shadow: 0 10px 40px #0008, inset 0 1px 0 #ffffff10; touch-action: none; user-select: none; -webkit-user-select: none; }
+.top { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
+.screen { position: relative; width: 360px; height: 360px; border-radius: 6px; background: #000; padding: 0; border: 8px solid #0c0b0a; box-shadow: inset 0 0 0 1px #000, 0 0 0 1px var(--line); }
+#lcd { width: 100%; height: 100%; display: block; image-rendering: auto; }
+.encs { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.encs > div { display: grid; gap: 12px 26px; justify-items: center; }
+#enc3 { grid-template-columns: repeat(3, 1fr); } #enc4 { grid-template-columns: repeat(2, 1fr); }
+.enc { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: ns-resize; touch-action: none; }
+.knob { width: 70px; height: 70px; border-radius: 50%; position: relative;
+  background: radial-gradient(circle at 35% 30%, #4a443d, #24211e 62%, #161412); box-shadow: 0 4px 10px #0009, inset 0 1px 1px #ffffff20, 0 0 0 1px #000; }
+.knob.big { width: 84px; height: 84px; }
+.knob .r { position: absolute; inset: 0; transition: transform .06s; }
+.knob .r::before { content: ""; position: absolute; left: 50%; top: 6px; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; background: var(--or); }
+.enc span { font-size: 11px; letter-spacing: .08em; color: var(--mid); text-transform: uppercase; }
+.enc .arr { display: flex; gap: 4px; }
+.enc .arr button { width: 28px; height: 22px; padding: 0; font-size: 13px; line-height: 1; }
+.cell { grid-column: span 1; }
+.sep { grid-column: 1 / -1; height: 1px; background: var(--line); width: 100%; }
+.btns { display: grid; grid-template-columns: repeat(14, 1fr); gap: 8px; margin: 18px 0 14px; }
+.b { position: relative; height: 46px; border-radius: 8px; border: 1px solid #000; background: linear-gradient(#34302b, #26231f);
+  color: var(--fg); font: 600 11px/1 system-ui, sans-serif; letter-spacing: .05em; cursor: pointer; box-shadow: 0 2px 0 #000, inset 0 1px 0 #ffffff14; touch-action: none; }
+.b.down { transform: translateY(1px); box-shadow: 0 1px 0 #000, inset 0 1px 2px #0008; background: #221f1c; }
+.b.latch { outline: 2px dashed var(--or); outline-offset: 2px; }
+.b i { position: absolute; top: 6px; left: 50%; width: 18px; height: 4px; margin-left: -9px; border-radius: 2px; background: #3b2a12; }
+.b.on i { background: var(--or2); box-shadow: 0 0 8px var(--or), 0 0 2px #fff; }
+.b.g i { background: #8dff7a; box-shadow: 0 0 8px #47d63a; }
+.b b { display: block; margin-top: 12px; font-weight: 600; }
+.kb { position: relative; height: 150px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid #000; touch-action: none; }
+.w, .k { position: absolute; top: 0; cursor: pointer; touch-action: none; }
+.w { height: 100%; background: linear-gradient(#f4f0e8, var(--key)); border-right: 1px solid #9a948a; border-radius: 0 0 6px 6px; }
+.k { height: 60%; background: linear-gradient(#3a3631, var(--keyd)); border-radius: 0 0 5px 5px; z-index: 2; box-shadow: 0 2px 3px #000a; }
+.w.down { background: linear-gradient(#ffd890, #f5b54a); }
+.k.down { background: linear-gradient(#b8761a, #8a5410); }
+.w.lit::after, .k.lit::after { content: ""; position: absolute; left: 50%; bottom: 10px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--or); box-shadow: 0 0 8px var(--or); }
+.w em { position: absolute; bottom: 4px; width: 100%; text-align: center; font: 10px system-ui; color: #8a8378; font-style: normal; }
+.bar { max-width: 980px; margin: 14px auto 0; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; color: var(--mid); }
+.bar label { display: flex; gap: 6px; align-items: center; }
+select, button, input[type=range] { font: inherit; color: var(--fg); }
+select, .bar button, .enc .arr button { background: #2a2622; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.bar button:hover, .enc .arr button:hover { border-color: var(--or); }
+#start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000b; z-index: 10; }
+#start button { font: 600 18px system-ui; color: #111; background: var(--or); border: 0; border-radius: 12px; padding: 16px 28px; cursor: pointer; box-shadow: 0 8px 30px #000; }
+#start p { position: absolute; bottom: 18%; color: var(--mid); text-align: center; width: 100%; padding: 0 16px; }
+.help { max-width: 980px; margin: 14px auto 40px; color: var(--mid); font-size: 13px; }
+.help kbd { background: #2a2622; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font: 12px ui-monospace, monospace; color: var(--fg); }
+#msg { color: var(--or); }
+@media (max-width: 860px) {
+  body { padding: 10px; }
+  .top { grid-template-columns: 1fr; justify-items: center; }
+  .screen { width: min(360px, 100%); height: auto; aspect-ratio: 1; }
+  .btns { grid-template-columns: repeat(7, 1fr); }
+  .knob { width: 58px; height: 58px; } .knob.big { width: 64px; height: 64px; }
+  .kb { height: 120px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>HAWK CHUA</h1>
+  <p>The FM-1 firmware, running in your browser — the same code, compiled to WebAssembly.</p>
+  <nav><a href="../installer/">Install on an FM-1</a><a id="src" href="https://github.com/Plieuw/hawk-chua">Source</a></nav>
+</header>
+
+<div class="dev" id="dev">
+  <div class="top">
+    <div class="screen"><canvas id="lcd" width="240" height="240"></canvas></div>
+    <div class="encs" id="encs"><div id="enc3"></div><div id="enc4"></div></div>
+  </div>
+  <div class="btns" id="btns"></div>
+  <div class="kb" id="kb"></div>
+</div>
+
+<div class="bar">
+  <label>Volume <input type="range" id="vol" min="0" max="100" value="70"></label>
+  <label>MIDI in <select id="midi"><option value="">(none)</option><option value="*">all inputs</option></select></label>
+  <label>Latency <select id="lat"><option value="2048">low</option><option value="3072" selected>normal</option><option value="5120">safe</option></select></label>
+  <button id="reset" title="Forget the saved presets and settings kept in this browser">Reset saved</button>
+  <span id="msg"></span>
+</div>
+
+<div class="help">
+  <p><b>Play</b>: click the keys, or the computer keyboard: <kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>E</kbd> <kbd>D</kbd> … <kbd>'</kbd> (from F), <kbd>Z</kbd> / <kbd>X</kbd> OCT− / OCT+. A MIDI keyboard works too (Chrome, Edge: pick it under MIDI in): notes, CCs, program changes, bank select, aftertouch (breath), the clock; CC 20 … 26 turn SELECT, ALGORITHM, PRESETS, KNOB 1 … 4, CC 27 is the volume.</p>
+  <p><b>Encoders</b>: drag up / down, scroll on them, or the ‹ › buttons. <b>Buttons</b>: hold them as on the FM-1 (HOME held + PRESETS: the bank); <kbd>Shift</kbd>-click or right-click keeps a button down until clicked again (both OCTs at once on the TAPE pages: BOUNCE).</p>
+  <p>SAVE keeps your presets and the settings in this browser. The sound is the firmware's own, sample for sample; the screen is drawn by its own code.</p>
+</div>
+
+<div id="start"><button id="go">▶ Start sound</button><p>Browsers start audio only after a click.</p></div>
+
+<script>
+const BUTTONS = ["FX","SCL","ENV","LFO","EDIT","GLO","HOME","SAVE","ARP","SEQ","PLAY","REC","OCT-","OCT+"];
+const ORDER = [12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];      // left to right
+const ENCS = [["SELECT", 0, 1], ["ALGORITHM", 1, 1], ["PRESETS", 2, 1], ["KNOB 1", 3, 0], ["KNOB 2", 4, 0], ["KNOB 3", 5, 0], ["KNOB 4", 6, 0]];
+const KEYMAP = [
+  [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],
+  [ 5,11, 4,10, 3, 9, 2, 8,-1,-1,-1],
+  [34,35,36,37,38,40,39,13, 7, 6,12],
+  [23,24,25,26,27,28,29,30,31,32,33],
+  [ 0, 1,15,14,17,16,19,18,20,21,22],
+  [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]];
+const $ = id => document.getElementById(id);
+const say = s => { $("msg").textContent = s; };
+const worker = new Worker("emu-worker.js");
+const send = m => worker.postMessage(m);
+let ledIds = null, btnEls = [], keyEls = [];
+
+/* ---- the screen ---- */
+const lcd = $("lcd").getContext("2d"), img = lcd.createImageData(240, 240);
+function draw(fb) {
+  const p = img.data;
+  for (let i = 0, j = 0; i < fb.length; i++, j += 4) {
+    const v = fb[i];
+    p[j] = (v >> 11) * 255 / 31; p[j + 1] = (v >> 5 & 63) * 255 / 63; p[j + 2] = (v & 31) * 255 / 31; p[j + 3] = 255;
+  }
+  lcd.putImageData(img, 0, 0);
+}
+
+/* ---- the LEDs ---- */
+function lit(leds, id) {
+  for (let r = 1; r < 5; r++) for (let c = 0; c < 11; c++) if (KEYMAP[r][c] === id && (leds[c] >> r & 1)) return true;
+  return false;
+}
+function showLeds(leds) {
+  if (!ledIds) return;
+  for (let b = 0; b < 14; b++) btnEls[b].classList.toggle("on", lit(leds, ledIds[b]));
+  btnEls[10].classList.toggle("g", !!(leds[8] & 2));          // PLAY's green
+  for (let k = 0; k < 27; k++) keyEls[k].classList.toggle("lit", lit(leds, 14 + k));
+}
+
+/* ---- the encoders ---- */
+const encAngle = [0, 0, 0, 0, 0, 0, 0];
+function turn(r, s) {
+  if (!s) return;
+  send({ t: "turn", r, s });
+  encAngle[r] += s * 18;
+  const el = document.querySelector(`[data-enc="${r}"] .r`);
+  if (el) el.style.transform = `rotate(${encAngle[r]}deg)`;
+}
+for (const [name, r, big] of ENCS) {
+  const d = document.createElement("div");
+  d.className = "enc"; d.dataset.enc = r;
+  d.innerHTML = `<div class="knob${big ? " big" : ""}"><div class="r"></div></div><span>${name}</span><div class="arr"><button data-s="-1">‹</button><button data-s="1">›</button></div>`;
+  const knob = d.querySelector(".knob");
+  let y0 = null, acc = 0;
+  knob.addEventListener("pointerdown", ev => { y0 = ev.clientY; acc = 0; knob.setPointerCapture(ev.pointerId); ev.preventDefault(); });
+  knob.addEventListener("pointermove", ev => {
+    if (y0 === null) return;
+    acc += y0 - ev.clientY; y0 = ev.clientY;
+    const s = Math.trunc(acc / 8); if (s) { acc -= s * 8; turn(r, s); }
+  });
+  const end = () => { y0 = null; };
+  knob.addEventListener("pointerup", end); knob.addEventListener("pointercancel", end);
+  d.addEventListener("wheel", ev => { ev.preventDefault(); turn(r, ev.deltaY < 0 ? 1 : -1); }, { passive: false });
+  for (const b of d.querySelectorAll(".arr button")) b.addEventListener("click", () => turn(r, Number(b.dataset.s)));
+  $(r < 3 ? "enc3" : "enc4").append(d);
+}
+
+/* ---- the buttons ---- */
+const latched = new Set();
+function press(b, down) {
+  const el = btnEls[b];
+  if (down === el.classList.contains("down")) return;
+  el.classList.toggle("down", down);
+  send({ t: "btn", b, down: down ? 1 : 0 });
+}
+for (const b of ORDER) {
+  const el = document.createElement("button");
+  el.className = "b"; el.innerHTML = `<i></i><b>${BUTTONS[b].replace("-", "−")}</b>`;
+  btnEls[b] = el;
+  el.addEventListener("pointerdown", ev => {
+    ev.preventDefault();
+    if (ev.shiftKey || ev.button === 2) {
+      if (latched.has(b)) { latched.delete(b); el.classList.remove("latch"); press(b, false); }
+      else { latched.add(b); el.classList.add("latch"); press(b, true); }
+      return;
+    }
+    if (latched.has(b)) { latched.delete(b); el.classList.remove("latch"); press(b, false); return; }
+    el.setPointerCapture(ev.pointerId); press(b, true);
+  });
+  const up = () => { if (!latched.has(b)) press(b, false); };
+  el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  el.addEventListener("contextmenu", ev => ev.preventDefault());
+  $("btns").append(el);
+}
+
+/* ---- the keyboard: 27 keys, F3 .. G5 ---- */
+const BLACK = [1, 3, 5, 8, 10];                   // (semitones above F)
+const NAMES = ["F", "", "G", "", "A", "", "B", "C", "", "D", "", "E"];
+{
+  const whites = []; for (let k = 0; k < 27; k++) if (!BLACK.includes(k % 12)) whites.push(k);
+  const ww = 100 / whites.length;
+  for (let k = 0; k < 27; k++) {
+    const el = document.createElement("div"), black = BLACK.includes(k % 12);
+    const wi = whites.indexOf(black ? k - 1 : k);
+    el.className = black ? "k" : "w";
+    el.style.left = (black ? (wi + 1) * ww - ww * 0.3 : wi * ww) + "%";
+    el.style.width = (black ? ww * 0.6 : ww) + "%";
+    if (!black && NAMES[k % 12] === "C") el.innerHTML = `<em>C${4 + Math.floor((k + 5) / 12) - 1}</em>`;
+    keyEls[k] = el;
+    $("kb").append(el);
+  }
+  const held = new Map();                          // pointer -> key
+  const keyAt = (x, y) => { const t = document.elementFromPoint(x, y); const k = keyEls.indexOf(t && t.closest(".w,.k")); return k; };
+  const set = (k, down) => { if (k < 0) return; keyEls[k].classList.toggle("down", down); send({ t: "key", k, down: down ? 1 : 0 }); };
+  const kb = $("kb");
+  kb.addEventListener("pointerdown", ev => { ev.preventDefault(); kb.setPointerCapture(ev.pointerId); const k = keyAt(ev.clientX, ev.clientY); held.set(ev.pointerId, k); set(k, true); });
+  kb.addEventListener("pointermove", ev => {
+    if (!held.has(ev.pointerId)) return;
+    const k = keyAt(ev.clientX, ev.clientY), o = held.get(ev.pointerId);
+    if (k !== o) { set(o, false); set(k, true); held.set(ev.pointerId, k); }
+  });
+  const up = ev => { if (held.has(ev.pointerId)) { set(held.get(ev.pointerId), false); held.delete(ev.pointerId); } };
+  kb.addEventListener("pointerup", up); kb.addEventListener("pointercancel", up);
+  /* the computer keyboard (by position: any layout) */
+  const CODES = ["KeyA","KeyW","KeyS","KeyE","KeyD","KeyR","KeyF","KeyG","KeyY","KeyH","KeyU","KeyJ","KeyK","KeyO","KeyL","KeyP","Semicolon","BracketLeft","Quote","BracketRight","Backslash"];
+  addEventListener("keydown", ev => {
+    if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey || ev.target.tagName === "SELECT") return;
+    const k = CODES.indexOf(ev.code);
+    if (k >= 0) { set(k, true); ev.preventDefault(); }
+    else if (ev.code === "KeyZ") press(12, true); else if (ev.code === "KeyX") press(13, true);
+  });
+  addEventListener("keyup", ev => {
+    const k = CODES.indexOf(ev.code);
+    if (k >= 0) set(k, false);
+    else if (ev.code === "KeyZ" && !latched.has(12)) press(12, false); else if (ev.code === "KeyX" && !latched.has(13)) press(13, false);
+  });
+  addEventListener("blur", () => { for (let k = 0; k < 27; k++) if (keyEls[k].classList.contains("down")) set(k, false); });
+}
+
+/* ---- the flash: localStorage ---- */
+const SKEY = "hawkchua.obj.";
+function stores() {
+  const s = {};
+  try {
+    for (let o = 0; o < 9; o++) {
+      const v = localStorage.getItem(SKEY + o);
+      if (v) s[o] = Uint8Array.from(atob(v), c => c.charCodeAt(0));
+    }
+  } catch (_) {}
+  return s;
+}
+function keep(obj, data) {
+  try { let b = ""; for (const x of data) b += String.fromCharCode(x); localStorage.setItem(SKEY + obj, btoa(b)); } catch (_) {}
+}
+$("reset").onclick = () => {
+  if (!confirm("Forget the presets and settings saved in this browser?")) return;
+  try { for (let o = 0; o < 9; o++) localStorage.removeItem(SKEY + o); } catch (_) {}
+  location.reload();
+};
+
+/* ---- the emulator ---- */
+const q12 = v => { const k = Math.round(v * 1023 / 100); return (k * k) >> 8; };
+worker.onmessage = m => {
+  const d = m.data;
+  if (d.t === "fb") draw(d.fb);
+  else if (d.t === "leds") showLeds(d.leds);
+  else if (d.t === "store") keep(d.obj, d.data);
+  else if (d.t === "ready") { ledIds = d.ids; }
+};
+send({ t: "init", wasm: new URL("emu.wasm", location.href).href, stores: stores(), master: q12(Number($("vol").value)) });
+$("vol").oninput = () => send({ t: "master", q12: q12(Number($("vol").value)) });
+$("lat").onchange = () => send({ t: "lead", frames: Number($("lat").value) });
+
+/* ---- the sound ---- */
+let ctx = null;
+$("go").onclick = async () => {
+  $("start").remove();
+  try {
+    ctx = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
+    await ctx.audioWorklet.addModule("emu-worklet.js");
+    const node = new AudioWorkletNode(ctx, "chua-out", { numberOfInputs: 0, outputChannelCount: [2] });
+    node.connect(ctx.destination);
+    const ch = new MessageChannel();
+    node.port.postMessage({ port: ch.port2 }, [ch.port2]);
+    worker.postMessage({ t: "audio", port: ch.port1 }, [ch.port1]);
+    send({ t: "lead", frames: Number($("lat").value) });
+    if (ctx.sampleRate !== 44100) say("Audio at " + ctx.sampleRate + " Hz: the pitch is off by " + (1200 * Math.log2(ctx.sampleRate / 44100)).toFixed(0) + " cents.");
+  } catch (err) { say("No audio: " + err.message); }
+  midiSetup();
+};
+document.addEventListener("visibilitychange", () => { send({ t: "hidden", on: document.hidden }); if (ctx && !document.hidden) ctx.resume(); });
+
+/* ---- MIDI in ---- */
+let midi = null;
+function onMidi(ev) {
+  const [st, d1 = 0, d2 = 0] = ev.data;
+  if (st === 0xF0) return;
+  send({ t: "midi", st, d1, d2 });
+}
+function wire() {
+  if (!midi) return;
+  const want = $("midi").value;
+  for (const i of midi.inputs.values()) i.onmidimessage = want === "*" || want === i.id ? onMidi : null;
+}
+function listInputs() {
+  const sel = $("midi"), cur = sel.value;
+  sel.length = 2;
+  for (const i of midi.inputs.values()) sel.add(new Option(i.name, i.id));
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : "*";
+  wire();
+}
+async function midiSetup() {
+  if (!navigator.requestMIDIAccess) { $("midi").disabled = true; $("midi").title = "This browser has no Web MIDI"; return; }
+  try {
+    midi = await navigator.requestMIDIAccess();
+    midi.onstatechange = listInputs;
+    listInputs();
+  } catch (_) { $("midi").disabled = true; }
+}
+$("midi").onchange = wire;
+</script>
+</body>
+</html>
