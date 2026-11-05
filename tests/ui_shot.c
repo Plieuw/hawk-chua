@@ -457,6 +457,34 @@ int main(int argc, char **argv)
         }
         sys.tape_spd = 12;
     }
+    {   /* BOUNCE from the panel: OCT- down, then OCT+ (and both at once): tracks 2 .. 4 blank, track 1 holds all, the
+         * octave the first press moved given back, said when they are let go */
+        uint32_t both = btn_bit(B_OCTDN) | btn_bit(B_OCTUP), pass;
+        for (pass = 0; pass < 2u; pass++) {
+            int8_t o0 = 1;
+            sys.octave = o0;
+            tape.has[1] = 1; tape.has[2] = 1;
+            memset(tape_buf[2], 0x40, TAPE_N);
+            fm1_in.buttons = 0; ui_input();          /* (none held: the octave noted) */
+            if (pass == 0u) {
+                fm1_in.buttons = btn_bit(B_OCTDN); edges = btn_bit(B_OCTDN); ui_input();
+                frames(1);
+                fm1_in.buttons = both; edges = btn_bit(B_OCTUP); ui_input();
+            } else {
+                fm1_in.buttons = both; edges = both; ui_input();
+            }
+            run_ms(300);
+            fm1_in.buttons = 0; ui_input();
+            if (tape.bounce || !tape.has[0] || tape.has[1] || tape.has[2] || tape_buf[2][5] != 0xFF || sys.octave != o0 ||
+                !strstr(ui_event, "BOUNCE")) {
+                printf("TAPE BOUNCE from OCT- + OCT+ (%s): has %u %u %u, octave %d, msg '%s'\n", pass ? "at once" : "one, then the other",
+                       tape.has[0], tape.has[1], tape.has[2], sys.octave, ui_event);
+                bad = 1;
+            }
+        }
+        sys.octave = 0;
+        frames(2);
+    }
     edges = btn_bit(B_PLAY);
     ui_input();
     frames(2);

@@ -146,14 +146,17 @@ static void tape_block(void)
         break;
     }
     tape.req = 0;
-    if (tape.bounce) {                           /* (1024 cells a block: the 40000 in ~30 ms) */
-        uint32_t c, e = tape.bounce - 1u + 1024u, k;
+    if (tape.bounce) {                           /* (256 cells a block: the 40000 in ~115 ms, light on the ISR) */
+        uint32_t c, e = tape.bounce - 1u + 256u, k;
+        int32_t g[TAPE_NT];
+        for (k = 0; k < TAPE_NT; k++)            /* (each fader, Q16 of 100: no divide a cell) */
+            g[k] = tape.has[k] ? (int32_t)(((sys.tape_lv[k] & 127u) << 16) / 100u) : 0;
         e = e > TAPE_N ? TAPE_N : e;
         for (c = tape.bounce - 1u; c < e; c++) {
             int32_t m = 0;
             for (k = 0; k < TAPE_NT; k++)
-                if (tape.has[k])
-                    m += tape_mu[tape_buf[k][c]] * (int32_t)(sys.tape_lv[k] & 127u) / 100;
+                if (g[k])
+                    m += (tape_mu[tape_buf[k][c]] * g[k]) >> 16;
             m = m > 32767 ? 32767 : m < -32768 ? -32768 : m;
             tape_buf[0][c] = tape_enc(m);
             for (k = 1; k < TAPE_NT; k++)

@@ -2510,7 +2510,7 @@ static void ui_leds(void)
         if (sys.page == 12u || sys.page == 13u || ((tape.rec || feg.rec) && on2) ||
             (tape.playing && !tape.rec && on))   /* REC: the TAPE's pages; blinking: recording, the tape running */
             led_on(nl, panel.btn[B_REC]);
-        if (on)                                  /* SAVE: always, in the tempo */
+        if (fm1_ms % (4u * beat) < beat / 2u)    /* SAVE: always, once a bar (4/4: on its first beat) */
             led_on(nl, panel.btn[B_SAVE]);
         if ((sys.page == 12u || sys.page == 13u) && on) {   /* TAPE: both OCTs (press both: BOUNCE) */
             led_on(nl, panel.btn[B_OCTDN]);
@@ -2568,6 +2568,8 @@ static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
     }
 }
 
+static int8_t oct_was;                           /* the octave before the OCTs went down (BOUNCE gives it back) */
+static uint8_t oct_both;                         /* OCT- and OCT+ both held: 1, 2 (a BOUNCE made) */
 static uint8_t play_last;                        /* PLAY outside the ARP / KARMA pages: 0 the ARP, 1 KARMA (the last opened) */
 static void ui_input(void)
 {
@@ -2590,20 +2592,34 @@ static void ui_input(void)
         str_cpy(t, PRESETS[sys.preset % NPRESETS].name, sizeof t);
         ui_say(t);
     }
+    {   /* TAPE: OCT- and OCT+ both down (in any order, however close) = BOUNCE, once a hold; the octave the first of
+         * them moved goes back; said when they are let go (the screen waits while both are held, main.c) */
+        uint32_t both = btn_bit(B_OCTDN) | btn_bit(B_OCTUP), held = fm1_in.buttons & both;
+        if (held == both) {
+            if (!oct_both && (sys.page == 12u || sys.page == 13u)) {
+                oct_both = 2;
+                tape.req = 4;
+                sys.octave = oct_was;
+            } else if (!oct_both)
+                oct_both = 1;
+        } else if (!held) {
+            if (oct_both == 2u)
+                ui_say("BOUNCE: ALL ON TRACK 1");
+            if (oct_both)
+                ui_force = 1;
+            oct_both = 0;
+            oct_was = sys.octave;                       /* (none held: the octave a first press would leave) */
+        }
+    }
     for (b = 0; b < NB; b++) {
         if (!(pressed & btn_bit(b)))
             continue;
         switch (b) {
         case B_OCTDN:
         case B_OCTUP:
-            if ((fm1_in.buttons & (btn_bit(B_OCTDN) | btn_bit(B_OCTUP))) == (btn_bit(B_OCTDN) | btn_bit(B_OCTUP))) {
-                if (sys.page == 12u || sys.page == 13u) {   /* TAPE: both = BOUNCE all onto track 1 (held 5 s it is
-                                                             * still UBOOT, main.c) */
-                    tape.req = 4;
-                    ui_say("BOUNCE: ALL ON TRACK 1");
-                }
-                break;                                  /* both: the UBOOT combo (main.c), not an octave */
-            }
+            if ((fm1_in.buttons & (btn_bit(B_OCTDN) | btn_bit(B_OCTUP))) == (btn_bit(B_OCTDN) | btn_bit(B_OCTUP)))
+                break;                                  /* both: BOUNCE on the TAPE pages (below), the UBOOT combo
+                                                         * (main.c), not an octave */
             sys.octave = (int8_t)clamp(sys.octave + (b == B_OCTUP ? 1 : -1), OCT_MIN, OCT_MAX);
             break;
         case B_SAVE: {                                  /* the settings, and the sound over the preset playing */

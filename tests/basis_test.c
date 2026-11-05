@@ -1396,7 +1396,7 @@ int main(int argc, char **argv)
             tape.has[1] = 1; sys.tape_lv[1] = 100; sys.tape_lv[0] = 100;
             {   uint8_t was0 = tape_buf[0][1000]; (void)was0; }
             tape.req = 4;
-            run_ms(60);
+            run_ms(200);                             /* (256 cells a block: ~115 ms) */
             okk &= !tape.bounce && tape.has[0] && !tape.has[1] && tape_buf[1][1000] == 0xFF && sys.tape_arm == 1u;
             for (c = 0; c < 2000u; c++)
                 diff += tape_buf[0][c] != 0xFF;
