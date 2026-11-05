@@ -1142,7 +1142,27 @@ int main(int argc, char **argv)
         printf("   (PIANO hammer: peak %.0f / %.0f, above 2 kHz %.3f / %.3f at velocity 30 / 127)\n", pk[0], pk[1], hi[0], hi[1]);
         okk &= pk[0] > 300 && pk[1] > 4 * pk[0] && hi[1] > hi[0];
         synth_kill(); sys.fx_mix = 0; sys.osc = 0; sys.np_level = 64; run_ms(50);
-        check("PIANO: the hammer strikes (louder and brighter the harder)", okk);
+        {   /* struck once: a voice held on, loud, does not keep the string going (no bowing): the note falls; its
+             * partials stretched sharp (the stiffness: the 6th above 6 x the fundamental) */
+            double e0 = 0, e1 = 0, rr, ii, best = 0, f6 = 0, f;
+            synth_kill(); keys_all_off(); sys.fx_mix = 0; run_ms(50);
+            sys.osc = 19; sys.np_x = 64; sys.np_y = 64; sys.np_level = 100; sys.attack = 0; sys.decay = 60; sys.sustain = 100;
+            sys.release = 50; sys.fx_model = RZ_PIANO; sys.fx_struct = 0; sys.fx_mix = 127; sys.fx_damp = 64;
+            synth_note_on(48, 100);
+            for (w = 0; w < 8192u / CTL; w++) { block(); for (b = 0; b < CTL; b++) { ob[w * CTL + b] = buf[2 * b]; e0 += (double)buf[2 * b] * buf[2 * b]; } }
+            run_ms(1500);
+            for (w = 0; w < 8192u / CTL; w++) { block(); for (b = 0; b < CTL; b++) e1 += (double)buf[2 * b] * buf[2 * b]; }
+            for (f = 6 * 130.81 * 0.995; f < 6 * 130.81 * 1.03; f += 0.25) {   /* (the 6th partial: where its peak is) */
+                rr = ii = 0;
+                for (b = 0; b < 8192u; b++) { rr += ob[b] * cos(2 * M_PI * f * b / FS); ii += ob[b] * sin(2 * M_PI * f * b / FS); }
+                if (rr * rr + ii * ii > best) { best = rr * rr + ii * ii; f6 = f; }
+            }
+            printf("   (PIANO under a held voice: %.1f dB after 1.5 s; 6th partial %+.1f cents)\n", 10 * log10(e1 / (e0 + 1) + 1e-12),
+                   1200 * log2(f6 / (6 * 130.81)));
+            okk &= e1 < e0 / 8 && f6 > 6 * 130.81 * 1.0005;
+            synth_note_off(48); run_ms(200); synth_kill();
+        }
+        check("PIANO: the hammer strikes (louder and brighter the harder), once (a held voice not bowing), stretched", okk);
     }
     {   /* BIG BANG: WAVE gives the standard waves (saw: the 2nd harmonic 6 dB under the 1st; square: no 2nd, the 3rd
          * 9.5 dB under), ENTROPY takes the series apart, BANG starts each note in disorder and cools */
@@ -1518,16 +1538,23 @@ int main(int argc, char **argv)
                 w0 = arp_view.w;
                 run_ms(300);
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "TECHNO-A"))
-                    okk &= arp_view.note[w0 & 31u] == 48u;
+                    okk &= arp_view.note[w0 & 31u] == 60u;   /* (its octave down folded into the chord's) */
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "ECHO (DJX)"))
                     okk &= arp_view.note[(w0 + 1u) & 31u] == arp_view.note[w0 & 31u];
+                {   /* every step pattern within the chord's octave (60 .. 71) */
+                    uint32_t q;
+                    for (q = 0; q < 8u; q++) {
+                        uint8_t v8 = arp_view.note[(w0 + q) & 31u];
+                        if (v8 && (v8 < 60u || v8 > 71u)) { okk = 0; printf("   (%s: %u out of the octave)\n", ARP_STEPS[t3 - AT_BASIC].name, v8); break; }
+                    }
+                }
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "DA HOUSE"))   /* the bass, then the right hand */
-                    okk &= arp_view.note[w0 & 31u] == 48u && arp_view.note[(w0 + 2u) & 31u] == 64u;
+                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 2u) & 31u] == 64u;
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "GLISSANDO"))  /* semitones up from the lowest */
                     okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 61u &&
                            arp_view.note[(w0 + 2u) & 31u] == 62u;
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "3 FINGER"))   /* the thumb low, the melody on top */
-                    okk &= arp_view.note[w0 & 31u] == 48u && arp_view.note[(w0 + 1u) & 31u] == 67u;
+                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 67u;
             }
             {   /* STRUM GTR: the chord strummed down, a string each 12 ms; RHYTHM GTR's muted chop: a quarter step */
                 uint32_t t4, n1 = 0, n2 = 0, mut = 0;

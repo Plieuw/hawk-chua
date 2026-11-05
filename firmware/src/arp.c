@@ -279,6 +279,18 @@ static void arp_sound(uint32_t note, uint32_t vel)
 }
 
 static uint8_t arp_last;                          /* the last note played (ARP_PREV: the echo) */
+/* the step patterns stay in the chord's octave: a note above or below (the pattern's octave steps, its places past
+ * the highest held) is folded back by octaves into the lowest note held .. an octave above it (or the highest held, if
+ * the chord is wider), so changing the pattern keeps the register */
+static int32_t arp_fold(int32_t x, const uint8_t *s, uint32_t n)
+{
+    int32_t lo = s[0], hi = s[n - 1u] > lo + 11 ? s[n - 1u] : lo + 11;
+    while (x > hi)
+        x -= 12;
+    while (x < lo)
+        x += 12;
+    return x;
+}
 static uint32_t arp_vel(uint32_t v, uint32_t acc)
 {
     return acc == AA ? v + (127u - v) / 2u : acc == AS ? v * 2u / 3u : acc == AG ? v / 3u + 1u :
@@ -340,7 +352,7 @@ static void arp_do_step(void)
         }
         if (st->sel == ARP_GLS) {                /* semitone by semitone, lowest to highest and back */
             uint32_t lo = s[0], r = s[n - 1u] > lo ? s[n - 1u] - lo : 12u, c = arp.gls++ % (2u * r);
-            nt = lo + (c <= r ? c : 2u * r - c) + 12u * (uint32_t)(st->oct < 0 ? 0 : st->oct);
+            nt = lo + (c <= r ? c : 2u * r - c);
             arp_sound(nt, arp_vel(v[0], st->acc));
             arp_last = (uint8_t)nt;
             arp_view.note[arp_view.w++ & 31u] = (uint8_t)nt;
@@ -349,9 +361,7 @@ static void arp_do_step(void)
         if (st->sel == ARP_STRUP || st->sel == ARP_STRDN) {   /* strummed: the first string now, the others after */
             for (i = 0; i < n; i++) {
                 uint32_t k = st->sel == ARP_STRUP ? i : n - 1u - i;
-                int32_t x = (int32_t)s[k] + 12 * st->oct;
-                while (x < 12)
-                    x += 12;
+                int32_t x = arp_fold((int32_t)s[k] + 12 * st->oct, s, n);
                 if (!i)
                     arp_sound((uint32_t)x, arp_vel(v[k], st->acc));
                 else if (arp.npend < ARP_MAXN) {
@@ -366,9 +376,7 @@ static void arp_do_step(void)
         }
         for (i = st->sel == ARP_UPPER && n > 1u ? 1u : 0u; i < n; i++) {
             uint32_t k = st->sel == ARP_ALL || st->sel == ARP_UPPER ? i : st->sel == ARP_TOP ? n - 1u : st->sel;
-            int32_t o = (int32_t)(k / n) + st->oct, x = (int32_t)s[k % n] + 12 * o;
-            while (x < 12)                       /* (an octave down from the bottom: up again) */
-                x += 12;
+            int32_t o = (int32_t)(k / n) + st->oct, x = arp_fold((int32_t)s[k % n] + 12 * o, s, n);
             arp_sound((uint32_t)x, arp_vel(v[k % n], st->acc));
             if (!shown++) {
                 arp_last = (uint8_t)x;

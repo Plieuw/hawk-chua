@@ -335,7 +335,7 @@ static void rz_run(uint32_t r, uint32_t n)
         }
         break;
     case RZ_KALIMBA:
-        wg_kalimba_run(&R->u.kl, in, y, n, f0, strc, pos, brit, damp);
+        wg_kalimba_run(&R->u.kl, in, y, n, f0, strc, pos, brit, damp, R->strike);
         if (view) {                              /* (the tine's modes) */
             uint32_t m2;
             for (m2 = 0; m2 < WG_KM; m2++) {
