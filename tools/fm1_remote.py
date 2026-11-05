@@ -48,7 +48,8 @@ class FM1:
         self.mido = mido
         names_out = mido.get_output_names()
         names_in = mido.get_input_names()
-        pick = (lambda names: next((n for n in names if (port or "FM") in n), None))
+        pick = (lambda names: next((n for n in names if (port in n if port else
+                                       any(k in n for k in ("FM", "Felucca", "HAWK")))), None))   # (the USB name: Felucca MIDI)
         po, pi = pick(names_out), pick(names_in)
         if not po or not pi:
             sys.exit("no FM-1 MIDI port found; ports: %s" % names_out)

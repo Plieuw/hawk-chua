@@ -113,8 +113,8 @@ $("connect").onclick = async () => {
   if (!navigator.requestMIDIAccess) { say("Deze browser heeft geen Web MIDI."); return; }
   try {
     const m = await navigator.requestMIDIAccess({ sysex: true });
-    out = [...m.outputs.values()].find(p => /FM/i.test(p.name)) || null;
-    inp = [...m.inputs.values()].find(p => /FM/i.test(p.name)) || null;
+    out = [...m.outputs.values()].find(p => /FM|Felucca|HAWK/i.test(p.name)) || null;
+    inp = [...m.inputs.values()].find(p => /FM|Felucca|HAWK/i.test(p.name)) || null;
     if (!out || !inp) { say("Geen FM-1 gevonden. Poorten: " + [...m.outputs.values()].map(p => p.name).join(", ")); return; }
     inp.onmidimessage = onMsg;
     say("Verbonden met " + out.name);
