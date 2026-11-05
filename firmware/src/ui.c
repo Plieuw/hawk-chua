@@ -1045,17 +1045,22 @@ typedef struct {
     uint8_t bank;                                /* (the preset's bank; settings saved before: bank 1) */
 } settings_t;
 
+#define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
 static void settings_boot(void)    /* power-on, before the audio */
 {
     settings_t s;
     uint32_t f = irq_save();
     flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;
     irq_restore(f);
-    if (!flash_ok)
+    if (!flash_ok) {
+        preset_load(BOOT_PRESET);
         return;
+    }
     upre_boot();
     memset(&s, 0, sizeof s);                     /* (saved before the bank: its byte 0, bank 1) */
-    if (st_load(OBJ_SETTINGS, &s, sizeof s) >= (int)__builtin_offsetof(settings_t, bank) && s.magic == SET_MAGIC) {
+    if (st_load(OBJ_SETTINGS, &s, sizeof s) < (int)__builtin_offsetof(settings_t, bank) || s.magic != SET_MAGIC)
+        preset_load(BOOT_PRESET);                /* (a fresh install, nothing saved: bank 3, SYNTH, its first) */
+    else {
         sys.octave = (int8_t)clamp(s.octave, OCT_MIN, OCT_MAX);
         sys.chaos = (uint8_t)(s.chaos & 127u);
         sys.shape = (uint8_t)(s.shape & 127u);
