@@ -300,8 +300,8 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             v = v / 8 + bm;
             y = y / 8 + bs;
         } else if (sp >= SS_BODY) {              /* the body (x 2), the room (bodies: an eighth) */
-            v = v * SH_ROOM8[sp] / 8 + bm * 2;
-            y = y * SH_ROOM8[sp] / 8 + bm + bs;
+            v = v * SH_ROOM8[sp] / 8 + bm * 3;
+            y = y * SH_ROOM8[sp] / 8 + (bm + bs) * 3 / 2;
         } else if (sp != SS_HALL) {              /* the building's modes, rung by the input and the tail */
             int32_t e = x + s / 4, m = 0;
             for (k = 0; k < SH_NMODES[sp]; k++) {

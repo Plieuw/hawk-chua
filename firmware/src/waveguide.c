@@ -368,7 +368,8 @@ static void wg_level(int32_t *iav, int32_t *oav, int32_t *ag, const int32_t *in,
     }
     *iav += ((int32_t)(si / n) - *iav) / 8;
     *oav += ((int32_t)(so / n) - *oav) / 8;
-    gt = *oav > 0 ? (int32_t)((uint32_t)*iav * 14746u / (uint32_t)(*oav > 0 ? *oav : 1)) : 4096;   /* Q12 */
+    gt = *oav > 0 ? (int32_t)((uint32_t)*iav * 14746u / (uint32_t)(*oav > 0 ? *oav : 1)) : *ag;   /* Q12 (no
+                                                  * output yet: as it is, no jump at the onset) */
     gt = gt < 512 ? 512 : gt > 98304 ? 98304 : gt;
     *ag += (gt - *ag) / 16;
     for (i = 0; i < n; i++)
@@ -924,7 +925,7 @@ static void wg_accord_run(wg_accord_t *A, const int32_t *in, int32_t *y, uint32_
         d = o - A->ox + px_m(A->oy, 32440, 15);  /* (DC out) */
         A->ox = o;
         A->oy = d;
-        y[i] = px_clamp(d * 16, -32 * PX_ONE, 32 * PX_ONE);
+        y[i] = px_clamp(d, -32 * PX_ONE, 32 * PX_ONE);   /* (the reeds are loud: the gain below in range) */
     }
     wg_level(&A->iav, &A->oav, &A->ag, in, y, n);
 }
