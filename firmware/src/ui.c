@@ -941,6 +941,30 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
     eg_from_preset = 1;
     sys.feg_on = 1;
 }
+/* MULTI: preset i as part B's sound (its values; A's put back, the audio held off a moment) */
+static void part_b_load(uint32_t i)
+{
+    uint8_t sa[PR_N], mw;
+    int8_t tr;
+    uint16_t pre;
+    uint32_t k, irq = irq_save();
+    for (k = 0; k < PR_N; k++)
+        sa[k] = *PR_SYS[k];
+    tr = sys.transpose;
+    pre = sys.preset;
+    mw = mwd.on;
+    preset_apply(i);
+    for (k = 0; k < PR_N; k++) {
+        part_b[k] = *PR_SYS[k];
+        *PR_SYS[k] = sa[k];
+    }
+    part_b_tr = sys.transpose;
+    part_b_preset = (uint16_t)(i % NPRESETS);
+    sys.transpose = tr;
+    sys.preset = pre;
+    mwd.on = mw;
+    irq_restore(irq);
+}
 static void preset_load(uint32_t i)
 {
     uint8_t on = sys.feg_on;
@@ -1021,6 +1045,8 @@ typedef struct {
     uint8_t tape_lv[4], tape_len, tape_arm, sh_space, tape_spd;
     int8_t transpose;
     uint8_t bank;                                /* (the preset's bank; settings saved before: bank 1) */
+    uint8_t multi, ch_b;                         /* MULTI (saved before: off, B on channel 2) */
+    uint16_t preset_b;                           /* part B's preset */
 } settings_t;
 
 #define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
@@ -1032,13 +1058,19 @@ static void settings_boot(void)    /* power-on, before the audio */
     irq_restore(f);
     if (!flash_ok) {
         preset_load(BOOT_PRESET);
+        part_b_load(BOOT_PRESET);
         return;
     }
     upre_boot();
     memset(&s, 0, sizeof s);                     /* (saved before the bank: its byte 0, bank 1) */
     if (st_load(OBJ_SETTINGS, &s, sizeof s) < (int)__builtin_offsetof(settings_t, bank) || s.magic != SET_MAGIC)
+    {
         preset_load(BOOT_PRESET);                /* (a fresh install, nothing saved: bank 3, SYNTH, its first) */
-    else {
+        part_b_load(BOOT_PRESET);
+    } else {
+        sys.multi = (uint8_t)(s.multi != 0);
+        sys.ch_b = (uint8_t)(s.ch_b >= 1u && s.ch_b <= 16u ? s.ch_b : 2u);
+        part_b_load(s.preset_b % NPRESETS);
         sys.octave = (int8_t)clamp(s.octave, OCT_MIN, OCT_MAX);
         sys.chaos = (uint8_t)(s.chaos & 127u);
         sys.shape = (uint8_t)(s.shape & 127u);
@@ -1130,6 +1162,9 @@ static int settings_save(void)     /* 0 = saved */
     s.view = sys.view;
     s.preset = (uint8_t)(sys.preset & 127u);
     s.bank = (uint8_t)(sys.preset >> 7);
+    s.multi = sys.multi;
+    s.ch_b = sys.ch_b;
+    s.preset_b = part_b_preset;
     s.cpu2 = sys.cpu2;
     s.fx_model = sys.fx_model;
     s.fx_struct = sys.fx_struct;
@@ -1682,6 +1717,29 @@ static void draw_bank(void)
     cv_blit(0, PLOT_Y);
 }
 
+/* the MULTI page: the two parts, their channels and their sounds */
+static void draw_multi(void)
+{
+    char a[40], v[8];
+    uint32_t p;
+    cv_begin(240, PLOT_H, T_BG);
+    cv_text(8, 6, &AF_M, sys.multi ? "MULTI ON" : "MULTI OFF", sys.multi ? T_ACCENT : T_DIM);
+    for (p = 0; p < 2u; p++) {
+        int32_t y = 40 + (int32_t)p * 40;
+        uint16_t c = sys.multi || !p ? T_TEXT : T_DIM;
+        str_cpy(a, p ? "B  CH " : "A  CH ", sizeof a);
+        if (p || sys.midi_rx) {
+            fmt_int(v, p ? sys.ch_b : sys.midi_rx);
+            ui_cat(a, sizeof a, v);
+        } else
+            ui_cat(a, sizeof a, "OMNI");
+        cv_text(8, y, &AF_S, a, T_MID);
+        cv_text(96, y, &AF_S, PRESETS[(p ? part_b_preset : sys.preset) % NPRESETS].name, c);
+    }
+    cv_text(8, 124, &AF_S, sys.multi ? "2 VOICES EACH, ONE SHIMMER" : "ALL 4 VOICES: A", T_DIM);
+    cv_blit(0, PLOT_Y);
+}
+
 static void draw_midi(void)
 {
     char a[40], v[12];
@@ -2002,6 +2060,17 @@ static void ui_draw(void)
         ui_val_c = FEG_FM(sys.feg_target) ? T_FM : 0;   /* (an FM target: green) */
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
+    } else if (sys.page == 15u) {                /* MULTI: on, part B's channel, its bank, its program */
+        ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
+        fmt_int(v, sys.ch_b);
+        ui_cell(T_C2, "2 B CHANNEL", v);
+        fmt_int(v, (int32_t)(part_b_preset >> 7) + 1);
+        str_cpy(b, v, sizeof b);
+        ui_cat(b, sizeof b, " ");
+        ui_cat(b, sizeof b, BANK_NAME[(part_b_preset >> 7) % NBANKS]);
+        ui_cell(T_C3, "3 B BANK", b);
+        fmt_int(v, (int32_t)(part_b_preset & 127u) + 1);
+        ui_cell(T_C4, "4 B PROGRAM", v);
     } else if (sys.page == 7u) {
         static const char *const USBN[4] = {"OFF", "IN", "OUT", "IN + OUT"};
         ui_cell(T_C1, "1 TRS MIDI IN", sys.midi_trs ? "ON" : "OFF");
@@ -2300,6 +2369,8 @@ static void ui_draw(void)
         draw_edit();
     else if (sys.page == 14u)
         draw_bank();
+    else if (sys.page == 15u)
+        draw_multi();
     else if (sys.page == 12u || sys.page == 13u) {
         art_t++;
         art_c = T_THEME;
@@ -2418,7 +2489,7 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_ENV]);
     if (sys.arp_on || sys.page == 6u)
         led_on(nl, panel.btn[B_ARP]);
-    if (sys.page == 7u)
+    if (sys.page == 7u || sys.page == 15u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
     if (sys.page == 10u)
         led_on(nl, panel.btn[B_SCL]);
@@ -2504,6 +2575,14 @@ static void ui_input(void)
     int32_t s;
     char t[24], v[12];
     rm_btn = 0;
+    if (keys_prog_req_b) {                              /* MULTI: a program change on B's channel: B's sound */
+        uint32_t pg = keys_prog_req_b - 1u;
+        keys_prog_req_b = 0;
+        part_b_load(pg);
+        str_cpy(t, "B: ", sizeof t);
+        ui_cat(t, sizeof t, PRESETS[part_b_preset % NPRESETS].name);
+        ui_say(t);
+    }
     if (keys_prog_req) {                                /* MIDI program change: that preset */
         uint32_t pg = keys_prog_req - 1u;               /* (bank x 128 + program) */
         keys_prog_req = 0;
@@ -2599,8 +2678,8 @@ static void ui_input(void)
             sys.page = sys.page == 10u ? 0u : 10u;
             ui_force = 1;
             break;
-        case B_GLO:                                     /* the MIDI page and back */
-            sys.page = sys.page == 7u ? 0u : 7u;
+        case B_GLO:                                     /* the MIDI page, the MULTI page, back */
+            sys.page = sys.page == 7u ? 15u : sys.page == 15u ? 0u : 7u;
             ui_force = 1;
             break;
         default:
@@ -2674,6 +2753,25 @@ static void ui_input(void)
         knob(&sys.feg_depth, EN_K3, 2);
         if ((s = ui_enc(EN_K4)) != 0) {
             sys.feg_target = (uint8_t)clamp((int32_t)sys.feg_target + s, 0, FEG_NT - 1);
+            ui_hot = 3; ui_hot_ms = fm1_ms;
+        }
+    } else if (sys.page == 15u) {               /* MULTI */
+        if ((s = ui_enc(EN_K1)) != 0) {
+            sys.multi = (uint8_t)(s > 0);
+            keys_panic_req = 1;                  /* (the voices re-divided: all let go) */
+            ui_hot = 0; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K2)) != 0) {
+            sys.ch_b = (uint8_t)clamp((int32_t)sys.ch_b + s, 1, 16);
+            ui_hot = 1; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K3)) != 0) {
+            part_b_load((uint32_t)(((int32_t)(part_b_preset >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
+                                   (int32_t)NBANKS) * 128u + (part_b_preset & 127u));
+            ui_hot = 2; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K4)) != 0) {
+            part_b_load((part_b_preset & ~127u) + (uint32_t)(((int32_t)(part_b_preset & 127u) + 128 * 8 + s) % 128));
             ui_hot = 3; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 7u) {                /* MIDI: an input changed: what it held let go (no note hangs) */

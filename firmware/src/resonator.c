@@ -133,17 +133,19 @@ static void rz_reset(rz_t *R, uint32_t md)
  * notes that hold it: one whose note is held elsewhere is not taken while another is free */
 static uint32_t rz_assign(uint32_t note, uint32_t vel)
 {
-    uint32_t r, k, best = RZ_POLY, used = 0;
-    for (r = 0; r < RZ_POLY; r++)
+    uint32_t r, k, best = RZ_POLY, used = 0, all;
+    uint32_t lo = sys.multi ? (uint32_t)syn_part * (RZ_POLY / 2u) : 0u, hi = sys.multi ? lo + RZ_POLY / 2u : RZ_POLY;
+    all = ((1u << hi) - 1u) & ~((1u << lo) - 1u);   /* (MULTI: the part's two) */
+    for (r = lo; r < hi; r++)
         if (rz[r].stamp && rz[r].note == note)
             best = r;
     if (best == RZ_POLY) {
         for (k = 0; k < NVOICE; k++)             /* the resonators a held note plays into */
             if (voice[k].stage == ST_ATTACK || voice[k].stage == ST_SUSTAIN)
                 used |= 1u << (voice[k].rz % RZ_POLY);
-        if (used == (1u << RZ_POLY) - 1u)        /* (all held: the oldest of all) */
+        if ((used & all) == all)                 /* (all held: the oldest of all) */
             used = 0;
-        for (r = 0; r < RZ_POLY; r++)            /* the longest unused of the free ones (never used: stamp 0) */
+        for (r = lo; r < hi; r++)                /* the longest unused of the free ones (never used: stamp 0) */
             if (!(used >> r & 1u) && (best == RZ_POLY || rz[r].stamp < rz[best].stamp))
                 best = r;
     }
@@ -415,6 +417,7 @@ static void c1_resonators(uint32_t arg)          /* the second core: arg the res
             rz_run(r, arg >> 8);
 }
 
+static uint32_t rz_part_mask = (1u << RZ_POLY) - 1u;   /* the resonators this pass runs (MULTI: a part's) */
 static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
 {
     uint32_t md = sys.fx_model % RZ_COUNT, i, r, run = 0, mine = 0, busy = 0;
@@ -422,6 +425,8 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
     int32_t mix = sys.fx_mix > 127u ? 127 : (int32_t)sys.fx_mix;
     if (!mix) {
         for (r = 0; r < RZ_POLY; r++) {          /* (off: the next use starts from silence) */
+            if (!(rz_part_mask >> r & 1u))
+                continue;
             rz[r].held = 0;
             rz[r].quiet = RZ_QUIET;
             rz[r].strike = 0;                    /* (no hammer left waiting for later) */
@@ -432,6 +437,8 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
         n = CTL;
     for (r = 0; r < RZ_POLY; r++) {              /* the ones sounding or fed: every other one to the second core */
         uint32_t fed = rz[r].strike != 0u;      /* (a hammer on its way: fed) */
+        if (!(rz_part_mask >> r & 1u))
+            continue;
         for (i = 0; i < n && !fed; i++)
             fed = rz_bus[r][i] != 0;
         if (rz[r].held != md + 1u)               /* (a new model: state anew, quiet until fed) */

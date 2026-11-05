@@ -219,6 +219,7 @@ typedef struct {
     uint16_t amp;                /* velocity, Q15 */
     uint8_t note, stage, fresh;  /* fresh: the DC blocker starts at the first sample */
     uint8_t key;                 /* the note as played (note: as it sounds, the sound's octave on it) */
+    uint8_t part;                /* MULTI: the part it plays (0 A: sys; 1 B: ui.c's part_b) */
     uint8_t lpg_n;               /* frames until the next coefficient update */
     uint8_t vbr, vfm;            /* velocity on the sound (EDIT): taken off the gate's opening, the FM depth, /255 (0: none) */
     uint8_t osc;                 /* the oscillator its state belongs to (sys.osc when it started; a change restarts it) */
@@ -251,6 +252,37 @@ static uint32_t seat_next;                       /* the seat the next note takes
 static volatile uint8_t synth_shed;              /* audio.c: the last half took too long: let the least needed voice go */
 static uint32_t synth_sheds;                     /* (how often: a diagnostic) */
 static uint32_t voice_rr;                        /* the voice the next note looks at first (the cycle) */
+/* MULTI: two parts, A (the sound as sys has it: the panel edits it) and B (its own preset, on its own MIDI channel);
+ * each two of the four voices and two of the four resonators; the SHIMMER, the TAPE, the master shared (A's). B's
+ * sound is swapped into sys while its notes start and its voices and resonators run (part_swap, ui.c: the preset's
+ * values; called twice: back) */
+static uint8_t syn_part;                         /* the part the next note on / off is for */
+#define PART_N_SYS 30u                           /* (ui.c's PR_SYS: the same values, the same order) */
+static volatile uint8_t *const PART_SYS[PART_N_SYS] = {
+    &sys.chaos, &sys.shape, &sys.output, &sys.attack, &sys.decay, &sys.sustain, &sys.release, &sys.ring,
+    &sys.fx_model, &sys.fx_struct, &sys.fx_bright, &sys.fx_damp, &sys.fx_pos, &sys.fx_mix,
+    &sys.sh_size, &sys.sh_decay, &sys.sh_shimmer, &sys.sh_mix, &sys.sh_interval, &sys.sh_tone,
+    &sys.osc, &sys.np_x, &sys.np_y, &sys.menv_len, &sys.menv_skew, &sys.menv_height, &sys.scream,
+    &sys.sh_space, &sys.np_level, &sys.menv_bend,
+};
+static uint8_t part_b[PART_N_SYS];               /* part B's sound (ui.c part_b_load: a preset's values) */
+static int8_t part_b_tr;                         /* and its octave */
+static uint16_t part_b_preset;                   /* (which preset: the GLO page shows its name) */
+static void part_swap(void)                      /* B's sound into sys, A's out (again: back) */
+{
+    uint32_t k;
+    int8_t t;
+    for (k = 0; k < PART_N_SYS; k++) {
+        uint8_t a = *PART_SYS[k];
+        *PART_SYS[k] = part_b[k];
+        part_b[k] = a;
+    }
+    t = sys.transpose;
+    sys.transpose = part_b_tr;
+    part_b_tr = t;
+}
+#define PART_LO() (sys.multi ? (uint32_t)syn_part * (NVOICE / 2u) : 0u)
+#define PART_N() (sys.multi ? NVOICE / 2u : NVOICE)
 static int16_t synth_pan_next;                  /* karma.c: the next note's place instead (synth_pan_set) */
 static uint8_t synth_pan_set;
 static uint32_t voice_clock;
@@ -283,25 +315,27 @@ static void synth_note_on(uint32_t key, uint32_t vel)
             t -= 12;
         note = (uint32_t)t;
     }
-    for (i = 0; i < NVOICE && !v; i++)              /* the same key again: retrigger its voice */
+    uint32_t lo = PART_LO(), pn = PART_N();         /* (MULTI: the part's voices) */
+    for (i = lo; i < lo + pn && !v; i++)            /* the same key again: retrigger its voice */
         if (voice[i].stage != ST_OFF && voice[i].key == key)
             v = &voice[i];
-    for (i = 0; i < NVOICE && !v; i++)              /* a free voice: the next of the cycle */
-        if (voice[(voice_rr + i) % NVOICE].stage == ST_OFF)
-            v = &voice[(voice_rr + i) % NVOICE];
+    for (i = 0; i < pn && !v; i++)                  /* a free voice: the next of the cycle */
+        if (voice[lo + (voice_rr + i) % pn].stage == ST_OFF)
+            v = &voice[lo + (voice_rr + i) % pn];
     if (!v) {                                       /* steal: the oldest ringing tail, else released, else the oldest */
         voice_t *best = 0;
         uint32_t s;
         for (s = ST_TAIL; s >= ST_RELEASE && !best; s--)
-            for (i = 0; i < NVOICE; i++)
+            for (i = lo; i < lo + pn; i++)
                 if (voice[i].stage == s && (!best || voice[i].age < best->age))
                     best = &voice[i];
         if (!best)
-            for (i = 0, best = &voice[0]; i < NVOICE; i++)
+            for (i = lo, best = &voice[lo]; i < lo + pn; i++)
                 if (voice[i].age < best->age)
                     best = &voice[i];
         v = best;
     }
+    v->part = (uint8_t)(sys.multi ? syn_part : 0u);
     if (v->stage == ST_OFF) {                       /* a new circuit: where the ghost is (on the attractor), nudged a */
         v->osc = (uint8_t)(sys.osc > NP_COUNT ? 0u : sys.osc);   /* little so that voices in a chord do not run in */
         if (v->osc)                                 /* lockstep; a noise program: its state anew */
@@ -317,7 +351,7 @@ static void synth_note_on(uint32_t key, uint32_t vel)
     v->note = (uint8_t)note;
     v->key = (uint8_t)key;
     v->rz = (uint8_t)rz_assign(note, vel);
-    voice_rr = (uint32_t)(v - voice + 1) % NVOICE;
+    voice_rr = (uint32_t)(v - voice - (int32_t)lo + 1) % pn;
     if (synth_pan_set)
         v->pan = synth_pan_next;
     else {                                       /* (the next seat) */
@@ -350,8 +384,25 @@ static void synth_note_off(uint32_t key)
 {
     uint32_t i;
     for (i = 0; i < NVOICE; i++)
-        if (voice[i].key == key && (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN))
+        if (voice[i].key == key && (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN) &&
+            (!sys.multi || voice[i].part == syn_part))
             voice[i].stage = ST_RELEASE;
+}
+
+/* a note of part B (MULTI, keys.c: its channel): B's sound in sys while it starts, then A's back */
+static void synth_note_on_b(uint32_t key, uint32_t vel)
+{
+    syn_part = 1;
+    part_swap();
+    synth_note_on(key, vel);
+    part_swap();
+    syn_part = 0;
+}
+static void synth_note_off_b(uint32_t key)
+{
+    syn_part = 1;
+    synth_note_off(key);
+    syn_part = 0;
 }
 
 static void synth_all_off(void)
@@ -764,9 +815,29 @@ static void synth_render(int32_t *out, uint32_t n)
             trace_put(&ghost);
         chua_trace.voice = tv ? (int8_t)(tv - voice) : -1;
     }
+    {
+    int32_t psum[CTL], pdl[CTL], pdr[CTL];
+    uint32_t pp, np2 = sys.multi ? 2u : 1u;
+    if (sys.multi) {
+        memset(psum, 0, sizeof psum);
+        memset(pdl, 0, sizeof pdl);
+        memset(pdr, 0, sizeof pdr);
+    }
+    for (pp = 0; pp < np2; pp++) {                      /* MULTI: part A, then B with its sound swapped in */
+    if (sys.multi) {
+        if (pp)
+            part_swap();
+        rz_part_mask = (0x3u << (pp * (RZ_POLY / 2u))) & ((1u << RZ_POLY) - 1u);
+        memset(dl, 0, sizeof dl);
+        memset(dr, 0, sizeof dr);
+        mask = own = 0;
+        chua_params();                                  /* (the part's sound) */
+        env_params();
+        inner = chua_regime(cc.chaos) != REG_OUTER;
+    }
     for (k = 0; k < NVOICE; k++) {
         voice_t *v = &voice[k];
-        if (v->stage == ST_OFF)
+        if (v->stage == ST_OFF || (sys.multi && v->part != pp))
             continue;
         if (inner && chua_on_outer(&v->s)) {            /* (CHAOS came down from OUTER: back to the inner attractor) */
             v->s = ghost;
@@ -801,13 +872,31 @@ static void synth_render(int32_t *out, uint32_t n)
             rz_age[voice[k].rz % RZ_POLY] = voice[k].age;
             rz_epan[voice[k].rz % RZ_POLY] = vpan[k];
         }
-    for (i = 0; i < n; i++) {                           /* the dry: all of them */
+    for (i = 0; i < n; i++) {                           /* the dry: all of them (MULTI: the part's) */
         int32_t a = 0;
         for (k = 0; k < RZ_POLY; k++)
-            a += rz_bus[k][i];
+            if (rz_part_mask >> k & 1u)
+                a += rz_bus[k][i];
         sum[i] = a;
     }
     fx_resonator(sum, dl, dr, n);
+    if (sys.multi) {                                    /* (the parts summed: their dry and wet, their pans) */
+        for (i = 0; i < n; i++) {
+            psum[i] += sum[i];
+            pdl[i] += dl[i];
+            pdr[i] += dr[i];
+        }
+        if (pp)
+            part_swap();                                /* (A's sound back) */
+    }
+    }   /* (the parts) */
+    if (sys.multi) {
+        rz_part_mask = (1u << RZ_POLY) - 1u;
+        memcpy(sum, psum, n * sizeof sum[0]);
+        memcpy(dl, pdl, n * sizeof dl[0]);
+        memcpy(dr, pdr, n * sizeof dr[0]);
+    }
+    }
     {
         int32_t l[CTL], r[CTL];
         fx_shimmer(sum, l, r, n);                       /* (its tank fed the middle; its dry part panned here) */

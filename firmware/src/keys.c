@@ -21,6 +21,8 @@ static volatile uint8_t kb_boot_hold;            /* set from power-on to the end
 static volatile uint8_t keys_panic_req;
 static volatile uint16_t keys_prog_req;          /* a MIDI program change: bank x 128 + its number + 1 (ui.c loads it) */
 static uint8_t bank_msb, bank_lsb;               /* BANK SELECT (CC 0, 32): taken by the next program change */
+static uint8_t bank_msb_b, bank_lsb_b;           /* (MULTI: part B's) */
+static volatile uint16_t keys_prog_req_b;        /* MULTI: a program change on part B's channel (ui.c loads it) */
 static uint32_t kb_prev;                         /* fm1_in.notes at the last block */
 static uint8_t kb_note[NKEYS];                   /* the note key k started (KB_SILENT: none) */
 static uint8_t kb_ch[NKEYS];                     /* the MIDI channel its note on went out on (its off: the same) */
@@ -263,6 +265,24 @@ static void midi_in_block(void)
         mi_r++;
         if ((src == 2u && !sys.midi_trs) || (src == 1u && !(sys.midi_usb & 1u)))
             continue;                            /* (the GLO page: that input off) */
+        if (sys.multi && st < 0xF0u && ((pkt >> 8) & 0x0Fu) == (sys.ch_b + 15u) % 16u) {   /* MULTI: part B's channel */
+            if (st == 0x90u && d2)
+                synth_note_on_b(d1, d2);
+            else if (st == 0x80u || st == 0x90u)
+                synth_note_off_b(d1);
+            else if (st == 0xB0u && d1 == 0u)
+                bank_msb_b = (uint8_t)d2;
+            else if (st == 0xB0u && d1 == 32u)
+                bank_lsb_b = (uint8_t)d2;
+            else if (st == 0xB0u && (d1 == 123u || d1 == 120u))
+                for (uint32_t k2 = 0; k2 < 128u; k2++)
+                    synth_note_off_b(k2);
+            else if (st == 0xC0u) {
+                uint32_t bk = bank_lsb_b ? bank_lsb_b : bank_msb_b;
+                keys_prog_req_b = (uint16_t)((bk < 4u ? bk : 0u) * 128u + d1 + 1u);
+            }
+            continue;
+        }
         if (st < 0xF0u && rx && ((pkt >> 8) & 0x0Fu) != (rx - 1u) % 16u)
             continue;                            /* (another channel than RX) */
         if (st == 0x90u && d2)

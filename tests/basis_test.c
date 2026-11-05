@@ -1290,6 +1290,36 @@ int main(int argc, char **argv)
         synth_kill(); sys.fx_mix = 0; sys.osc = 0; run_ms(20);
         check("DIDGERIDOO drones, SHAKUHACHI speaks at the note", okk);
     }
+    {   /* MULTI: channel 1 plays part A (voices 0, 1), channel 2 part B (2, 3) with B's sound; after the render sys
+         * holds A's sound again, part_b B's; A's notes steal only among A's voices */
+        uint32_t k, w, b2;
+        int okk = 1;
+        int32_t pk = 0;
+        synth_kill(); keys_all_off(); sys.fx_mix = 0; sys.sh_mix = 0; run_ms(20);
+        sys.osc = 0; sys.chaos = 85; sys.sustain = 120; sys.attack = 0; sys.midi_rx = 1;
+        for (k = 0; k < PART_N_SYS; k++)
+            part_b[k] = *PART_SYS[k];
+        part_b[20] = 19;                         /* (B: a noise program) */
+        part_b_tr = 0;
+        sys.multi = 1; sys.ch_b = 2;
+        midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);   /* A: three notes, two voices */
+        midi_in(0x91, 48, 100);                  /* B */
+        run_ms(30);
+        for (k = 0; k < 2u; k++)
+            okk &= voice[k].stage != ST_OFF && voice[k].part == 0u && voice[k].osc == 0u;
+        okk &= (voice[2].stage != ST_OFF && voice[2].part == 1u && voice[2].osc == 19u && voice[2].key == 48u) ||
+               (voice[3].stage != ST_OFF && voice[3].part == 1u && voice[3].osc == 19u && voice[3].key == 48u);
+        for (w = 0; w < 50u; w++) { block(); for (b2 = 0; b2 < 2u * CTL; b2++) pk = abs(buf[b2]) > pk ? abs(buf[b2]) : pk; }
+        okk &= pk > 1000 && sys.osc == 0u && part_b[20] == 19u;
+        midi_in(0x81, 48, 0);
+        run_ms(10);
+        okk &= !((voice[2].key == 48u && voice[2].stage == ST_SUSTAIN) || (voice[3].key == 48u && voice[3].stage == ST_SUSTAIN));
+        if (!okk) printf("   (multi: v0 %u/%u v1 %u/%u v2 %u/%u/%u v3 %u/%u/%u pk %d)\n", voice[0].stage, voice[0].part,
+                         voice[1].stage, voice[1].part, voice[2].stage, voice[2].part, voice[2].osc, voice[3].stage,
+                         voice[3].part, voice[3].osc, pk);
+        keys_all_off(); synth_kill(); sys.multi = 0; sys.midi_rx = 0; run_ms(20);
+        check("MULTI: two parts on two channels, each its voices and sound", okk);
+    }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */
         int okk = 1;

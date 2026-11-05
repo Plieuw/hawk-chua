@@ -78,7 +78,7 @@ static void midi_out_event(uint32_t pkt) { (void)pkt; }   /* (usb.c: not in this
 #include "../firmware/src/panel.c"
 #include "../firmware/src/synth.c"
 static volatile uint8_t keys_panic_req;   /* (keys.c: not in this test) */
-static volatile uint16_t keys_prog_req;
+static volatile uint16_t keys_prog_req, keys_prog_req_b;
 #include "../firmware/src/ui.c"
 /* remote.c over a fake USB: frames in from rm_in, messages out into rm_log */
 #define FELUCCA_OTA 1
@@ -469,6 +469,16 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "e_edit");
     sys.mw = 0; sys.vel_to = 0;
+    sys.page = 7u;                       /* GLO twice: the MULTI page, on, part B a bass */
+    edges = btn_bit(B_GLO);
+    ui_input();
+    if (sys.page != 15u) { printf("GLO: no MULTI page\n"); bad = 1; }
+    sys.multi = 1;
+    part_b_load(256u + 16u);
+    frames(2);
+    bad |= shot(dir, "e_multi");
+    sys.multi = 0;
+    sys.page = 0;
     edges = btn_bit(B_EDIT);
     ui_input();
     synth_kill();
