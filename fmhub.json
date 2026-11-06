@@ -1,5 +1,5 @@
 {
-  "what": "Noise and modeling synth with GM-style presets (4 banks, 512) and a 4-track tape recorder: each voice a live Chua circuit or noise program, through vactrol gates into resonators and piano, drum, voice, flute, brass, bowed, reed and bird waveguides, with temple, cathedral and mosque reverbs. XG MIDI CCs, aftertouch is breath. KARMA, ARP, FREE EG (LFO, audio-rate AM/FM), 3D scope art.",
+  "what": "Noise and modeling synth with GM-style presets (4 banks, 512) and a 4-track tape recorder: each voice a live Chua circuit or noise program, through vactrol gates into resonators and piano, drum, voice, flute, brass, bowed, reed and bird waveguides, with temple, cathedral and mosque reverbs. GM MIDI CCs, aftertouch is breath. KARMA, ARP, FREE EG (LFO, audio-rate AM/FM), 3D scope art.",
   "author": "plieuwski",
   "kinds": [
     "synth"
