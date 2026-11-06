@@ -206,7 +206,8 @@ enum { ST_OFF, ST_ATTACK, ST_SUSTAIN, ST_RELEASE, ST_TAIL };   /* (ST_SUSTAIN: t
 #define LPG_QUIET 8192                           /* the TAIL ends when the filter's states are below this (Q23: -60 dB) */
 typedef struct {
     chua_t s;
-    uint32_t inc;                /* the note's frequency / FS, Q32 */
+    uint32_t inc;                /* the note's frequency / FS, Q32 (bent: inc0 x the part's pitch bend) */
+    uint32_t inc0;               /* the note's own */
     uint32_t env;                /* the ADSR, 0..ENV_MAX */
     uint32_t ctl;                /* the gate's control (the vactrol), 0..ENV_MAX */
     uint32_t age;                /* started at (voice clock): the oldest is stolen first */
@@ -258,6 +259,7 @@ static uint32_t voice_rr;                        /* the voice the next note look
  * sound is swapped into sys while its notes start and its voices and resonators run (part_swap, ui.c: the preset's
  * values; called twice: back) */
 static uint8_t syn_part;                         /* the part the next note on / off is for */
+static uint32_t synth_bend[2] = {65536, 65536};   /* MIDI pitch bend: each part's frequency ratio, Q16 (keys.c) */
 #define PART_N_SYS 30u                           /* (ui.c's PR_SYS: the same values, the same order) */
 static volatile uint8_t *const PART_SYS[PART_N_SYS] = {
     &sys.chaos, &sys.shape, &sys.output, &sys.attack, &sys.decay, &sys.sustain, &sys.release, &sys.ring,
@@ -366,7 +368,8 @@ static void synth_note_on(uint32_t key, uint32_t vel)
         memset(v->apy, 0, sizeof v->apy);
         v->orng = 0x9E3779B9u * (uint32_t)(v - voice + 1) + voice_clock;
     }
-    v->inc = note_inc(note);
+    v->inc0 = note_inc(note);
+    v->inc = (uint32_t)(((uint64_t)v->inc0 * synth_bend[syn_part & 1u]) >> 16);
     v->amp = (uint16_t)(vel * 258u);                /* 127 -> 32766 */
     {   /* velocity on the sound (the EDIT page): a soft note's gate opens less (darker), its FM shallower */
         uint32_t cut = (uint32_t)(sys.vel_amt & 127u) * (127u - (vel > 127u ? 127u : vel)) * 2u / 127u;   /* 0 .. 254 */
@@ -881,6 +884,7 @@ static void synth_render(int32_t *out, uint32_t n)
         voice_t *v = &voice[k];
         if (v->stage == ST_OFF || (sys.multi && v->part != pp))
             continue;
+        v->inc = (uint32_t)(((uint64_t)v->inc0 * synth_bend[v->part & 1u]) >> 16);   /* (the pitch bend) */
         if (inner && chua_on_outer(&v->s)) {            /* (CHAOS came down from OUTER: back to the inner attractor) */
             v->s = ghost;
             v->fresh = 1;

@@ -1084,6 +1084,7 @@ typedef struct {
     uint8_t tape4;                               /* (saved before the tape held 7 s: LENGTH 4 BARS, once) */
     uint8_t snd;                                 /* (saved before the SOUND page: SPEAKER BASS 4, LEVEL MATCH on; 1: 1.9.2's 64) */
     uint8_t spk_bass, lvl_match;
+    uint8_t bend_range;                          /* (3: saved; before: 12) */
 } settings_t;
 
 #define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
@@ -1193,6 +1194,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
         sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
+        sys.bend_range = (uint8_t)(s.snd >= 3u ? (s.bend_range > 12u ? 12u : s.bend_range) : 12u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
         sys.transpose = (int8_t)clamp(s.transpose, -3, 3);
@@ -1214,7 +1216,8 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 2;
+    s.snd = 3;
+    s.bend_range = sys.bend_range;
     s.spk_bass = sys.spk_bass;
     s.lvl_match = sys.lvl_match;
     s.octave = sys.octave;
@@ -1819,6 +1822,11 @@ static void draw_sound(void)
     cv_text(8, 56, &AF_S, "THE BASS'S OVERTONES: HEARD ON", T_DIM);
     cv_text(8, 72, &AF_S, "THE SMALL SPEAKER", T_DIM);
     cv_text(8, 96, &AF_S, sys.lvl_match ? "LEVEL MATCH ON: PRESETS ALIKE" : "LEVEL MATCH OFF", sys.lvl_match ? T_TEXT : T_DIM);
+    str_cpy(a, "PITCH BEND +- ", sizeof a);
+    fmt_int(v, (int32_t)sys.bend_range);
+    ui_cat(a, sizeof a, v);
+    ui_cat(a, sizeof a, " SEMITONES");
+    cv_text(8, 114, &AF_S, a, sys.bend_range ? T_TEXT : T_DIM);
     cv_blit(0, PLOT_Y);
 }
 static void draw_midi(void)
@@ -2152,7 +2160,11 @@ static void ui_draw(void)
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
         ui_cell(T_C1, "1 SPEAKER BASS", sys.spk_bass & 127u ? v : "OFF");
         ui_cell(T_C2, "2 LEVEL MATCH", sys.lvl_match ? "ON" : "OFF");
-        ui_cell(T_C3, "3", "");
+        fmt_int(v, (int32_t)sys.bend_range);
+        str_cpy(b, sys.bend_range ? "+-" : "OFF", sizeof b);
+        if (sys.bend_range)
+            ui_cat(b, sizeof b, v);
+        ui_cell(T_C3, "3 BEND RANGE", b);
         ui_cell(T_C4, "4", "");
     } else if (sys.page == 15u) {                /* MULTI: on, part B's channel, its bank, its program */
         ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
@@ -2915,6 +2927,10 @@ static void ui_input(void)
             sys.lvl_match = (uint8_t)(s > 0);
             lvl_set();
             ui_hot = 1; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K3)) != 0) {
+            sys.bend_range = (uint8_t)clamp((int32_t)sys.bend_range + s, 0, 12);
+            ui_hot = 2; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 15u) {               /* MULTI */
         if ((s = ui_enc(EN_K1)) != 0) {

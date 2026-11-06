@@ -57,13 +57,25 @@ typedef struct {
     int32_t lip, rad, glo;                       /* the lips' low-pass, the mouth's softening, the glottis' */
     int32_t env;                                 /* the input's loudness, Q20 */
     int32_t iav, oav, ag;                        /* the level: in, out (Q14 averages), the gain (Q12) */
-    int32_t yp;                                  /* the last half-rate output (the interpolation) */
+    int32_t yh[3];                               /* the last half-rate outputs (the interpolation) */
 } wg_throat_t;
 
 /* a one-pole's coefficient (Q15) at the full rate -> the same in hertz at half the rate: 1 - (1 - a)^2 */
 static inline int32_t wg_half(int32_t a) { return 2 * a - ((a * a) >> 15); }
 
 /* the loudness of n samples of in (Q20) into *env: ~2 ms up, ~80 ms down (per sample) */
+/* back to the full rate: the half-rate output t into y[i], y[i + 1]: the one before it, and the point halfway between
+ * the two before it by a cubic (-1 9 9 -1) / 16 (the images over 11 kHz ~30 dB down, where halving the last two left
+ * them: a grain on bowed and blown notes); a half-rate sample late */
+static inline void wg_up(int32_t *h, int32_t t, int32_t *y, uint32_t i, uint32_t n)
+{
+    y[i] = (9 * (h[1] + h[2]) - h[0] - t) >> 4;
+    if (i + 1u < n)
+        y[i + 1u] = h[2];
+    h[0] = h[1];
+    h[1] = h[2];
+    h[2] = t;
+}
 static int32_t wg_follow(int32_t *env, const int32_t *in, uint32_t n)
 {
     uint32_t i;
@@ -127,10 +139,7 @@ static void wg_throat_run(wg_throat_t *T, const int32_t *in, int32_t *y, uint32_
         /* out at the mouth: the wave arriving there (the radiation's loss of the lows left out: it would leave a
          * voice below its first formant nearly silent), its top softened (BRIGHTNESS: ~1.5 .. 12 kHz) */
         T->rad += px_m(ro, lo - T->rad, 15);
-        y[i] = (T->yp + T->rad) >> 1;            /* (back to the full rate: between the last and this one) */
-        if (i + 1u < n)
-            y[i + 1u] = T->rad;
-        T->yp = T->rad;
+        wg_up(T->yh, T->rad, y, i, n);   /* (back to the full rate) */
         T->p = p + 1u >= k ? 0u : p + 1u;
     }
     {   /* the level: the tube's resonances lift some vowels and animals far above others; a slow automatic gain
@@ -177,7 +186,7 @@ typedef struct {
     uint32_t w, rng;
     int32_t lp, dcx, dcy, env;
     int32_t ox, oy;                              /* the output's DC blocker (the breath's pressure is DC in the bore) */
-    int32_t yp;                                  /* the last half-rate output */
+    int32_t yh[3];                                  /* the last half-rate output */
 } wg_flute_t;
 
 /* f0 the note (cycles Q32); jet 0..127 its length (long .. overblowing); breath the noise; bright, damp Q16 */
@@ -216,10 +225,7 @@ static void wg_flute_run(wg_flute_t *F, const int32_t *in, int32_t *y, uint32_t 
         o = b - F->ox + px_m(F->oy, 32440, 15); /* out: the bore, its DC blocked (the breath is DC in it) */
         F->ox = b;
         F->oy = o;
-        y[i] = (F->yp + o) >> 1;                 /* (back to the full rate) */
-        if (i + 1u < n)
-            y[i + 1u] = o;
-        F->yp = o;
+        wg_up(F->yh, o, y, i, n);   /* (back to the full rate) */
     }
 }
 
@@ -234,7 +240,7 @@ typedef struct {
     int32_t ox, oy;                              /* the output's DC blocker */
     uint32_t t, quiet;                           /* HAWK: samples since the scream began; the input silent */
     int32_t am, amt;                             /* HAWK: the rasp's level now, its next target */
-    int32_t yp;                                  /* the whistles' last half-rate output */
+    int32_t yh[3];                                  /* the whistles' last half-rate output */
     uint32_t rc;                                 /* HAWK: samples to the rasp's next target */
 } wg_syrinx_t;
 
@@ -260,10 +266,7 @@ static void wg_whistles(wg_syrinx_t *S, const int32_t *in, int32_t *o, uint32_t 
             sum += b;
         }
         S->w++;
-        o[i] = (S->yp + sum) >> 1;
-        if (i + 1u < n)
-            o[i + 1u] = sum;
-        S->yp = sum;
+        wg_up(S->yh, sum, o, i, n);   /* (back to the full rate) */
     }
 }
 
@@ -407,7 +410,7 @@ typedef struct {
     uint32_t w, ph, rng;
     int32_t lp, env, jit;
     int32_t bell, prv, mlo, mbd;                 /* the bell's low-pass; the mute's band-pass (Chamberlin) */
-    int32_t ox, oy, iav, oav, ag, yp;
+    int32_t ox, oy, iav, oav, ag, yh[3];
 } wg_brass_t;
 
 static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t lip,
@@ -456,10 +459,7 @@ static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t 
         t = o - B->ox + px_m(B->oy, 32440, 15);
         B->ox = o;
         B->oy = t;
-        y[i] = (B->yp + t) >> 1;
-        if (i + 1u < n)
-            y[i + 1u] = t;
-        B->yp = t;
+        wg_up(B->yh, t, y, i, n);   /* (back to the full rate) */
     }
     wg_level(&B->iav, &B->oav, &B->ag, in, y, n);
 }
@@ -478,7 +478,8 @@ typedef struct {
     uint32_t w;
     int32_t sf, env;                             /* the bridge's filter */
     int32_t l1, d1, l2, d2;                      /* the body's two resonances (Chamberlin) */
-    int32_t ox, oy, iav, oav, ag, yp;
+    int32_t ox, oy, iav, oav, ag, yh[3];
+    int32_t vbs, gx;                             /* the bow's speed smoothed, the rosin's grain low-passed */
 } wg_bow_t;
 
 static void wg_bow_run(wg_bow_t *W, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t press,
@@ -507,7 +508,10 @@ static void wg_bow_run(wg_bow_t *W, const int32_t *in, int32_t *y, uint32_t n, u
         W->sf += px_m(g, bo - W->sf, 15);
         bref = -px_m(W->sf, loss, 15);
         nref = -no;
-        vd = vb + wg_scream(x, 2) - (bref + nref);   /* the bow against the string (the rosin's grain on it) */
+        W->vbs += (vb - W->vbs) >> 6;            /* (the bow's speed: no ripple of the voice's waveform, ~3 ms) */
+        W->gx += (x - W->gx) >> 2;               /* (the grain: the voice under ~1.8 kHz, softer: a smooth bow;
+                                                  * SCREAM: rough again) */
+        vd = W->vbs + wg_scream(W->gx, sys.scream & 127u ? 2 : 4) - (bref + nref);   /* the bow against the string */
         s = px_m(vd, slope, 16);                 /* the bow table */
         t = (s < 0 ? -s : s) + PX_ONE * 3 / 4;
         t = t > 6 * PX_ONE ? 6 * PX_ONE : t;
@@ -530,10 +534,7 @@ static void wg_bow_run(wg_bow_t *W, const int32_t *in, int32_t *y, uint32_t n, u
         t = o - W->ox + px_m(W->oy, 32440, 15);
         W->ox = o;
         W->oy = t;
-        y[i] = (W->yp + t) >> 1;
-        if (i + 1u < n)
-            y[i + 1u] = t;
-        W->yp = t;
+        wg_up(W->yh, t, y, i, n);   /* (back to the full rate) */
     }
     wg_level(&W->iav, &W->oav, &W->ag, in, y, n);
 }
@@ -550,7 +551,7 @@ typedef struct {
     int32_t d0[WG_RD], d1[WG_RD];
     uint32_t w, rng;
     int32_t lp, env, bell, prv;
-    int32_t ox, oy, iav, oav, ag, yp;
+    int32_t ox, oy, iav, oav, ag, yh[3];
 } wg_reed_t;
 
 static void wg_reed_run(wg_reed_t *D, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t reed,
@@ -598,10 +599,7 @@ static void wg_reed_run(wg_reed_t *D, const int32_t *in, int32_t *y, uint32_t n,
         t = o - D->ox + px_m(D->oy, 32440, 15);
         D->ox = o;
         D->oy = t;
-        y[i] = (D->yp + t) >> 1;
-        if (i + 1u < n)
-            y[i + 1u] = t;
-        D->yp = t;
+        wg_up(D->yh, t, y, i, n);   /* (back to the full rate) */
     }
     wg_level(&D->iav, &D->oav, &D->ag, in, y, n);
 }
@@ -620,7 +618,7 @@ static const uint16_t WG_KETTLE[WG_DM] = {3482, 4096, 6144, 8110, 9994, 11878, 7
 static const uint8_t WG_ROUND[WG_DM] = {1, 0, 0, 1, 0, 0, 0, 1};   /* the round modes (0,n): the middle rings them */
 typedef struct {
     int32_t y1[WG_DM], y2[WG_DM];
-    int32_t env, yp;
+    int32_t env, yh[3];
 } wg_drum_t;
 
 static void wg_drum_run(wg_drum_t *D, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t kettle,
@@ -664,10 +662,7 @@ static void wg_drum_run(wg_drum_t *D, const int32_t *in, int32_t *y, uint32_t n,
         }
         for (; m < WG_DM; m++)
             D->y1[m] = D->y2[m] = 0;
-        y[i] = (D->yp + o) >> 1;
-        if (i + 1u < n)
-            y[i + 1u] = o;
-        D->yp = o;
+        wg_up(D->yh, o, y, i, n);   /* (back to the full rate) */
     }
 }
 
@@ -700,7 +695,7 @@ typedef struct {
     uint32_t w, hw;
     int32_t lp[2], apx[2][WG_PAP], apy[2][WG_PAP];   /* the loss filters; the stiffness all-passes */
     int32_t fx[2], fy[2];                        /* the tuning all-passes (the fraction of a sample: lossless) */
-    int32_t felt, env, b1l, b1d, b2l, b2d, ox, oy, yp, orad;
+    int32_t felt, env, b1l, b1d, b2l, b2d, ox, oy, yh[3], orad;
     int32_t win, knock, kn;                      /* the voices' window on the strike (Q15); the knock, its noise */
     uint32_t rng;
     int32_t hy, hv, hu, hx;                      /* the hammer: its place (Q24 m), speed (Q16 m/s); the string at
@@ -874,10 +869,7 @@ static void wg_piano_run(wg_piano_t *P, const int32_t *in, int32_t *y, uint32_t 
         t = o - P->ox + px_m(P->oy, 32440, 15);
         P->ox = o;
         P->oy = t;
-        y[i] = (P->yp + t) >> 1;
-        if (i + 1u < n)
-            y[i + 1u] = t;
-        P->yp = t;
+        wg_up(P->yh, t, y, i, n);   /* (back to the full rate) */
     }
 }
 
@@ -1025,7 +1017,7 @@ static const uint32_t WG_TINE1[3] = {4096, 21709, 55296};    /* 1, 5.3, 13.5 (a 
 typedef struct {
     int32_t y1[WG_KM], y2[WG_KM];                /* the tine's three modes and its tail */
     int32_t bx[3][2];                            /* the box: its air, its top's two (state: y1, y2) */
-    int32_t bz, env, yp, ck;                     /* the buzzers; the voices; the last out; the nail's click (Q15) */
+    int32_t bz, env, yh[3], ck;                     /* the buzzers; the voices; the last out; the nail's click (Q15) */
     int32_t win, pa, gl;                         /* the voices' window (Q15); the flick's height; the glide (Q16 cents) */
     uint32_t pt, pl;                             /* half-rate samples into the flick; its length */
     uint32_t rng;
@@ -1145,10 +1137,7 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
             K->bz += px_m(9000, px_m((int32_t)(px_rand(&K->rng) >> 11) - (1 << 20), a, 20) - K->bz, 15);
             o += K->bz * buzz / 12;
         }
-        y[i] = (K->yp + o) >> 1;
-        if (i + 1u < n)
-            y[i + 1u] = o;
-        K->yp = o;
+        wg_up(K->yh, o, y, i, n);   /* (back to the full rate) */
     }
 }
 

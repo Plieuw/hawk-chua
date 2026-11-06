@@ -181,16 +181,16 @@ static void rz_run(uint32_t r, uint32_t n)
     int32_t strc = (int32_t)(sys.fx_struct & 127u) * 516, brit = (int32_t)(sys.fx_bright & 127u) * 516;
     int32_t damp = (int32_t)(sys.fx_damp & 127u) * 516, pos = (int32_t)(sys.fx_pos & 127u);
     int32_t in[CTL], ax[CTL], *y = rz_out[r], pk_in = 0, pk = 0;
-    uint32_t f0 = note_inc(note);
+    uint32_t f0 = (uint32_t)(((uint64_t)note_inc(note) * synth_bend[sys.multi && r >= RZ_POLY / 2u]) >> 16);   /* (bent) */
     if (R->held != md + 1u)
         rz_reset(R, md);
-    {   /* aftertouch, once a keyboard has sent it, is the breath (the VL1's PRESSURE): the voices into the model
-         * x 0.35 (not pressed) .. 1.35 (pressed down); the waveguides' breath, bow speed, loudness and timbre follow */
+    {   /* aftertouch, once a keyboard has sent it, is more breath (the VL1's PRESSURE): the voices into the model
+         * x 1 (not pressed: as without it) .. 2 (pressed down); the waveguides' breath, bow speed, loudness and timbre follow */
         int32_t fq = 256;
-        if (sys.at_seen) {
+        if (sys.at_seen) {   /* (not pressed: as without aftertouch, played as it is; pressed: up to x 2) */
             uint32_t p = sys.at & 127u, pp = at_poly[note & 127u];
             p = pp > p ? pp : p;
-            fq = 90 + (int32_t)(p * 256u / 127u);
+            fq = 256 + (int32_t)(p * 256u / 127u);
         }
         for (i = 0; i < n; i++) {
             int32_t a = rz_bus[r][i];

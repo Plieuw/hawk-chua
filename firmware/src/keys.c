@@ -169,7 +169,7 @@ static void pedal_release(void)
 }
 
 /* MIDI control changes: the XG / GM map (as on a Yamaha MU90) where the sound has the thing (bank select: 4 banks of
- * 128 presets, LSB or MSB 0 .. 3; 71 .. 74: the HOME page's knobs). Not here: portamento (5, 65, 84: no glide), RPN / NRPN (no pitch bend), omni / mono */
+ * 128 presets, LSB or MSB 0 .. 3; 71 .. 74: the HOME page's knobs). Not here: portamento (5, 65, 84: no glide), RPN / NRPN (the bend's range: the SOUND page), omni / mono */
 static void midi_cc(uint32_t cc, uint32_t v)
 {
     uint32_t k;
@@ -237,6 +237,7 @@ static void midi_cc(uint32_t cc, uint32_t v)
         break;
     case 121:                                    /* RESET ALL CONTROLLERS (as XG: not volume, pan, the effects) */
         sys.mw = 0;
+        synth_bend[0] = synth_bend[1] = 65536;
         mcc.expr = 127;
         mcc.soft = 0;
         sys.at = 0;
@@ -251,6 +252,13 @@ static void midi_cc(uint32_t cc, uint32_t v)
     }
 }
 
+/* MIDI pitch bend (14 bits, 8192 the middle): the part's notes up or down by BEND RANGE semitones (the SOUND page,
+ * 0 .. 12), their FX with them */
+static void keys_bend(uint32_t part, uint32_t d1, uint32_t d2)
+{
+    int32_t b = (int32_t)(d1 | d2 << 7) - 8192;  /* -8192 .. 8191 */
+    synth_bend[part & 1u] = px_exp2(b * (int32_t)(sys.bend_range > 12u ? 12u : sys.bend_range) * 2 / 3);   /* Q16 */
+}
 static void midi_in_block(void)
 {
     if (midi_in_overflow) {                      /* the ring overflowed: a note-off may be lost, release all */
@@ -271,6 +279,8 @@ static void midi_in_block(void)
                 synth_note_on_b(d1, d2);
             else if (st == 0x80u || st == 0x90u)
                 synth_note_off_b(d1);
+            else if (st == 0xE0u)
+                keys_bend(1, d1, d2);
             else if (st == 0xB0u && d1 == 0u)
                 bank_msb_b = (uint8_t)d2;
             else if (st == 0xB0u && d1 == 32u)
@@ -307,7 +317,8 @@ static void midi_in_block(void)
         }
         else if (((pkt >> 8) & 0xFFu) >= 0xF8u)   /* realtime: the clock for the arpeggiator */
             arp_midi_rt((pkt >> 8) & 0xFFu);
-        /* add here: pitch bend ... */
+        else if (st == 0xE0u)                    /* pitch bend */
+            keys_bend(0, d1, d2);
     }
 }
 
