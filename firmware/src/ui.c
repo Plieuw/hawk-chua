@@ -133,10 +133,10 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
 #define LESF 120, 20, 0, 90, SI_OCT, 90
 static const preset_t PRESETS[] = {
     /* PIANO 1-8 */
-    {"GRAND PIANO", 30, 76, 64, 0, 30, 71, 99, 2, 2, 52, 95, 39, 20, 52, 1, 72, 0, 53, 0, 70, 11, 9, 16, 80, 10, 0, 0, 0, 48, 64},   /* (yours: saved on the FM-1) */
-    {"BRIGHT PIANO", 30, 90, 96, 0, 80, 40, 72, 15, 2, 108, 89, 56, 16, 85, 85, 72, 0, 30, 0, 70, 18, 2, 0, 80, 10, 0, 0, 0, 89, 64},   /* (yours: saved on the FM-1) */
+    {"GRAND PIANO", 64, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 50, SI_OCT, 90, 32, 64, 64, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
+    {"BRIGHT PIANO", 56, 76, 56, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 50, SI_OCT, 90, 32, 104, 56, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
     {"ELECTRIC GRAND", 85, 76, 0, 0, 46, 0, 46, 10, RZ_PIANO, 30, 100, 60, 20, 110, 40, 30, 0, 72, SI_OCT, 90, 12, 0, 63, 0, 0, 0, 0, SS_PIANO, 72, 0},
-    {"HONKY-TONK", 85, 76, 0, 0, 50, 0, 50, 10, RZ_PIANO, 115, 90, 70, 40, 127, 40, 30, 0, 72, SI_OCT, 90, 19, 0, 63, 0, 0, 0, 0, SS_PIANO, 72, 0},
+    {"HONKY-TONK", 56, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 40, SI_OCT, 90, 32, 84, 124, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
     {"E.PIANO 1", NZK, 0, 92, 0, 84, 20, NOFX, ROOM, NZ(1, 3), 2, 18},
     {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8, 45},
     {"HARPSICHORD", 85, 100, 96, 0, 87, 52, 62, 6, 2, 40, 90, 45, 50, 90, 100, 78, 40, 0, 0, 90, 18, 0, 35, 6, 0, 36, 0, 0, 95, 64},   /* (yours: saved on the FM-1) */
@@ -287,10 +287,10 @@ static const preset_t PRESETS[] = {
     {"GUNSHOT", NZK, 0, 60, 0, 60, 30, NOFX, HALL, NZ(2, 0), 80, 20},
     /* ---- BANK 2 (bank select LSB / MSB 1): an alternative take on each GM program, in the same order ---- */
     /* PIANO 1-8 */
-    {"MELLOW GRAND", 85, 76, 0, 0, 54, 0, 54, 6, RZ_PIANO, 30, 50, 74, 60, 127, 40, 30, 0, 72, SI_OCT, 90, 19, 0, 30, 0, 0, 0, 0, SS_PIANO, 72, 0},
-    {"ROCK PIANO", 85, 76, 0, 0, 44, 0, 44, 14, RZ_PIANO, 60, 120, 66, 22, 127, 40, 30, 0, 72, SI_OCT, 90, 12, 0, 90, 0, 0, 0, 0, SS_PIANO, 72, 0},
+    {"MELLOW GRAND", 72, 76, 48, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 56, SI_OCT, 90, 32, 28, 60, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
+    {"ROCK PIANO", 48, 76, 56, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 36, SI_OCT, 90, 32, 112, 72, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
     {"DETUNED CP", 85, 76, 0, 0, 46, 0, 46, 10, RZ_PIANO, 90, 110, 60, 24, 110, 40, 30, 0, 72, SI_OCT, 90, 12, 0, 63, 0, 0, 0, 0, SS_PIANO, 72, 0},
-    {"SALOON PIANO", 85, 76, 0, 0, 48, 0, 48, 14, RZ_PIANO, 127, 100, 66, 30, 127, 40, 30, 0, 72, SI_OCT, 90, 12, 0, 63, 0, 0, 0, 0, SS_PIANO, 72, 0},
+    {"SALOON PIANO", 52, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 40, SI_OCT, 90, 32, 92, 116, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
     {"DETUNED EP 1", NZK, 0, 92, 0, 84, 20, RZ_MODAL, 10, 60, 70, 20, 50, ROOM, NZ(1, 3), 2, 18},
     {"FM BELL EP", NZK, 0, 84, 0, 80, 30, RZ_MODAL, 60, 100, 76, 16, 60, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8,
      70},
@@ -2157,7 +2157,21 @@ static void ui_draw(void)
         ui_val_c = np_is_fm(NP_Y[alg]) ? T_FM_IN : 0;
         ui_cell(T_C2, a, v);
         ui_val_c = 0;
-        if (alg == 30u) {                        /* BIG BANG: its own two where LEVEL and RING are */
+        if (alg == NP_PIANO) {                   /* PIANO: DECAY (x 1/4 .. 4), STIFF (x 0 .. 2.5 of a piano's) */
+            int32_t d = (int32_t)(sys.chaos & 127u) - 64;
+            str_cpy(b, d < 0 ? "X1/" : "X", sizeof b);
+            {
+                uint32_t q = (uint32_t)(((uint64_t)100u * px_exp2((d < 0 ? -d : d) * 2048)) >> 16);   /* x 100 */
+                fmt_int(v, (int32_t)(q / 100u));
+                ui_cat(b, sizeof b, v);
+                ui_cat(b, sizeof b, ".");
+                fmt_int(v, (int32_t)(q / 10u % 10u));
+                ui_cat(b, sizeof b, v);
+            }
+            ui_cell(T_C3, "3 DECAY", b);
+            fmt_int(v, sys.output);
+            ui_cell(T_C4, "4 STIFF", v);
+        } else if (alg == 30u) {                 /* BIG BANG: its own two where LEVEL and RING are */
             if (sys.chaos & 127u) {
                 uint32_t ms = (uint32_t)(((uint64_t)30u * px_exp2((int32_t)((sys.chaos & 127u) * 463339u / 127u))) >> 16);
                 fmt_int(v, (int32_t)(ms < 1000u ? ms : ms / 100u));
@@ -2866,7 +2880,8 @@ static void ui_input(void)
     } else if (sys.page == 0u && sys.osc) {
         knob(&sys.np_x, EN_K1, 0);
         knob(&sys.np_y, EN_K2, 1);
-        if (sys.osc == NP_COUNT) {               /* BIG BANG: BANG, EXPAND (on the circuit's CHAOS and OUTPUT) */
+        if (sys.osc > NP_BIGBANG) {              /* BIG BANG: BANG, EXPAND; PIANO: DECAY, STIFF (on the circuit's
+                                                  * CHAOS and OUTPUT) */
             knob(&sys.chaos, EN_K3, 2);
             knob(&sys.output, EN_K4, 3);
         } else {

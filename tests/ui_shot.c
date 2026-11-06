@@ -249,7 +249,8 @@ int main(int argc, char **argv)
             ok &= lo < st0 && hi > st0 + 15u && !preset_edited();
             synth_kill();
             preset_load(0);                              /* GRAND PIANO: none */
-            ok &= !sys.feg_on && sys.fx_struct == PRESETS[0].fx_struct;
+            ok &= !sys.feg_on && sys.fx_struct == (PRESETS[0].fx_mix ? PRESETS[0].fx_struct : st0);   /* (no FX in
+                                                  * it: the resonator's knobs left, FLUTE's base given back) */
             if (!ok) printf("preset FREE EG contour: jet %u .. %u around %u\n", lo, hi, st0);
         }
         {   /* the sound's octave: ACOUSTIC BASS two down; the key played still ends its note */

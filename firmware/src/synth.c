@@ -232,7 +232,8 @@ typedef struct {
     int32_t apx[4][2], apy[4][2];   /* ORBIT: its four all-passes' last ins and outs */
 } voice_t;
 static voice_t voice[NVOICE];
-#define NP_COUNT 31                              /* the noise programs (noise.c, included below; the last: BIG BANG) */
+#define NP_COUNT 32                              /* the noise programs (noise.c, included below; the last: BIG BANG,
+                                                  * PIANO) */
 static void np_start(uint32_t k, uint32_t seed);
 static uint32_t rz_assign(uint32_t note, uint32_t vel);
 /* BASIS: each of the four voices has its own place (left, right, half left, half right), always the same, and the

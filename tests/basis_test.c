@@ -508,7 +508,7 @@ int main(int argc, char **argv)
             }
         }
         printf("   (noise programs at X = Y = 64: RMS %.0f .. %.0f)\n", lo, hi);
-        check("noise: all 30 programs sound, levelled, bounded, no DC in X / Y corners", okk);
+        check("noise: all 32 programs sound, levelled, bounded, no DC in X / Y corners", okk);
         synth_kill();
         sys.osc = 0;
         sys.np_x = sys.np_y = sys.np_level = 64;
@@ -1216,7 +1216,7 @@ int main(int argc, char **argv)
         for (q = 0; q < 3u; q++) {
             double hm = 0, tot = 0, a[4] = {0};
             synth_kill(); run_ms(20);
-            sys.osc = NP_COUNT; sys.np_x = XS[q]; sys.np_y = YS[q]; sys.chaos = 0; sys.output = 0; sys.attack = 0;
+            sys.osc = NP_BIGBANG + 1u; sys.np_x = XS[q]; sys.np_y = YS[q]; sys.chaos = 0; sys.output = 0; sys.attack = 0;
             sys.sustain = 127; sys.ring = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.feg_on = 0; sys.menv_height = 0;
             synth_note_on(57, 100);
             run_ms(200);
@@ -1264,9 +1264,15 @@ int main(int argc, char **argv)
         uint32_t w, b, q;
         int okk = 1;
         synth_kill(); run_ms(20);
-        sys.osc = NP_COUNT; sys.np_x = 85; sys.np_y = 0; sys.chaos = 0; sys.output = 0; sys.attack = 0; sys.sustain = 127;
+        sys.osc = NP_BIGBANG + 1u; sys.np_x = 85; sys.np_y = 0; sys.chaos = 0; sys.output = 0; sys.attack = 0; sys.sustain = 127;
         sys.ring = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.basis = 0; sys.orbit = 127; sys.feg_on = 0;
         synth_note_on(57, 100);
+        {   /* (the voice's drift from a start whose places stay near the middle, not from the clock: the tests before
+             * don't move it) */
+            uint32_t k2;
+            for (k2 = 0; k2 < NVOICE; k2++)
+                if (voice[k2].stage == ST_ATTACK) { voice[k2].orng = 1453382u; voice[k2].ocnt = 0; voice[k2].orb = 0; }
+        }
         run_ms(300);
         for (w = 0; w < 8192u / CTL; w++) {
             block();

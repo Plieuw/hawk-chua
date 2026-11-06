@@ -11,6 +11,7 @@
  *   C  HARSH & WILD    0 BASURA TOTAL  1 ATARI          2 WAKING FILOM.  3 P S H           4 ARRAY ROCKS
  *                      5 EXIST. PAIN   6 WHO KNOWS      7 SATAN WORKOUT  8 RWALK BITCRUSH  9 RWALK LFREE
  *   D  ORDER           0 BIG BANG (this firmware's own: the standard waves, entropy, a bang, the series stretched)
+ *                      1 PIANO (this firmware's own: a piano's tone from its partials, struck, see below)
  *
  * Building blocks: phase accumulators (Q32 cycles), square / pulse / saw / triangle / sine (px_sin), xorshift noise,
  * random walkers in a box, a Chamberlin state-variable band-pass, a granular cell (a 1024-sample buffer read back
@@ -25,7 +26,9 @@
  *   np_start(k, seed)                 a voice's state at a new note
  *   np_render(k, alg, inc, out, n, ext)  voice k, program alg (0..29), the note's increment (ext: FREE EG FM's factor
  *                                     a sample, Q16, or 0): n samples Q15 into out */
-#define NP_COUNT 31
+#define NP_COUNT 32
+#define NP_BIGBANG 30u                           /* (the programs' numbers: osc = program + 1) */
+#define NP_PIANO 31u
 static const char *const NP_NAME[NP_COUNT] = {
     "RADIO OH NO", "RWALK FLANGE", "XMOD RING SQR", "XMOD RING SINE", "CROSS MOD RING",
     "RESONOISE", "GRAIN GLITCH", "GRAIN GLITCH 2", "GRAIN GLITCH 3", "BASURILLA",
@@ -33,19 +36,19 @@ static const char *const NP_NAME[NP_COUNT] = {
     "PRIME CLUSTER", "PRIME C NOISE", "FIBONACCI", "PARTIAL CLUST", "PHASING CLUST",
     "BASURA TOTAL", "ATARI", "WAKING FILOM.", "P S H", "ARRAY ROCKS",
     "EXIST. PAIN", "WHO KNOWS", "SATAN WORKOUT", "RWALK BITCRUSH", "RWALK LFREE",
-    "BIG BANG",
+    "BIG BANG", "PIANO",
 };
 static const char *const NP_X[NP_COUNT] = {        /* what X and Y do, per program (the screen) */
     "OSC 2", "WALK RATE", "OSC 2", "OSC 2", "RATIOS", "MOD RATIO", "GRAIN", "GRAIN", "GRAIN", "LFO RATE",
     "SPREAD", "DETUNE", "DETUNE", "DETUNE", "DETUNE", "SPREAD", "SPREAD", "SPREAD", "SPREAD", "SPREAD",
     "LFSR BEND", "OSC 2", "BOX", "RATE", "MOD RATIO", "SWEEP RATE", "SWEEP RATE", "FM", "BOX", "BOX",
-    "WAVE",
+    "WAVE", "HAMMER",
 };
 static const char *const NP_Y[NP_COUNT] = {
     "PWM", "FLANGE", "FM", "FM", "FM", "FOLD", "FM", "FM", "FM", "WIDTH",
     "VOICES", "PW", "FM", "FM", "FM", "FM", "NOISE FM", "TONE", "TONE", "DRIFT",
     "REVERB", "FM", "FM", "REVERB", "SCRAMBLE", "DEPTH", "DEPTH", "CRUSH", "REVERB", "REVERB",
-    "ENTROPY",
+    "ENTROPY", "STRINGS",
 };
 /* the output level per program: measured (tests/basis_test.c, NP_LEVELS=1 prints them) so that each sounds about as
  * loud as the circuit at X = Y = 64, a four-note chord (Q12) */
@@ -53,7 +56,7 @@ static const uint16_t NP_GAIN[NP_COUNT] = {
     1747, 1703, 1041, 2220, 1945, 510, 880, 879, 1531, 4523,
     3027, 1975, 1996, 2339, 2423, 2275, 2289, 2350, 2309, 1750,
     4035, 1169, 1285, 3241, 1548, 959, 382, 925, 2334, 1740,
-    4200,
+    4200, 4700,
 };
 
 #define NP_BUF 4096u
@@ -92,6 +95,17 @@ typedef struct {
     int32_t bang;                                /* BIG BANG: the heat left of the note's bang, Q15 */
 } np_t;
 static np_t np_state[NVOICE];
+#define NP_PNK 24u
+static const uint16_t NP_PN_B[128] = {300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 280, 261, 243, 227, 212, 197, 184, 172, 160, 157, 153, 150, 147, 144, 141, 138, 136, 133, 130, 137, 144, 152, 160, 169, 178, 188, 198, 209, 220, 234, 248, 263, 279, 297, 315, 334, 355, 377, 400, 426, 454, 483, 514, 548, 583, 621, 661, 704, 750, 798, 850, 930, 1017, 1113, 1218, 1332, 1458, 1595, 1745, 1909, 2089, 2285, 2500, 2689, 2893, 3112, 3347, 3600, 3873, 4166, 4481, 4821, 5185, 5578, 6000, 6476, 6990, 7545, 8143, 8789, 9487, 10240, 11052, 11929, 12876, 13897, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000, 15000};
+typedef struct {
+    uint32_t ph[NP_PNK], inc[NP_PNK];            /* each partial's phase, its increment (Q32) */
+    int32_t ef[NP_PNK], es[NP_PNK];              /* its two stages' levels (Q29: prompt, aftersound) */
+    int32_t df[NP_PNK], ds[NP_PNK];              /* their fall a block (Q30) */
+    uint32_t bp[NP_PNK], bi[NP_PNK];             /* its beating's phase, its rate a block */
+    uint32_t age, n;                             /* the note it was struck for; partials sounding */
+    int32_t thump, click, tl, tb;                /* the strike's knock and click (Q15), the knock's filter */
+} np_piano_t;
+static np_piano_t np_pn[NVOICE];
 
 /* ---------------------------------------------------------------- helpers --- */
 static inline uint32_t np_rnd(uint32_t *s) { uint32_t x = *s; x ^= x << 13; x ^= x >> 17; x ^= x << 5; return *s = x; }
@@ -203,6 +217,7 @@ static void np_start(uint32_t k, uint32_t seed)   /* (seed: from note_on's rng()
     seed ^= 0x9E3779B9u * (k + 1u);
     memset(S, 0, sizeof *S);
     memset(np_buf[k], 0, sizeof np_buf[k]);
+    memset(&np_pn[k], 0, sizeof np_pn[k]);       /* (PIANO: struck at the note) */
     S->rng = seed | 1u;
     S->lfsr = 0xACE1u;
     S->bang = 32767;
@@ -244,6 +259,128 @@ static int32_t np_bend(int32_t x, uint32_t bend)
     }
     m = b < 0 ? -b : b + 1;                      /* 0 .. 64 */
     return x + (((t - x) * m) >> 6);
+}
+
+/* PIANO (D1): a piano's tone from what it is made of, as BIG BANG builds the standard waves from the series: up to
+ * 24 partials of the struck strings, each where a piano has it and doing what a piano's does.
+ *   where       partial n at n sqrt(1 + B n^2) (the steel's stiffness: sharp, the more the higher; B per note as a
+ *               piano's, ~1.3e-4 at the break .. 1.5e-2 at the top; STIFF x 0 .. 2.5)
+ *   how loud    as the hammer leaves it: its place on the string (an eighth: the 8th, 16th left out), its felt (a
+ *               low-pass, the harder the hit and the HAMMER, the more partials: soft and round .. bright and hard),
+ *               the sound board's tilt
+ *   how long    each in two stages, as a piano's (the strings of a note pull on the bridge together, then apart): the
+ *               prompt sound, falling fast, and the aftersound, long (the fundamental ~20 s in the bass, ~1 s at the top,
+ *               DECAY x 1/4 .. 4); the high partials die sooner
+ *   beating     the two or three strings a note, tuned a hair apart (STRINGS: one .. a grand's .. honky-tonk): each
+ *               partial swells and fades at its own rate, the higher the faster
+ *   the strike  the hammer's thump on the board (a short knock, low) and its felt on the steel (a click), as hard as
+ *               the note
+ * Struck at each note (a held key rings on, a released one is damped by the gate's release); its knobs where BIG
+ * BANG's are: X HAMMER, Y STRINGS, CHAOS's DECAY, OUTPUT's STIFF */
+static int32_t np_fall(uint32_t t60b)            /* a level's fall a block to -60 dB in t60b blocks, Q30 */
+{
+    uint32_t e = 653126u / (t60b < 2u ? 2u : t60b);   /* (log2(1000) / t, Q16) */
+    return (int32_t)(px_exp2(-(int32_t)e) << 14);
+}
+static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
+{
+    np_piano_t *P = &np_pn[k];
+    const voice_t *v = &voice[k];
+    uint32_t note = v->note & 127u, j, vel = (uint32_t)v->amp >> 8;   /* (Q15 -> 0 .. 127) */
+    int32_t hard = (int32_t)(sys.np_x & 127u), str = (int32_t)(sys.np_y & 127u);
+    int32_t dec = (int32_t)(sys.chaos & 127u) - 64, stf = (int32_t)(sys.output & 127u);
+    uint64_t bq = (uint64_t)NP_PN_B[note] * 4295u * (uint32_t)stf / 51u;   /* B, Q32 (STIFF 51: a piano's) */
+    uint32_t s1 = px_isqrt64((1ull << 32) + bq), tr = note < 21u ? 0u : note > 108u ? 87u : note - 21u;
+    /* the fundamental's T60 in blocks: ~20 s at A0, halving every ~20 semitones, x 2^(DECAY / 32) */
+    uint32_t t1 = (uint32_t)(((uint64_t)27562u * px_exp2(-(int32_t)tr * 3277 + dec * 2048)) >> 16);
+    /* the felt: its cut-off, Hz: 500 .. 5000 with HAMMER, x 0.4 .. 1.6 with the hit, never under 2 x the note */
+    uint32_t hz = (uint32_t)(((uint64_t)inc * 44100u) >> 32);
+    uint32_t fc = (500u + (uint32_t)hard * 35u) * (40u + vel * 120u / 127u) / 100u;
+    int32_t sum = 0;
+    fc = fc < 2u * hz ? 2u * hz : fc;
+    P->age = v->age;
+    P->n = 0;
+    for (j = 0; j < NP_PNK; j++) {
+        uint32_t n1 = j + 1u, sk = px_isqrt64((1ull << 32) + bq * n1 * n1);
+        uint64_t r = ((uint64_t)n1 * sk << 16) / s1;            /* n sqrt(1 + B n^2) / sqrt(1 + B), Q16 */
+        uint64_t c = ((uint64_t)inc * r) >> 16;
+        uint32_t f = (uint32_t)((c * 44100u) >> 32), comb, t;
+        int32_t a, lp;
+        if (c >= 0x60000000u || f > 9000u)       /* (past 9 kHz: not there) */
+            break;
+        P->inc[j] = (uint32_t)c;
+        comb = (uint32_t)np_sin((uint32_t)(n1 * (0x80000000u / 8u)));   /* |sin(n pi / 8)|, Q15 */
+        comb = comb > 32767u ? 32767u : comb;
+        lp = (int32_t)(((uint64_t)fc * fc << 15) / ((uint64_t)fc * fc + (uint64_t)f * f));   /* 1 / (1 + (f/fc)^2) */
+        a = (int32_t)(((int64_t)comb * lp) >> 15);
+        a = (int32_t)(((int64_t)a * 46341) / (int32_t)px_isqrt64((uint64_t)n1 << 31));   /* / sqrt(n) */
+        a = n1 < 3u ? a / 2 + a / 4 : a;         /* (the board sends the lowest two less) */
+        sum += a;
+        P->ef[j] = a << 14;                      /* (Q15 -> Q29: the prompt sound, most of it) */
+        P->es[j] = (a << 14) / 3;                /* (the aftersound) */
+        /* their T60s: the partial's (shorter with n and with its frequency), the prompt a fifth of it */
+        t = (uint32_t)((uint64_t)t1 * 1000u / (1000u + (n1 - 1u) * 60u + (f / 50u) * (f / 50u) / 4u));
+        P->df[j] = np_fall(t / 5u);
+        P->ds[j] = np_fall(t + t / 4u);
+        /* the beating: the strings apart by 0 .. 0.6 .. 6 cents (STRINGS 0, 64, 127): f x c / 1731, Hz -> a block */
+        {
+            uint32_t cents100 = (uint32_t)(str * str) * 37u / 1000u + (np_rnd(&S->rng) & 15u);   /* (cents x 100) */
+            uint64_t bhz = (uint64_t)f * cents100 * 65536u / 173100u;   /* Hz, Q16 */
+            P->bi[j] = (uint32_t)(bhz * 65536u * CTL / 44100u);   /* (Q16 Hz x 2^16 x CTL / FS: Q32 a block) */
+            P->bp[j] = np_rnd(&S->rng);
+        }
+        P->ph[j] = 0;                            /* (struck: from 0, a sine's start) */
+        P->n = j + 1u;
+    }
+    if (sum > 0)                                 /* (the same loudness whatever the spectrum) */
+        for (j = 0; j < P->n; j++) {
+            P->ef[j] = (int32_t)(((int64_t)P->ef[j] * 24000) / sum);
+            P->es[j] = (int32_t)(((int64_t)P->es[j] * 24000) / sum);
+        }
+    P->thump = (int32_t)(vel * vel / 2u) + 600;  /* the knock: as hard as the strike */
+    P->click = (int32_t)(vel * vel / 4u) * (int32_t)(64 + hard) / 64;
+}
+static void np_piano(uint32_t k, np_t *S, uint32_t inc, int32_t *out, uint32_t n, const uint32_t *fk, uint32_t fm)
+{
+    np_piano_t *P = &np_pn[k];
+    const voice_t *v = &voice[k];
+    uint32_t i, j;
+    int32_t g0[NP_PNK], gd[NP_PNK];
+    if (v->age != P->age && (v->stage == ST_ATTACK || v->stage == ST_SUSTAIN))   /* a note: struck */
+        np_piano_strike(k, S, inc);
+    for (j = 0; j < P->n; j++) {                 /* each partial's gain over this block: its stages, its beating */
+        int32_t bt = 32768 - ((32768 - (np_sin(P->bp[j]) >> 0)) >> 2), g1;   /* (0.5 .. 1: a swell) */
+        int32_t gs = (int32_t)(((int64_t)P->es[j] * bt) >> 15);
+        g0[j] = (P->ef[j] + gs) >> 14;           /* Q15 */
+        P->ef[j] = (int32_t)(((int64_t)P->ef[j] * P->df[j]) >> 30);
+        P->es[j] = (int32_t)(((int64_t)P->es[j] * P->ds[j]) >> 30);
+        P->bp[j] += P->bi[j];
+        g1 = (P->ef[j] + (int32_t)(((int64_t)P->es[j] * bt) >> 15)) >> 14;
+        gd[j] = (g1 - g0[j]) / (int32_t)(n ? n : 1u);
+    }
+    while (P->n && (P->ef[P->n - 1u] | P->es[P->n - 1u]) < 16384)   /* (the top ones gone: not computed) */
+        P->n--;
+    for (i = 0; i < n; i++) {
+        int32_t s = 0, t;
+        for (j = 0; j < P->n; j++) {
+            P->ph[j] += fm ? np_mul(P->inc[j], fk[i]) : P->inc[j];
+            s += (np_sin(P->ph[j]) * g0[j]) >> 15;
+            g0[j] += gd[j];
+        }
+        if (P->thump > 32) {                     /* the knock on the board: noise through a low resonance */
+            t = np_noise(&S->rng);
+            P->tb += (int32_t)(((int64_t)(t - P->tl - (P->tb >> 1)) * 1200) >> 15);
+            P->tl += (int32_t)(((int64_t)P->tb * 1200) >> 15);
+            s += (int32_t)(((int64_t)P->tl * P->thump) >> 15) / 2;
+            P->thump -= P->thump >> 9;           /* (~25 ms) */
+            if (P->click > 32) {                 /* the felt on the steel: a click, high */
+                s += (int32_t)(((int64_t)(t - S->lp) * P->click) >> 15) / 4;
+                S->lp = t;
+                P->click -= P->click >> 5;       /* (~1.5 ms) */
+            }
+        }
+        out[i] = np_clip(s);
+    }
 }
 
 /* ---------------------------------------------------------------- render --- */
@@ -703,6 +840,9 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
         }
         break;
     }
+    case 31:    /* PIANO (above) */
+        np_piano(k, S, inc, out, n, fk, fm);
+        break;
     default: {  /* RWALK LFREE: four pulses, frequency and width walking in a box; reverb */
         int32_t box = 2000 + x * 3 / 2;
         for (i = 0; i < n; i++) {
@@ -721,8 +861,8 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     }
 #undef NPF
     {   /* the level */
-        int32_t g = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg == 30u ? 64 : (int32_t)(sys.np_level & 127u)) / 64;   /* (BIG
-                                                  * BANG: its own knobs where LEVEL was: at 64) */
+        int32_t g = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg >= NP_BIGBANG ? 64 : (int32_t)(sys.np_level & 127u)) / 64;
+                                                 /* (BIG BANG, PIANO: their own knobs where LEVEL was: at 64) */
         for (i = 0; i < n; i++)
             out[i] = np_clip((int32_t)(((int64_t)out[i] * g) >> 12));
     }
