@@ -133,10 +133,10 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
 #define LESF 120, 20, 0, 90, SI_OCT, 90
 static const preset_t PRESETS[] = {
     /* PIANO 1-8 */
-    {"GRAND PIANO", 64, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 50, SI_OCT, 90, 32, 64, 64, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
-    {"BRIGHT PIANO", 56, 76, 56, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 50, SI_OCT, 90, 32, 104, 56, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
-    {"ELECTRIC GRAND", 85, 76, 0, 0, 46, 0, 46, 10, RZ_PIANO, 30, 100, 60, 20, 110, 40, 30, 0, 72, SI_OCT, 90, 12, 0, 63, 0, 0, 0, 0, SS_PIANO, 72, 0},
-    {"HONKY-TONK", 56, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 40, SI_OCT, 90, 32, 84, 124, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
+    {"GRAND PIANO", 70, 76, 51, 0, 127, 127, 24, 0, RZ_PIANO, 0, 0, 0, 0, 0, 44, 34, 0, 46, SI_OCT, 96, 32, 70, 60, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (PIANO: a concert grand: its board) */
+    {"BRIGHT PIANO", 60, 76, 58, 0, 127, 127, 22, 0, RZ_PIANO, 0, 0, 0, 0, 0, 36, 26, 0, 40, SI_OCT, 110, 32, 108, 54, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (PIANO: a hard hammer, open) */
+    {"ELECTRIC GRAND", 40, 76, 40, 0, 127, 127, 20, 0, RZ_PIANO, 0, 0, 0, 0, 0, 24, 20, 0, 30, SI_OCT, 90, 32, 100, 92, 0, 0, 0, 0, SS_HALL, 64, 0},   /* (PIANO: a CP-70: short strings, no board, a touch of chorus) */
+    {"HONKY-TONK", 56, 76, 51, 0, 127, 127, 22, 0, RZ_PIANO, 0, 0, 0, 0, 0, 20, 18, 0, 30, SI_OCT, 80, 32, 86, 124, 0, 0, 0, 0, SS_HALL, 64, 0},   /* (PIANO: the unisons far apart, a small room) */
     {"E.PIANO 1", NZK, 0, 92, 0, 84, 20, NOFX, ROOM, NZ(1, 3), 2, 18},
     {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8, 45},
     {"HARPSICHORD", 85, 100, 96, 0, 87, 52, 62, 6, 2, 40, 90, 45, 50, 90, 100, 78, 40, 0, 0, 90, 18, 0, 35, 6, 0, 55, 0, 0, 95, 64},   /* (yours: saved on the FM-1) */
@@ -287,10 +287,10 @@ static const preset_t PRESETS[] = {
     {"GUNSHOT", NZK, 0, 60, 0, 60, 30, NOFX, HALL, NZ(2, 0), 80, 20},
     /* ---- BANK 2 (bank select LSB / MSB 1): an alternative take on each GM program, in the same order ---- */
     /* PIANO 1-8 */
-    {"MELLOW GRAND", 72, 76, 48, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 56, SI_OCT, 90, 32, 28, 60, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
-    {"ROCK PIANO", 48, 76, 56, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 36, SI_OCT, 90, 32, 112, 72, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
-    {"DETUNED CP", 85, 76, 0, 0, 46, 0, 46, 10, RZ_PIANO, 90, 110, 60, 24, 110, 40, 30, 0, 72, SI_OCT, 90, 12, 0, 63, 0, 0, 0, 0, SS_PIANO, 72, 0},
-    {"SALOON PIANO", 52, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 40, SI_OCT, 90, 32, 92, 116, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
+    {"MELLOW GRAND", 82, 76, 48, 0, 127, 127, 30, 0, RZ_PIANO, 0, 0, 0, 0, 0, 52, 40, 0, 56, SI_OCT, 70, 32, 26, 60, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (PIANO: soft felt, the board warm) */
+    {"ROCK PIANO", 46, 76, 60, 0, 127, 127, 20, 0, RZ_PIANO, 0, 0, 0, 0, 0, 22, 20, 0, 28, SI_OCT, 110, 32, 116, 72, 0, 0, 0, 0, SS_HALL, 64, 0},   /* (PIANO: hard, short, upfront) */
+    {"DETUNED CP", 40, 76, 40, 0, 127, 127, 20, 0, RZ_PIANO, 0, 0, 0, 0, 0, 30, 24, 0, 34, SI_OCT, 90, 32, 104, 127, 0, 0, 0, 0, SS_HALL, 64, 0},   /* (PIANO: a CP-70 out of tune) */
+    {"SALOON PIANO", 50, 76, 51, 0, 127, 127, 22, 0, RZ_PIANO, 0, 0, 0, 0, 0, 0, 10, 110, 36, 0, 0, 32, 94, 118, 0, 0, 0, 0, SS_PINGPONG, 64, 0},   /* (PIANO: an old upright, a slapback) */
     {"DETUNED EP 1", NZK, 0, 92, 0, 84, 20, RZ_MODAL, 10, 60, 70, 20, 50, ROOM, NZ(1, 3), 2, 18},
     {"FM BELL EP", NZK, 0, 84, 0, 80, 30, RZ_MODAL, 60, 100, 76, 16, 60, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8,
      70},
