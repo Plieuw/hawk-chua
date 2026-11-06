@@ -1087,7 +1087,7 @@ typedef struct {
     uint8_t bend_range;                          /* (3: saved; before: 12) */
 } settings_t;
 
-#define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
+#define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
 static uint8_t menv3_save;                       /* (settings_boot turned the saved presets' HEIGHT: save the mark) */
 static int settings_save(void);
 static void settings_boot(void)    /* power-on, before the audio */
@@ -1106,7 +1106,7 @@ static void settings_boot(void)    /* power-on, before the audio */
     memset(&s, 0, sizeof s);                     /* (saved before the bank: its byte 0, bank 1) */
     if (st_load(OBJ_SETTINGS, &s, sizeof s) < (int)__builtin_offsetof(settings_t, bank) || s.magic != SET_MAGIC)
     {
-        preset_load(BOOT_PRESET);                /* (a fresh install, nothing saved: bank 3, SYNTH, its first) */
+        preset_load(BOOT_PRESET);                /* (a fresh install, nothing saved: bank 3, SYNTH, FIFTH PAD) */
         part_b_load(BOOT_PRESET);
     } else {
         if (!s.menv3) {                          /* (saved before HEIGHT went both ways: the saved presets' turned to
@@ -2721,8 +2721,27 @@ static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
 static int8_t oct_was;                           /* the octave before the OCTs went down (BOUNCE gives it back) */
 static uint8_t oct_both;                         /* OCT- and OCT+ both held: 1, 2 (a BOUNCE made) */
 static uint8_t play_last;                        /* PLAY outside the ARP / KARMA pages: 0 the ARP, 1 KARMA (the last opened) */
+/* the preset chosen kept: 3 s after it last changed, the settings saved (a power-on starts there) */
+static void preset_keep(void)
+{
+    static uint16_t kept = 0xFFFFu, last;
+    static uint32_t since;
+    if (kept == 0xFFFFu) {                       /* (the first call: the one booted) */
+        kept = last = sys.preset;
+        return;
+    }
+    if (sys.preset != last) {
+        last = sys.preset;
+        since = fm1_ms;
+    }
+    if (sys.preset != kept && fm1_ms - since > 3000u && flash_ok) {
+        kept = sys.preset;
+        settings_save();
+    }
+}
 static void ui_input(void)
 {
+    preset_keep();
     uint32_t pressed = fm1_input_edges(0) | rm_btn, b;
     int32_t s;
     char t[24], v[12];

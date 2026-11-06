@@ -3,8 +3,9 @@
 #include "ui_shot.c"
 #undef main
 /* LEVEL MATCH's table (tests/level_match.sh writes firmware/src/preset_gain.h): every built-in preset played the
- * same way (C4 E4 G4 C5 one by one, then C E G held 2 s, at the keys' velocity, master full, SPEAKER BASS off), its
- * loudness measured as BS.1770 does (K-weighting, 400 ms gated: here 100 ms blocks) with a speaker's low cut at
+ * same way (C4 E4 G4 C5 G5 C6 one by one, then C E G held 2 s, at the keys' velocity, master full, SPEAKER BASS off), its
+ * loudness measured as BS.1770 does (K-weighting, gated: here 100 ms blocks; the mean of the integrated and the
+ * loudest 400 ms, so a struck note's attack counts) with a speaker's low cut at
  * 120 Hz, and the gain to LM_TARGET LU found: never over its peak's room (to -1 dBFS), -20 .. +15 dB */
 static void wr32(FILE *f, uint32_t v) { fwrite(&v, 4, 1, f); }
 static void wr16(FILE *f, uint16_t v) { fwrite(&v, 2, 1, f); }
@@ -57,15 +58,24 @@ int main(int argc, char **argv)
         synth_pgain[0] = synth_pgain[1] = 4096;
         { uint32_t b; for (b = 0; b < 3000u * FS / 1000 / CTL; b++) synth_render(abuf_, CTL); }   /* (tails gone) */
         nblk = 0; acc = 0; accn = 0; peak = 0;
-        { static const uint8_t ns[4] = {60, 64, 67, 72};
-          for (i = 0; i < 4; i++) { synth_note_on(ns[i], 100); meas(500); synth_note_off(ns[i]); meas(100); }
+        { static const uint8_t ns[6] = {60, 64, 67, 72, 79, 84};
+          for (i = 0; i < 6; i++) { synth_note_on(ns[i], 100); meas(500); synth_note_off(ns[i]); meas(100); }
           synth_note_on(60, 100); synth_note_on(64, 100); synth_note_on(67, 100); meas(2000);
           synth_note_off(60); synth_note_off(64); synth_note_off(67); meas(800); }
         for (i = 0; i < nblk; i++) if (blk[i] > 1e-7) { s += blk[i]; n++; }          /* (-70 absolute) */
         g = n ? s / n : 1e-12;
         for (i = 0; i < nblk; i++) if (blk[i] > g * 0.1) { s2 += blk[i]; n2++; }    /* (-10 relative) */
         {
-            double lu = n2 ? 10 * log10(s2 / n2) : -99.0, pk = 20 * log10(peak + 1e-9), gd = LM_TARGET - lu;
+            double mm = 1e-12, lu, pk;
+            for (i = 0; i + 4 <= nblk; i++) {                 /* (the loudest 400 ms: a strike's attack counts) */
+                double q = (blk[i] + blk[i + 1] + blk[i + 2] + blk[i + 3]) / 4;
+                mm = q > mm ? q : mm;
+            }
+            lu = n2 ? (10 * log10(s2 / n2) + 10 * log10(mm)) / 2 : -99.0;   /* (integrated and momentary max, halved) */
+            pk = 20 * log10(peak + 1e-9);
+            double gd = LM_TARGET - lu;
+            if (sys.osc == NP_PIANO + 1u)                    /* (the PIANO: its strikes heard louder than measured) */
+                gd -= 4.0;
             if (gd > -1.0 - pk) gd = -1.0 - pk;
             gd = gd > 15 ? 15 : gd < -20 ? -20 : gd;
             if (lu < -90) gd = 0;

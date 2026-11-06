@@ -365,10 +365,10 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
         P->n = j + 1u;
     }
     if (sum > 0) {   /* (as loud whatever the spectrum: its power the same, its sum never over the top; the treble
-                      * softer, 2 dB an octave over E4, as a piano's short strings and light hammers give less) */
+                      * softer, 4.5 dB an octave over C4, as a piano's short strings and light hammers give less) */
         uint32_t rms = px_isqrt64(sq);
         int32_t g = rms ? (int32_t)(11000u * 32768u / rms) : 32768, gm = (24000 << 15) / sum;
-        int32_t tilt = note > 64u ? (int32_t)(px_exp2(-(int32_t)(note - 64u) * 1815) >> 1) : 32768;   /* Q15 */
+        int32_t tilt = note > 60u ? (int32_t)(px_exp2(-(int32_t)(note - 60u) * 4083) >> 1) : 32768;   /* Q15 */
         g = g < gm ? g : gm;
         g = (int32_t)(((int64_t)g * tilt) >> 15);
         for (j = 0; j < P->n; j++) {
