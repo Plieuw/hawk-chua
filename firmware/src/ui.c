@@ -139,12 +139,12 @@ static const preset_t PRESETS[] = {
     {"HONKY-TONK", 56, 76, 51, 0, 127, 127, 28, 0, RZ_PIANO, 0, 0, 0, 0, 0, 40, 30, 0, 40, SI_OCT, 90, 32, 84, 124, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (the PIANO oscillator) */
     {"E.PIANO 1", NZK, 0, 92, 0, 84, 20, NOFX, ROOM, NZ(1, 3), 2, 18},
     {"E.PIANO 2", NZK, 0, 88, 10, 80, 30, NOFX, 100, 78, 40, 26, SI_OCT, 90, NZ(1, 3), 8, 45},
-    {"HARPSICHORD", 85, 100, 96, 0, 87, 52, 62, 6, 2, 40, 90, 45, 50, 90, 100, 78, 40, 0, 0, 90, 18, 0, 35, 6, 0, 36, 0, 0, 95, 64},   /* (yours: saved on the FM-1) */
-    {"CLAVINET", 38, 100, 32, 0, 54, 66, 74, 110, 0, 52, 119, 76, 30, 0, 100, 78, 40, 0, 0, 90, 0, 39, 0, 6, 0, 36, 0, 0, 68, 64, .oct = 1},   /* (yours: saved on the FM-1) */
+    {"HARPSICHORD", 85, 100, 96, 0, 87, 52, 62, 6, 2, 40, 90, 45, 50, 90, 100, 78, 40, 0, 0, 90, 18, 0, 35, 6, 0, 55, 0, 0, 95, 64},   /* (yours: saved on the FM-1) */
+    {"CLAVINET", 38, 100, 32, 0, 54, 66, 74, 110, 0, 52, 119, 76, 30, 0, 100, 78, 40, 0, 0, 90, 0, 39, 0, 6, 0, 55, 0, 0, 68, 64, .oct = 1},   /* (yours: saved on the FM-1) */
     /* CHROMATIC PERCUSSION 9-16 */
-    {"CELESTA", 54, 90, 64, 0, 25, 0, 76, 43, 0, 52, 119, 76, 30, 127, 100, 78, 40, 26, 0, 90, 9, 39, 0, 6, 0, 36, 0, 0, 68, 64},   /* (yours: saved on the FM-1) */
+    {"CELESTA", 54, 90, 64, 0, 25, 0, 76, 43, 0, 52, 119, 76, 30, 127, 100, 78, 40, 26, 0, 90, 9, 39, 0, 6, 0, 55, 0, 0, 68, 64},   /* (yours: saved on the FM-1) */
     {"GLOCKENSPIEL", 85, 76, 0, 0, 36, 0, 36, 0, RZ_MODAL, 104, 127, 81, 28, 127, 85, 72, 0, 30, SI_OCT, 70, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = 1},
-    {"MUSIC BOX", 6, 64, 64, 0, 42, 0, 70, 9, 0, 52, 127, 35, 40, 99, 60, 48, 20, 39, 0, 70, 7, 65, 0, 6, 0, 36, 0, 0, 52, 64},   /* (yours: saved on the FM-1) */
+    {"MUSIC BOX", 6, 64, 64, 0, 42, 0, 70, 9, 0, 52, 127, 35, 40, 99, 60, 48, 20, 39, 0, 70, 7, 65, 0, 6, 0, 55, 0, 0, 52, 64},   /* (yours: saved on the FM-1) */
     {"VIBRAPHONE", 85, 76, 0, 0, 58, 0, 58, 0, RZ_MODAL, 92, 90, 84, 24, 110, 85, 72, 0, 30, SI_OCT, 70, 5, 40, 0, 0, 0, 0, 0, SS_HALL, 100, 0},
     {"MARIMBA", CYC, 0, 52, 0, 52, 0, RZ_MODAL, 90, 70, 54, 24, 48},
     {"XYLOPHONE", 85, 76, 0, 0, 40, 0, 40, 0, RZ_MODAL, 116, 110, 48, 20, 100, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = 1},
@@ -257,7 +257,7 @@ static const preset_t PRESETS[] = {
     {"BRIGHTNESS", NZK, 40, 90, 110, 96, 40, NOFX, 120, 103, 90, 52, SI_2OCT, 100, NZ(1, 9), 8, 60},
     {"GOBLINS", 6, 64, 64, 40, 90, 100, 90, 30, RZ_HAWK, 70, 90, 58, 70, 127, 110, 88, 40, 22, SI_OCT, 90},
     {"ECHOES", 54, 90, 64, 0, 70, 0, 80, 40, RZ_MODAL, 70, 100, 82, 12, 80, 127, 115, 0, 58, SI_OCT, 70},
-    {"SCI-FI", NZK, 10, 80, 100, 90, 30, NOFX, AIR, NZ(2, 1), 50, 30, 100, 127, 60},
+    {"SCI-FI", NZK, 10, 80, 100, 90, 30, NOFX, AIR, NZ(2, 1), 50, 30, 100, 127, 77},
     /* ETHNIC 105-112 */
     {"SITAR", 85, 76, 0, 0, 46, 0, 46, 10, RZ_SYMP, 16, 105, 78, 70, 90, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
     {"BANJO", 85, 76, 0, 0, 52, 0, 52, 0, RZ_STRING, 20, 127, 45, 20, 100, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
@@ -274,10 +274,10 @@ static const preset_t PRESETS[] = {
     {"WOODBLOCK", 85, 76, 0, 0, 34, 0, 34, 0, RZ_MODAL, 30, 70, 37, 20, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0},
     {"TAIKO", 85, 76, 0, 0, 42, 0, 42, 0, RZ_DRUM, 0, 60, 80, 20, 127, 115, 96, 0, 40, SI_OCT, 80, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -1},
     {"MELODIC TOM", 85, 76, 0, 0, 40, 0, 40, 0, RZ_DRUM, 10, 80, 70, 40, 127, 0, 0, 0, 0, SI_OCT, 0, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0},
-    {"SYNTH DRUM", NZK, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 120},
+    {"SYNTH DRUM", NZK, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 122},
     {"REVERSE CYMBAL", NZK, 100, 30, 0, 30, 20, NOFX, NOSH, NZ(1, 6), 110, 90},
     /* SOUND EFFECTS 121-128 */
-    {"GTR FRET NOISE", NZK, 0, 40, 0, 44, 60, RZ_STRING, 40, 90, 45, 40, 60, GTRB, NZ(0, 6), 40, 40, 30, 0, 50, .sh_space = SS_GUITAR},
+    {"GTR FRET NOISE", NZK, 0, 40, 0, 44, 60, RZ_STRING, 40, 90, 45, 40, 60, GTRB, NZ(0, 6), 40, 40, 30, 0, 68, .sh_space = SS_GUITAR},
     {"BREATH NOISE", NZK, 40, 70, 60, 70, 10, RZ_FLUTE, 30, 60, 78, 127, 70, NOSH, NZ(1, 6), 127, 127, .eg = EG_CHIFF},
     {"SEASHORE", NZK, 110, 110, 100, 115, 10, NOFX, HALL, NZ(1, 6), 127, 127},
     {"BIRD TWEET", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 90, 70, 48, 15, 127, 100, 78, 30, 26, SI_OCT, 100},
@@ -444,10 +444,10 @@ static const preset_t PRESETS[] = {
     {"CASTANETS", 85, 76, 0, 0, 30, 0, 30, 0, RZ_MODAL, 40, 110, 30, 10, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = 1},
     {"CONCERT BD", 85, 76, 0, 0, 46, 0, 46, 0, RZ_DRUM, 0, 40, 90, 20, 127, 115, 96, 0, 40, SI_OCT, 80, 3, 126, 0, 0, 0, 0, 0, SS_CATHEDRAL, 72, 0, .oct = -2},
     {"DEEP TOM", 85, 76, 0, 0, 44, 0, 44, 0, RZ_DRUM, 20, 60, 80, 40, 127, 85, 72, 0, 30, SI_OCT, 70, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -1},
-    {"808 TOM", CYC, 0, 56, 0, 56, 20, NOFX, NOSH, NZ(0, 3), 30, 30, 50, 0, 100},
+    {"808 TOM", CYC, 0, 56, 0, 56, 20, NOFX, NOSH, NZ(0, 3), 30, 30, 50, 0, 108},
     {"REVERSE SNARE", NZK, 90, 30, 0, 30, 10, NOFX, ROOM, NZ(0, 3), 60, 90},
     /* SOUND EFFECTS 121-128 */
-    {"STRING SLAP", NZK, 0, 34, 0, 36, 60, RZ_STRING, 40, 100, 30, 20, 60, GTRB, NZ(0, 6), 40, 40, 30, 0, 50, .sh_space = SS_GUITAR},
+    {"STRING SLAP", NZK, 0, 34, 0, 36, 60, RZ_STRING, 40, 100, 30, 20, 60, GTRB, NZ(0, 6), 40, 40, 30, 0, 68, .sh_space = SS_GUITAR},
     {"FLUTE KEY CLK", 85, 76, 0, 0, 30, 0, 30, 20, RZ_FLUTE, 30, 60, 30, 127, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 120, 0},
     {"WIND", NZK, 110, 110, 100, 115, 40, NOFX, HALL, NZ(1, 6), 110, 40, .eg = EG_OPEN},
     {"TWO BIRDS", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 60, 90, 58, 110, 127, 100, 78, 30, 26, SI_OCT, 100},
@@ -480,9 +480,9 @@ static const preset_t PRESETS[] = {
     {"CHUA BASS", 38, 64, 32, 0, 60, 100, 50, 80, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"ACID BASS 2", 85, 20, 0, 0, 56, 60, 48, 115, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 5, 0, 9, 80, 10, 0, 0, 0, 60, 64, .eg = EG_OPEN, .oct = -2},   /* (yours: saved on the FM-1) */
     {"RESO BASS", 85, 76, 0, 0, 60, 80, 50, 100, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
-    {"FM BASS", 85, 76, 0, 0, 60, 100, 50, 40, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 16, 2, 80, 64, 0, 112, 0, 0, 64, 127, .oct = -2},   /* (yours: saved on the FM-1) */
+    {"FM BASS", 85, 76, 0, 0, 60, 100, 50, 40, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 16, 2, 80, 64, 0, 117, 0, 0, 64, 127, .oct = -2},   /* (yours: saved on the FM-1) */
     {"PLUCK BASS", 85, 76, 0, 0, 50, 0, 50, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 19, 2, 30, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
-    {"ZAP BASS", 85, 76, 0, 0, 60, 100, 50, 60, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 11, 2, 0, 67, 0, 76, 0, 0, 64, 127, .oct = -2},   /* (yours: saved on the FM-1) */
+    {"ZAP BASS", 85, 76, 0, 0, 60, 100, 50, 60, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 11, 2, 0, 67, 0, 90, 0, 0, 64, 127, .oct = -2},   /* (yours: saved on the FM-1) */
     {"DEEP BASS", 6, 30, 64, 0, 80, 110, 50, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"WOBBLE BASS", 85, 76, 0, 0, 60, 100, 50, 62, 8, 120, 45, 93, 74, 0, 110, 100, 60, 0, 0, 90, 12, 4, 90, 80, 10, 0, 0, 2, 64, 64, .eg = EG_OPEN, .oct = -2},   /* (yours: saved on the FM-1) */
     {"GROWL BASS", 110, 40, 96, 0, 60, 100, 50, 70, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
@@ -511,7 +511,7 @@ static const preset_t PRESETS[] = {
     {"BELL E.PIANO", 85, 76, 0, 0, 88, 10, 80, 30, RZ_MODAL, 60, 100, 76, 16, 50, 85, 72, 0, 30, SI_OCT, 70, 14, 8, 45, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SYNTH ORGAN", 85, 76, 0, 2, 64, 127, 50, 0, 0, 60, 100, 76, 16, 0, 20, 20, 0, 90, 0, 90, 29, 0, 12, 80, 10, 0, 0, 12, 64, 64},   /* (yours: saved on the FM-1) */
     {"PERC SYN ORGAN", 85, 76, 0, 0, 60, 100, 50, 40, 0, 60, 100, 76, 16, 0, 20, 20, 0, 90, 0, 90, 30, 1, 20, 80, 10, 0, 0, 12, 64, 64},   /* (yours: saved on the FM-1) */
-    {"CHUA ORGAN", 42, 127, 91, 0, 47, 109, 43, 64, 12, 78, 127, 28, 16, 24, 120, 48, 1, 90, 0, 90, 0, 2, 64, 31, 13, 26, 0, 12, 64, 127, .oct = -1},   /* (yours: saved on the FM-1) */
+    {"CHUA ORGAN", 42, 127, 91, 0, 47, 109, 43, 64, 12, 78, 127, 28, 16, 24, 120, 48, 1, 90, 0, 90, 0, 2, 64, 31, 13, 44, 0, 12, 64, 127, .oct = -1},   /* (yours: saved on the FM-1) */
     {"SQUARE KEYS", 85, 76, 0, 0, 70, 60, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 12, 2, 64, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SAW KEYS", 85, 76, 0, 0, 70, 60, 60, 50, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 4, 10, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"CLAV SYNTH", 38, 120, 48, 0, 50, 0, 50, 110, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
@@ -531,7 +531,7 @@ static const preset_t PRESETS[] = {
     {"KALIMBA SYN", 85, 76, 0, 0, 42, 0, 42, 0, 14, 50, 80, 98, 0, 117, 85, 72, 0, 0, 0, 70, 5, 64, 0, 80, 10, 0, 0, 0, 127, 64},   /* (yours: saved on the FM-1) */
     {"MARIMBA SYN", 85, 76, 0, 0, 50, 0, 50, 0, RZ_MODAL, 90, 70, 54, 24, 64, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 45, 0},
     {"BELL PLUCK", 85, 76, 0, 0, 40, 0, 44, 0, RZ_MODAL, 104, 120, 82, 16, 110, 85, 72, 0, 30, SI_OCT, 70, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
-    {"BLIP", 6, 64, 64, 0, 40, 0, 40, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 20, 5, 50, 0, SS_HALL, 0, 0},
+    {"BLIP", 6, 64, 64, 0, 40, 0, 40, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 20, 5, 68, 0, SS_HALL, 0, 0},
     {"FM PLUCK", 85, 76, 0, 0, 62, 0, 50, 58, 0, 104, 120, 82, 16, 0, 85, 99, 67, 59, 1, 70, 16, 4, 80, 80, 10, 0, 0, 5, 64, 64, .oct = 1},   /* (yours: saved on the FM-1) */
     {"SITAR SYN", 85, 76, 0, 0, 50, 0, 50, 10, 1, 16, 80, 78, 70, 90, 85, 99, 67, 0, 1, 70, 12, 0, 63, 80, 10, 0, 0, 5, 127, 64},   /* (yours: saved on the FM-1) */
     {"DRUM PLUCK", 85, 76, 0, 0, 42, 0, 42, 0, RZ_DRUM, 10, 80, 70, 40, 110, 0, 0, 0, 0, SI_OCT, 0, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
@@ -547,7 +547,7 @@ static const preset_t PRESETS[] = {
     {"SYN STRINGS 3", 85, 76, 0, 60, 90, 110, 90, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 11, 30, 80, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SOLINA 2", 85, 76, 0, 50, 90, 115, 90, 49, 1, 60, 60, 80, 40, 50, 110, 100, 60, 45, 0, 90, 11, 22, 5, 80, 10, 0, 0, 0, 42, 64},   /* (yours: saved on the FM-1) */
     {"BOW STRINGS SYN", 85, 76, 0, 40, 80, 118, 70, 20, RZ_BOW, 110, 80, 93, 64, 110, 115, 96, 0, 40, SI_OCT, 80, 17, 63, 63, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SWELL},
-    {"PIZZ SYNTH", 85, 76, 0, 0, 42, 0, 42, 10, 2, 40, 70, 40, 40, 90, 85, 72, 0, 30, 0, 70, 19, 0, 63, 2, 26, 74, 0, 0, 127, 127},   /* (yours: saved on the FM-1) */
+    {"PIZZ SYNTH", 85, 76, 0, 0, 42, 0, 42, 10, 2, 40, 70, 40, 40, 90, 85, 72, 0, 30, 0, 70, 19, 0, 63, 2, 26, 89, 0, 0, 127, 127},   /* (yours: saved on the FM-1) */
     {"CHUA STRINGS", 54, 80, 32, 60, 90, 110, 90, 40, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"ENSEMBLE SYN", 85, 76, 0, 40, 90, 115, 94, 30, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 11, 20, 70, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"STAB STRINGS", 85, 76, 0, 0, 60, 60, 60, 30, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 20, 70, 0, 0, 0, 0, SS_HALL, 0, 0},
@@ -555,16 +555,16 @@ static const preset_t PRESETS[] = {
     {"BRASS STRINGS", 85, 76, 0, 30, 84, 110, 80, 40, RZ_MODAL, 0, 0, 0, 0, 0, 115, 96, 0, 40, SI_OCT, 80, 11, 10, 60, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"REED SYN", 85, 76, 0, 20, 76, 115, 60, 20, RZ_REED, 60, 90, 78, 60, 110, 85, 72, 0, 30, SI_OCT, 70, 17, 126, 63, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_REEDSWELL},
     {"SEQ SAW", 85, 76, 0, 0, 44, 20, 44, 70, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"SEQ SQUARE", 85, 76, 0, 0, 44, 66, 22, 0, 9, 60, 90, 78, 60, 0, 85, 72, 0, 0, 0, 70, 12, 2, 0, 80, 86, 24, 0, 0, 64, 117},   /* (yours: saved on the FM-1) */
-    {"SEQ CHUA", 40, 104, 32, 0, 127, 20, 44, 90, 11, 56, 90, 78, 81, 48, 99, 82, 13, 16, 2, 79, 0, 2, 0, 80, 86, 47, 0, 3, 64, 117, .oct = 2},   /* (yours: saved on the FM-1) */
+    {"SEQ SQUARE", 85, 76, 0, 0, 44, 66, 22, 0, 9, 60, 90, 78, 60, 0, 85, 72, 0, 0, 0, 70, 12, 2, 0, 80, 86, 42, 0, 0, 64, 117},   /* (yours: saved on the FM-1) */
+    {"SEQ CHUA", 40, 104, 32, 0, 127, 20, 44, 90, 11, 56, 90, 78, 81, 48, 99, 82, 13, 16, 2, 79, 0, 2, 0, 80, 86, 65, 0, 3, 64, 117, .oct = 2},   /* (yours: saved on the FM-1) */
     {"SEQ ACID", 85, 30, 0, 0, 48, 30, 44, 115, 0, 100, 120, 80, 30, 0, 99, 82, 13, 0, 2, 79, 9, 4, 80, 80, 10, 0, 0, 3, 64, 64},   /* (yours: saved on the FM-1) */
     {"SEQ FM", 85, 76, 0, 0, 44, 10, 44, 40, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 14, 4, 80, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SEQ BELL", 85, 76, 0, 0, 38, 0, 40, 0, RZ_MODAL, 100, 120, 80, 30, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"SEQ PLUCK", 85, 76, 0, 0, 40, 0, 40, 30, RZ_STRING, 40, 100, 50, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 19, 0, 63, 0, 0, 0, 0, SS_HALL, 127, 0},
-    {"SEQ BLIP", 6, 64, 64, 0, 36, 0, 36, 40, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 16, 5, 40, 0, SS_HALL, 0, 0},
+    {"SEQ BLIP", 6, 64, 64, 0, 36, 0, 36, 40, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 16, 5, 59, 0, SS_HALL, 0, 0},
     {"SEQ ATARI", 85, 76, 0, 0, 44, 10, 44, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 22, 40, 20, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SEQ RESO", 85, 76, 0, 0, 44, 0, 44, 120, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
-    {"SEQ ZAP", 85, 76, 0, 0, 44, 0, 44, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 12, 4, 64, 20, 5, 60, 0, SS_HALL, 0, 0},
+    {"SEQ ZAP", 85, 76, 0, 0, 44, 0, 44, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 12, 4, 64, 20, 5, 77, 0, SS_HALL, 0, 0},
     {"SEQ DRUM", 85, 76, 0, 0, 40, 0, 40, 0, RZ_DRUM, 10, 80, 70, 40, 110, 0, 0, 0, 0, SI_OCT, 0, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 127, 0},
     {"SEQ BASS", 85, 76, 0, 0, 48, 40, 46, 70, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 2, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -1},
     {"SEQ ECHO", 85, 76, 0, 0, 44, 0, 50, 60, RZ_MODAL, 0, 0, 0, 0, 0, 120, 105, 0, 50, SI_OCT, 70, 12, 4, 64, 0, 0, 0, 0, SS_TEMPLE, 0, 0},
@@ -592,7 +592,7 @@ static const preset_t PRESETS[] = {
     {"OUTER ORBIT", 124, 64, 96, 80, 100, 115, 100, 34, RZ_MODAL, 70, 100, 82, 12, 60, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_TEMPLE, 0, 0},
     {"STRANGE ATTRAC", 90, 100, 32, 100, 100, 115, 100, 38, RZ_SYMP, 60, 60, 86, 40, 60, 127, 118, 60, 55, SI_2OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
     {"SPIRAL SINK", 56, 40, 64, 60, 100, 115, 100, 42, RZ_BOW, 120, 45, 93, 74, 90, 127, 120, 30, 50, SI_FIFTH, 60, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0},
-    {"PERIOD DOUBLING", 44, 110, 64, 13, 110, 115, 100, 59, 8, 120, 45, 93, 74, 0, 110, 100, 60, 45, 0, 90, 2, 100, 120, 28, 5, 88, 0, 0, 127, 64},   /* (yours: saved on the FM-1) */
+    {"PERIOD DOUBLING", 44, 110, 64, 13, 110, 115, 100, 59, 8, 120, 45, 93, 74, 0, 110, 100, 60, 45, 0, 90, 2, 100, 120, 28, 5, 99, 0, 0, 127, 64},   /* (yours: saved on the FM-1) */
     {"CHAOS ORGAN", 100, 120, 127, 100, 100, 115, 100, 50, 0, 70, 100, 82, 12, 60, 115, 96, 0, 40, 0, 80, 0, 10, 0, 80, 10, 0, 0, 1, 57, 64, .oct = 2},   /* (yours: saved on the FM-1) */
     {"BIFURCATION", 48, 90, 96, 60, 100, 115, 100, 54, RZ_SYMP, 60, 60, 86, 40, 60, 127, 118, 60, 55, SI_2OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
     {"SCROLL DRONE", 104, 30, 0, 80, 100, 115, 100, 58, RZ_BOW, 120, 45, 93, 74, 90, 127, 120, 30, 50, SI_FIFTH, 60, 0, 0, 0, 0, 0, 0, 0, SS_MOSQUE, 0, 0},
@@ -669,21 +669,21 @@ static const preset_t PRESETS[] = {
     {"GROWL KEYS", 85, 76, 0, 0, 70, 60, 70, 40, RZ_REED, 55, 90, 73, 80, 110, 110, 100, 60, 45, SI_OCT, 90, 12, 6, 60, 0, 0, 0, 40, SS_HALL, 0, 0, .eg = EG_GROWL},
     {"BLOOM BELL", 54, 90, 64, 0, 70, 60, 70, 40, RZ_FLUTE, 40, 100, 88, 90, 100, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_CHIFF},
     {"BITCRUSH WALK", 85, 76, 0, 0, 50, 0, 50, 30, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 29, 90, 110, 20, 5, 0, 0, SS_HALL, 0, 0},
-    {"LFREE WALK", 85, 76, 0, 0, 70, 100, 60, 37, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 30, 70, 100, 25, 5, 13, 0, SS_HALL, 0, 0},
-    {"WHO KNOWS", 85, 76, 0, 0, 50, 0, 50, 44, 7, 90, 100, 68, 0, 0, 85, 72, 0, 0, 0, 70, 27, 90, 90, 30, 5, 26, 0, 0, 64, 64, .oct = 2},   /* (yours: saved on the FM-1) */
-    {"SATAN WORKOUT", 85, 76, 0, 0, 70, 100, 60, 0, 7, 90, 100, 68, 0, 0, 85, 72, 0, 30, 0, 70, 29, 27, 103, 35, 5, 39, 0, 0, 67, 64},   /* (yours: saved on the FM-1) */
-    {"DATA BURST", 85, 76, 0, 0, 50, 0, 50, 58, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 7, 127, 127, 40, 5, 52, 0, SS_HALL, 0, 0},
-    {"MODEM", 85, 76, 0, 0, 70, 100, 60, 65, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 3, 127, 60, 45, 5, 65, 0, SS_HALL, 0, 0},
-    {"DIAL UP", 85, 76, 0, 0, 50, 0, 50, 72, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 40, 127, 50, 5, 8, 0, SS_HALL, 0, 0},
-    {"FAX", 85, 76, 0, 0, 70, 100, 60, 79, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 22, 127, 127, 55, 5, 21, 0, SS_HALL, 0, 0},
-    {"CIRCUIT BENT", 85, 76, 0, 0, 50, 0, 50, 61, 12, 15, 40, 80, 30, 127, 85, 72, 0, 0, 0, 70, 23, 60, 60, 60, 5, 34, 0, 0, 64, 64},   /* (yours: saved on the FM-1) */
-    {"GAMEBOY DEATH", 85, 76, 0, 0, 70, 100, 60, 67, 12, 15, 40, 80, 30, 0, 85, 72, 0, 0, 0, 70, 22, 20, 127, 65, 5, 47, 0, 0, 64, 64},   /* (yours: saved on the FM-1) */
-    {"STUTTER", 85, 76, 0, 0, 50, 0, 50, 50, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 8, 127, 20, 70, 5, 60, 0, SS_HALL, 0, 0},
-    {"BIT RAIN", 85, 76, 0, 0, 70, 100, 60, 57, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 29, 127, 64, 75, 5, 3, 0, SS_HALL, 0, 0},
-    {"SAMPLE HOLD", 85, 76, 0, 0, 50, 0, 50, 64, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 24, 127, 20, 80, 5, 16, 0, SS_HALL, 0, 0},
-    {"TAPE EATER", 85, 76, 0, 0, 70, 100, 60, 71, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 2, 127, 127, 85, 5, 29, 0, SS_HALL, 0, 0},
-    {"NUMBERS STATION", 85, 76, 0, 0, 50, 0, 50, 78, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 1, 20, 20, 90, 5, 42, 0, SS_HALL, 0, 0},
-    {"ERROR TONE", 85, 76, 0, 0, 70, 100, 60, 35, 6, 0, 40, 80, 30, 0, 85, 72, 0, 30, 0, 70, 3, 10, 10, 95, 5, 55, 0, 0, 84, 64},   /* (yours: saved on the FM-1) */
+    {"LFREE WALK", 85, 76, 0, 0, 70, 100, 60, 37, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 30, 70, 100, 25, 5, 28, 0, SS_HALL, 0, 0},
+    {"WHO KNOWS", 85, 76, 0, 0, 50, 0, 50, 44, 7, 90, 100, 68, 0, 0, 85, 72, 0, 0, 0, 70, 27, 90, 90, 30, 5, 44, 0, 0, 64, 64, .oct = 2},   /* (yours: saved on the FM-1) */
+    {"SATAN WORKOUT", 85, 76, 0, 0, 70, 100, 60, 0, 7, 90, 100, 68, 0, 0, 85, 72, 0, 30, 0, 70, 29, 27, 103, 35, 5, 58, 0, 0, 67, 64},   /* (yours: saved on the FM-1) */
+    {"DATA BURST", 85, 76, 0, 0, 50, 0, 50, 58, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 7, 127, 127, 40, 5, 70, 0, SS_HALL, 0, 0},
+    {"MODEM", 85, 76, 0, 0, 70, 100, 60, 65, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 3, 127, 60, 45, 5, 81, 0, SS_HALL, 0, 0},
+    {"DIAL UP", 85, 76, 0, 0, 50, 0, 50, 72, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 40, 127, 50, 5, 20, 0, SS_HALL, 0, 0},
+    {"FAX", 85, 76, 0, 0, 70, 100, 60, 79, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 22, 127, 127, 55, 5, 38, 0, SS_HALL, 0, 0},
+    {"CIRCUIT BENT", 85, 76, 0, 0, 50, 0, 50, 61, 12, 15, 40, 80, 30, 127, 85, 72, 0, 0, 0, 70, 23, 60, 60, 60, 5, 53, 0, 0, 64, 64},   /* (yours: saved on the FM-1) */
+    {"GAMEBOY DEATH", 85, 76, 0, 0, 70, 100, 60, 67, 12, 15, 40, 80, 30, 0, 85, 72, 0, 0, 0, 70, 22, 20, 127, 65, 5, 65, 0, 0, 64, 64},   /* (yours: saved on the FM-1) */
+    {"STUTTER", 85, 76, 0, 0, 50, 0, 50, 50, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 8, 127, 20, 70, 5, 77, 0, SS_HALL, 0, 0},
+    {"BIT RAIN", 85, 76, 0, 0, 70, 100, 60, 57, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 29, 127, 64, 75, 5, 10, 0, SS_HALL, 0, 0},
+    {"SAMPLE HOLD", 85, 76, 0, 0, 50, 0, 50, 64, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 24, 127, 20, 80, 5, 32, 0, SS_HALL, 0, 0},
+    {"TAPE EATER", 85, 76, 0, 0, 70, 100, 60, 71, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 2, 127, 127, 85, 5, 47, 0, SS_HALL, 0, 0},
+    {"NUMBERS STATION", 85, 76, 0, 0, 50, 0, 50, 78, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 1, 20, 20, 90, 5, 61, 0, SS_HALL, 0, 0},
+    {"ERROR TONE", 85, 76, 0, 0, 70, 100, 60, 35, 6, 0, 40, 80, 30, 0, 85, 72, 0, 30, 0, 70, 3, 10, 10, 95, 5, 73, 0, 0, 84, 64},   /* (yours: saved on the FM-1) */
     {"UNDERWORLD", 6, 64, 64, 100, 110, 120, 115, 20, RZ_MODAL, 0, 0, 0, 0, 0, 127, 118, 0, 60, SI_OCT, 60, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"CATHEDRAL DUST", 85, 76, 0, 100, 110, 120, 115, 25, RZ_VOICE, 40, 60, 48, 20, 80, 127, 121, 23, 60, SI_FIFTH, 77, 17, 110, 90, 0, 0, 0, 0, SS_TEMPLE, 0, 0, .eg = EG_SHIMRISE, .oct = -1},
     {"MOSQUE MIRAGE", 85, 60, 0, 100, 110, 120, 115, 30, RZ_MODAL, 100, 127, 90, 40, 50, 127, 124, 46, 60, SI_OCT5, 94, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .oct = -2},
@@ -700,21 +700,21 @@ static const preset_t PRESETS[] = {
     {"STAR FIELD", 85, 76, 0, 100, 110, 120, 115, 45, 11, 40, 60, 48, 20, 80, 127, 121, 73, 60, 1, 101, 23, 110, 90, 80, 10, 0, 0, 1, 64, 64, .eg = EG_SHIMRISE, .oct = -1},   /* (yours: saved on the FM-1) */
     {"GHOST CHOIR", 85, 60, 0, 100, 110, 120, 115, 50, RZ_MODAL, 100, 127, 90, 40, 50, 127, 124, 66, 60, SI_OCT5, 118, 0, 0, 0, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0, .oct = -2},
     {"EVENT HORIZON", 85, 76, 0, 100, 110, 120, 115, 55, RZ_MODAL, 0, 0, 0, 0, 0, 127, 118, 89, 60, SI_2OCT, 75, 11, 30, 90, 0, 0, 0, 0, SS_MOSQUE, 0, 0, .eg = EG_SHIMRISE},
-    {"CHAOS KICK", 110, 64, 96, 0, 30, 0, 30, 20, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 10, 5, 30, 0, SS_HALL, 0, 0, .oct = -2},
-    {"NOISE SNARE", 85, 76, 0, 0, 33, 0, 33, 31, 10, 0, 60, 80, 20, 0, 127, 118, 89, 0, 3, 75, 4, 60, 90, 17, 5, 47, 0, 3, 127, 64},   /* (yours: saved on the FM-1) */
-    {"METAL HAT", 85, 76, 0, 0, 36, 0, 36, 42, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 24, 5, 64, 0, SS_HALL, 127, 0, .oct = 1},
-    {"ZAP TOM", 6, 64, 64, 0, 39, 0, 39, 53, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 31, 5, 81, 0, SS_HALL, 0, 0, .oct = -1},
-    {"CLICK", 110, 64, 96, 0, 42, 0, 42, 64, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 38, 5, 98, 0, SS_HALL, 0, 0, .oct = -2},
-    {"CLAP CLOUD", 85, 76, 0, 0, 45, 0, 45, 75, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 45, 5, 115, 0, SS_HALL, 127, 0},
-    {"RIM SHOT LAB", 85, 76, 0, 0, 48, 0, 48, 86, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 12, 5, 42, 0, SS_HALL, 127, 0, .oct = 1},
-    {"BOING", 6, 64, 64, 0, 31, 0, 31, 97, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 19, 5, 59, 0, SS_HALL, 0, 0, .oct = -1},
-    {"LASER", 110, 64, 96, 0, 34, 0, 34, 108, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 26, 5, 76, 0, SS_HALL, 0, 0, .oct = -2},
-    {"WATER DROP", 85, 76, 0, 0, 37, 0, 37, 29, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 33, 5, 93, 0, SS_HALL, 127, 0},
-    {"COIN", 85, 76, 0, 0, 40, 0, 40, 40, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 40, 5, 110, 0, SS_HALL, 127, 0, .oct = 1},
-    {"SPRING BOING", 6, 64, 64, 0, 43, 0, 43, 51, 10, 0, 60, 80, 20, 0, 110, 100, 60, 0, 0, 90, 0, 100, 120, 28, 5, 88, 0, 0, 127, 64},   /* (yours: saved on the FM-1) */
-    {"THUD", 110, 64, 96, 0, 46, 0, 46, 62, 10, 0, 60, 80, 20, 110, 110, 100, 60, 0, 0, 90, 0, 100, 120, 28, 5, 88, 0, 0, 127, 64, .oct = 1},   /* (yours: saved on the FM-1) */
-    {"SNAP", 85, 76, 0, 0, 49, 0, 49, 73, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 21, 5, 71, 0, SS_HALL, 127, 0},
-    {"PEW", 85, 76, 0, 0, 32, 0, 32, 84, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 28, 5, 88, 0, SS_HALL, 127, 0, .oct = 1},
+    {"CHAOS KICK", 110, 64, 96, 0, 30, 0, 30, 20, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 10, 5, 49, 0, SS_HALL, 0, 0, .oct = -2},
+    {"NOISE SNARE", 85, 76, 0, 0, 33, 0, 33, 31, 10, 0, 60, 80, 20, 0, 127, 118, 89, 0, 3, 75, 4, 60, 90, 17, 5, 65, 0, 3, 127, 64},   /* (yours: saved on the FM-1) */
+    {"METAL HAT", 85, 76, 0, 0, 36, 0, 36, 42, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 24, 5, 80, 0, SS_HALL, 127, 0, .oct = 1},
+    {"ZAP TOM", 6, 64, 64, 0, 39, 0, 39, 53, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 31, 5, 94, 0, SS_HALL, 0, 0, .oct = -1},
+    {"CLICK", 110, 64, 96, 0, 42, 0, 42, 64, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 38, 5, 107, 0, SS_HALL, 0, 0, .oct = -2},
+    {"CLAP CLOUD", 85, 76, 0, 0, 45, 0, 45, 75, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 45, 5, 119, 0, SS_HALL, 127, 0},
+    {"RIM SHOT LAB", 85, 76, 0, 0, 48, 0, 48, 86, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 12, 5, 61, 0, SS_HALL, 127, 0, .oct = 1},
+    {"BOING", 6, 64, 64, 0, 31, 0, 31, 97, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 19, 5, 76, 0, SS_HALL, 0, 0, .oct = -1},
+    {"LASER", 110, 64, 96, 0, 34, 0, 34, 108, RZ_DRUM, 0, 60, 80, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 26, 5, 90, 0, SS_HALL, 0, 0, .oct = -2},
+    {"WATER DROP", 85, 76, 0, 0, 37, 0, 37, 29, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 33, 5, 103, 0, SS_HALL, 127, 0},
+    {"COIN", 85, 76, 0, 0, 40, 0, 40, 40, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 40, 5, 115, 0, SS_HALL, 127, 0, .oct = 1},
+    {"SPRING BOING", 6, 64, 64, 0, 43, 0, 43, 51, 10, 0, 60, 80, 20, 0, 110, 100, 60, 0, 0, 90, 0, 100, 120, 28, 5, 99, 0, 0, 127, 64},   /* (yours: saved on the FM-1) */
+    {"THUD", 110, 64, 96, 0, 46, 0, 46, 62, 10, 0, 60, 80, 20, 110, 110, 100, 60, 0, 0, 90, 0, 100, 120, 28, 5, 99, 0, 0, 127, 64, .oct = 1},   /* (yours: saved on the FM-1) */
+    {"SNAP", 85, 76, 0, 0, 49, 0, 49, 73, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 4, 60, 90, 21, 5, 86, 0, SS_HALL, 127, 0},
+    {"PEW", 85, 76, 0, 0, 32, 0, 32, 84, RZ_MODAL, 116, 100, 60, 40, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 100, 120, 28, 5, 99, 0, SS_HALL, 127, 0, .oct = 1},
     {"WOOD KNOCK", 85, 76, 0, 0, 35, 0, 35, 40, RZ_MODAL, 30, 70, 37, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
 };
 #define NPRESETS (sizeof PRESETS / sizeof PRESETS[0])
@@ -797,6 +797,15 @@ typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
 /* value 27: the SPACE (bits 0, 1 and 5, 6) with the sound's octave (bits 2 .. 4, two's complement) */
 #define PR_SPACE(b) ((((uint32_t)(b) & 3u) | ((uint32_t)(b) >> 3 & 12u)) % SS_COUNT)
 #define PR_PACK27(sp, oct) ((uint8_t)(((uint32_t)(sp) & 3u) | ((uint32_t)(oct) & 7u) << 2 | ((uint32_t)(sp) & 12u) << 3))
+#define PR_MH 25u                                /* value 25: MOD ENV HEIGHT, its bit 7 the way (down) */
+/* a HEIGHT saved before it went both ways: then 36 x (h / 127)^2 semitones, now 36 x (h / 127)^3: the same sweep */
+static uint8_t menv_old(uint8_t h)
+{
+    uint32_t a = h & 127u, n = 0;
+    while (n < 127u && (n + 1u) * (n + 1u) * (n + 1u) * 127u <= a * a * 16129u + 8064u * 127u)   /* (n^3 <= a^2 127) */
+        n++;
+    return (uint8_t)n;
+}
 /* (in RAM: which are saved, and one flash object at a time, the one last used: 512 x 30 values stay in the flash) */
 static uint8_t upre_bits[NPRESETS / 8u];
 static upre_t upre_buf __attribute__((section(".pool")));
@@ -842,7 +851,7 @@ static int upre_save(uint32_t i)                 /* the sound now over preset i:
     upre_t *u = upre_obj(h);
     volatile uint8_t *t = feg_hold(&was, &irq);
     for (k = 0; k < PR_N; k++)
-        u->v[j][k] = (uint8_t)(*PR_SYS[k] & 127u);
+        u->v[j][k] = (uint8_t)(*PR_SYS[k] & (k == PR_MH ? 255u : 127u));   /* (HEIGHT: bit 7 down) */
     feg_unhold(t, was, irq);
     u->v[j][27] = PR_PACK27(sys.sh_space % SS_COUNT, sys.transpose);   /* (+ the octave) */
     u->has[j >> 3] |= (uint8_t)(1u << (j & 7u));
@@ -1024,7 +1033,7 @@ static int preset_edited_(void)
         const uint8_t *v = upre_v(sys.preset);
         uint32_t k;
         for (k = 0; k < PR_N; k++)
-            if (k != 27u && (*PR_SYS[k] & 127u) != v[k])
+            if (k != 27u && (*PR_SYS[k] & (k == PR_MH ? 255u : 127u)) != v[k])
                 return 1;
         return (uint32_t)sys.sh_space != PR_SPACE(v[27]) || ((uint32_t)sys.transpose & 7u) != (v[27] >> 2 & 7u);
     }
@@ -1062,9 +1071,13 @@ typedef struct {
     uint8_t bank;                                /* (the preset's bank; settings saved before: bank 1) */
     uint8_t multi, ch_b;                         /* MULTI (saved before: off, B on channel 2) */
     uint16_t preset_b;                           /* part B's preset */
+    uint8_t menv3;                               /* MOD ENV HEIGHT as now (both ways, cubic; saved before: squared,
+                                                  * up only: the saved presets' turned once, settings_boot) */
 } settings_t;
 
 #define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
+static uint8_t menv3_save;                       /* (settings_boot turned the saved presets' HEIGHT: save the mark) */
+static int settings_save(void);
 static void settings_boot(void)    /* power-on, before the audio */
 {
     settings_t s;
@@ -1083,6 +1096,22 @@ static void settings_boot(void)    /* power-on, before the audio */
         preset_load(BOOT_PRESET);                /* (a fresh install, nothing saved: bank 3, SYNTH, its first) */
         part_b_load(BOOT_PRESET);
     } else {
+        if (!s.menv3) {                          /* (saved before HEIGHT went both ways: the saved presets' turned to
+                                                  * the same sweep, once, and the settings marked) */
+            uint32_t h, j;
+            for (h = 0; h < NPRESETS / 64u; h++) {
+                upre_t *u = upre_obj(h);
+                uint32_t any = 0;
+                for (j = 0; j < 64u; j++)
+                    if (u->has[j >> 3] >> (j & 7u) & 1u && (u->v[j][PR_MH] & 127u)) {
+                        u->v[j][PR_MH] = menv_old(u->v[j][PR_MH]);
+                        any = 1;
+                    }
+                if (any)
+                    st_save(OBJ_USER0 + h, u, sizeof *u);
+            }
+            menv3_save = 1;
+        }
         sys.multi = (uint8_t)(s.multi != 0);
         sys.ch_b = (uint8_t)(s.ch_b >= 1u && s.ch_b <= 16u ? s.ch_b : 2u);
         part_b_load(s.preset_b % NPRESETS);
@@ -1117,7 +1146,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.np_level = (uint8_t)(s.np_level & 127u);
         sys.menv_len = (uint8_t)(s.menv_len & 127u);
         sys.menv_skew = (uint8_t)(s.menv_skew & 127u);
-        sys.menv_height = (uint8_t)(s.menv_height & 127u);
+        sys.menv_height = (uint8_t)(s.menv3 ? s.menv_height : menv_old(s.menv_height));   /* (bit 7: down) */
         sys.menv_bend = (uint8_t)(s.menv_bend & 127u);
         sys.basis = (uint8_t)(s.basis & 127u);
         sys.orbit = (uint8_t)(s.orbit & 127u);
@@ -1156,6 +1185,10 @@ static void settings_boot(void)    /* power-on, before the audio */
         for (uint32_t i = 0; i < 4u; i++)
             sys.k_m[i] = (uint8_t)(s.k_m[i] & 127u);
     }
+    if (menv3_save) {                            /* (the mark: the turn above done once) */
+        menv3_save = 0;
+        settings_save();
+    }
 }
 
 static int settings_save(void)     /* 0 = saved */
@@ -1165,6 +1198,7 @@ static int settings_save(void)     /* 0 = saved */
         return -1;
     memset(&s, 0, sizeof s);
     s.magic = SET_MAGIC;
+    s.menv3 = 1;
     s.octave = sys.octave;
     s.chaos = sys.chaos;
     s.shape = sys.shape;
@@ -1834,13 +1868,14 @@ static void draw_menv(void)
     const int32_t top = 10, bot = PLOT_H - 16, hh = bot - top, x0 = 8;
     int32_t xl = x0 + 20 + (int32_t)(sys.menv_len & 127u) * 170 / 127;           /* (the length's end) */
     int32_t xp = x0 + (xl - x0) * (int32_t)(sys.menv_skew & 127u) / 127;          /* the peak */
-    int32_t dh = (int32_t)((sys.menv_height & 127u) * (sys.menv_height & 127u));
-    int32_t yf = bot, yp = bot - dh * hh / 16129;
-    int32_t lv = (int32_t)sys.menv_view * hh / 32767;
-    uint32_t on = sys.osc && sys.menv_height;
+    int32_t hm = (int32_t)(sys.menv_height & 127u), dn = (sys.menv_height & 0x80u) != 0;
+    int32_t dh = hm * hm * hm / 127;             /* (cubic, as noise.c: / 127^3 of the half) */
+    int32_t mid = top + hh / 2, yf = mid, yp = dn ? mid + dh * (hh / 2) / 16129 : mid - dh * (hh / 2) / 16129;
+    int32_t lv = (int32_t)sys.menv_view * (hh / 2) / 32767 * (dn ? -1 : 1);
+    uint32_t on = sys.osc && hm;
     uint16_t c = on ? T_FM : T_DIM;
     cv_begin(240, PLOT_H, T_BG);
-    cv_rect(x0, bot, 196, 1, T_LINE);
+    cv_rect(x0, mid, 196, 1, T_LINE);            /* (the note: up above it, down below)*/
     {   /* the rise and the fall, BEND curving them as noise.c does */
         int32_t i, n = xl - x0, px = x0, py = yf;
         for (i = 1; i <= n; i++) {
@@ -1854,8 +1889,11 @@ static void draw_menv(void)
     }
     cv_line_t(xl, yf, x0 + 196, yf, c, 2);
     cv_frame(212, top, 20, hh + 1, T_LINE);      /* the depth now */
+    cv_rect(212, mid, 20, 1, T_LINE);
     if (lv > 0)
-        cv_rect(214, bot - lv + 1, 16, lv - 1 > 0 ? lv - 1 : 1, on ? T_FM : T_DIM);
+        cv_rect(214, mid - lv, 16, lv, on ? T_FM : T_DIM);
+    else if (lv < 0)
+        cv_rect(214, mid + 1, 16, -lv, on ? T_FM : T_DIM);
     cv_text(x0, bot + 3, &AF_S, "NOTE", T_DIM);
     cv_text_r(xl < 60 ? 60 : xl, bot + 3, &AF_S, "END", T_DIM, T_BG);
     cv_text(200, bot + 3, &AF_S, "PITCH", T_DIM);
@@ -2128,11 +2166,17 @@ static void ui_draw(void)
                 ui_cat(b, sizeof b, " %");
         }
         ui_cell(T_C2, "2 SKEW", b);
-        if (sys.menv_height) {                       /* (the sweep at the peak, in semitones: HEIGHT^2, 36 the top) */
-            uint32_t h = sys.menv_height & 127u;
-            fmt_int(v, (int32_t)((h * h * 36u + 8064u) / 16129u));
-            str_cpy(b, "+", sizeof b);
+        if (sys.menv_height & 127u) {               /* (the sweep at the peak, in semitones: HEIGHT^3, 36 the top, up or
+                                                  * down; tenths under 10) */
+            uint32_t h = sys.menv_height & 127u, t = (uint32_t)((uint64_t)h * h * h * 360u / 2048383u);   /* tenths */
+            str_cpy(b, sys.menv_height & 0x80u ? "-" : "+", sizeof b);
+            fmt_int(v, (int32_t)(t / 10u));
             ui_cat(b, sizeof b, v);
+            if (t < 100u) {
+                ui_cat(b, sizeof b, ".");
+                fmt_int(v, (int32_t)(t % 10u));
+                ui_cat(b, sizeof b, v);
+            }
             ui_cat(b, sizeof b, " ST");
         } else
             str_cpy(b, "OFF", sizeof b);
@@ -2875,7 +2919,12 @@ static void ui_input(void)
     } else if (sys.page == 5u) {
         knob(&sys.menv_len, EN_K1, 0);
         knob(&sys.menv_skew, EN_K2, 1);
-        knob(&sys.menv_height, EN_K3, 2);
+        if ((s = ui_enc(EN_K3)) != 0) {          /* HEIGHT: -127 .. 127 (64 steps a side ... the middle 0: OFF) */
+            int32_t h = (int32_t)(sys.menv_height & 127u) * (sys.menv_height & 0x80u ? -1 : 1) + s;
+            h = clamp(h, -127, 127);
+            sys.menv_height = (uint8_t)(h < 0 ? 0x80u | (uint32_t)-h : (uint32_t)h);
+            ui_hot = 2; ui_hot_ms = fm1_ms;
+        }
         knob(&sys.menv_bend, EN_K4, 3);
     } else if (sys.page == 0u && sys.osc) {
         knob(&sys.np_x, EN_K1, 0);

@@ -425,13 +425,16 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
             fk[i] = (uint32_t)np_bend((int32_t)(S->menv >> 15), sys.menv_bend);   /* (Q15, BEND, for the pitch below) */
         }
     }
-    {   /* the MOD ENV straight on the pitch (no oscillator, no VCA between): HEIGHT^2 the octaves at its peak
-         * (0 .. 3), the sweep down to the note */
-        int32_t hq = (int32_t)(hgt * hgt * 3u * 65536u / 16129u);   /* Q16 octaves */
+    {   /* the MOD ENV straight on the pitch (no oscillator, no VCA between): HEIGHT^3 the octaves at its peak
+         * (0 .. 3: fine near 0), up or down (bit 7: down), the sweep back to the note */
+        int32_t hq = (int32_t)((uint64_t)hgt * hgt * hgt * 3u * 65536u / 2048383u);   /* Q16 octaves */
+        if (sys.menv_height & 0x80u)
+            hq = -hq;
         if (voice[k].vfm)                        /* (velocity: a soft note's sweep shallower) */
             hq = (hq * (256 - (int32_t)voice[k].vfm)) >> 8;
         if (voice + k == render_tv) {            /* (the screen: the sweep now, 0..32767 of 3 octaves) */
             int32_t r = ((hq >> 2) * np_bend((int32_t)(S->menv >> 15), sys.menv_bend)) >> 13;   /* (Q16 octaves) */
+            r = r < 0 ? -r : r;
             sys.menv_view = (uint16_t)(r / 6 > 32767 ? 32767 : r / 6);
         }
         if (fm) {   /* per sample the factor on every audio-rate increment, Q16 (the envelope is slow: every 4) */

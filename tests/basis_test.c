@@ -718,6 +718,28 @@ int main(int argc, char **argv)
         }
         sys.menv_len = 80; sys.menv_skew = 10; sys.menv_height = 0; sys.menv_bend = 64;
         check("MOD ENV: HEIGHT 0 bit for bit off", same);
+        {   /* HEIGHT both ways: up a rise of the pitch (more crossings early), down (bit 7) a fall below the note */
+            uint32_t zc[3], w3, q3;
+            for (w3 = 0; w3 < 3u; w3++) {
+                int32_t last = 0;
+                synth_kill(); memset(np_state, 0, sizeof np_state); rng_state = 0x1234567u;
+                sys.osc = NP_BIGBANG + 1u; sys.np_x = 0; sys.np_y = 0; sys.chaos = 0; sys.output = 0;
+                sys.menv_len = 90; sys.menv_skew = 0; sys.menv_bend = 64;
+                sys.menv_height = (uint8_t)(w3 == 0u ? 0u : w3 == 1u ? 100u : 0x80u | 100u);
+                synth_note_on(57, 110);
+                zc[w3] = 0;
+                for (b = 0; b < 100u; b++) {
+                    synth_render(buf, CTL);
+                    for (q3 = 0; q3 < CTL; q3++) {
+                        if ((buf[2 * q3] >= 0) != (last >= 0)) zc[w3]++;
+                        last = buf[2 * q3];
+                    }
+                }
+            }
+            printf("   (MOD ENV HEIGHT: crossings in 70 ms: off %u, +100 %u, -100 %u)\n", zc[0], zc[1], zc[2]);
+            check("MOD ENV HEIGHT: up and down (bit 7) from the note", zc[1] > zc[0] * 3 / 2 && zc[2] < zc[0] * 3 / 4);
+            sys.menv_height = 0; sys.osc = 0; synth_kill();
+        }
         check("... full HEIGHT: each program changes, sounds, bounded, no DC; a falling AD runs out", okk && moved);
         synth_kill();
         sys.osc = 0;
