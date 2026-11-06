@@ -1082,7 +1082,7 @@ typedef struct {
     uint8_t menv3;                               /* MOD ENV HEIGHT as now (both ways, cubic; saved before: squared,
                                                   * up only: the saved presets' turned once, settings_boot) */
     uint8_t tape4;                               /* (saved before the tape held 7 s: LENGTH 4 BARS, once) */
-    uint8_t snd;                                 /* (saved before the SOUND page: SPEAKER BASS 64, LEVEL MATCH on) */
+    uint8_t snd;                                 /* (saved before the SOUND page: SPEAKER BASS 4, LEVEL MATCH on; 1: 1.9.2's 64) */
     uint8_t spk_bass, lvl_match;
 } settings_t;
 
@@ -1191,7 +1191,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         for (uint32_t i = 0; i < 4u; i++)
             sys.tape_lv[i] = (uint8_t)(s.tape_lv[i] & 127u);
         sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
-        sys.spk_bass = (uint8_t)(s.snd ? s.spk_bass & 127u : 64u);
+        sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
@@ -1214,7 +1214,7 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 1;
+    s.snd = 2;
     s.spk_bass = sys.spk_bass;
     s.lvl_match = sys.lvl_match;
     s.octave = sys.octave;
