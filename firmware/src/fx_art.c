@@ -27,6 +27,7 @@
 static uint32_t art_t;                           /* frames drawn (the motion's clock) */
 static int32_t art_lv;                           /* the output's level now, 0..256 (fast up, slowly down) */
 static uint16_t art_c, art_c2, art_c3;           /* full, secondary, construction (dim) */
+static int32_t art_fa = 256;                     /* every pixel's strength, 0..256 (the depth's fading) */
 
 static int32_t art_sin(uint32_t ph) { return np_sin(ph); }               /* Q15 */
 static int32_t art_cos(uint32_t ph) { return np_sin(ph + 0x40000000u); }
@@ -47,6 +48,7 @@ static uint32_t art_isqrt(uint32_t v)
 static void art_px(int32_t x, int32_t y, uint16_t c, int32_t a)
 {
     uint16_t *p;
+    a = a * art_fa >> 8;
     if (a <= 0 || (uint32_t)x >= cv_w)
         return;
     y += cv_oy;
@@ -163,10 +165,109 @@ static void a3_seg(v3_t a, v3_t b, int32_t zref, uint16_t c)
     int32_t x0, y0, x1, y1;
     a3_proj(a, &x0, &y0);
     a3_proj(b, &x1, &y1);
-    if ((a.z + b.z) / 2 <= zref)
+    if ((a.z + b.z) / 2 <= zref) {
+        int32_t z = (a.z + b.z) / 2 + Q8(70);                 /* (the nearer, the brighter) */
+        art_fa = 256 - (z < 0 ? 0 : z > Q8(140) ? 96 : z * 3 / 1120);
         art_ln(x0, y0, x1, y1, c, 0);
-    else
+        art_fa = 256;
+    } else
         art_ln(x0, y0, x1, y1, art_c3, 2u | 2u << 8);
+}
+
+/* ------------------------------------------------------------ the faces --- */
+/* a triangle filled (ends Q8), each pixel blended a (0..256) */
+static void art_tri(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint16_t c, int32_t a)
+{
+    int32_t t, y, ye;
+    if (y0 > y1) { t = x0; x0 = x1; x1 = t; t = y0; y0 = y1; y1 = t; }
+    if (y1 > y2) { t = x1; x1 = x2; x2 = t; t = y1; y1 = y2; y2 = t; }
+    if (y0 > y1) { t = x0; x0 = x1; x1 = t; t = y0; y0 = y1; y1 = t; }
+    if (y2 - y0 < 64)
+        return;
+    y = (y0 + 127) >> 8;
+    ye = (y2 - 129) >> 8;
+    if (y < -cv_oy) y = -cv_oy;
+    if (ye >= (int32_t)cv_h - cv_oy) ye = (int32_t)cv_h - cv_oy - 1;
+    for (; y <= ye; y++) {
+        int32_t yc = y * 256 + 128, xa, xb, xi, xe;
+        xa = x0 + (int32_t)((int64_t)(x2 - x0) * (yc - y0) / (y2 - y0));
+        if (yc < y1)
+            xb = y1 - y0 ? x0 + (int32_t)((int64_t)(x1 - x0) * (yc - y0) / (y1 - y0)) : x1;
+        else
+            xb = y2 - y1 ? x1 + (int32_t)((int64_t)(x2 - x1) * (yc - y1) / (y2 - y1)) : x1;
+        if (xa > xb) { t = xa; xa = xb; xb = t; }
+        xi = (xa + 128) >> 8;
+        xe = (xb - 128) >> 8;
+        if (xi < 0) xi = 0;
+        if (xe >= (int32_t)cv_w) xe = (int32_t)cv_w - 1;
+        for (; xi <= xe; xi++)
+            art_px(xi, y, c, a);
+    }
+}
+/* a face a b c d (rotated points; a triangle when d == c), lit from up left in front (Lambert, a little light
+ * always), facing away from 'in' (a point inside the body) and left out when it faces away from the camera */
+static void a3_face(v3_t a, v3_t b, v3_t c, v3_t d, v3_t in, uint16_t col, int32_t str)
+{
+    int32_t ux = (c.x - a.x) >> 4, uy = (c.y - a.y) >> 4, uz = (c.z - a.z) >> 4;
+    int32_t vx = (d.x - b.x) >> 4, vy = (d.y - b.y) >> 4, vz = (d.z - b.z) >> 4;
+    int32_t nx, ny, nz, l, lam, x0, y0, x1, y1, x2, y2, x3, y3;
+    int64_t qx = (int64_t)uy * vz - (int64_t)uz * vy, qy = (int64_t)uz * vx - (int64_t)ux * vz,
+            qz = (int64_t)ux * vy - (int64_t)uy * vx;
+    int32_t mx = (a.x + c.x) / 2, my = (a.y + c.y) / 2, mz = (a.z + c.z) / 2;
+    while (qx > 16000 || qx < -16000 || qy > 16000 || qy < -16000 || qz > 16000 || qz < -16000) {
+        qx /= 4; qy /= 4; qz /= 4;
+    }
+    nx = (int32_t)qx; ny = (int32_t)qy; nz = (int32_t)qz;
+    if ((int64_t)nx * (mx - in.x) + (int64_t)ny * (my - in.y) + (int64_t)nz * (mz - in.z) < 0) {
+        nx = -nx; ny = -ny; nz = -nz;
+    }
+    if ((int64_t)nx * mx + (int64_t)ny * my + (int64_t)nz * (mz + Q8(260)) >= 0)
+        return;                                                  /* (its back to the camera) */
+    l = (int32_t)art_isqrt((uint32_t)(nx * nx + ny * ny + nz * nz));
+    if (!l)
+        return;
+    lam = (-100 * nx - 149 * ny - 182 * nz) / l;                 /* Q8: the light's cosine */
+    lam = lam < 0 ? 0 : lam;
+    a3_proj(a, &x0, &y0); a3_proj(b, &x1, &y1); a3_proj(c, &x2, &y2); a3_proj(d, &x3, &y3);
+    lam = str * (40 + lam * 216 / 256) / 256;
+    art_tri(x0, y0, x1, y1, x2, y2, col, lam);
+    if (d.x != c.x || d.y != c.y || d.z != c.z)
+        art_tri(x0, y0, x2, y2, x3, y3, col, lam);
+}
+/* a box (centre, half sizes; Q8) lit, its edges in front solid, behind dashed */
+static void a3_box(int32_t cx, int32_t cy, int32_t cz, int32_t hx, int32_t hy, int32_t hz, uint16_t c, int32_t str)
+{
+    static const uint8_t F[6][4] = {{0, 1, 3, 2}, {4, 6, 7, 5}, {0, 4, 5, 1}, {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 5, 7, 3}};
+    static const uint8_t E[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7},
+                                     {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+    v3_t p[8], in = a3_rot(cx, cy, cz);
+    uint32_t k;
+    for (k = 0; k < 8u; k++)
+        p[k] = a3_rot(cx + (k & 4u ? hx : -hx), cy + (k & 2u ? hy : -hy), cz + (k & 1u ? hz : -hz));
+    for (k = 0; k < 6u; k++)
+        a3_face(p[F[k][0]], p[F[k][1]], p[F[k][2]], p[F[k][3]], in, c, str);
+    for (k = 0; k < 12u; k++)
+        a3_seg(p[E[k][0]], p[E[k][1]], in.z, c);
+}
+/* the floor under it all: a grid at height y (Q8) fading into the distance */
+static void a3_floor(int32_t y, int32_t hx, int32_t hz, int32_t step)
+{
+    int32_t v;
+    for (v = -hz; v <= hz; v += step) {
+        v3_t a = a3_rot(-hx, y, v), b = a3_rot(hx, y, v);
+        int32_t x0, y0, x1, y1;
+        a3_proj(a, &x0, &y0); a3_proj(b, &x1, &y1);
+        art_fa = 110 - (v + hz) * 70 / (2 * hz + 1);
+        art_ln(x0, y0, x1, y1, art_c3, 0);
+    }
+    for (v = -hx; v <= hx; v += step) {
+        v3_t a = a3_rot(v, y, -hz), b = a3_rot(v, y, hz);
+        int32_t x0, y0, x1, y1;
+        a3_proj(a, &x0, &y0); a3_proj(b, &x1, &y1);
+        art_fa = 90 - (v < 0 ? -v : v) * 50 / (hx + 1);
+        art_ln(x0, y0, x1, y1, art_c3, 3u | 3u << 8);
+    }
+    art_fa = 256;
 }
 /* a tube along a path in the x-y plane (n centre points, Q8; radii Q8): rings every 'every', lengthwise lines */
 #define A3_NM 12
@@ -189,6 +290,12 @@ static void a3_tube(const int32_t *px, const int32_t *py, const int32_t *pr, uin
             int32_t r = pr[i];
             a3_ring[i][k] = a3_rot(px[i] + (r * ct >> 8) * nx / 256, py[i] + (r * ct >> 8) * ny / 256, r * st >> 8);
         }
+    }
+    for (i = 0; i + 1u < n; i++) {                                 /* the skin, lit */
+        v3_t in = a3_rot((px[i] + px[i + 1u]) / 2, (py[i] + py[i + 1u]) / 2, 0);
+        for (k = 0; k < A3_NM; k++)
+            a3_face(a3_ring[i][k], a3_ring[i][(k + 1u) % A3_NM], a3_ring[i + 1u][(k + 1u) % A3_NM], a3_ring[i + 1u][k],
+                    in, c, 170);
     }
     for (i = 0; i < n; i++)
         if (i % every == 0u || i + 1u == n)
@@ -255,6 +362,21 @@ static void art_bell(void)
         art_bamp[i] = art_lv * 16 * a / 32767 * art_sin(art_t * (0x2E000000u + i * 0x0B000000u)) / 32768 / (int32_t)(i + 1u);
     }
     a3_view(art_t * 0x00A00000u, (uint32_t)-ART_DEG(18), 120, 68);
+    a3_floor(Q8(36), Q8(80), Q8(60), Q8(20));
+    {   /* the wall, lit: each cell between two meridians and two parallels */
+        static v3_t g[16][9];
+        for (i = 0; i < NM; i++)
+            for (j = 0; j < 9u; j++) {
+                uint32_t th = i * (0xFFFFFFFFu / NM);
+                int32_t r = BELL_O[j][0] * 250 * art_bell_d(th, j) / 4096;
+                g[i][j] = a3_rot(r * (art_cos(th) >> 7) >> 8, (BELL_O[j][1] - 44) * 268, r * (art_sin(th) >> 7) >> 8);
+            }
+        for (j = 0; j + 1u < 9u; j++) {
+            v3_t in = a3_rot(0, (BELL_O[j][1] + BELL_O[j + 1u][1] - 88) * 134, 0);
+            for (i = 0; i < NM; i++)
+                a3_face(g[i][j], g[(i + 1u) % NM][j], g[(i + 1u) % NM][j + 1u], g[i][j + 1u], in, art_c, 150);
+        }
+    }
     for (i = 0; i < NM; i++) {                                   /* the meridians */
         uint32_t th = i * (0xFFFFFFFFu / NM);
         v3_t prev = {0, 0, 0};
@@ -980,6 +1102,17 @@ static void art_bow(void)
     int32_t sx, sy, sx2, sy2, k, bxp, ylast[2] = {0, 0}, xlast[2] = {0, 0};
     uint32_t i;
     a3_view((uint32_t)ART_DEG(-18) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(40), 120, 66);
+    for (i = 0; i + 1u < sizeof BX; i++) {                       /* the body lit: the top, the back, the ribs */
+        v3_t in = a3_rot(Q8(BX[i] + BX[i + 1u]) / 2, 0, Q8(4) + 128);
+        int32_t xa = Q8(BX[i]), xb = Q8(BX[i + 1u]), wa = Q8(BW[i]), wb = Q8(BW[i + 1u]);
+        for (k = 0; k < 2; k++) {
+            int32_t z = k ? Q8(9) : 0;
+            a3_face(a3_rot(xa, -wa, z), a3_rot(xb, -wb, z), a3_rot(xb, wb, z), a3_rot(xa, wa, z), in, art_c, k ? 90 : 120);
+        }
+        for (k = -1; k <= 1; k += 2)
+            a3_face(a3_rot(xa, k * wa, 0), a3_rot(xb, k * wb, 0), a3_rot(xb, k * wb, Q8(9)), a3_rot(xa, k * wa, Q8(9)), in,
+                    art_c, 140);
+    }
     for (k = 0; k < 2; k++) {                                    /* the body: its outline, front (z 0) and back */
         int32_t z = k ? Q8(9) : 0, side;
         for (side = -1; side <= 1; side += 2) {
@@ -1096,6 +1229,15 @@ static void art_piano(void)
     a3_view((uint32_t)ART_DEG(-24) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(18), 120, 50);
     for (k = 0; k < 4; k++)
         amp[k] = art_lv * 32767 / 256 / ((k + 1) * (k + 1)) * (k == 0 ? 1 : 2) / 2;
+    {   /* the soundboard under it all, lit, its ribs */
+        v3_t a = a3_rot(x0 - Q8(8), Q8(10), Q8(-24)), b = a3_rot(x1 + Q8(8), Q8(10), Q8(-24)),
+             c = a3_rot(x1 + Q8(8), Q8(10), Q8(24)), d = a3_rot(x0 - Q8(8), Q8(10), Q8(24));
+        a3_face(a, b, c, d, a3_rot(0, Q8(30), 0), art_c, 70);
+        a3_seg(a, b, Q8(400), art_c3); a3_seg(b, c, Q8(400), art_c3);
+        a3_seg(c, d, Q8(400), art_c3); a3_seg(d, a, Q8(400), art_c3);
+        for (k = 1; k < 8; k++)
+            a3_l(x0 + (x1 - x0) * k / 8, Q8(10), Q8(-24), x0 + (x1 - x0) * k / 8 - Q8(10), Q8(10), Q8(24), art_c3, 2u | 3u << 8);
+    }
     for (k = 0; k < 2; k++) {                                    /* the unison: two strings, a little apart */
         int32_t z = Q8(-3 + k * 6);
         a3_string(x0, x1, 0, z, amp, 4, 0x26000000u + (uint32_t)k * 0x00400000u, 10 * 256, k ? art_c2 : art_c, 0);
@@ -1108,119 +1250,215 @@ static void art_piano(void)
         a3_proj(a3_rot(bx, 0, 0), &sx2, &sy2);
         art_ln(sx, sy, sx2, sy2, art_c2, 0);
     }
-    {   /* the hammer: its head under the strings (up when struck), the shank down to the butt */
-        int32_t top = Q8(4) + Q8(hit ? 14 - swing : 2), z;
-        for (z = -1; z <= 1; z += 2) {
-            a3_proj(a3_rot(hx - Q8(4), top, Q8(5) * z), &sx, &sy);
-            a3_proj(a3_rot(hx + Q8(4), top, Q8(5) * z), &sx2, &sy2);
-            art_ln(sx, sy, sx2, sy2, art_c, 0);
-            a3_proj(a3_rot(hx - Q8(4), top + Q8(8), Q8(5) * z), &sx, &sy);
-            art_ln(sx, sy, sx2, sy2, art_c2, 0);
-        }
-        a3_l(hx - Q8(4), top, Q8(-5), hx - Q8(4), top, Q8(5), art_c, 0);
-        a3_l(hx + Q8(4), top, Q8(-5), hx + Q8(4), top, Q8(5), art_c, 0);
+    {   /* the hammer: its felt head under the strings (up when struck), the shank down to the butt */
+        int32_t top = Q8(4) + Q8(hit ? 14 - swing : 2);
+        a3_box(hx, top + Q8(4), 0, Q8(4), Q8(4), Q8(6), art_c, 200);
         a3_l(hx, top + Q8(8), 0, hx - Q8(30), Q8(50), 0, art_c2, 0);   /* the shank */
         a3_proj(a3_rot(hx - Q8(30), Q8(50), 0), &sx, &sy);
         art_ring(sx, sy, 3, art_c2);
+        (void)sx2; (void)sy2;
     }
     {   /* the damper: on the strings when quiet, lifted while it sings */
         int32_t dy = art_lv > 8 ? Q8(-16) : Q8(-3), dx = x0 + (x1 - x0) * 70 / 100;
-        a3_l(dx - Q8(10), dy, Q8(-6), dx + Q8(10), dy, Q8(-6), art_c2, 0);
-        a3_l(dx - Q8(10), dy, Q8(6), dx + Q8(10), dy, Q8(6), art_c2, 0);
-        a3_l(dx - Q8(10), dy, Q8(-6), dx - Q8(10), dy, Q8(6), art_c2, 0);
-        a3_l(dx + Q8(10), dy, Q8(-6), dx + Q8(10), dy, Q8(6), art_c2, 0);
-        a3_l(dx, dy, 0, dx, dy - Q8(24), 0, art_c3, 0);
+        a3_box(dx, dy - Q8(3), 0, Q8(10), Q8(3), Q8(7), art_c2, 160);
+        a3_l(dx, dy - Q8(6), 0, dx, dy - Q8(28), 0, art_c3, 0);
     }
     art_title(ICON_PIANO, "PIANO");
 }
 
-/* DIDGERIDOO: the long tube, widening to its bell, the mouth's ring at the top breathing with the level */
+/* a solid of revolution about the y axis (n profile points: radius, height; Q8), nseg around: lit faces, its
+ * meridians and parallels (front solid, back dashed); bright: which parallel drawn in the full colour */
+static void a3_lathe(int32_t cx, int32_t cy, int32_t cz, const int32_t *pr, const int32_t *py, uint32_t n,
+                     uint32_t nseg, uint32_t bright, int32_t str)
+{
+    static v3_t ring[2][16];
+    uint32_t i, k;
+    v3_t in = a3_rot(cx, cy, cz);
+    if (nseg > 16u)
+        nseg = 16u;
+    for (i = 0; i < n; i++) {
+        v3_t *r = ring[i & 1u], *q = ring[(i + 1u) & 1u];
+        for (k = 0; k < nseg; k++) {
+            uint32_t th = k * (0xFFFFFFFFu / nseg);
+            r[k] = a3_rot(cx + (pr[i] >> 4) * (art_cos(th) >> 7) / 16, cy + py[i], cz + (pr[i] >> 4) * (art_sin(th) >> 7) / 16);
+        }
+        if (i) {
+            v3_t c2 = a3_rot(cx, cy + (py[i] + py[i - 1u]) / 2, cz);
+            for (k = 0; k < nseg; k++)
+                a3_face(q[k], q[(k + 1u) % nseg], r[(k + 1u) % nseg], r[k], c2, art_c, str);
+            for (k = 0; k < nseg; k++)
+                a3_seg(q[k], r[k], in.z, art_c2);
+        }
+        for (k = 0; k < nseg; k++)
+            a3_seg(r[k], r[(k + 1u) % nseg], in.z, i == bright ? art_c : art_c2);
+    }
+}
+/* a straight pipe in the x-y plane from (x0,y0) to (x1,y1) (Q8), radius r0 to r1 (Q8), in the tube's style */
+static void a3_pipe(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t r0, int32_t r1, uint32_t nring)
+{
+    int32_t px[12], py[12], pr[12];
+    uint32_t i;
+    if (nring > 12u)
+        nring = 12u;
+    for (i = 0; i < nring; i++) {
+        int32_t f = (int32_t)(i * 256u / (nring - 1u));
+        px[i] = x0 + (x1 - x0) * f / 256;
+        py[i] = y0 + (y1 - y0) * f / 256;
+        pr[i] = r0 + (r1 - r0) * f / 256;
+    }
+    a3_tube(px, py, pr, nring, nring - 1u, art_c, art_c2);
+}
+
+/* DIDGERIDOO: the long eucalyptus tube turning, wider to its bell, its wood's knots; the beeswax ring at the mouth
+ * breathing with the level; the drone's standing wave inside (one quarter wave: closed at the lips) */
 static void art_didge(void)
 {
-    int32_t r = 6 + art_lv / 40, k;
-    art_ln(Q8(30), Q8(40), Q8(210), Q8(52), art_c, 0);
-    art_ln(Q8(30), Q8(52), Q8(210), Q8(80), art_c, 0);
-    art_ln(Q8(210), Q8(52), Q8(210), Q8(80), art_c2, 0);
-    for (k = 1; k < 6; k++)                      /* (the termite-eaten wood's rings) */
-        art_ln(Q8(30 + 30 * k), Q8(40 + 2 * k), Q8(30 + 30 * k), Q8(52 + 5 * k), art_c3, 0);
-    art_ring(Q8(24), Q8(46), r, art_c2);
+    int32_t px[14], py[14], pr[14], k, sx, sy, ox = 0, oy = 0;
+    a3_view((uint32_t)ART_DEG(-14) + (uint32_t)(art_sin(art_t * 0x00400000u) * 4000), (uint32_t)-ART_DEG(20), 120, 66);
+    a3_floor(Q8(30), Q8(100), Q8(40), Q8(20));
+    for (k = 0; k < 14; k++) {
+        px[k] = Q8(-84) + k * Q8(13);
+        py[k] = Q8(-14) + k * Q8(2) + (art_sin((uint32_t)k * 0x5A000000u) >> 13) * 64;   /* (not quite straight) */
+        pr[k] = Q8(4) + k * k * 30 + ((k == 5 || k == 9) ? Q8(1) : 0);
+    }
+    a3_tube(px, py, pr, 14, 3, art_c, art_c2);
+    {
+        int32_t r = Q8(6) + art_lv * 6;                          /* the mouthpiece's wax */
+        a3_xring(px[0], py[0], r, 14, art_c);
+        a3_xring(px[0] + Q8(2), py[0], r - Q8(1), 14, art_c2);
+    }
+    for (k = 0; k <= 26; k++) {                                  /* the pressure: a quarter wave */
+        int32_t i = k * 13 / 26, x = Q8(-84) + k * Q8(13) / 2, y = py[i] + (py[i + (i < 13)] - py[i]) * (k % 2) / 2;
+        int32_t a = art_lv * art_cos((uint32_t)k * (0x40000000u / 26u)) / 32768 * art_sin(art_t * 0x18000000u) / 32768;
+        a3_proj(a3_rot(x, y - a * 24, 0), &sx, &sy);
+        if (k)
+            art_ln(ox, oy, sx, sy, art_c, 3u | 2u << 8);
+        ox = sx; oy = sy;
+    }
     art_title(ICON_SAX, "DIDGERIDOO");
 }
-/* SHAKUHACHI: the bamboo, its nodes, the five holes, the cut mouthpiece at the top */
+/* SHAKUHACHI: the bamboo standing, turning: its nodes, the root's flare at the foot, four holes in front and one
+ * behind (the one sounding opening with the level), the utaguchi cut at the top */
 static void art_shaku(void)
 {
-    int32_t k;
-    art_ln(Q8(110), Q8(14), Q8(110), Q8(118), art_c, 0);
-    art_ln(Q8(126), Q8(10), Q8(126), Q8(118), art_c, 0);
-    art_ln(Q8(110), Q8(14), Q8(126), Q8(10), art_c2, 0);   /* the utaguchi, cut */
-    for (k = 0; k < 4; k++)                      /* the nodes */
-        art_ln(Q8(108), Q8(36 + 24 * k), Q8(128), Q8(36 + 24 * k), art_c3, 0);
-    for (k = 0; k < 4; k++)                      /* the holes (and one behind) */
-        art_ring(Q8(118), Q8(64 + 12 * k), 2 + (k == 1 ? art_lv / 64 : 0), art_c2);
+    int32_t px[13], py[13], pr[13], k;
+    a3_view((uint32_t)(art_t * 0x00700000u), (uint32_t)-ART_DEG(16), 120, 54);
+    a3_floor(Q8(48), Q8(50), Q8(40), Q8(20));
+    for (k = 0; k < 13; k++) {                                   /* (lying along x for the tube, then stood up) */
+        px[k] = 0;
+        py[k] = Q8(-44) + k * Q8(7) + (k == 12 ? Q8(4) : 0);
+        pr[k] = Q8(7) + (k > 9 ? (k - 9) * (k - 9) * 90 : 0) + ((k == 3 || k == 6 || k == 9) ? Q8(1) : 0);
+    }
+    a3_tube(px, py, pr, 13, 3, art_c, art_c2);
+    for (k = 0; k < 5; k++) {                                    /* the holes on the bamboo's skin */
+        int32_t y = Q8(-4) + k * Q8(9), r = 2 + (k == 2 ? art_lv / 70 : 0), sx, sy;
+        v3_t p = a3_rot(0, y, k == 4 ? Q8(8) : Q8(-8));
+        a3_proj(p, &sx, &sy);
+        if (p.z <= a3_rot(0, y, 0).z) {
+            art_ring(sx, sy, r, art_c);
+        } else {
+            art_fa = 120;
+            art_ring(sx, sy, r, art_c3);
+            art_fa = 256;
+        }
+    }
+    {   /* the utaguchi: the rim cut on the slant, the edge the breath splits on */
+        v3_t a = a3_rot(Q8(-7), Q8(-44), 0), b = a3_rot(Q8(7), Q8(-48), 0), c = a3_rot(0, Q8(-46), Q8(-7)),
+             d = a3_rot(0, Q8(-46), Q8(7));
+        a3_seg(a, c, Q8(400), art_c); a3_seg(c, b, Q8(400), art_c); a3_seg(b, d, 0, art_c); a3_seg(d, a, 0, art_c);
+    }
     art_title(ICON_SAX, "SHAKUHACHI");
 }
-/* KALIMBA: the tines fanned on the box (the one playing swings with the level), the sound hole */
+/* KALIMBA: the box (its sound hole), the bridge across, the tines fanned over it from the bar holding them down,
+ * the middle longest; the one sounding swinging with the level */
 static void art_kalimba(void)
 {
-    int32_t k, sw = art_lv * art_sin(art_t * 0x40000000u) / 32768 / 16;
-    art_ln(Q8(40), Q8(40), Q8(200), Q8(40), art_c2, 0);       /* the box */
-    art_ln(Q8(40), Q8(40), Q8(56), Q8(116), art_c2, 0);
-    art_ln(Q8(200), Q8(40), Q8(184), Q8(116), art_c2, 0);
-    art_ln(Q8(56), Q8(116), Q8(184), Q8(116), art_c2, 0);
-    art_ring(Q8(120), Q8(92), 9, art_c3);
-    art_ln(Q8(52), Q8(58), Q8(188), Q8(58), art_c, 0);        /* the bridge */
-    for (k = 0; k < 9; k++) {                    /* the tines: the middle longest */
-        int32_t x = Q8(64 + 14 * k), d = k < 4 ? 4 - k : k - 4, len = 52 - d * 6, w = k == 4 ? sw : 0;
-        art_ln(x, Q8(58), x + Q8(w), Q8(58 - len / 2), art_c, 0);
-        art_ln(x, Q8(58), x, Q8(58 + len / 4), art_c3, 0);
+    int32_t k, sw = art_lv * art_sin(art_t * 0x40000000u) / 32768;
+    a3_view((uint32_t)(art_sin(art_t * 0x00500000u) * 4000), (uint32_t)-ART_DEG(40), 120, 70);
+    a3_floor(Q8(14), Q8(90), Q8(60), Q8(20));
+    a3_box(0, Q8(6), 0, Q8(62), Q8(8), Q8(44), art_c2, 90);    /* the box */
+    {   /* its sound hole, on the top */
+        v3_t q = {0, 0, 0}, p;
+        for (k = 0; k <= 16; k++) {
+            uint32_t th = (uint32_t)k * (0xFFFFFFFFu / 16u);
+            p = a3_rot(Q8(9) * (art_cos(th) >> 7) / 256, Q8(-2) - 1, Q8(-26) + Q8(9) * (art_sin(th) >> 7) / 256);
+            if (k)
+                a3_seg(q, p, Q8(400), art_c2);
+            q = p;
+        }
+    }
+    a3_box(0, Q8(-4), Q8(-6), Q8(56), Q8(2), Q8(2), art_c, 160);   /* the bridge */
+    a3_box(0, Q8(-4), Q8(10), Q8(56), Q8(2), Q8(2), art_c2, 120);   /* the bar */
+    for (k = 0; k < 9; k++) {
+        int32_t x = Q8(-48 + 12 * k), d = k < 4 ? 4 - k : k - 4, len = Q8(52 - d * 6), tip = k == 4 ? sw * 8 : 0;
+        v3_t a = a3_rot(x - Q8(3), Q8(-6), Q8(14)), b = a3_rot(x + Q8(3), Q8(-6), Q8(14));
+        v3_t c = a3_rot(x + Q8(3), Q8(-6) + tip, Q8(10) - len), e = a3_rot(x - Q8(3), Q8(-6) + tip, Q8(10) - len);
+        v3_t in = a3_rot(x, Q8(10), Q8(10) - len / 2);
+        a3_face(a, b, c, e, in, art_c, 200);
+        a3_seg(a, e, Q8(400), k == 4 ? art_c : art_c2);
+        a3_seg(b, c, Q8(400), k == 4 ? art_c : art_c2);
+        a3_seg(c, e, Q8(400), art_c);
     }
     art_title(ICON_PIANO, "KALIMBA");
 }
-/* ACCORDION: the bellows breathing (their folds open with the output's level), the two keyboards' ends */
+/* ACCORDION: the bellows between the two ends, its folds square frames in and out (opening with the level and a
+ * slow breath), lit; the treble end's keys, the bass end's buttons */
 static void art_accord(void)
 {
-    int32_t k, open = 6 + art_lv / 24 + (art_sin(art_t * (1u << 25)) >> 13), x0 = Q8(120) - Q8(8) * open, fold;
-    fold = Q8(16) * open / 10 + Q8(6);
-    for (k = 0; k < 8; k++) {                    /* the folds: a zigzag top and bottom */
-        int32_t xa = x0 + fold * k, xb = xa + fold;
-        art_ln(xa, Q8(30), (xa + xb) / 2, Q8(22), art_c, 0);
-        art_ln((xa + xb) / 2, Q8(22), xb, Q8(30), art_c, 0);
-        art_ln(xa, Q8(98), (xa + xb) / 2, Q8(106), art_c, 0);
-        art_ln((xa + xb) / 2, Q8(106), xb, Q8(98), art_c, 0);
-        art_ln(xa, Q8(30), xa, Q8(98), art_c3, 0);
+    const int32_t H = Q8(22), NF = 10;
+    int32_t k, open = 6 + art_lv / 24 + (art_sin(art_t * (1u << 25)) >> 13), fold = Q8(2) * open / 6 + Q8(3);
+    int32_t x0 = -fold * NF / 2;
+    v3_t prv[4], cur[4];
+    a3_view((uint32_t)ART_DEG(-16) + (uint32_t)(art_sin(art_t * 0x00500000u) * 5000), (uint32_t)-ART_DEG(16), 120, 64);
+    a3_floor(Q8(30), Q8(100), Q8(44), Q8(20));
+    for (k = 0; k <= NF; k++) {                                  /* the folds */
+        int32_t h = k & 1 ? H - Q8(6) : H, x = x0 + fold * k, j;
+        v3_t in = a3_rot(x - fold / 2, 0, 0);
+        cur[0] = a3_rot(x, -h, -h); cur[1] = a3_rot(x, -h, h); cur[2] = a3_rot(x, h, h); cur[3] = a3_rot(x, h, -h);
+        if (k)
+            for (j = 0; j < 4; j++) {
+                a3_face(prv[j], prv[(j + 1) & 3], cur[(j + 1) & 3], cur[j], in, art_c, 150);
+                a3_seg(prv[j], cur[j], in.z, art_c2);
+            }
+        for (j = 0; j < 4; j++)
+            a3_seg(cur[j], cur[(j + 1) & 3], in.z, k & 1 ? art_c2 : art_c);
+        for (j = 0; j < 4; j++)
+            prv[j] = cur[j];
     }
     {
-        int32_t xe = x0 + fold * 8, j;
-        for (j = 0; j < 2; j++) {                /* the ends: the keys, the buttons */
-            int32_t xs = j ? xe : x0 - Q8(26);
-            art_ln(xs, Q8(24), xs + Q8(26), Q8(24), art_c2, 0);
-            art_ln(xs, Q8(104), xs + Q8(26), Q8(104), art_c2, 0);
-            art_ln(xs, Q8(24), xs, Q8(104), art_c2, 0);
-            art_ln(xs + Q8(26), Q8(24), xs + Q8(26), Q8(104), art_c2, 0);
+        int32_t xl = x0 - Q8(10), xr = x0 + fold * NF + Q8(10), j;
+        a3_box(xl, 0, 0, Q8(10), H + Q8(3), H + Q8(3), art_c2, 110);
+        a3_box(xr, 0, 0, Q8(10), H + Q8(3), H + Q8(3), art_c2, 110);
+        for (j = 0; j < 7; j++)                                  /* the keys, along the treble end's edge */
+            a3_box(xl, Q8(-18) + j * Q8(6), -H - Q8(5), Q8(8), Q8(2), Q8(2), art_c, 170);
+        for (j = 0; j < 6; j++) {                                /* the buttons */
+            int32_t sx, sy;
+            v3_t p = a3_rot(xr + Q8(10), Q8(-16) + j * Q8(6), Q8(-8) + (j & 1) * Q8(10));
+            a3_proj(p, &sx, &sy);
+            art_ring(sx, sy, 2, p.z < a3_rot(xr, 0, 0).z ? art_c : art_c3);
         }
-        for (j = 0; j < 6; j++)
-            art_ring(xe + Q8(13), Q8(34 + 12 * j), 3, art_c2);
-        for (j = 0; j < 7; j++)
-            art_ln(x0 - Q8(22), Q8(32 + 10 * j), x0 - Q8(6), Q8(32 + 10 * j), art_c3, 0);
     }
     art_title(ICON_PIANO, "ACCORDION");
 }
-/* BAGPIPE: the bag (breathing with the level), the chanter below, the three drones over the shoulder */
+/* BAGPIPE: the bag (breathing with the level) lit, the blowpipe in, the chanter down, three drones over the
+ * shoulder (their stocks), a ring at each drone's top */
 static void art_bagpipe(void)
 {
-    int32_t k, r = 30 + art_lv / 20;
-    art_ring(Q8(110), Q8(70), r, art_c);
-    art_ring(Q8(110), Q8(70), r - 6, art_c3);
-    art_ln(Q8(96), Q8(70 + r), Q8(92), Q8(118), art_c, 0);           /* the chanter */
-    for (k = 0; k < 5; k++)
-        art_ring(Q8(95) - Q8(k) / 2, Q8(84 + r / 2 + k * 6), 1, art_c2);
-    for (k = 0; k < 3; k++) {                    /* the drones, fanned up and right */
-        int32_t x0 = Q8(118 + k * 6), y0 = Q8(70 - r + 4), len = k ? 56 : 72;
-        int32_t dx = Q8(len) * (2 + k) / 6, dy = -Q8(len) * (5 - k) / 6;
-        art_ln(x0, y0, x0 + dx, y0 + dy, art_c, 0);
-        art_ln(x0 + dx - Q8(3), y0 + dy, x0 + dx + Q8(3), y0 + dy, art_c2, 0);
+    static const int32_t BR[8] = {0, 18, 27, 31, 31, 27, 18, 0}, BY[8] = {-26, -22, -14, -4, 6, 16, 24, 28};
+    int32_t pr[8], py[8], k, s = 236 + art_lv / 8;
+    a3_view((uint32_t)ART_DEG(-24) + (uint32_t)(art_sin(art_t * 0x00500000u) * 6000), (uint32_t)-ART_DEG(14), 120, 70);
+    a3_floor(Q8(48), Q8(100), Q8(50), Q8(20));
+    for (k = 0; k < 8; k++) {
+        pr[k] = BR[k] * s;
+        py[k] = BY[k] * s;
     }
-    art_ln(Q8(80), Q8(70 - r / 2), Q8(56), Q8(40), art_c2, 0);       /* the blowpipe */
+    a3_lathe(0, 0, 0, pr, py, 8, 14, 4, 110);
+    a3_pipe(Q8(-6), Q8(24), Q8(-14), Q8(50), Q8(3), Q8(4), 4);   /* the chanter */
+    a3_pipe(Q8(-24), Q8(-12), Q8(-52), Q8(-34), Q8(2), Q8(2), 3);   /* the blowpipe */
+    for (k = 0; k < 3; k++) {                                    /* the drones */
+        int32_t len = k ? 50 : 66, x1 = Q8(10 + 12 * k) + Q8(len) * (2 + k) / 7, y1 = Q8(-20) - Q8(len) * (5 - k) / 6;
+        a3_pipe(Q8(8 + 10 * k), Q8(-20), x1, y1, Q8(2), Q8(4), 4);
+    }
     art_title(ICON_SAX, "BAGPIPE");
 }
 
@@ -1232,6 +1470,36 @@ static void art_drum(void)
     int32_t kt = (int32_t)(sys.fx_struct & 127u), pos = (int32_t)(sys.fx_pos & 127u), R = 46, j, k;
     int32_t ph = art_cos(art_t * 0x20000000u), amp = art_lv * 10 / 256;   /* the head's motion (px at full) */
     a3_view((uint32_t)(art_t * 0x00600000u), (uint32_t)-ART_DEG(28), 120, 50);
+    a3_floor(Q8(36), Q8(90), Q8(70), Q8(20));
+    {   /* the head lit (its slopes catch the light as it moves), the shell or the bowl below */
+        static v3_t g[5][16];
+        for (j = 0; j <= 4; j++)
+            for (k = 0; k < 16; k++) {
+                uint32_t th = (uint32_t)k * (0xFFFFFFFFu / 16u);
+                int32_t r = R * j / 4, rr = r * 256 / R;
+                int32_t m0 = art_cos((uint32_t)rr * 0x00400000u) >> 7, m1 = (rr * (256 - rr) / 64) * (art_cos(th) >> 7) / 256;
+                int32_t d = ((m0 * (127 - pos) + m1 * pos) / 127) * amp / 256 * ph / 32768;
+                g[j][k] = a3_rot(r * (art_cos(th) >> 7), -d, r * (art_sin(th) >> 7));
+            }
+        for (j = 0; j < 4; j++) {
+            v3_t in = a3_rot(0, Q8(20), 0);
+            for (k = 0; k < 16; k++)
+                a3_face(g[j][k], g[j][(k + 1) & 15], g[j + 1][(k + 1) & 15], g[j + 1][k], in, art_c, 170);
+        }
+        for (j = 0; j < 4; j++) {
+            int32_t f0 = j * 64, f1 = (j + 1) * 64, r0, r1;
+            v3_t in = a3_rot(0, Q8(17), 0);
+            r0 = kt > 64 ? R * art_cos((uint32_t)f0 * 0x00400000u) / 32768 : R;
+            r1 = kt > 64 ? R * art_cos((uint32_t)f1 * 0x00400000u) / 32768 : R;
+            for (k = 0; k < 16; k++) {
+                uint32_t a0 = (uint32_t)k * (0xFFFFFFFFu / 16u), a1 = a0 + 0xFFFFFFFFu / 16u;
+                a3_face(a3_rot(r0 * (art_cos(a0) >> 7), Q8(34) * f0 / 256, r0 * (art_sin(a0) >> 7)),
+                        a3_rot(r0 * (art_cos(a1) >> 7), Q8(34) * f0 / 256, r0 * (art_sin(a1) >> 7)),
+                        a3_rot(r1 * (art_cos(a1) >> 7), Q8(34) * f1 / 256, r1 * (art_sin(a1) >> 7)),
+                        a3_rot(r1 * (art_cos(a0) >> 7), Q8(34) * f1 / 256, r1 * (art_sin(a0) >> 7)), in, art_c, 110);
+            }
+        }
+    }
     for (j = 0; j <= 4; j++) {                                   /* the head: rings */
         int32_t r = R * j / 4, ox = 0, oy = 0, sx, sy;
         for (k = 0; k <= 24; k++) {
