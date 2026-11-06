@@ -1685,7 +1685,7 @@ int main(int argc, char **argv)
         synth_kill(); keys_all_off(); run_ms(50);
         sys.arp_on = 0; sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100;
         sys.release = 20; sys.arp_bpm = 120; sys.arp_swing = 0; sys.feg_on = 0; sys.feg_has = 0;
-        KOK(KGE_N == 34u);
+        KOK(KGE_N == 46u);
         for (g = 0; g < KGE_N; g++) {                        /* every GE's strings as long as its rhythm */
             uint32_t L = str_len(KGE[g].rhy);
             if ((KGE[g].vel && str_len(KGE[g].vel) != L) || (KGE[g].clu && str_len(KGE[g].clu) != L) ||

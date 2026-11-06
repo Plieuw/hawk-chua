@@ -141,6 +141,32 @@ static const ge_t KGE[] = {
      MC_TRANSPOSE}},
     {"THREE FINGER", 12, "11211121", "86857685", 0, "0h2h0h2^", "-0-0-0-0", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 75,
      0, PN_PITCH, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_RANGE, MC_ACCENT, MC_GATE}},
+    /* chords (more: house, gospel, bossa, neo soul, charleston, montuno, dub, rock, halftime, oom pah, afrobeat,
+     * inversions) */
+    {"HOUSE PIANO", 6, "..1..1.1..1..1.1", "..9..7.8..9..7.8", "4444444444444444", "0000000000000000", "1111111111111111", NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 40, 2, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_GATE, MC_ACCENT, MC_STRUM}},   /* (M1 house: offbeat stabs, four notes, an octave up) */
+    {"GOSPEL COMP", 6, "1..2.1..1.2.1..2", "9..5.8..9.5.7..5", "1..3.4..1.3.4..3", "0..0.0..0.0.0..0", "-..1.1..-.1.1..1", NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 55, 3, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_CLUSTER, MC_ACCENT, MC_GATE}},   /* (bass and full chords, ghosted pickups) */
+    {"BOSSA NOVA", 6, "1..2..1.1.2..2..", "8..6..7.8.6..6..", "1..3..3.1.3..3..", "0..0..0.2.0..0..", "-..0..0.-.0..0..", NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 45, 4, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_STRUM, MC_GATE, MC_ACCENT}},   /* (the guitar's syncopations over root and fifth) */
+    {"NEO SOUL", 8, "1--..2.-1--..2..", "7--..5.-7--..5..", "4--..3.-4--..3..", 0, 0, NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 90, 10, PN_ALT, EV_TRI, ET_BRIGHT, 40, 0, TR_AKR,
+     {MC_DENSITY, MC_STRUM, MC_ENV, MC_GATE}},   /* (lazy, rolled chords, behind the beat) */
+    {"CHARLESTON", 12, "1..2....", "9..8....", "3..3....", 0, 0, NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 40, 2, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_GATE, MC_ACCENT, MC_TRANSPOSE}},   /* (the 1 and the and of 2) */
+    {"MONTUNO", 6, "1.11.1.1.11.1.11", "9.67.8.6.79.7.68", "2.22.2.2.22.2.22", "0.12.0.1.20.1.21", "0.00.1.0.01.0.01", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 45, 0, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_RANGE, MC_ACCENT, MC_GATE}},   /* (salsa piano: octaves and thirds, syncopated) */
+    {"DUB CHORDS", 6, "..1.......1.....", "..9.......8.....", "..3.......3.....", 0, 0, NS_CHORD, 1, IX_UP, 3, 0, 3, 55, 30, 2, PN_SWEEP, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_REPEAT, MC_GATE, MC_ACCENT}},   /* (offbeat chords echoing away) */
+    {"ROCK EIGHTS", 12, "11111111", "96869686", "33333333", 0, 0, NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 70, 1, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_GATE, MC_ACCENT, MC_CLUSTER}},   /* (straight eighths, the backbeat louder) */
+    {"HALFTIME", 48, "L-L-", "9-7-", "4-4-", 0, "0-1-", NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 100, 8, PN_ALT, EV_TRI, ET_BRIGHT, 50, 0, TR_AKR,
+     {MC_DENSITY, MC_STRUM, MC_ENV, MC_GATE}},   /* (big chords, two to a bar, opening) */
+    {"OOM PAH", 12, "1.2.1.2.", "9.6.8.6.", "1.3.1.3.", "0.0.2.0.", "-.0.-.0.", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 35, 0, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_GATE, MC_ACCENT, MC_TRANSPOSE}},   /* (a march: bass, chord) */
+    {"AFROBEAT CHOP", 6, "1.2.12.1.2.12.12", "9.6.86.9.6.86.86", "3.2.32.3.2.32.32", 0, 0, NS_CHORD, 1, IX_RANDOM, 0, 0, 1, 50, 20, 1, PN_ALT, EV_NONE, 0, 0, 0, TR_ANY,
+     {MC_DENSITY, MC_RANDOM, MC_ACCENT, MC_GATE}},   /* (short interlocking chops, left and right) */
+    {"CHORD STAIRS", 12, "11111111", "97979797", "33333333", "00001111", "00110011", NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 60, 1, PN_PITCH, EV_NONE, 0, 0, 0, TR_AKR,
+     {MC_DENSITY, MC_RANGE, MC_GATE, MC_ACCENT}},   /* (the chord climbing its inversions) */
 };
 #define KGE_N (sizeof KGE / sizeof KGE[0])
 
