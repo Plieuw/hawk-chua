@@ -69,6 +69,8 @@ static volatile struct {
                                   * (from then on it is the breath: resonator.c); SCREAM (feg.c's list): the voices' own
                                   * sound driving the waveguides' breath */
     uint8_t tape_lv[4], tape_len, tape_arm, tape_spd;   /* tape.c: the tracks' levels, LENGTH (1 2 4 8 16 beats), the armed track */             /* a mod wheel has sent (until then it leaves FREE EG's depth alone) */
+    uint8_t spk_bass, lvl_match; /* synth.c, the SOUND page (GLO 3x): SPEAKER BASS 0 .. 127 (its overtones for a small
+                                  * speaker), LEVEL MATCH on (each preset at its measured level) */
     uint8_t vel_to, vel_amt;     /* synth.c: velocity also on the sound: 0 off, 1 BRIGHT (the gate), 2 FM, 3 both; how much */   /* karma.c: KARMA (SEQ): on, the GE, LATCH, its four realtime controls */
     uint16_t menv_view;          /* the newest voice's MOD ENV pitch sweep now, 0..32767 = 3 octaves (ui.c) */
 } sys = {.octave = 0, .chaos = 85, .shape = 76, .output = 0, .attack = 6, .decay = 80, .sustain = 110, .release = 70,
@@ -83,4 +85,4 @@ static volatile struct {
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
          .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,
-         .tape_lv = {100, 100, 100, 100}, .tape_len = 2, .tape_arm = 0, .tape_spd = 12};
+         .tape_lv = {100, 100, 100, 100}, .tape_len = 4, .tape_arm = 0, .tape_spd = 12, .spk_bass = 64, .lvl_match = 1};

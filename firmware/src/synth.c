@@ -758,6 +758,47 @@ static void c1_voices(uint32_t arg)              /* arg: the voices (bit k = voi
 }
 
 static void tape_run(int32_t *l, int32_t *r, uint32_t n);   /* (tape.c, below: the tape under the output) */
+/* each part's preset at the same loudness (ui.c sets it from PRESET_GAIN at a preset's load; Q12; LEVEL MATCH) */
+static int32_t synth_pgain[2] = {4096, 4096};
+/* SPEAKER BASS: a small speaker plays nothing under ~150 Hz; the bass's own overtones (the ear hears the
+ * fundamental they belong to) made from the band under ~200 Hz, kept at its level, the band 150 .. 1500 Hz
+ * of them added (as the "missing fundamental" bass enhancers do) */
+static struct { int32_t a, b, env, x1, y1, x2, y2, o; } spk;
+static void spk_bass(int32_t *l, int32_t *r, uint32_t n)
+{
+    int32_t amt = (int32_t)(sys.spk_bass & 127u);
+    uint32_t i;
+    if (!amt)
+        return;
+    for (i = 0; i < n; i++) {
+        int32_t m = (l[i] + r[i]) >> 1, b, ab, u, au, h, y;
+        spk.a += (m - spk.a) * 934 >> 15;                       /* (two poles at ~200 Hz) */
+        spk.b += (spk.a - spk.b) * 934 >> 15;
+        b = spk.b;
+        ab = b < 0 ? -b : b;
+        spk.env += (ab - spk.env) * (ab > spk.env ? 150 : 5) >> 15;   /* (~5 ms up, ~150 ms down) */
+        b = b > 65535 ? 65535 : b < -65535 ? -65535 : b;
+        u = (b << 14) / ((spk.env + 64) >> 1);                  /* (the bass at a unit level: the same overtones
+                                                                  * loud or soft) */
+        u = u > 65535 ? 65535 : u < -65535 ? -65535 : u;
+        au = u < 0 ? -u : u;
+        {   /* |u| (the even overtones) + u clipped at a quarter, nearly a square (the odd, falling as 1 / n): the
+             * low E's 41 Hz heard from 123, 164, 205, 287 Hz ... */
+            int32_t q = u * 4;
+            q = q > 32767 ? 32767 : q < -32767 ? -32767 : q;
+            h = (au - 20860) + q / 2;
+        }
+        h = (int32_t)(((int64_t)h * spk.env) >> 15);            /* (back to its level) */
+        y = (int32_t)(((int64_t)(spk.y1 + h - spk.x1) * 32077) >> 15);   /* (two zeros at DC, poles at ~150 Hz) */
+        spk.x1 = h; spk.y1 = y;
+        h = (int32_t)(((int64_t)(spk.y2 + y - spk.x2) * 32077) >> 15);
+        spk.x2 = y; spk.y2 = h;
+        spk.o += (h - spk.o) * 7003 >> 15;                      /* (and over ~1.5 kHz away) */
+        h = spk.o * amt >> 5;                                   /* (64: x 2) */
+        l[i] += h;
+        r[i] += h;
+    }
+}
 static void synth_render(int32_t *out, uint32_t n)
 {
     uint32_t i, k, busy = 0, newest = 0, mask = 0, own = 0;
@@ -881,6 +922,12 @@ static void synth_render(int32_t *out, uint32_t n)
         sum[i] = a;
     }
     fx_resonator(sum, dl, dr, n);
+    if (synth_pgain[pp] != 4096)                        /* (LEVEL MATCH: the part's preset at the common level) */
+        for (i = 0; i < n; i++) {
+            sum[i] = (int32_t)(((int64_t)sum[i] * synth_pgain[pp]) >> 12);
+            dl[i] = (int32_t)(((int64_t)dl[i] * synth_pgain[pp]) >> 12);
+            dr[i] = (int32_t)(((int64_t)dr[i] * synth_pgain[pp]) >> 12);
+        }
     if (sys.multi) {                                    /* (the parts summed: their dry and wet, their pans) */
         for (i = 0; i < n; i++) {
             psum[i] += sum[i];
@@ -904,6 +951,9 @@ static void synth_render(int32_t *out, uint32_t n)
         for (i = 0; i < n; i++) {
             l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
             r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
+        }
+        spk_bass(l, r, n);
+        for (i = 0; i < n; i++) {
             l[i] = soft_clip(l[i]) * ml >> 12;
             r[i] = soft_clip(r[i]) * mr >> 12;
         }

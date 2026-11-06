@@ -966,6 +966,12 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
     sys.feg_on = 1;
 }
 /* MULTI: preset i as part B's sound (its values; A's put back, the audio held off a moment) */
+#include "preset_gain.h"                       /* LEVEL MATCH: each built-in preset's gain (tests/level_match.sh) */
+static void lvl_set(void)                        /* (each part at its preset's measured level, or as it is) */
+{
+    synth_pgain[0] = sys.lvl_match ? PRESET_GAIN[sys.preset % NPRESETS] : 4096;
+    synth_pgain[1] = sys.lvl_match ? PRESET_GAIN[part_b_preset % NPRESETS] : 4096;
+}
 static void part_b_load(uint32_t i)
 {
     uint8_t sa[PR_N], mw;
@@ -988,6 +994,7 @@ static void part_b_load(uint32_t i)
     sys.preset = pre;
     mwd.on = mw;
     irq_restore(irq);
+    lvl_set();
 }
 static void preset_load(uint32_t i)
 {
@@ -996,6 +1003,7 @@ static void preset_load(uint32_t i)
     feg_release();                               /* its base when it plays again) */
     preset_apply(i);
     preset_eg(PRESETS[i % NPRESETS].eg, on);
+    lvl_set();
 }
 /* FREE EG's target held at its base for a moment (what it moves around, not where it is now): the comparisons and
  * SAVE see the sound's settings, not the contour's place (the audio held off meanwhile: a few microseconds) */
@@ -1074,6 +1082,8 @@ typedef struct {
     uint8_t menv3;                               /* MOD ENV HEIGHT as now (both ways, cubic; saved before: squared,
                                                   * up only: the saved presets' turned once, settings_boot) */
     uint8_t tape4;                               /* (saved before the tape held 7 s: LENGTH 4 BARS, once) */
+    uint8_t snd;                                 /* (saved before the SOUND page: SPEAKER BASS 64, LEVEL MATCH on) */
+    uint8_t spk_bass, lvl_match;
 } settings_t;
 
 #define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
@@ -1181,6 +1191,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         for (uint32_t i = 0; i < 4u; i++)
             sys.tape_lv[i] = (uint8_t)(s.tape_lv[i] & 127u);
         sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
+        sys.spk_bass = (uint8_t)(s.snd ? s.spk_bass & 127u : 64u);
+        sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
         sys.transpose = (int8_t)clamp(s.transpose, -3, 3);
@@ -1202,6 +1214,9 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
+    s.snd = 1;
+    s.spk_bass = sys.spk_bass;
+    s.lvl_match = sys.lvl_match;
     s.octave = sys.octave;
     s.chaos = sys.chaos;
     s.shape = sys.shape;
@@ -1792,6 +1807,20 @@ static void draw_multi(void)
     cv_blit(0, PLOT_Y);
 }
 
+static void draw_sound(void)
+{
+    char a[40], v[8];
+    cv_begin(240, PLOT_H, T_BG);
+    cv_text(8, 6, &AF_M, "SOUND", T_ACCENT);
+    str_cpy(a, "SPEAKER BASS ", sizeof a);
+    fmt_int(v, (int32_t)(sys.spk_bass & 127u));
+    ui_cat(a, sizeof a, sys.spk_bass & 127u ? v : "OFF");
+    cv_text(8, 38, &AF_S, a, sys.spk_bass & 127u ? T_TEXT : T_DIM);
+    cv_text(8, 56, &AF_S, "THE BASS'S OVERTONES: HEARD ON", T_DIM);
+    cv_text(8, 72, &AF_S, "THE SMALL SPEAKER", T_DIM);
+    cv_text(8, 96, &AF_S, sys.lvl_match ? "LEVEL MATCH ON: PRESETS ALIKE" : "LEVEL MATCH OFF", sys.lvl_match ? T_TEXT : T_DIM);
+    cv_blit(0, PLOT_Y);
+}
 static void draw_midi(void)
 {
     char a[40], v[12];
@@ -2119,6 +2148,12 @@ static void ui_draw(void)
         ui_val_c = FEG_FM(sys.feg_target) ? T_FM : 0;   /* (an FM target: green) */
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
+    } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH */
+        fmt_int(v, (int32_t)(sys.spk_bass & 127u));
+        ui_cell(T_C1, "1 SPEAKER BASS", sys.spk_bass & 127u ? v : "OFF");
+        ui_cell(T_C2, "2 LEVEL MATCH", sys.lvl_match ? "ON" : "OFF");
+        ui_cell(T_C3, "3", "");
+        ui_cell(T_C4, "4", "");
     } else if (sys.page == 15u) {                /* MULTI: on, part B's channel, its bank, its program */
         ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
         fmt_int(v, sys.ch_b);
@@ -2472,6 +2507,8 @@ static void ui_draw(void)
         draw_bank();
     else if (sys.page == 15u)
         draw_multi();
+    else if (sys.page == 16u)
+        draw_sound();
     else if (sys.page == 12u || sys.page == 13u) {
         art_t++;
         art_c = T_THEME;
@@ -2590,7 +2627,7 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_ENV]);
     if (sys.arp_on || sys.page == 6u)
         led_on(nl, panel.btn[B_ARP]);
-    if (sys.page == 7u || sys.page == 15u || sys.multi)   /* (lit: MULTI on too) */
+    if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
     if (sys.page == 10u)
         led_on(nl, panel.btn[B_SCL]);
@@ -2795,8 +2832,8 @@ static void ui_input(void)
             sys.page = sys.page == 10u ? 0u : 10u;
             ui_force = 1;
             break;
-        case B_GLO:                                     /* the MIDI page, the MULTI page, back */
-            sys.page = sys.page == 7u ? 15u : sys.page == 15u ? 0u : 7u;
+        case B_GLO:                                     /* the MIDI page, the MULTI page, the SOUND page, back */
+            sys.page = sys.page == 7u ? 15u : sys.page == 15u ? 16u : sys.page == 16u ? 0u : 7u;
             ui_force = 1;
             break;
         default:
@@ -2871,6 +2908,13 @@ static void ui_input(void)
         if ((s = ui_enc(EN_K4)) != 0) {
             sys.feg_target = (uint8_t)clamp((int32_t)sys.feg_target + s, 0, FEG_NT - 1);
             ui_hot = 3; ui_hot_ms = fm1_ms;
+        }
+    } else if (sys.page == 16u) {               /* SOUND */
+        knob(&sys.spk_bass, EN_K1, 0);
+        if ((s = ui_enc(EN_K2)) != 0) {
+            sys.lvl_match = (uint8_t)(s > 0);
+            lvl_set();
+            ui_hot = 1; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 15u) {               /* MULTI */
         if ((s = ui_enc(EN_K1)) != 0) {

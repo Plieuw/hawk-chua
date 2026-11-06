@@ -56,7 +56,7 @@ static const uint16_t NP_GAIN[NP_COUNT] = {
     1747, 1703, 1041, 2220, 1945, 510, 880, 879, 1531, 4523,
     3027, 1975, 1996, 2339, 2423, 2275, 2289, 2350, 2309, 1750,
     4035, 1169, 1285, 3241, 1548, 959, 382, 925, 2334, 1740,
-    4200, 4700,
+    4200, 5600,
 };
 
 #define NP_BUF 4096u
@@ -311,15 +311,23 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
     uint32_t s1 = px_isqrt64((1ull << 32) + bq), tr = note < 21u ? 0u : note > 108u ? 87u : note - 21u;
     /* the fundamental's T60 in blocks: ~20 s at A0, halving every ~20 semitones, x 2^(DECAY / 32) */
     uint32_t t1 = (uint32_t)(((uint64_t)27562u * px_exp2(-(int32_t)tr * 3277 + dec * 2048)) >> 16);
-    /* the felt: its cut-off, Hz: 500 .. 5000 with HAMMER, x 0.4 .. 1.6 with the hit, never under 2 x the note */
-    uint32_t hz = (uint32_t)(((uint64_t)inc * 44100u) >> 32);
-    uint32_t fc = (500u + (uint32_t)hard * 35u) * (40u + vel * 120u / 127u) / 100u;
+    /* the felt: the hammer's contact (longer in the bass, shorter when struck harder) sets a corner, Hz, above
+     * which the partials fall 6 dB an octave: ~350 Hz at A0 .. ~2.6 kHz at C8 at a mezzo forte; x 0.55 .. 1.75 with
+     * the strike, x 2^((HAMMER - 64) / 40) */
+    uint32_t fh = (uint32_t)(((uint64_t)350u * px_exp2((int32_t)tr * 2185 + (hard - 64) * 1638)) >> 16);
     int32_t sum = 0;
-    fc = fc < 2u * hz ? 2u * hz : fc;
+    uint64_t sq = 0;
+    fh = fh * (55u + vel * 120u / 127u) / 100u;
+    fh = fh < 120u ? 120u : fh > 9000u ? 9000u : fh;
     P->age = v->age;
     P->n = 0;
+    /* the bass: past the 14th partial every 2nd .. 6th (each as strong as those it stands for), up to ~3.5 kHz:
+     * a low string's brilliance, what a small speaker plays of it */
+    uint32_t hz = (uint32_t)(((uint64_t)inc * 44100u) >> 32), nmax = 3500u / (hz ? hz : 1u);
+    uint32_t sd = nmax > 24u ? (nmax - 14u + 9u) / 10u : 1u;
+    sd = sd > 6u ? 6u : sd;
     for (j = 0; j < NP_PNK; j++) {
-        uint32_t n1 = j + 1u, sk = px_isqrt64((1ull << 32) + bq * n1 * n1);
+        uint32_t n1 = j < 14u ? j + 1u : 14u + (j - 13u) * sd, sk = px_isqrt64((1ull << 32) + bq * n1 * n1);
         uint64_t r = np_udiv((uint64_t)n1 * sk << 16, s1);      /* n sqrt(1 + B n^2) / sqrt(1 + B), Q16 */
         uint64_t c = ((uint64_t)inc * r) >> 16;
         uint32_t f = (uint32_t)((c * 44100u) >> 32), comb, t;
@@ -327,13 +335,19 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
         if (c >= 0x60000000u || f > 9000u)       /* (past 9 kHz: not there) */
             break;
         P->inc[j] = (uint32_t)c;
-        comb = (uint32_t)np_sin((uint32_t)(n1 * (0x80000000u / 8u)));   /* |sin(n pi / 8)|, Q15 */
-        comb = comb > 32767u ? 32767u : comb;
-        lp = (int32_t)np_udiv((uint64_t)fc * fc << 15, fc * fc + f * f);   /* 1 / (1 + (f/fc)^2) */
+        {
+            int32_t cs = np_sin((uint32_t)(n1 * (0x80000000u / 8u)));   /* |sin(n pi / 8)|, Q15 */
+            comb = (uint32_t)(cs < 0 ? -cs : cs);
+            comb = comb > 32767u ? 32767u : comb;
+        }
+        lp = (int32_t)(fh * 32768u / px_isqrt64((uint64_t)fh * fh + (uint64_t)f * f));   /* 1 / sqrt(1 + (f/fh)^2) */
         a = (int32_t)(((int64_t)comb * lp) >> 15);
-        a = a * 46341 / (int32_t)px_isqrt64((uint64_t)n1 << 31);   /* / sqrt(n) */
-        a = n1 < 3u ? a / 2 + a / 4 : a;         /* (the board sends the lowest two less) */
+        a = (int32_t)(((int64_t)a * (int32_t)(32768u - (8100u << 15) / (f * f + 8100u))) >> 15);   /* (the board: weak
+                                                  * under ~90 Hz, the lowest fundamentals less than their partials) */
+        if (j >= 14u && sd > 1u)                 /* (the power of the sd it stands for) */
+            a = (int32_t)(((int64_t)a * (int32_t)px_isqrt64((uint64_t)sd << 30)) >> 15);
         sum += a;
+        sq += (uint64_t)((int64_t)a * a);
         P->ef[j] = a << 14;                      /* (Q15 -> Q29: the prompt sound, most of it) */
         P->es[j] = (a << 14) / 3;                /* (the aftersound) */
         /* their T60s: the partial's (shorter with n and with its frequency), the prompt a fifth of it */
@@ -350,8 +364,13 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
         P->ph[j] = 0;                            /* (struck: from 0, a sine's start) */
         P->n = j + 1u;
     }
-    if (sum > 0) {                               /* (the same loudness whatever the spectrum) */
-        int32_t g = (24000 << 15) / sum;          /* Q15 */
+    if (sum > 0) {   /* (as loud whatever the spectrum: its power the same, its sum never over the top; the treble
+                      * softer, 2 dB an octave over E4, as a piano's short strings and light hammers give less) */
+        uint32_t rms = px_isqrt64(sq);
+        int32_t g = rms ? (int32_t)(11000u * 32768u / rms) : 32768, gm = (24000 << 15) / sum;
+        int32_t tilt = note > 64u ? (int32_t)(px_exp2(-(int32_t)(note - 64u) * 1815) >> 1) : 32768;   /* Q15 */
+        g = g < gm ? g : gm;
+        g = (int32_t)(((int64_t)g * tilt) >> 15);
         for (j = 0; j < P->n; j++) {
             P->ef[j] = (int32_t)(((int64_t)P->ef[j] * g) >> 15);
             P->es[j] = (int32_t)(((int64_t)P->es[j] * g) >> 15);
@@ -359,6 +378,8 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
     }
     P->thump = (int32_t)(vel * vel / 2u) + 600;  /* the knock: as hard as the strike */
     P->click = (int32_t)(vel * vel / 4u) * (int32_t)(64 + hard) / 64;
+    if (note > 72u)                              /* (the treble's felt thinner: its click softer) */
+        P->click = (int32_t)(((int64_t)P->click * (int32_t)(px_exp2(-(int32_t)(note - 72u) * 2731) >> 1)) >> 15);
 }
 static void np_piano(uint32_t k, np_t *S, uint32_t inc, int32_t *out, uint32_t n, const uint32_t *fk, uint32_t fm)
 {

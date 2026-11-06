@@ -171,6 +171,7 @@ int main(int argc, char **argv)
     uint32_t k, w;
     keys_init();
     sys.master_q12 = 4096;
+    sys.spk_bass = 0;                            /* (SPEAKER BASS off: the tests bit for bit as the sound is) */
 
     /* a key: its note (octave 0: key 0 = F3 = 53), MIDI out on channel 1, sound, release */
     fm1_in.notes = 1u << key_of(60);
