@@ -1084,7 +1084,7 @@ static void settings_boot(void)    /* power-on, before the audio */
     settings_t s;
     uint32_t f = irq_save();
     sys.tape_len = 4;                            /* (the tape's LENGTH: 4 bars, unless saved) */
-    flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;
+    flash_ok = fl_id_ok(FL_FAR(fl_jedec_ram)());   /* (either chip) */
     irq_restore(f);
     if (!flash_ok) {
         preset_load(BOOT_PRESET);

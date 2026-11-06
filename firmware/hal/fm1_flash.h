@@ -148,7 +148,10 @@ RAMINL int fl_wait_ready(uint32_t max_us, uint32_t *took_us)
 
 /* ---- entry points: IRQs OFF, args/buffers in RAM ---- */
 
-static RAMFN uint32_t fl_jedec_ram(void)                 /* expect 0x856014 */
+/* the FM-1's flash: a Puya P25Q80 (JEDEC 0x856014) in the first units, a UC25HQ80 (0xB36014) in those sold from
+ * autumn 2026 (the logo printed on the front); both 1 MiB with the same commands (06 05 35 20 02 0B) */
+static inline int fl_id_ok(uint32_t id) { return id == 0x856014u || id == 0xB36014u; }
+static RAMFN uint32_t fl_jedec_ram(void)                 /* see fl_id_ok */
 {
     fl_saved_t s; uint32_t id;
     if (fl_enter(&s)) return 0;

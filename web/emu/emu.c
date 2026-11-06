@@ -89,6 +89,7 @@ static int st_save(uint32_t obj, const void *src, uint32_t len)
 static uint32_t irq_save(void) { return 0; }
 static void irq_restore(uint32_t f) { (void)f; }
 static uint32_t fl_jedec(void) { return 0x856014u; }
+static int fl_id_ok(uint32_t id) { return id == 0x856014u || id == 0xB36014u; }
 #define FL_FAR(f) fl_jedec
 
 /* the USB-MIDI rings of usb.c (MIDI IN), MIDI out: nowhere */

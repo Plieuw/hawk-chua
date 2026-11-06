@@ -72,7 +72,8 @@ static int st_load(uint32_t obj, void *dst, uint32_t max) { if (obj >= OBJ_COUNT
 static int st_save(uint32_t obj, const void *src, uint32_t len) { if (obj >= OBJ_COUNT || len > 3840u) return -1; memcpy(flash_store[obj], src, len); saved[obj] = 1; return 0; }
 static uint32_t irq_save(void) { return 0; }
 static void irq_restore(uint32_t f) { (void)f; }
-static uint32_t fl_jedec(void) { return 0x856014u; }
+static uint32_t fl_jedec(void) { return 0xB36014u; }   /* (the newer units' chip: saving as on the first) */
+static int fl_id_ok(uint32_t id) { return id == 0x856014u || id == 0xB36014u; }
 #define FL_FAR(f) fl_jedec
 static void midi_out_event(uint32_t pkt) { (void)pkt; }   /* (usb.c: not in this test) */
 #include "../firmware/src/panel.c"
