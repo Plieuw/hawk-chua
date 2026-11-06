@@ -1460,6 +1460,11 @@ int main(int argc, char **argv)
         synth_kill(); keys_all_off(); run_ms(300);
         sys.arp_bpm = 120; sys.tape_len = 2; sys.tape_arm = 0; sys.tape_lv[0] = 127;
         sys.fx_mix = 0; sys.sh_mix = 0;
+        sys.tape_len = 4; sys.arp_bpm = 140;                     /* (4 bars: whole from ~133 BPM, halved below) */
+        okk &= tape_cells(2646000u / 140u) == 16u * (2646000u / 140u) / TAPE_DIV && (tape.spb || tape_fit() == 4u);
+        sys.arp_bpm = 120;
+        okk &= tape_cells(2646000u / 120u) == 8u * (2646000u / 120u) / TAPE_DIV;
+        sys.tape_len = 2;
         tape.req = 2;
         run_ms(5);
         okk &= tape.playing && tape.rec && tape.spb == 2646000u / 120u && tape.len == 22050u;
@@ -1469,6 +1474,13 @@ int main(int argc, char **argv)
         run_ms(1400);                                            /* (a pass: 2 s) */
         okk &= !tape.rec && tape.has[0];
         synth_kill();
+        run_ms(333);                                             /* (mid-loop: track 2 from the next block's start) */
+        sys.tape_arm = 1; tape.req = 2; run_ms(1);
+        okk &= tape.rec && (tape.rec_wait || tape.cell % TAPE_KB == 0u);
+        run_ms(2100);
+        okk &= !tape.rec && tape.has[1] && !tape.rec_wait;
+        if (!okk) printf("   (tape: overdub rec %u wait %u)\n", tape.rec, tape.rec_wait);
+        sys.tape_arm = 0; tape.has[1] = 0;
         TAPE_PEAK(2000);
         okk &= pk > 1000;                                        /* the note, from the tape */
         if (!okk) printf("   (tape: playing %u rec %u spb %u len %u peak %d)\n", tape.playing, tape.rec, tape.spb, tape.len, pk);
@@ -1482,16 +1494,33 @@ int main(int argc, char **argv)
         {   /* BOUNCE: track 2 recorded too, then all onto track 1: 2 blank, 1 holds both, armed 2 */
             uint32_t c, diff = 0;
             sys.arp_bpm = 120; run_ms(10);
-            for (c = 0; c < TAPE_N; c++)
-                tape_buf[1][c] = tape_enc((int32_t)(c % 200u) * 40 - 4000);
+            ima_t q = {0, 0};
+            for (c = 0; c < TAPE_N; c++) {
+                if (c % TAPE_KB == 0u)
+                    tape_key(1, c, &q);
+                tape_wnib(1, c, ima_enc(&q, (int32_t)(c % 200u) * 40 - 4000));
+            }
             tape.has[1] = 1; sys.tape_lv[1] = 100; sys.tape_lv[0] = 100;
-            {   uint8_t was0 = tape_buf[0][1000]; (void)was0; }
             tape.req = 4;
-            run_ms(200);                             /* (256 cells a block: ~115 ms) */
-            okk &= !tape.bounce && tape.has[0] && !tape.has[1] && tape_buf[1][1000] == 0xFF && sys.tape_arm == 1u;
-            for (c = 0; c < 2000u; c++)
-                diff += tape_buf[0][c] != 0xFF;
-            okk &= diff > 1000u;
+            run_ms(400);                             /* (256 cells a block: ~230 ms) */
+            okk &= !tape.bounce && tape.has[0] && !tape.has[1] && tape_buf[1][500] == 0 && sys.tape_arm == 1u;
+            for (c = 0; c < 1000u; c++)
+                diff += tape_buf[0][c] != 0;
+            {   /* (the saw on track 2, decoded from track 1 after: close to it) */
+                ima_t d = {0, 0};
+                int32_t e = 0, w;
+                for (c = 30000u; c < 34000u; c++) {   /* (past the loop: track 1 blank there) */
+                    if (c % TAPE_KB == 0u) { d.p = tape_kp[0][c / TAPE_KB]; d.i = tape_ki[0][c / TAPE_KB]; }
+                    w = ima_dec(&d, tape_nib(0, c));
+                    if (c > 30400u) {
+                        int32_t x = w - (int32_t)(c % 200u) * 40 + 4000, lim = 900;
+                        e += x > lim || x < -lim;
+                    }
+                }
+                okk &= e < 400;
+                if (e >= 400) printf("   (bounce: the saw decoded off in %d cells)\n", e);
+            }
+            okk &= diff > 500u;
             if (!okk) printf("   (bounce: %u %u %u %u %u)\n", tape.bounce, tape.has[0], tape.has[1], sys.tape_arm, diff);
             sys.tape_arm = 0; sys.arp_bpm = 60; sys.tape_lv[0] = 127; run_ms(10);
         }

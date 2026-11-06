@@ -1073,6 +1073,7 @@ typedef struct {
     uint16_t preset_b;                           /* part B's preset */
     uint8_t menv3;                               /* MOD ENV HEIGHT as now (both ways, cubic; saved before: squared,
                                                   * up only: the saved presets' turned once, settings_boot) */
+    uint8_t tape4;                               /* (saved before the tape held 7 s: LENGTH 4 BARS, once) */
 } settings_t;
 
 #define BOOT_PRESET (2u * 128u)                 /* after an install: bank 3 (SYNTH), program 1 */
@@ -1082,6 +1083,7 @@ static void settings_boot(void)    /* power-on, before the audio */
 {
     settings_t s;
     uint32_t f = irq_save();
+    sys.tape_len = 4;                            /* (the tape's LENGTH: 4 bars, unless saved) */
     flash_ok = FL_FAR(fl_jedec_ram)() == 0x856014u;
     irq_restore(f);
     if (!flash_ok) {
@@ -1178,7 +1180,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.vel_amt = (uint8_t)(s.vel_amt & 127u);
         for (uint32_t i = 0; i < 4u; i++)
             sys.tape_lv[i] = (uint8_t)(s.tape_lv[i] & 127u);
-        sys.tape_len = (uint8_t)(s.tape_len % 5u);
+        sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
         sys.transpose = (int8_t)clamp(s.transpose, -3, 3);
@@ -1199,6 +1201,7 @@ static int settings_save(void)     /* 0 = saved */
     memset(&s, 0, sizeof s);
     s.magic = SET_MAGIC;
     s.menv3 = 1;
+    s.tape4 = 1;
     s.octave = sys.octave;
     s.chaos = sys.chaos;
     s.shape = sys.shape;
@@ -2032,7 +2035,10 @@ static void ui_draw(void)
         ui_val_c = 0;
         {
             static const char *const LN[5] = {"1 BEAT", "2 BEATS", "1 BAR", "2 BARS", "4 BARS"};
-            ui_cell(T_C3, "3 LENGTH", LN[sys.tape_len % 5u]);
+            uint32_t fit = tape_fit();                           /* (as long as the tape holds: lit if shorter) */
+            ui_val_c = fit < sys.tape_len % 5u ? T_ACCENT : 0;
+            ui_cell(T_C3, "3 LENGTH", LN[fit]);
+            ui_val_c = 0;
         }
         str_cpy(b, c > 0 ? "+" : c < 0 ? "-" : "", sizeof b);
         c = ((c < 0 ? -c : c) + 5) / 10;                         /* (tenths of a semitone, rounded) */
@@ -2384,7 +2390,7 @@ static void ui_draw(void)
                 ui_cat(a, sizeof a, "AT ");
                 ui_cat(a, sizeof a, v);
             } else
-                ui_cat(a, sizeof a, LN[sys.tape_len % 5u]);
+                ui_cat(a, sizeof a, LN[tape_fit()]);
             ui_cat(a, sizeof a, "  x");
             fmt_int(v, (int32_t)(sp / 100u));
             ui_cat(a, sizeof a, v);

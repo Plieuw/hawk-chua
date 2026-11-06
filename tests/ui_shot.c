@@ -465,7 +465,7 @@ int main(int argc, char **argv)
             int8_t o0 = 1;
             sys.octave = o0;
             tape.has[1] = 1; tape.has[2] = 1;
-            memset(tape_buf[2], 0x40, TAPE_N);
+            memset(tape_buf[2], 0x47, sizeof tape_buf[2]);
             fm1_in.buttons = 0; ui_input();          /* (none held: the octave noted) */
             if (pass == 0u) {
                 fm1_in.buttons = btn_bit(B_OCTDN); edges = btn_bit(B_OCTDN); ui_input();
@@ -476,7 +476,7 @@ int main(int argc, char **argv)
             }
             run_ms(300);
             fm1_in.buttons = 0; ui_input();
-            if (tape.bounce || !tape.has[0] || tape.has[1] || tape.has[2] || tape_buf[2][5] != 0xFF || sys.octave != o0 ||
+            if (tape.bounce || !tape.has[0] || tape.has[1] || tape.has[2] || tape_buf[2][5] != 0 || sys.octave != o0 ||
                 !strstr(ui_event, "BOUNCE")) {
                 printf("TAPE BOUNCE from OCT- + OCT+ (%s): has %u %u %u, octave %d, msg '%s'\n", pass ? "at once" : "one, then the other",
                        tape.has[0], tape.has[1], tape.has[2], sys.octave, ui_event);
