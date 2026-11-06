@@ -190,11 +190,11 @@ static void art_tri(int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t x2, 
     if (ye >= (int32_t)cv_h - cv_oy) ye = (int32_t)cv_h - cv_oy - 1;
     for (; y <= ye; y++) {
         int32_t yc = y * 256 + 128, xa, xb, xi, xe;
-        xa = x0 + (int32_t)((int64_t)(x2 - x0) * (yc - y0) / (y2 - y0));
+        xa = x0 + (int32_t)(((int64_t)(x2 - x0) * (((yc - y0) << 12) / (y2 - y0))) >> 12);   /* (no 64-bit divide) */
         if (yc < y1)
-            xb = y1 - y0 ? x0 + (int32_t)((int64_t)(x1 - x0) * (yc - y0) / (y1 - y0)) : x1;
+            xb = y1 - y0 ? x0 + (int32_t)(((int64_t)(x1 - x0) * (((yc - y0) << 12) / (y1 - y0))) >> 12) : x1;
         else
-            xb = y2 - y1 ? x1 + (int32_t)((int64_t)(x2 - x1) * (yc - y1) / (y2 - y1)) : x1;
+            xb = y2 - y1 ? x1 + (int32_t)(((int64_t)(x2 - x1) * (((yc - y1) << 12) / (y2 - y1))) >> 12) : x1;
         if (xa > xb) { t = xa; xa = xb; xb = t; }
         xi = (xa + 128) >> 8;
         xe = (xb - 128) >> 8;
@@ -215,7 +215,7 @@ static void a3_face(v3_t a, v3_t b, v3_t c, v3_t d, v3_t in, uint16_t col, int32
             qz = (int64_t)ux * vy - (int64_t)uy * vx;
     int32_t mx = (a.x + c.x) / 2, my = (a.y + c.y) / 2, mz = (a.z + c.z) / 2;
     while (qx > 16000 || qx < -16000 || qy > 16000 || qy < -16000 || qz > 16000 || qz < -16000) {
-        qx /= 4; qy /= 4; qz /= 4;
+        qx >>= 2; qy >>= 2; qz >>= 2;
     }
     nx = (int32_t)qx; ny = (int32_t)qy; nz = (int32_t)qz;
     if ((int64_t)nx * (mx - in.x) + (int64_t)ny * (my - in.y) + (int64_t)nz * (mz - in.z) < 0) {

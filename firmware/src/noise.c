@@ -282,6 +282,24 @@ static int32_t np_fall(uint32_t t60b)            /* a level's fall a block to -6
     uint32_t e = 653126u / (t60b < 2u ? 2u : t60b);   /* (log2(1000) / t, Q16) */
     return (int32_t)(px_exp2(-(int32_t)e) << 14);
 }
+/* n / d, the quotient under 2^32 (shift and subtract: the target has no 64-bit divide; a strike's few) */
+static uint32_t np_udiv(uint64_t n, uint32_t d)
+{
+    uint64_t r = 0;
+    uint32_t q = 0;
+    int i;
+    if (!d)
+        return 0xFFFFFFFFu;
+    for (i = 63; i >= 0; i--) {
+        r = r << 1 | ((n >> i) & 1u);
+        if (r >= d) {
+            r -= d;
+            if (i < 32)
+                q |= 1u << i;
+        }
+    }
+    return q;
+}
 static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
 {
     np_piano_t *P = &np_pn[k];
@@ -289,7 +307,7 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
     uint32_t note = v->note & 127u, j, vel = (uint32_t)v->amp >> 8;   /* (Q15 -> 0 .. 127) */
     int32_t hard = (int32_t)(sys.np_x & 127u), str = (int32_t)(sys.np_y & 127u);
     int32_t dec = (int32_t)(sys.chaos & 127u) - 64, stf = (int32_t)(sys.output & 127u);
-    uint64_t bq = (uint64_t)NP_PN_B[note] * 4295u * (uint32_t)stf / 51u;   /* B, Q32 (STIFF 51: a piano's) */
+    uint64_t bq = ((uint64_t)NP_PN_B[note] * (uint32_t)stf * 86237u) >> 10;   /* B, Q32 (x 4295 / 51: STIFF 51 a piano's) */
     uint32_t s1 = px_isqrt64((1ull << 32) + bq), tr = note < 21u ? 0u : note > 108u ? 87u : note - 21u;
     /* the fundamental's T60 in blocks: ~20 s at A0, halving every ~20 semitones, x 2^(DECAY / 32) */
     uint32_t t1 = (uint32_t)(((uint64_t)27562u * px_exp2(-(int32_t)tr * 3277 + dec * 2048)) >> 16);
@@ -302,7 +320,7 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
     P->n = 0;
     for (j = 0; j < NP_PNK; j++) {
         uint32_t n1 = j + 1u, sk = px_isqrt64((1ull << 32) + bq * n1 * n1);
-        uint64_t r = ((uint64_t)n1 * sk << 16) / s1;            /* n sqrt(1 + B n^2) / sqrt(1 + B), Q16 */
+        uint64_t r = np_udiv((uint64_t)n1 * sk << 16, s1);      /* n sqrt(1 + B n^2) / sqrt(1 + B), Q16 */
         uint64_t c = ((uint64_t)inc * r) >> 16;
         uint32_t f = (uint32_t)((c * 44100u) >> 32), comb, t;
         int32_t a, lp;
@@ -311,32 +329,34 @@ static void np_piano_strike(uint32_t k, np_t *S, uint32_t inc)
         P->inc[j] = (uint32_t)c;
         comb = (uint32_t)np_sin((uint32_t)(n1 * (0x80000000u / 8u)));   /* |sin(n pi / 8)|, Q15 */
         comb = comb > 32767u ? 32767u : comb;
-        lp = (int32_t)(((uint64_t)fc * fc << 15) / ((uint64_t)fc * fc + (uint64_t)f * f));   /* 1 / (1 + (f/fc)^2) */
+        lp = (int32_t)np_udiv((uint64_t)fc * fc << 15, fc * fc + f * f);   /* 1 / (1 + (f/fc)^2) */
         a = (int32_t)(((int64_t)comb * lp) >> 15);
-        a = (int32_t)(((int64_t)a * 46341) / (int32_t)px_isqrt64((uint64_t)n1 << 31));   /* / sqrt(n) */
+        a = a * 46341 / (int32_t)px_isqrt64((uint64_t)n1 << 31);   /* / sqrt(n) */
         a = n1 < 3u ? a / 2 + a / 4 : a;         /* (the board sends the lowest two less) */
         sum += a;
         P->ef[j] = a << 14;                      /* (Q15 -> Q29: the prompt sound, most of it) */
         P->es[j] = (a << 14) / 3;                /* (the aftersound) */
         /* their T60s: the partial's (shorter with n and with its frequency), the prompt a fifth of it */
-        t = (uint32_t)((uint64_t)t1 * 1000u / (1000u + (n1 - 1u) * 60u + (f / 50u) * (f / 50u) / 4u));
+        t = t1 * 1000u / (1000u + (n1 - 1u) * 60u + (f / 50u) * (f / 50u) / 4u);   /* (t1 < 2^17) */
         P->df[j] = np_fall(t / 5u);
         P->ds[j] = np_fall(t + t / 4u);
         /* the beating: the strings apart by 0 .. 0.6 .. 6 cents (STRINGS 0, 64, 127): f x c / 1731, Hz -> a block */
         {
             uint32_t cents100 = (uint32_t)(str * str) * 37u / 1000u + (np_rnd(&S->rng) & 15u);   /* (cents x 100) */
-            uint64_t bhz = (uint64_t)f * cents100 * 65536u / 173100u;   /* Hz, Q16 */
-            P->bi[j] = (uint32_t)(bhz * 65536u * CTL / 44100u);   /* (Q16 Hz x 2^16 x CTL / FS: Q32 a block) */
+            uint64_t bhz = ((uint64_t)(f * cents100) * 24812u) >> 16;   /* Hz, Q16 (x 65536 / 173100) */
+            P->bi[j] = (uint32_t)((bhz * (uint32_t)((65536ull * CTL << 16) / 44100u)) >> 16);   /* (Q16 Hz x 2^16 x CTL / FS: Q32 a block) */
             P->bp[j] = np_rnd(&S->rng);
         }
         P->ph[j] = 0;                            /* (struck: from 0, a sine's start) */
         P->n = j + 1u;
     }
-    if (sum > 0)                                 /* (the same loudness whatever the spectrum) */
+    if (sum > 0) {                               /* (the same loudness whatever the spectrum) */
+        int32_t g = (24000 << 15) / sum;          /* Q15 */
         for (j = 0; j < P->n; j++) {
-            P->ef[j] = (int32_t)(((int64_t)P->ef[j] * 24000) / sum);
-            P->es[j] = (int32_t)(((int64_t)P->es[j] * 24000) / sum);
+            P->ef[j] = (int32_t)(((int64_t)P->ef[j] * g) >> 15);
+            P->es[j] = (int32_t)(((int64_t)P->es[j] * g) >> 15);
         }
+    }
     P->thump = (int32_t)(vel * vel / 2u) + 600;  /* the knock: as hard as the strike */
     P->click = (int32_t)(vel * vel / 4u) * (int32_t)(64 + hard) / 64;
 }
@@ -427,7 +447,7 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     }
     {   /* the MOD ENV straight on the pitch (no oscillator, no VCA between): HEIGHT^3 the octaves at its peak
          * (0 .. 3: fine near 0), up or down (bit 7: down), the sweep back to the note */
-        int32_t hq = (int32_t)((uint64_t)hgt * hgt * hgt * 3u * 65536u / 2048383u);   /* Q16 octaves */
+        int32_t hq = (int32_t)(((uint64_t)hgt * hgt * hgt * 6441246u) >> 26);   /* Q16 octaves (x 3 / 127^3) */
         if (sys.menv_height & 0x80u)
             hq = -hq;
         if (voice[k].vfm)                        /* (velocity: a soft note's sweep shallower) */

@@ -2174,7 +2174,7 @@ static void ui_draw(void)
         ui_cell(T_C2, "2 SKEW", b);
         if (sys.menv_height & 127u) {               /* (the sweep at the peak, in semitones: HEIGHT^3, 36 the top, up or
                                                   * down; tenths under 10) */
-            uint32_t h = sys.menv_height & 127u, t = (uint32_t)((uint64_t)h * h * h * 360u / 2048383u);   /* tenths */
+            uint32_t h = sys.menv_height & 127u, t = (uint32_t)(((uint64_t)h * h * h * 11794u) >> 26);   /* tenths */
             str_cpy(b, sys.menv_height & 0x80u ? "-" : "+", sizeof b);
             fmt_int(v, (int32_t)(t / 10u));
             ui_cat(b, sizeof b, v);

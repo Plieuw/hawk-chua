@@ -1081,7 +1081,7 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
             a1[m] = a2[m] = b[m] = 0;
         {   /* the tail behind the bridge: high, brief */
             uint32_t th = 2600u + (hz > 2000u ? 1800u : hz * 9u / 10u);
-            wg_mode(&a1[3], &a2[3], &b[3], (uint32_t)(((uint64_t)th << 32) / 22050u), 4410u, 4000 + bright / 12);
+            wg_mode(&a1[3], &a2[3], &b[3], (uint32_t)(((uint64_t)th * 12466118u) >> 6), 4410u, 4000 + bright / 12);
         }
         K->gl -= K->gl / 40;                     /* (the glide: ~60 ms, a block at a time) */
         if (strike) {   /* the tip let go: the tine starts from where the thumb held it, each mode a cosine from its
