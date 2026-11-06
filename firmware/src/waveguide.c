@@ -998,95 +998,152 @@ static void bag_drones(int32_t *y, uint32_t n, int held, int32_t key, int32_t le
 }
 
 /* ----------------------------------------------------------------- KALIMBA --- */
-/* A lamellophone (kalimba, mbira, sanza): a steel tine clamped at one end and plucked at the other, a cantilever:
- * its modes 1 : 6.27 : 17.5 : 34.4 (the clamped-free bar's, far from the harmonic series: what makes it a kalimba and
- * not a bell or a string), the upper ones dying in a moment, the fundamental singing on; STRUCTURE the tine (0: the
- * bare bar's ratios .. 127: a heavier tip, the overtones pulled down, 1 : 5 : 13 : 25); the tines on a box: its air
- * (a Helmholtz resonance near 280 Hz) and its top (~1.1 kHz), rung by the tine (BRIGHTNESS: how much of the upper
- * modes and of the top); DAMPING how long it sings (0.3 .. 6 s); POSITION the buzzers (the mbira's bottle caps and
- * shells on the board: they rattle as the tine swings wide, a hard pluck the most). A tine is plucked once: the note
- * on's thumb (its velocity) flicks it, a short pulse; the voices' sound only colours that pluck (the first ~15 ms,
- * the thumbnail's scrape), so the tine rings out on its own as a real one does, held or not */
+/* A kalimba (mbira, sanza: a lamellophone), built after its physics (Chapman, "The tones of the kalimba", 2012;
+ * Rossing, "Science of Percussion Instruments"): a steel tine pressed onto a bridge, its long end free, flicked by the
+ * thumb. What it plays, at the half rate:
+ *   the tine     a clamped-free bar: its modes at 1 : 6.27 : 17.5 (far from harmonic: neither a bell nor a string);
+ *                the fundamental sings 1.5 .. 9 s (the low tines the longest), the second dies ~7 x sooner, the
+ *                third in a moment. A wide swing is a little stiffer: a hard flick starts a few cents sharp and settles
+ *                (~60 ms). TINE (STRUCTURE): the bare bar's ratios .. a tip weighted and bent, as a tuned tine's
+ *                (1 : 5.3 : 13.5): the overtone nearer, warmer
+ *   the tail     the short end behind the bridge rings too, high (~2.6 .. 4.4 kHz) and brief (~0.2 s): the "ting"
+ *   the flick    the thumb pushes the tip and lets go: a smooth pulse, shorter (brighter) the harder (2.5 .. 0.6 ms),
+ *                and the nail's click on the steel (a 1 ms burst, ~4 kHz; BRIGHTNESS); the voices' sound only colours
+ *                that flick (~6 ms), so the tine rings out on its own, held or not, as a real one does
+ *   the box      a hollow box with a sound hole: the tines' force on the bridge rings its air (a Helmholtz resonance
+ *                ~210 Hz) and its top (~470 Hz, ~1.25 kHz): warmth and the "hollow" of a box kalimba; a steel tine
+ *                itself hardly radiates the low end, the box does
+ *   the buzzers  (BUZZ, POSITION) the mbira's bottle caps and shells: they rattle each time the tine swings past
+ *                their gap, the wider the more, dying with the tine
+ *   DAMPING      how long it sings (x 1/2 .. 2 of the tine's own) */
 #define WG_KM 4
 /* Q28 to an integer, rounded toward zero: a sharp two-pole's state then dies away (rounded down it can ring on for
  * ever at the bottom bit: a limit cycle, a faint tone left on its resonance) */
 static inline int32_t wg_q28z(int64_t a) { return (int32_t)((a < 0 ? a + ((1 << 28) - 1) : a) >> 28); }
-static const uint32_t WG_TINE0[WG_KM] = {4096, 25670, 71885, 140861};   /* Q12: 1, 6.267, 17.55, 34.39 */
-static const uint32_t WG_TINE1[WG_KM] = {4096, 20480, 53248, 102400};   /* 1, 5, 13, 25 */
+static const uint32_t WG_TINE0[3] = {4096, 25670, 71885};    /* Q12: 1, 6.267, 17.55 (the bare clamped-free bar) */
+static const uint32_t WG_TINE1[3] = {4096, 21709, 55296};    /* 1, 5.3, 13.5 (a weighted, bent tip) */
 typedef struct {
-    int32_t y1[WG_KM], y2[WG_KM], h1, h2, p1, p2, bz, env, yp;
-    int32_t win, pa;                             /* the pluck: the voices' window (Q15), the thumb's pulse height */
-    uint32_t pt;                                 /* half-rate samples into the thumb's pulse */
+    int32_t y1[WG_KM], y2[WG_KM];                /* the tine's three modes and its tail */
+    int32_t bx[3][2];                            /* the box: its air, its top's two (state: y1, y2) */
+    int32_t bz, env, yp, ck;                     /* the buzzers; the voices; the last out; the nail's click (Q15) */
+    int32_t win, pa, gl;                         /* the voices' window (Q15); the flick's height; the glide (Q16 cents) */
+    uint32_t pt, pl;                             /* half-rate samples into the flick; its length */
     uint32_t rng;
 } wg_kalimba_t;
-#define WG_KPL 12u                               /* the thumb's pulse: 12 half-rate samples (~0.5 ms) */
+static void wg_mode(int32_t *a1, int32_t *a2, int32_t *b, uint32_t ph, uint32_t t60, int32_t amp)
+{   /* a two-pole at the half rate: ph the half-rate phase a sample, t60 in half-rate samples, amp Q16 */
+    uint32_t e = 653126u / (t60 < 16u ? 16u : t60);
+    int32_t d = e < 2000u ? (int32_t)(e * 2839u) : (int32_t)((1u << 28) - (px_exp2(-(int32_t)e) << 12));
+    int32_t r = (1 << 28) - d, cs = px_sin(ph + 0x40000000u) >> 2, sn = px_sin(ph) >> 2;
+    *a1 = (int32_t)(((int64_t)r * cs) >> 27);
+    *a2 = (int32_t)(((int64_t)r * r) >> 28);
+    *b = (int32_t)(((int64_t)(sn >> 3) * amp) >> 16);
+}
 static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t tine,
                            int32_t buzz, int32_t bright, int32_t damp, uint32_t strike)
 {
-    int32_t a1[WG_KM], a2[WG_KM], b[WG_KM], ha1, ha2, pa1, pa2, hb, pb;
-    uint32_t i, m, nm = 0;
-    uint32_t ts = (uint32_t)(((uint64_t)6615u * px_exp2(damp * 43 / 10)) >> 16);   /* T60 (half-rate samples):
-                                                  * 0.3 .. ~6 s */
+    int32_t a1[WG_KM], a2[WG_KM], b[WG_KM], ba1[3], ba2[3], bb[3];
+    uint32_t i, m, hz = (uint32_t)(((uint64_t)f0 * 44100u) >> 32);
+    uint32_t ts;
     (void)wg_follow(&K->env, in, n);
-    for (m = 0; m < WG_KM; m++) {
-        int32_t ratio = WG_TINE0[m] + (int32_t)(((int64_t)((int32_t)WG_TINE1[m] - (int32_t)WG_TINE0[m]) * tine) >> 16);
-        uint64_t fr = ((uint64_t)f0 * (uint32_t)ratio) >> 12;
-        uint32_t ph, tm, e;
-        int32_t r, cs, sn, d, amp;
-        if (fr * 2u >= 0x70000000u)
-            break;
-        ph = (uint32_t)fr * 2u;
-        tm = m ? ts / (4u + m * m * (uint32_t)(131072 - bright) / 8192u) : ts;   /* the upper modes: brief */
-        tm = tm < 16u ? 16u : tm;
-        e = 653126u / tm;
-        d = e < 2000u ? (int32_t)(e * 2839u) : (int32_t)((1u << 28) - (px_exp2(-(int32_t)e) << 12));
-        r = (1 << 28) - d;
-        cs = px_sin(ph + 0x40000000u) >> 2;
-        sn = px_sin(ph) >> 2;
-        amp = m ? 9000 + bright / 4 : 65536;     /* (the pluck at the tip: the upper modes softer) */
-        a1[m] = (int32_t)(((int64_t)r * cs) >> 27);
-        a2[m] = (int32_t)(((int64_t)r * r) >> 28);
-        b[m] = (int32_t)(((int64_t)(sn >> 3) * amp) >> 16);
-        nm = m + 1u;
+    {   /* the fundamental's T60 (half-rate samples): ~4.5 s at 260 Hz, a sixth longer an octave down (to 9 s), shorter
+         * up (1.5 s at 2 kHz), x 2^((DAMPING - 64) / 64) */
+        int32_t oc = 0;                          /* octaves above 260 Hz, Q16 (a rough log2 by halving) */
+        uint32_t h = hz < 20u ? 20u : hz;
+        while (h >= 520u) { h >>= 1; oc += 65536; }
+        while (h < 260u) { h <<= 1; oc -= 65536; }
+        oc += (int32_t)(h - 260u) * 65536 / 260;
+        ts = (uint32_t)(((uint64_t)99225u * px_exp2(-oc * 2 / 5 + (damp / 516 - 64) * 1024)) >> 16);
+        ts = ts > 220000u ? 220000u : ts;
     }
-    {   /* the box: its air ~280 Hz (Q ~8), its top ~1.1 kHz (Q ~5), at the half rate */
-        ha1 = 533289919; ha2 = 266559696; hb = 299528;            /* (r 0.9965, w 2 pi 280 / 22050; peak x 2) */
-        pa1 = 503051945; pa2 = 260442790; pb = 1241538 + bright * 19;   /* (r 0.985, w 2 pi 1100 / 22050; x 0.5 .. 1) */
-    }
-    if (strike) {                                /* the thumb: a pulse as high as the pluck is hard, the window open */
-        K->pa = (int32_t)(strike * strike) * (PX_ONE / 2048);   /* (velocity squared: 127 ~ 8 x PX_ONE) */
+    if (strike) {                                /* the thumb: as hard as the note on */
+        uint32_t v = strike > 127u ? 127u : strike;
+        K->pa = (int32_t)(v * v / 127u + v / 4u) * (PX_ONE / 512);   /* (the thump's height) */
+        K->pl = 55u - v * 42u / 127u;            /* (55 .. 13 half-rate samples: 2.5 .. 0.6 ms) */
         K->pt = 0;
         K->win = 32767;
+        K->gl = (int32_t)v * 6 * 65536 / 127;    /* (up to 6 cents sharp) */
+        K->ck = 1000 + bright / 6 + (int32_t)v * 60;   /* the nail */
+        if (!K->rng)
+            K->rng = 0x9E3779B9u;
     }
+    {   /* the tine's modes, a few cents sharp while the swing is wide */
+        uint32_t fg = (uint32_t)(((uint64_t)f0 * px_exp2(K->gl / 1200)) >> 16);
+        for (m = 0; m < 3u; m++) {
+            int32_t ratio = (int32_t)WG_TINE0[m] + (int32_t)(((int64_t)((int32_t)WG_TINE1[m] - (int32_t)WG_TINE0[m]) * tine) >> 16);
+            uint64_t fr = ((uint64_t)fg * (uint32_t)ratio) >> 12;
+            if (fr * 2u >= 0x70000000u)          /* (past ~9.6 kHz: not there) */
+                break;
+            wg_mode(&a1[m], &a2[m], &b[m], (uint32_t)fr * 2u, m == 0u ? ts : m == 1u ? ts / 7u : ts / 22u,
+                    m == 0u ? 65536 : m == 1u ? 15000 + bright / 6 : 5000 + bright / 10);
+        }
+        for (; m < 3u; m++)
+            a1[m] = a2[m] = b[m] = 0;
+        {   /* the tail behind the bridge: high, brief */
+            uint32_t th = 2600u + (hz > 2000u ? 1800u : hz * 9u / 10u);
+            wg_mode(&a1[3], &a2[3], &b[3], (uint32_t)(((uint64_t)th << 32) / 22050u), 4410u, 4000 + bright / 12);
+        }
+        K->gl -= K->gl / 40;                     /* (the glide: ~60 ms, a block at a time) */
+        if (strike) {   /* the tip let go: the tine starts from where the thumb held it, each mode a cosine from its
+                         * share of that bend (the tip's: the fundamental most; harder and BRIGHTER, more of the upper
+                         * ones and of the tail, which the swing sets ringing at the bridge) */
+            uint32_t v = strike > 127u ? 127u : strike;
+            int32_t A = (int32_t)(v * v / 127u + v / 4u) * (PX_ONE / 48), up = 16384 + (int32_t)v * 160 + bright / 4;
+            static const int32_t SHARE[WG_KM] = {32768, 6500, 900, 2100};   /* (Q15 of the bend, at up = 1) */
+            for (m = 0; m < WG_KM; m++) {
+                int32_t am;
+                if (!a1[m])
+                    continue;
+                am = m ? px_m(px_m(A, SHARE[m], 15), up, 15) : A;
+                K->y1[m] += am;                  /* (y[0] = A, y[-1] = A cos w / r ~ A a1 / 2: a1 = 2 r cos w, Q28) */
+                K->y2[m] += (int32_t)(((int64_t)am * (a1[m] >> 13)) >> 16);
+            }
+        }
+    }
+    /* the box: the air ~210 Hz (T60 0.12 s), its top ~470 Hz (0.09 s) and ~1.25 kHz (0.05 s) */
+    wg_mode(&ba1[0], &ba2[0], &bb[0], (uint32_t)((210ull << 32) / 22050u), 2650u, 52000);
+    wg_mode(&ba1[1], &ba2[1], &bb[1], (uint32_t)((470ull << 32) / 22050u), 2000u, 30000);
+    wg_mode(&ba1[2], &ba2[2], &bb[2], (uint32_t)((1250ull << 32) / 22050u), 1100u, 16000);
     for (i = 0; i < n; i += 2u) {
-        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], o = 0, h, p, a;
-        x = px_m(x, K->win, 15);                 /* (the voices: only in the pluck) */
-        K->win -= K->win >> 8;                   /* (~12 ms) */
-        if (K->pt < WG_KPL) {                    /* the thumb's pulse: a half sine */
-            x += px_m(K->pa, px_sin(K->pt * (0x80000000u / WG_KPL)) >> 15, 15);
+        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], o = 0, br = 0, a, t;
+        x = px_m(x, K->win, 15) / 32;            /* (the voices: only in the flick, softly) */
+        K->win -= K->win >> 7;                   /* (~6 ms) */
+        if (K->pt < K->pl) {                     /* the flick: a raised cosine */
+            x += px_m(K->pa, (32768 - (px_sin(K->pt * (0xFFFFFFFFu / K->pl) + 0x40000000u) >> 15)) / 2, 15);
             K->pt++;
         }
-        for (m = 0; m < nm; m++) {
-            int32_t v = wg_q28z((int64_t)a1[m] * K->y1[m] - (int64_t)a2[m] * K->y2[m] + (int64_t)b[m] * x);
+        for (m = 0; m < WG_KM; m++) {
+            int32_t v;
+            if (!b[m] && !K->y1[m] && !K->y2[m])
+                continue;
+            v = wg_q28z((int64_t)a1[m] * K->y1[m] - (int64_t)a2[m] * K->y2[m] + (int64_t)b[m] * x);
             v = px_clamp(v, -32 * PX_ONE, 32 * PX_ONE);
             K->y2[m] = K->y1[m];
             K->y1[m] = v;
-            o += v >> 2;
+            if (m == 0u)
+                br += v;                         /* (the bridge feels the fundamental most) */
+            else
+                br += v >> 2;
+            o += m == 0u ? v / 3 : v;            /* (the steel itself: its highs; its low end it hardly sends) */
         }
-        for (; m < WG_KM; m++)
-            K->y1[m] = K->y2[m] = 0;
-        h = wg_q28z((int64_t)ha1 * K->h1 - (int64_t)ha2 * K->h2 + (int64_t)hb * o);   /* the box */
-        h = px_clamp(h, -32 * PX_ONE, 32 * PX_ONE);
-        K->h2 = K->h1; K->h1 = h;
-        p = wg_q28z((int64_t)pa1 * K->p1 - (int64_t)pa2 * K->p2 + (int64_t)pb * o);
-        p = px_clamp(p, -32 * PX_ONE, 32 * PX_ONE);
-        K->p2 = K->p1; K->p1 = p;
-        o = o + h / 2 + p / 2;
+        for (m = 0; m < 3u; m++) {               /* the box, rung through the bridge */
+            int32_t v = wg_q28z((int64_t)ba1[m] * K->bx[m][0] - (int64_t)ba2[m] * K->bx[m][1] + (int64_t)bb[m] * (br >> 3));
+            v = px_clamp(v, -32 * PX_ONE, 32 * PX_ONE);
+            K->bx[m][1] = K->bx[m][0];
+            K->bx[m][0] = v;
+            o += v;
+        }
+        o += br / 2;                             /* (and the bridge's own sound through the box: the body of it) */
+        if (K->ck > 64) {                        /* the nail's click: a brief burst, high */
+            t = (int32_t)(px_rand(&K->rng) >> 12) - (int32_t)(px_rand(&K->rng) >> 12);   /* (a difference: high) */
+            o += px_m(t, K->ck, 15) >> 1;
+            K->ck -= K->ck >> 4;                 /* (~1 ms) */
+        }
         if (buzz) {                              /* the buzzers: a rattle as the swing passes their gap */
-            a = o < 0 ? -o : o;
-            a = a > PX_ONE / 8 ? a - PX_ONE / 8 : 0;
-            K->bz += px_m(8000, px_m((int32_t)(px_rand(&K->rng) >> 11) - (1 << 20), a, 20) - K->bz, 15);
-            o += K->bz * buzz / 16;
+            a = K->y1[0] < 0 ? -K->y1[0] : K->y1[0];
+            a = a > PX_ONE / 6 ? a - PX_ONE / 6 : 0;
+            K->bz += px_m(9000, px_m((int32_t)(px_rand(&K->rng) >> 11) - (1 << 20), a, 20) - K->bz, 15);
+            o += K->bz * buzz / 12;
         }
         y[i] = (K->yp + o) >> 1;
         if (i + 1u < n)

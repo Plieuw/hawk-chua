@@ -263,7 +263,7 @@ static const preset_t PRESETS[] = {
     {"BANJO", 85, 76, 0, 0, 52, 0, 52, 0, RZ_STRING, 20, 127, 45, 20, 100, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
     {"SHAMISEN", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 10, 127, 37, 30, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
     {"KOTO", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 60, 95, 72, 20, 85, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0},
-    {"KALIMBA", 85, 76, 0, 0, 42, 0, 42, 0, RZ_KALIMBA, 20, 80, 92, 0, 120, 50, 40, 0, 72, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_HARP, 72, 0},
+    {"KALIMBA", 85, 76, 0, 0, 42, 0, 42, 0, RZ_KALIMBA, 20, 80, 64, 0, 127, 50, 40, 0, 72, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_HARP, 72, 0},
     {"BAGPIPE", NZK, 10, 70, 127, 60, 20, RZ_BAGPIPE, 20, 100, 80, 0, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, VLNB, NZ(1, 6), 63, 63, 0, 0, 0, 12, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"SHANAI", CYC, 20, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
@@ -433,7 +433,7 @@ static const preset_t PRESETS[] = {
     {"MUTED BANJO", 85, 76, 0, 0, 40, 0, 40, 0, RZ_STRING, 20, 127, 40, 20, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
     {"TSUGARU", 85, 76, 0, 0, 42, 0, 42, 0, RZ_STRING, 10, 127, 45, 16, 100, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
     {"TAISHO KOTO", 85, 76, 0, 0, 46, 0, 46, 0, RZ_SYMP, 60, 115, 72, 30, 85, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0},
-    {"MBIRA", 85, 76, 0, 0, 46, 0, 46, 0, RZ_KALIMBA, 60, 90, 95, 60, 120, 50, 40, 0, 72, SI_OCT, 90, 19, 0, 30, 0, 0, 0, 0, SS_HARP, 72, 0},
+    {"MBIRA", 85, 76, 0, 0, 46, 0, 46, 0, RZ_KALIMBA, 60, 90, 72, 60, 127, 50, 40, 0, 72, SI_OCT, 90, 19, 0, 30, 0, 0, 0, 0, SS_HARP, 72, 0},
     {"DRONE PIPES", NZK, 10, 70, 127, 64, 20, RZ_BAGPIPE, 40, 90, 110, 0, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FOLK FIDDLE", NZK, 30, 72, 115, 62, 30, RZ_BOW, 100, 120, 78, 30, 127, VLNB, NZ(1, 6), 63, 63, .sh_space = SS_VIOLIN, .eg = EG_SWELL},
     {"ZURNA", CYC, 16, 72, 115, 58, 30, RZ_REED, 127, 127, 68, 127, 127, ROOM, NOOSC, 30, .eg = EG_GROWL},
@@ -743,7 +743,7 @@ static const fx_preset_t FX_PRESETS[] = {
     {"OBOE", RZ_REED, 110, 100, 78, 120, 127},
     {"MUSETTE", RZ_ACCORD, 70, 80, 60, 64, 127}, {"BANDONEON", RZ_ACCORD, 15, 40, 80, 30, 127},
     {"HIGHLAND PIPES", RZ_BAGPIPE, 20, 100, 80, 0, 127},
-    {"KALIMBA", RZ_KALIMBA, 20, 80, 92, 0, 120},  {"MBIRA BUZZ", RZ_KALIMBA, 60, 90, 95, 60, 120},
+    {"KALIMBA", RZ_KALIMBA, 20, 80, 64, 0, 127},  {"MBIRA BUZZ", RZ_KALIMBA, 60, 90, 72, 60, 127},
     {"DIDGERIDOO", RZ_DIDGE, 10, 60, 60, 40, 127}, {"SHAKUHACHI", RZ_SHAKU, 60, 70, 80, 0, 127},
 };
 #define NFX_PRESETS (sizeof FX_PRESETS / sizeof FX_PRESETS[0])

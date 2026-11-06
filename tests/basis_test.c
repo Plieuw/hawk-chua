@@ -2137,7 +2137,7 @@ int main(int argc, char **argv)
                 int32_t pk = 0;
                 synth_kill(); sys.fx_mix = 0; run_ms(20);
                 sys.fx_model = (uint8_t)md2; sys.fx_damp = 127; sys.fx_mix = 127;
-                synth_note_on(57, 110); run_ms(200); synth_kill(); run_ms(md2 == RZ_DRUM || md2 == RZ_KALIMBA ? 9000 : 3000);   /* (the drum rings 4 s, the tine 6) */
+                synth_note_on(57, 110); run_ms(200); synth_kill(); run_ms(md2 == RZ_DRUM ? 9000 : md2 == RZ_KALIMBA ? 14000 : 3000);   /* (the drum rings 4 s, a low tine ~9) */
                 for (w2 = 0; w2 < 100u; w2++) {
                     synth_render(buf, CTL);
                     for (q = 0; q < CTL; q++) pk = abs(buf[2 * q]) > pk ? abs(buf[2 * q]) : pk;

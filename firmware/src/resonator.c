@@ -338,13 +338,13 @@ static void rz_run(uint32_t r, uint32_t n)
         wg_kalimba_run(&R->u.kl, in, y, n, f0, strc, pos, brit, damp, R->strike);
         if (view) {                              /* (the tine's modes) */
             uint32_t m2;
-            for (m2 = 0; m2 < WG_KM; m2++) {
+            for (m2 = 0; m2 < 3u; m2++) {
                 int32_t ra = WG_TINE0[m2] + (int32_t)(((int64_t)((int32_t)WG_TINE1[m2] - (int32_t)WG_TINE0[m2]) * strc) >> 16);
                 uint64_t fr = ((uint64_t)f0 * (uint32_t)ra) >> 12;
                 rz_view.f[m2] = fr < 0x7F000000u ? (uint32_t)fr : 0u;
                 rz_view.a[m2] = (int16_t)(32767 / (int32_t)(m2 * 3u + 1u));
             }
-            rz_view.n = WG_KM;
+            rz_view.n = 3u;
         }
         break;
     case RZ_BAGPIPE:                             /* the chanter: a hard double reed on a narrow cone */
