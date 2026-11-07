@@ -1888,11 +1888,11 @@ int main(int argc, char **argv)
          * on its own clock and on MIDI clock */
         uint32_t okk = 1, m, d, ext;
         for (ext = 0; ext < 2u; ext++)
-            for (d = 0; d < 2u; d++)
+            for (d = 0; d < 3u; d++)             /* (1/16, 1/8, 1/12: SUBDIVIDE its own on the one clock) */
                 for (m = 1; m <= 3u; m++) {
                     uint32_t w0, g0, i, na = 0, nk = 0, pa = 0, pk = 0, both = 0, b;
                     synth_kill(); keys_all_off(); run_ms(300);
-                    sys.arp_type = 0; sys.arp_div = d ? 4 : 7; sys.arp_swing = 0; sys.arp_gate = 60; sys.arp_hold = 0;
+                    sys.arp_type = 0; sys.arp_div = d == 2u ? 6 : d ? 4 : 7; sys.arp_swing = 0; sys.arp_gate = 60; sys.arp_hold = 0;
                     sys.k_ge = 0; sys.k_latch = 0; sys.k_m[0] = sys.k_m[1] = sys.k_m[2] = sys.k_m[3] = 64;
                     sys.arp_bpm = 120; sys.k_logic = (uint8_t)m; sys.k_on = 1; sys.arp_on = 1;
                     run_ms(20);
@@ -1901,7 +1901,7 @@ int main(int argc, char **argv)
                     if (ext) for (b = 0; b < 12u; b++) { midi_in(0xF8, 0, 0); run_ms(20); }
                     else run_ms(300);
                     w0 = logic_view.w; g0 = gen_n;
-                    for (b = 0; b < 192u; b++) {         /* (two bars of sixteenths at 120: 21 ms a clock) */
+                    for (b = 0; b < (d == 2u ? 96u : 192u); b++) {   /* (two bars at 120, a clock 21 ms; triplets one) */
                         if (ext) midi_in(0xF8, 0, 0);
                         run_ms(ext ? 20 : 21);
                     }
@@ -1915,11 +1915,12 @@ int main(int argc, char **argv)
                     }
                     if (logic_view.w - w0 > 32u) okk = 0;   /* (the view keeps 32) */
                     /* (the grid: the eighths' ARP hits on every 2nd sixteenth, on KARMA's own; all its hits met) */
-                    if (na < (d ? 7u : 14u) || nk < 10u || both < (d ? 5u : 10u)) okk = 0;
+                    if (na < (d == 2u ? 11u : d ? 7u : 14u) || nk < (d == 2u ? 5u : 10u) || both < (d == 2u ? 3u : d ? 5u : 10u)) okk = 0;
+                    if (d == 2u && both > 5u) okk = 0;   /* (triplets meet the sixteenths once a beat) */
                     if (gen_n - g0 < pa + pk - 2u || gen_n - g0 > pa + pk + 2u) okk = 0;
                     if (!okk) {
                         printf("   (LOGIC %u %s ext %u: entries %u arp %u karma %u both %u through %u + %u notes %u)\n", m,
-                               d ? "1/8" : "1/16", ext, logic_view.w - w0, na, nk, both, pa, pk, gen_n - g0);
+                               d == 2u ? "1/12" : d ? "1/8" : "1/16", ext, logic_view.w - w0, na, nk, both, pa, pk, gen_n - g0);
                         break;
                     }
                     midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
