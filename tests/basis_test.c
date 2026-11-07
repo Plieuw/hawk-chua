@@ -1883,6 +1883,77 @@ int main(int argc, char **argv)
               "FREE EG PHRASE", okk);
 #undef KOK
     }
+    {   /* LOGIC: the ARP (UP, every sixteenth or eighth) with KARMA (PULSE ARP: 12 hits in 16 sixteenths, its ghosts
+         * rests) on one grid: OR both, AND only where both, XOR only where one; the notes made as many as let through;
+         * on its own clock and on MIDI clock */
+        uint32_t okk = 1, m, d, ext;
+        for (ext = 0; ext < 2u; ext++)
+            for (d = 0; d < 2u; d++)
+                for (m = 1; m <= 3u; m++) {
+                    uint32_t w0, g0, i, na = 0, nk = 0, pa = 0, pk = 0, both = 0, b;
+                    synth_kill(); keys_all_off(); run_ms(300);
+                    sys.arp_type = 0; sys.arp_div = d ? 4 : 7; sys.arp_swing = 0; sys.arp_gate = 60; sys.arp_hold = 0;
+                    sys.k_ge = 0; sys.k_latch = 0; sys.k_m[0] = sys.k_m[1] = sys.k_m[2] = sys.k_m[3] = 64;
+                    sys.arp_bpm = 120; sys.k_logic = (uint8_t)m; sys.k_on = 1; sys.arp_on = 1;
+                    run_ms(20);
+                    if (ext) midi_in(0xFA, 0, 0);
+                    midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
+                    if (ext) for (b = 0; b < 12u; b++) { midi_in(0xF8, 0, 0); run_ms(20); }
+                    else run_ms(300);
+                    w0 = logic_view.w; g0 = gen_n;
+                    for (b = 0; b < 192u; b++) {         /* (two bars of sixteenths at 120: 21 ms a clock) */
+                        if (ext) midi_in(0xF8, 0, 0);
+                        run_ms(ext ? 20 : 21);
+                    }
+                    for (i = w0; i != logic_view.w; i++) {
+                        uint8_t v = logic_view.v[i & 31u];
+                        na += v & 1u; nk += (v >> 1) & 1u; pa += (v >> 2) & 1u; pk += (v >> 3) & 1u;
+                        both += (v & 3u) == 3u;
+                        if (m == 2u && ((v >> 2 & 1u) != (v & 3u) / 3u || (v >> 3 & 1u) != (v & 3u) / 3u)) okk = 0;
+                        if (m == 3u && ((v >> 2 & 1u) != ((v & 3u) == 1u) || (v >> 3 & 1u) != ((v & 3u) == 2u))) okk = 0;
+                        if (m == 1u && (v >> 2) != (v & 3u)) okk = 0;
+                    }
+                    if (logic_view.w - w0 > 32u) okk = 0;   /* (the view keeps 32) */
+                    /* (the grid: the eighths' ARP hits on every 2nd sixteenth, on KARMA's own; all its hits met) */
+                    if (na < (d ? 7u : 14u) || nk < 10u || both < (d ? 5u : 10u)) okk = 0;
+                    if (gen_n - g0 < pa + pk - 2u || gen_n - g0 > pa + pk + 2u) okk = 0;
+                    if (!okk) {
+                        printf("   (LOGIC %u %s ext %u: entries %u arp %u karma %u both %u through %u + %u notes %u)\n", m,
+                               d ? "1/8" : "1/16", ext, logic_view.w - w0, na, nk, both, pa, pk, gen_n - g0);
+                        break;
+                    }
+                    midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
+                    run_ms(300);
+                }
+        {   /* NOTE QUANT: C major held: C# to C, F# to F (the lower of two), in SCALE; D to C, F to E in CHORD; A minor:
+             * G# to G; off: as it is; the note made ends as the one it sounded as */
+            synth_kill(); keys_all_off(); run_ms(50);
+            sys.k_logic = 1; sys.arp_on = sys.k_on = 1; run_ms(5);
+            arp.n = 3; arp.note[0] = 60; arp.note[1] = 64; arp.note[2] = 67;
+            sys.k_lq = 1;
+            okk &= logic_q(61) == 60u && logic_q(66) == 65u && logic_q(71) == 71u && logic_q(74) == 74u;
+            sys.k_lq = 2;
+            okk &= logic_q(62) == 60u && logic_q(65) == 64u && logic_q(76) == 76u && logic_q(70) == 72u;
+            arp.note[0] = 57; arp.note[1] = 60; arp.note[2] = 64; sys.k_lq = 1;
+            okk &= logic_q(56) == 55u && logic_q(68) == 67u && logic_q(62) == 62u;
+            sys.k_lq = 0;
+            okk &= logic_q(61) == 61u;
+            sys.k_lq = 1;
+            gen_on(58, 100);                     /* (A#: sounds as A) */
+            run_ms(5);
+            {   uint32_t k, on57 = 0;
+                for (k = 0; k < NVOICE; k++) on57 |= voice[k].stage != ST_OFF && voice[k].stage != ST_RELEASE && voice[k].note == 57u;
+                gen_off(58); run_ms(5);
+                for (k = 0; k < NVOICE; k++) okk &= !(voice[k].stage != ST_OFF && voice[k].stage != ST_RELEASE && voice[k].note == 57u);
+                okk &= on57 != 0;
+            }
+            arp.n = 0;
+            if (!okk) printf("   (NOTE QUANT)\n");
+        }
+        sys.k_on = sys.arp_on = 0; sys.k_logic = 0;
+        run_ms(100);
+        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR, on its own clock and MIDI clock; NOTE QUANT", okk);
+    }
 
     /* KARMA running every GE while the oscillator, X / Y, FM, the FX model and the GE's knobs are turned at random
      * (the crash report of 2026-10-29: KARMA and the oscillator's ALGORITHM): in bounds (the sanitizers), bounded */

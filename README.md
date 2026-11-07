@@ -51,7 +51,7 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | ARP | de ARP-pagina; nog een keer: terug naar HOME (het lampje brandt zolang de arpeggiator speelt) |
 | REC | de TAPE-pagina (bandrecorder); daar: opnemen. Op de FREE EG-pagina neemt REC FREE EG op (bij NOTE nog een keer om te stoppen) |
 | SCL | de PAN-pagina (nog een keer: terug naar HOME): KNOB 1 BASIS (stereo-spreiding per noot), KNOB 2 ORBIT (de stemmen bewegen mee met hun plaatje); de stemmen staan getekend waar ze in het stereobeeld klinken |
-| SEQ | de KARMA-pagina (de frasegenerator); nog een keer: terug naar HOME (het lampje brandt zolang KARMA speelt) |
+| SEQ | de KARMA-pagina (de frasegenerator); nog een keer: de LOGIC-pagina (ARP en KARMA samen); nog een keer: terug naar HOME (het lampje brandt zolang KARMA speelt) |
 | PLAY | start en stopt de ARP of KARMA: op de ARP-pagina de ARP, op de SEQ-pagina KARMA, op andere pagina's de laatste van de twee die je opende. Brandt (ook groen) zolang er een speelt |
 | OCT- / OCT+ | octaaf −3..+3 |
 | SAVE | (knippert altijd, één keer per maat op de eerste tel; alle knipperende LEDs volgen de BPM) alle instellingen in flash (terug na herstart), én de klank zoals hij nu is over de preset die speelt (de naam blijft); PRESETS en program change laden daarna die opgeslagen versie. Via USB: `python3 tools/fm1_remote.py presets presets.txt` of de knop *Presets → C* op de Remote-pagina geeft alle 512 als regels voor de tabel in `firmware/src/ui.c` (de opgeslagen gemarkeerd `SAVED`); `reset-presets` of *Opgeslagen presets wissen* zet de ingebouwde terug |
@@ -119,7 +119,7 @@ plaatsen van BASIS (de volgende noot krijgt de hoge streep) en de stemmen die kl
 hij aan staat). Aan: de noten die je vasthoudt (toetsen en MIDI in) klinken niet zelf, de arpeggiator speelt ze.
 Zolang er MIDI clock binnenkomt (USB of TRS, 24 per kwartnoot) loopt hij daarop mee (START begint het patroon
 opnieuw); komt er 0,5 s geen clock, dan loopt hij op zijn eigen BPM. Naar de arpeggiators van de Yamaha AN1x en DJX.
-Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) staan nooit tegelijk aan.
+Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) staan alleen tegelijk aan met LOGIC (zie onder).
 
 | Bediening | Functie |
 | --- | --- |
@@ -233,6 +233,14 @@ als een rol; onderin de klok en de lengte ("20 x 1/16").
 **KARMA, de ARP en FREE EG samen.**
 - *Eén tegelijk.* KARMA en de ARP pakken allebei de noten die je vasthoudt; zet je de een aan, dan gaat de ander uit
   en de vastgehouden noten gaan mee over. Zet je hem uit, dan klinkt het akkoord gewoon.
+- *Samen: LOGIC* (SEQ twee keer). KNOB 1 LOGIC: OFF (één tegelijk, zoals hierboven), OR (allebei spelen alles), AND
+  (een noot van de een klinkt alleen waar de ander op dezelfde tel ook speelt), XOR (alleen waar de ander niet speelt:
+  ze vullen elkaars gaten). Beide spelen dezelfde vastgehouden noten op één klok, die van KARMA: de ARP begint mee met
+  de frase (op de zestiende), en de vergelijking gebeurt op het rechte raster; SWING komt daarna, voor elk apart. Een
+  stap die tegengehouden wordt is een rust, het patroon loopt door. KNOB 2 NOTE QUANT: SCALE (standaard: alles wat de
+  twee maken in de toonladder van het akkoord, majeur of mineur vanaf de laagste noot; de akkoordtonen zelf altijd),
+  CHORD (alleen de akkoordtonen) of OFF. PLAY op deze pagina zet ze samen aan en uit. De pagina laat de laatste tellen
+  zien: wat de ARP speelt, wat KARMA speelt en wat erdoor komt.
 - *Eén tempo.* KARMA loopt op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de frase
   opnieuw), en neemt de SWING van de ARP-pagina over voor zijn zestienden (of achtsten). Een nieuwe frase begint op
   de volgende zestiende (KARMA's *Quantize Trigger*); vanuit stilte meteen.

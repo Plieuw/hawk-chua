@@ -1085,6 +1085,8 @@ typedef struct {
     uint8_t snd;                                 /* (saved before the SOUND page: SPEAKER BASS 4, LEVEL MATCH on; 1: 1.9.2's 64) */
     uint8_t spk_bass, lvl_match;
     uint8_t bend_range;                          /* (3: saved; before: 12) */
+    uint8_t k_logic;                             /* (4: saved; before: OFF) */
+    uint8_t k_lq;                                /* (4: saved; before: SCALE) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1182,7 +1184,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.feg_npts = (uint8_t)(s.feg_npts & 127u);
         for (uint32_t i = 0; i < FEG_N; i++)
             feg.curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
-        sys.k_on = (uint8_t)(s.k_on != 0 && !sys.arp_on);
+        sys.k_on = (uint8_t)(s.k_on != 0 && (!sys.arp_on || (s.snd >= 4u && s.k_logic)));
         sys.k_ge = (uint8_t)(s.k_ge % KGE_N);
         sys.k_latch = (uint8_t)(s.k_latch != 0);
         sys.mw_target = (uint8_t)(s.mw_target % FEG_NT);
@@ -1194,6 +1196,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
         sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
+        sys.k_logic = (uint8_t)(s.snd >= 4u ? s.k_logic & 3u : 0u);
+        sys.k_lq = (uint8_t)(s.snd >= 4u ? s.k_lq % 3u : 1u);
         sys.bend_range = (uint8_t)(s.snd >= 3u ? (s.bend_range > 12u ? 12u : s.bend_range) : 12u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
@@ -1216,7 +1220,9 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 3;
+    s.snd = 4;
+    s.k_logic = sys.k_logic;
+    s.k_lq = sys.k_lq;
     s.bend_range = sys.bend_range;
     s.spk_bass = sys.spk_bass;
     s.lvl_match = sys.lvl_match;
@@ -1810,6 +1816,35 @@ static void draw_multi(void)
     cv_blit(0, PLOT_Y);
 }
 
+/* LOGIC: the mode, the last steps where either hit: the ARP's row, KARMA's, and what came through */
+static void draw_logic(void)
+{
+    static const char *const LG[4] = {"OFF", "OR", "AND", "XOR"};
+    static const char *const LD[4] = {"ONE OR THE OTHER", "BOTH PLAY", "ONLY WHERE BOTH HIT", "ONLY WHERE ONE HITS"};
+    uint32_t w = logic_view.w, i;
+    int on = logic_on();
+    cv_begin(240, PLOT_H, T_BG);
+    cv_text(8, 4, &AF_M, "ARP", on ? T_THEME : T_DIM);
+    cv_text(64, 4, &AF_M, LG[sys.k_logic & 3u], on ? T_ACCENT : T_DIM);
+    cv_text(140, 4, &AF_M, "KARMA", on ? T_THEME : T_DIM);
+    cv_text(8, 30, &AF_S, LD[sys.k_logic & 3u], T_DIM);
+    cv_text(160, 30, &AF_S, sys.k_lq == 2u ? "Q CHORD" : sys.k_lq ? "Q SCALE" : "Q OFF", sys.k_lq ? T_TEXT : T_DIM);
+    cv_text(8, 52, &AF_S, "A", T_DIM);
+    cv_text(8, 72, &AF_S, "K", T_DIM);
+    cv_text(8, 96, &AF_S, "OUT", T_DIM);
+    for (i = 0; i < 24u; i++) {                  /* (the oldest left) */
+        uint8_t b = logic_view.v[(w - 24u + i) & 31u];
+        int32_t x = 40 + (int32_t)i * 8;
+        if (w < 24u - i)
+            continue;
+        cv_rect(x, 54, 6, 10, b & 1u ? (b & 4u ? T_THEME : ux_mix(T_BG, T_THEME, 30)) : ux_mix(T_BG, T_DIM, 25));
+        cv_rect(x, 74, 6, 10, b & 2u ? (b & 8u ? T_THEME : ux_mix(T_BG, T_THEME, 30)) : ux_mix(T_BG, T_DIM, 25));
+        cv_rect(x, 98, 6, 10, b & 12u ? T_ACCENT : ux_mix(T_BG, T_DIM, 25));
+    }
+    if (!on)
+        cv_text(8, 112, &AF_S, sys.k_logic ? "PLAY: ARP + KARMA" : "LOGIC 1: OR AND XOR", T_DIM);
+    cv_blit(0, PLOT_Y);
+}
 static void draw_sound(void)
 {
     char a[40], v[8];
@@ -2156,6 +2191,13 @@ static void ui_draw(void)
         ui_val_c = FEG_FM(sys.feg_target) ? T_FM : 0;   /* (an FM target: green) */
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
+    } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
+        static const char *const LG[4] = {"OFF", "OR", "AND", "XOR"};
+        static const char *const LQ[3] = {"OFF", "SCALE", "CHORD"};
+        ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic & 3u]);
+        ui_cell(T_C2, "2 NOTE QUANT", LQ[sys.k_lq % 3u]);
+        ui_cell(T_C3, "3", "");
+        ui_cell(T_C4, "4", "");
     } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH */
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
         ui_cell(T_C1, "1 SPEAKER BASS", sys.spk_bass & 127u ? v : "OFF");
@@ -2521,6 +2563,8 @@ static void ui_draw(void)
         draw_multi();
     else if (sys.page == 16u)
         draw_sound();
+    else if (sys.page == 17u)
+        draw_logic();
     else if (sys.page == 12u || sys.page == 13u) {
         art_t++;
         art_c = T_THEME;
@@ -2647,7 +2691,7 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_EDIT]);
     if (sys.page == 8u || (sys.feg_on && sys.feg_has))  /* LFO: FREE EG's page, or FREE EG playing */
         led_on(nl, panel.btn[B_LFO]);
-    if (sys.k_on || sys.page == 9u)
+    if (sys.k_on || sys.page == 9u || sys.page == 17u)
         led_on(nl, panel.btn[B_SEQ]);
     {   /* the blinking, all in the tempo (the BPM, or the MIDI clock's): on for the first half of each beat; REC
          * recording: twice as fast */
@@ -2830,8 +2874,8 @@ static void ui_input(void)
             play_last = 0;
             ui_force = 1;
             break;
-        case B_SEQ:                                     /* the KARMA page (again: back HOME); PLAY starts it */
-            sys.page = sys.page == 9u ? 0u : 9u;
+        case B_SEQ:                                     /* the KARMA page, the LOGIC page, back HOME; PLAY starts it */
+            sys.page = sys.page == 9u ? 17u : sys.page == 17u ? 0u : 9u;   /* (KARMA, LOGIC, back) */
             play_last = 1;
             ui_force = 1;
             break;
@@ -2840,12 +2884,18 @@ static void ui_input(void)
             if (sys.page == 12u || sys.page == 13u) {   /* TAPE: its transport */
                 tape.req = 1;
                 ui_say(tape.playing ? "TAPE STOP" : "TAPE PLAY");
+            } else if (sys.page == 17u) {               /* LOGIC: the two together (with OR / AND / XOR), or stop */
+                int both = !(sys.arp_on && sys.k_on);
+                if (both && !sys.k_logic)
+                    sys.k_logic = 1;
+                sys.arp_on = sys.k_on = (uint8_t)both;
+                ui_say(both ? "ARP + KARMA ON" : "STOP");
             } else if (sys.page == 6u || (sys.page != 9u && !play_last && !sys.k_on)) {
                 sys.arp_on = (uint8_t)!sys.arp_on;
-                ui_say(sys.arp_on ? (sys.k_on ? "ARP ON, KARMA OFF" : "ARP ON") : "ARP OFF");
+                ui_say(sys.arp_on ? (sys.k_on ? (sys.k_logic ? "ARP ON + KARMA" : "ARP ON, KARMA OFF") : "ARP ON") : "ARP OFF");
             } else if (sys.page == 9u || (play_last && !sys.arp_on)) {
                 sys.k_on = (uint8_t)!sys.k_on;
-                ui_say(sys.k_on ? (sys.arp_on ? "KARMA ON, ARP OFF" : "KARMA ON") : "KARMA OFF");
+                ui_say(sys.k_on ? (sys.arp_on ? (sys.k_logic ? "KARMA ON + ARP" : "KARMA ON, ARP OFF") : "KARMA ON") : "KARMA OFF");
             } else {                                    /* (elsewhere, the other one running: it stops) */
                 sys.arp_on = sys.k_on = 0;
                 ui_say("STOP");
@@ -2939,6 +2989,20 @@ static void ui_input(void)
         if ((s = ui_enc(EN_K4)) != 0) {
             sys.feg_target = (uint8_t)clamp((int32_t)sys.feg_target + s, 0, FEG_NT - 1);
             ui_hot = 3; ui_hot_ms = fm1_ms;
+        }
+    } else if (sys.page == 17u) {               /* LOGIC */
+        if ((s = ui_enc(EN_K1)) != 0) {
+            static const char *const LG[4] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",
+                                              "LOGIC XOR: WHERE ONE HITS"};
+            sys.k_logic = (uint8_t)clamp((int32_t)sys.k_logic + (s > 0 ? 1 : -1), 0, 3);
+            if (!sys.k_logic && sys.arp_on && sys.k_on)   /* (OFF: one of them, KARMA) */
+                sys.arp_on = 0;
+            ui_say(LG[sys.k_logic & 3u]);
+        }
+        if ((s = ui_enc(EN_K2)) != 0) {
+            static const char *const LQ[3] = {"NOTE QUANT OFF", "NOTE QUANT: THE CHORD'S SCALE", "NOTE QUANT: THE CHORD"};
+            sys.k_lq = (uint8_t)clamp((int32_t)sys.k_lq + (s > 0 ? 1 : -1), 0, 2);
+            ui_say(LQ[sys.k_lq % 3u]);
         }
     } else if (sys.page == 16u) {               /* SOUND */
         knob(&sys.spk_bass, EN_K1, 0);

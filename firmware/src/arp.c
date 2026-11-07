@@ -17,8 +17,17 @@
  *   arp_midi_rt(status)                   keys.c: MIDI realtime in: F8 clock, FA start, FB continue, FC stop */
 /* the notes it plays (and KARMA's) go here: the synth, and USB MIDI out on the TX channel (if on: the GLO page) */
 static uint8_t gen_ch[128], gen_out[128];
+static uint8_t gen_q[128];                       /* each note made: the one it sounds as (+1; LOGIC's NOTE QUANT) */
+static uint32_t gen_n;                           /* notes made (the tests count them) */
+static uint32_t logic_q(uint32_t note);          /* (LOGIC's note quantize, below) */
 static void gen_on(uint32_t note, uint32_t vel)
 {
+    uint32_t q = logic_q(note);
+    gen_n++;
+    if (gen_q[note] && gen_q[note] - 1u != q)    /* (moved since: the one it sounded as ends) */
+        synth_note_off(gen_q[note] - 1u);
+    gen_q[note] = (uint8_t)(q + 1u);
+    note = q;
     synth_note_on(note, vel);
     if (gen_out[note])                           /* (the same note again: its old one ends first) */
         midi_out_event(0x08u | (0x80u | gen_ch[note]) << 8 | note << 16);
@@ -31,6 +40,11 @@ static void gen_on(uint32_t note, uint32_t vel)
 }
 static void gen_off(uint32_t note)
 {
+    if (gen_q[note & 127u]) {                    /* (what it sounds as) */
+        uint32_t q = gen_q[note & 127u] - 1u;
+        gen_q[note & 127u] = 0;
+        note = q;
+    }
     synth_note_off(note);
     if (gen_out[note]) {
         gen_out[note] = 0;
@@ -182,6 +196,8 @@ static struct {
     uint32_t gls;                                /* GLISSANDO: semitones played */
     uint8_t pend[ARP_MAXN], pvel[ARP_MAXN], npend;   /* a strum's strings to come (one each ARP_STRUM samples) */
     uint32_t pt;                                 /* samples to the next of them */
+    uint32_t lt;                                 /* LOGIC: clocks since KARMA's phrase started (its steps on them) */
+    uint8_t lpass;                               /* LOGIC: the swung step waiting lets its notes through */
 } arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu};
 
 /* the ARP page's picture (ui.c): the last steps played, their notes (0: a rest) */
@@ -408,6 +424,80 @@ static void arp_midi_rt(uint32_t status)
 
 static int arp_ext(void) { return arp.ext_age < ARP_EXT_TIMEOUT; }
 
+/* LOGIC (the ARP and KARMA on at once, the LOGIC page): both play the notes held, on one clock (KARMA's: its phrase
+ * started, its clocks counted), and at each clock their hits meet: OR both sound, AND each only where the other hits
+ * too, XOR each only where the other does not. The meeting is on the straight grid (the clock both count), SWING
+ * after it, each its own; a step let through plays as it would, one held back is a rest (the pattern goes on) */
+static int logic_on(void) { return sys.k_logic && sys.arp_on && sys.k_on; }
+/* LOGIC's NOTE QUANT: what the two make (KARMA's echoes transposed, the ARP's glissando, its octaves folded) put
+ * in the key of the chord held: SCALE the scale it implies from its lowest note (major, or minor with a minor third
+ * and no major one; the chord's own notes always in), CHORD its notes only; a note outside to the nearest inside
+ * (the lower of two as near) */
+static uint32_t logic_q(uint32_t note)
+{
+    static const uint16_t MAJ = 0xAB5u, MIN = 0x5ADu;   /* (bits: 0 2 4 5 7 9 11; 0 2 3 5 7 8 10) */
+    uint32_t i, root = 127u, pcs = 0, mask, pc, d;
+    if (!logic_on() || !sys.k_lq || !arp.n || note > 127u)
+        return note;
+    for (i = 0; i < arp.n; i++)
+        root = arp.note[i] < root ? arp.note[i] : root;
+    for (i = 0; i < arp.n; i++)
+        pcs |= 1u << ((arp.note[i] - root) % 12u);
+    mask = sys.k_lq >= 2u ? pcs : pcs | ((pcs >> 3 & 1u) && !(pcs >> 4 & 1u) ? MIN : MAJ);
+    pc = (note + 120u - root) % 12u;
+    for (d = 0; d < 7u; d++) {
+        if (mask >> ((pc + 12u - d) % 12u) & 1u)
+            return note >= d ? note - d : note + 12u - d;
+        if (mask >> ((pc + d) % 12u) & 1u)
+            return note + d <= 127u ? note + d : note + d - 12u;
+    }
+    return note;
+}
+static void arp_lsync(void)                      /* (KARMA's phrase from its start: the pattern too) */
+{
+    arp.lt = 0;
+    arp.pos = 0;
+    arp.gls = 0;
+}
+static int arp_ltick(void)                       /* (a clock: a step due?) */
+{
+    return ++arp.lt % ARP_TPS[sys.arp_div % ARP_NDIV] == 0u;
+}
+static int arp_would_hit(void)                   /* (the next step plays notes: not a rest, not a tie) */
+{
+    const arp_step_t *st;
+    if (!arp.n)
+        return 0;
+    if (sys.arp_type % ARP_NTYPE < AT_BASIC)
+        return 1;
+    st = &ARP_STEPS[sys.arp_type % ARP_NTYPE - AT_BASIC].s[arp.pos % ARP_STEPS[sys.arp_type % ARP_NTYPE - AT_BASIC].n];
+    return st->sel != ARP_REST && st->sel != ARP_TIE && (st->sel != ARP_PREV || arp_last);
+}
+static void arp_skip(void)                       /* (a step held back: a rest, the pattern on) */
+{
+    arp.pos++;
+    arp_off_all();
+    arp.npend = 0;
+    arp_view.note[arp_view.w++ & 31u] = 0;
+}
+static void arp_lstep(int pass)                  /* (a step due at this clock: through or held back) */
+{
+    uint32_t gate = 8u + (sys.arp_gate & 127u) * 92u / 127u, sw = 50u + (sys.arp_swing & 127u) * 33u / 127u;
+    arp.t = 0;
+    arp.lpass = (uint8_t)pass;
+    if (arp.pos & 1u && sw > 50u) {
+        arp.swing_wait = 1u + arp.len * 2u * (sw - 50u) / 100u;
+    } else {
+        arp.swing_wait = 0;
+        arp.gate = arp.len * gate / 100u;
+        if (pass)
+            arp_do_step();
+        else
+            arp_skip();
+        arp.step++;
+    }
+}
+
 /* the clock, once a block: steps at the note value (swung: every second step later by SWING, the AN1x's 50 % none
  * .. 83 % most: its pair split 50:50 .. 83:17), the notes off at the gate */
 static void arp_block(uint32_t n)
@@ -440,7 +530,10 @@ static void arp_block(uint32_t n)
             due = 1;
         }
     }
-    if (arp.running) {                           /* the first note: at once */
+    if (logic_on()) {                            /* (LOGIC: the steps on KARMA's clock, karma.c) */
+        due = 0;
+        arp.running = 0;
+    } else if (arp.running) {                    /* the first note: at once */
         arp.running = 0;
         due = 1;
         arp.q8 = 0;
@@ -480,7 +573,10 @@ static void arp_block(uint32_t n)
         arp.swing_wait = 0;
         arp.t = 0;
         arp.gate = left * gate / 100u;
-        arp_do_step();
+        if (!logic_on() || arp.lpass)
+            arp_do_step();
+        else
+            arp_skip();
         arp.step++;
         return;
     }

@@ -37,9 +37,9 @@ static uint8_t note_sus[128];                    /* bit 0: let go under a pedal 
                                                   * went down (sostenuto holds it) */
 static uint8_t sost_on;                          /* SOSTENUTO (CC 66) down */
 
-enum { OWN_SYNTH, OWN_ARP, OWN_KARMA };         /* who the notes held go to */
+enum { OWN_SYNTH, OWN_ARP, OWN_KARMA, OWN_BOTH };   /* who the notes held go to (BOTH: LOGIC) */
 static uint8_t own_was, arp_was_hold, k_was_latch, k_was_on, arp_was_on;
-static uint32_t owner(void) { return sys.k_on ? OWN_KARMA : sys.arp_on ? OWN_ARP : OWN_SYNTH; }
+static uint32_t owner(void) { return logic_on() ? OWN_BOTH : sys.k_on ? OWN_KARMA : sys.arp_on ? OWN_ARP : OWN_SYNTH; }
 
 static void note_start(uint32_t note, uint32_t vel)
 {
@@ -54,6 +54,7 @@ static void note_start(uint32_t note, uint32_t vel)
     switch (own_was) {
     case OWN_ARP: arp_add(note, vel); break;
     case OWN_KARMA: karma_add(note, vel); break;
+    case OWN_BOTH: arp_add(note, vel); karma_add(note, vel); break;
     default: synth_note_on(note, vel); break;
     }
 }
@@ -64,26 +65,27 @@ static void note_end(uint32_t note)
     if (!note_held[note])
         return;
     if (--note_held[note] == 0u) {
-        if (own_was != OWN_ARP && own_was != OWN_KARMA && (sys.pedal || (note_sus[note] & 2u))) {
+        if (own_was == OWN_SYNTH && (sys.pedal || (note_sus[note] & 2u))) {
             note_sus[note] |= 1u;                /* (HOLD / SOSTENUTO: it sounds on until the pedal comes up) */
             return;
         }
         switch (own_was) {
         case OWN_ARP: arp_remove(note); break;
         case OWN_KARMA: karma_remove(note); break;
+        case OWN_BOTH: arp_remove(note); karma_remove(note); break;
         default: synth_note_off(note); break;
         }
     }
 }
 
-/* ARP or KARMA turned on or off (or HOLD, LATCH off) under held notes: they move over. The two never at once: the
- * one just turned on wins, the other goes off */
+/* ARP or KARMA turned on or off (or HOLD, LATCH off) under held notes: they move over. The two at once only with
+ * LOGIC (the LOGIC page): else the one just turned on wins, the other goes off */
 static void arp_follow(void)
 {
     uint32_t k, o;
-    if (sys.k_on && !k_was_on && sys.arp_on)
+    if (!sys.k_logic && sys.k_on && !k_was_on && sys.arp_on)
         sys.arp_on = 0;
-    else if (sys.arp_on && !arp_was_on && sys.k_on)
+    else if (!sys.k_logic && sys.arp_on && !arp_was_on && sys.k_on)
         sys.k_on = 0;
     k_was_on = sys.k_on;
     arp_was_on = sys.arp_on;
@@ -95,11 +97,11 @@ static void arp_follow(void)
         synth_all_off();
         for (k = 0; k < 128u; k++)               /* the notes held now: to the one on, or sounding again */
             if (note_held[k]) {
-                if (o == OWN_ARP)
+                if (o == OWN_ARP || o == OWN_BOTH)
                     arp_add(k, KEY_VEL);
-                else if (o == OWN_KARMA)
+                if (o == OWN_KARMA || o == OWN_BOTH)
                     karma_add(k, KEY_VEL);
-                else
+                if (o == OWN_SYNTH)
                     synth_note_on(k, KEY_VEL);
             }
     }

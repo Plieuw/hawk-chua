@@ -189,6 +189,7 @@ static struct {
     uint32_t steplen, phrase_t, phrase_len;      /* samples: a step; into the phrase, its length (FREE EG PHRASE) */
     uint32_t triggers;                           /* phrase starts (FREE EG PHRASE starts again with them) */
     uint8_t running;                             /* the phrase plays */
+    uint8_t cap;                                 /* LOGIC: a step's notes all queued (none at once) */
     uint8_t wait;                                /* a trigger: 1 at the next sixteenth, 2 at once */
     uint8_t last_idx, strum_up, ge_seen;
     uint32_t rng;
@@ -388,7 +389,7 @@ static void k_play(uint32_t at, int32_t note, uint32_t vel, int32_t pan, uint32_
     if (vel < 4u)
         return;
     pan = pan < -32767 ? -32767 : pan > 32767 ? 32767 : pan;
-    if ((int32_t)(at - kar.now) <= 0) {
+    if ((int32_t)(at - kar.now) <= 0 && !kar.cap) {   /* (LOGIC: queued, so a step held back takes them away) */
         k_sound((uint32_t)note, vel, pan, dur);
         return;
     }
@@ -567,9 +568,33 @@ static void k_env(void)
     *f = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
 }
 
+/* LOGIC: the ARP's step and KARMA's at one clock met (arp.c's LOGIC); each one's notes through or held back */
+static struct { uint8_t v[32]; volatile uint32_t w; } logic_view;   /* (the LOGIC page: bit 0 the ARP hit, 1 KARMA,
+                                                                     * 2 the ARP's through, 3 KARMA's) */
+static void k_logic_tick(int trig, int kdue)
+{
+    int adue = trig ? (arp_lsync(), 1) : arp_ltick(), ah = adue && arp_would_hit(), kh = 0, pa, pk;
+    uint32_t nev0 = kar.nev, mode = sys.k_logic & 3u;
+    if (kdue) {
+        kar.cap = 1;
+        k_step();
+        kar.cap = 0;
+        kh = kar.nev > nev0;
+    }
+    pa = mode == 2u ? ah && kh : mode == 3u ? ah && !kh : ah;   /* (1 OR: both as they are) */
+    pk = mode == 2u ? kh && ah : mode == 3u ? kh && !ah : kh;
+    if (kh && !pk)
+        kar.nev = nev0;                          /* (KARMA's held back: this step's notes, its echoes) */
+    if (adue)
+        arp_lstep(pa);
+    if (ah || kh)
+        logic_view.v[logic_view.w++ & 31u] = (uint8_t)(ah | kh << 1 | pa << 2 | pk << 3);
+}
+
 /* a MIDI clock (its own or MIDI's): the grid, the trigger waiting for a sixteenth, the step */
 static void k_tick(uint32_t res)
 {
+    int trig = 0, kdue = 0;
     kar.gt++;
     if (kar.wait == 1u && kar.gt % 6u == 0u) {   /* the trigger: the phrase from its start */
         kar.wait = 0;
@@ -577,26 +602,31 @@ static void k_tick(uint32_t res)
         kar.pos = kar.step = kar.c = 0;
         kar.phrase_t = 0;
         kar.triggers++;
-        k_step();
-        return;
-    }
-    if (!kar.running)
-        return;
-    if (++kar.c >= res) {
-        kar.c = 0;
-        if (kar.pos == 0u) {                     /* the phrase again */
-            kar.phrase_t = 0;
-            kar.triggers++;
+        trig = kdue = 1;
+    } else {
+        if (!kar.running)
+            return;
+        if (++kar.c >= res) {
+            kar.c = 0;
+            if (kar.pos == 0u) {                 /* the phrase again */
+                kar.phrase_t = 0;
+                kar.triggers++;
+            }
+            kdue = 1;
         }
-        k_step();
     }
+    if (logic_on())
+        k_logic_tick(trig, kdue);
+    else if (kdue)
+        k_step();
 }
 
 static void karma_block(uint32_t n)
 {
     const ge_t *G = k_ge();
     uint32_t i, bpm = sys.arp_bpm < 40u ? 40u : sys.arp_bpm > 250u ? 250u : sys.arp_bpm;
-    uint32_t spt = 2646000u / bpm / 24u, res = G->res, plen = (uint32_t)str_len(G->rhy);
+    uint32_t spt8 = 2646000u * 256u / bpm / 24u;  /* (a clock, Q8 samples: the ARP's own to the sample) */
+    uint32_t spt = spt8 >> 8, res = G->res, plen = (uint32_t)str_len(G->rhy);
     int ext = arp_ext();
     if (ext && arp.tick_len)
         spt = arp.tick_len;
@@ -642,8 +672,8 @@ static void karma_block(uint32_t n)
     } else {
         kar.clk_seen = arp.clk;
         kar.tq8 += n * 256u;
-        while (kar.tq8 >= spt * 256u) {
-            kar.tq8 -= spt * 256u;
+        while (kar.tq8 >= spt8) {
+            kar.tq8 -= spt8;
             k_tick(res);
         }
     }
