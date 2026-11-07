@@ -999,9 +999,9 @@ static void bag_drones(int32_t *y, uint32_t n, int held, int32_t key, int32_t le
  *                (~60 ms). TINE (STRUCTURE): the bare bar's ratios .. a tip weighted and bent, as a tuned tine's
  *                (1 : 5.3 : 13.5): the overtone nearer, warmer
  *   the tail     the short end behind the bridge rings too, high (~2.6 .. 4.4 kHz) and brief (~0.2 s): the "ting"
- *   the flick    the thumb pushes the tip and lets go: a smooth pulse, shorter (brighter) the harder (2.5 .. 0.6 ms),
- *                and the nail's click on the steel (a 1 ms burst, ~4 kHz; BRIGHTNESS); the voices' sound only colours
- *                that flick (~6 ms), so the tine rings out on its own, held or not, as a real one does
+ *   the flick    the thumb pushes the tip and lets go: a smooth pulse, shorter (brighter) the harder (2.5 .. 0.6 ms);
+ *                the nail's touch is the tail's ting (BRIGHTNESS), no noise: the voices only strike it (their sound
+ *                does not go in), so the tine rings out clean on its own, held or not, as a real one does
  *   the box      a hollow box with a sound hole: the tines' force on the bridge rings its air (a Helmholtz resonance
  *                ~210 Hz) and its top (~470 Hz, ~1.25 kHz): warmth and the "hollow" of a box kalimba; a steel tine
  *                itself hardly radiates the low end, the box does
@@ -1017,8 +1017,8 @@ static const uint32_t WG_TINE1[3] = {4096, 21709, 55296};    /* 1, 5.3, 13.5 (a 
 typedef struct {
     int32_t y1[WG_KM], y2[WG_KM];                /* the tine's three modes and its tail */
     int32_t bx[3][2];                            /* the box: its air, its top's two (state: y1, y2) */
-    int32_t bz, env, yh[3], ck;                     /* the buzzers; the voices; the last out; the nail's click (Q15) */
-    int32_t win, pa, gl;                         /* the voices' window (Q15); the flick's height; the glide (Q16 cents) */
+    int32_t bz, env, yh[3];                      /* the buzzers; the voices; the last out */
+    int32_t pa, gl;                              /* the flick's height; the glide (Q16 cents) */
     uint32_t pt, pl;                             /* half-rate samples into the flick; its length */
     uint32_t rng;
 } wg_kalimba_t;
@@ -1053,9 +1053,7 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
         K->pa = (int32_t)(v * v / 127u + v / 4u) * (PX_ONE / 512);   /* (the thump's height) */
         K->pl = 55u - v * 42u / 127u;            /* (55 .. 13 half-rate samples: 2.5 .. 0.6 ms) */
         K->pt = 0;
-        K->win = 32767;
         K->gl = (int32_t)v * 6 * 65536 / 127;    /* (up to 6 cents sharp) */
-        K->ck = 1000 + bright / 6 + (int32_t)v * 60;   /* the nail */
         if (!K->rng)
             K->rng = 0x9E3779B9u;
     }
@@ -1097,9 +1095,7 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
     wg_mode(&ba1[1], &ba2[1], &bb[1], (uint32_t)((470ull << 32) / 22050u), 2000u, 30000);
     wg_mode(&ba1[2], &ba2[2], &bb[2], (uint32_t)((1250ull << 32) / 22050u), 1100u, 16000);
     for (i = 0; i < n; i += 2u) {
-        int32_t x = i + 1u < n ? (in[i] + in[i + 1u]) >> 1 : in[i], o = 0, br = 0, a, t;
-        x = px_m(x, K->win, 15) / 32;            /* (the voices: only in the flick, softly) */
-        K->win -= K->win >> 7;                   /* (~6 ms) */
+        int32_t x = 0, o = 0, br = 0, a;
         if (K->pt < K->pl) {                     /* the flick: a raised cosine */
             x += px_m(K->pa, (32768 - (px_sin(K->pt * (0xFFFFFFFFu / K->pl) + 0x40000000u) >> 15)) / 2, 15);
             K->pt++;
@@ -1126,11 +1122,6 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
             o += v;
         }
         o += br / 2;                             /* (and the bridge's own sound through the box: the body of it) */
-        if (K->ck > 64) {                        /* the nail's click: a brief burst, high */
-            t = (int32_t)(px_rand(&K->rng) >> 12) - (int32_t)(px_rand(&K->rng) >> 12);   /* (a difference: high) */
-            o += px_m(t, K->ck, 15) >> 1;
-            K->ck -= K->ck >> 4;                 /* (~1 ms) */
-        }
         if (buzz) {                              /* the buzzers: a rattle as the swing passes their gap */
             a = K->y1[0] < 0 ? -K->y1[0] : K->y1[0];
             a = a > PX_ONE / 6 ? a - PX_ONE / 6 : 0;
