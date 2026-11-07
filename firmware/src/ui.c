@@ -2580,11 +2580,7 @@ static void ui_draw(void)
             ui_cat(a, sizeof a, "+");
         fmt_int(v, sys.octave);
         ui_cat(a, sizeof a, v);
-        ui_cat(a, sizeof a, "   CPU ");
-        fmt_int(v, (int32_t)(sys.cpu_q8 * 100u / 256u));
-        ui_cat(a, sizeof a, v);
-        ui_cat(a, sizeof a, C1_ON() ? "% x2" : "%");
-        ui_status(a);
+        ui_status(a);                            /* (the CPU no longer shown: sys.cpu_q8 still kept) */
     }
     if (sys.page == 1u)
         draw_env();
