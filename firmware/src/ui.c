@@ -1381,27 +1381,30 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
  * small blocks in the right corner: the page shown filled in the theme's orange, the other an empty outline */
 static void ui_status(const char *s)
 {
-    static const uint8_t LAYERS[14] = {0, 1, 1, 2, 0, 2, 0, 0, 0, 0, 0, 0, 1, 2};   /* each page: its layer (1, 2; 0 none) */
-    uint32_t pg = sys.page < 14u ? sys.page : 0u, l = LAYERS[pg];
-    char sig[2] = {(char)('0' + l), 0};
+    /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
+     * ENV), FX (SHIMMER), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
+    static const uint8_t LAYER[18] = {1, 1, 1, 2, 0, 2, 0, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2};
+    static const uint8_t COUNT[18] = {2, 2, 2, 2, 0, 2, 0, 3, 0, 2, 0, 0, 2, 2, 2, 3, 3, 2};
+    uint32_t pg = sys.page < 18u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
+    char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
     if (!ui_changed(T_STATUS, s, sig))
         return;
-    if (!l) {
+    if (!nb) {
         draw_text_line(0, 223, 240, &AF_S, s, T_MID, T_BG, 1);
         return;
     }
-    draw_text_line(0, 223, 216, &AF_S, s, T_MID, T_BG, 1);
-    cv_begin(24, AF_S.h, T_BG);
+    draw_text_line(0, 223, 240u - w, &AF_S, s, T_MID, T_BG, 1);
+    cv_begin(w, AF_S.h, T_BG);
     {
         uint32_t i, y = (AF_S.h - 7u) / 2u;
-        for (i = 0; i < 2u; i++) {
+        for (i = 0; i < nb; i++) {
             if (i + 1u == l)
                 cv_rect((int32_t)(4u + i * 10u), (int32_t)y, 7, 7, T_THEME);
             else
                 cv_frame((int32_t)(4u + i * 10u), (int32_t)y, 7, 7, T_MID);
         }
     }
-    cv_blit(216, 223);
+    cv_blit(240u - w, 223);
 }
 
 /* -------------------------------------------------------------- plot --- */
