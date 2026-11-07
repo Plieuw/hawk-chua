@@ -131,7 +131,7 @@ Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KA
 | SELECT | LATCH (zoals bij KARMA, standaard aan): rechtsom aan (de noten blijven spelen als je loslaat, een nieuw akkoord vervangt ze), linksom uit |
 
 **GROOVE (ARP twee keer).** Twee korte patronen over de stappen van de ARP, elk met een eigen lengte (2 tot 8 stappen), zodat
-ze tegen het patroon en tegen elkaar in schuiven. KNOB 1 SEQ LENGTH: na zoveel stappen (2..16, OFF: de eigen lengte van het patroon) begint het patroon opnieuw, een korte loop van elk patroon. ALGORITHM VELOCITY: het niveau per stap (ACCENT 4, ACCENT 3, OFFBEAT,
+ze tegen het patroon en tegen elkaar in schuiven. KNOB 1 SEQ LENGTH: na zoveel stappen (2..16, OFF: de eigen lengte van het patroon) begint het patroon opnieuw, een korte loop van elk patroon. ALGORITHM: ARP VELOCITY SEQ, de velocity-sequence van de ARP: het niveau per stap (ACCENT 4, ACCENT 3, OFFBEAT,
 RAMP UP/DOWN, TRESILLO, WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT). KNOB 2 NOTE OFF: de lengte per stap of een
 rust (STACCATO, LEGATO, LONG SHORT, SHORT LONG, DOTTED, SKIP, OFF SKIP, 3 OF 4, TRESILLO, STUTTER, BREATH, FIVE, TIE TWO,
 GALLOP); een rust slaat een noot over, het patroon loopt door. KNOB 3 en 4: hoe sterk elk patroon werkt (de NOTE

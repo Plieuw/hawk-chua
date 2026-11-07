@@ -1864,7 +1864,7 @@ static void draw_groove(void)
     uint32_t nv = str_len(vs), ng = str_len(gs), i, cur = arp.gpos ? arp.gpos - 1u : 0u;
     int on = sys.arp_on && arp.n;
     cv_begin(240, PLOT_H, T_BG);
-    cv_text(8, 4, &AF_S, "VELOCITY (ALGO)", T_DIM);
+    cv_text(8, 4, &AF_S, "ARP VELOCITY SEQ", T_DIM);
     cv_text(124, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
     for (i = 0; i < 8u && nv; i++) {             /* (the steps; the pattern repeated to eight) */
         int32_t lv = vs[i % nv] - '0', hgt = 4 + lv * 4, x = 8 + (int32_t)i * 28;
@@ -3352,7 +3352,7 @@ static void ui_input(void)
         ui_say(t);
     } else if (s && sys.page == 18u) {          /* GROOVE: the VELOCITY pattern */
         sys.arp_vp = (uint8_t)clamp((int32_t)sys.arp_vp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NVP - 1);
-        str_cpy(t, "VELOCITY ", sizeof t);
+        str_cpy(t, "ARP VEL SEQ ", sizeof t);
         ui_cat(t, sizeof t, ARP_VPAT[sys.arp_vp % ARP_NVP].name);
         ui_say(t);
     } else if (s && sys.page == 6u) {           /* ARP: the pattern */

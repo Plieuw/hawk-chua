@@ -316,7 +316,7 @@ static void arp_sound(uint32_t note, uint32_t vel)
 static uint8_t arp_last;                          /* the last note played (ARP_PREV: the echo) */
 
 /* GROOVE (the ARP's second page): two short patterns over the steps, each its own length, so they turn against the
- * pattern and each other: VELOCITY (each step's level, 1 .. 9: x 0.55 .. 1.75 with DEPTH 127) and NOTE OFF (each
+ * pattern and each other: ARP VELOCITY SEQ (ALGORITHM; each step's level, 1 .. 9: x 0.55 .. 1.75 with DEPTH 127) and NOTE OFF (each
  * step's gate, 1 .. 9 = 10 .. 90 % of the step, T tied on to the next, . a rest: no note), DEPTH from GATE's to the
  * pattern's */
 typedef struct { const char *name, *s; } arp_groove_t;
