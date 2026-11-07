@@ -3307,7 +3307,8 @@ static void ui_input(void)
             ui_cat(t, sizeof t, " CIRCUIT");
         ui_say(t);
     }
-    if ((s = ui_enc(EN_PRESET)) != 0 && (sys.page == 9u || sys.page == 12u || sys.page == 13u)) {   /* KARMA, TAPE: PRESETS is the BPM */
+    if ((s = ui_enc(EN_PRESET)) != 0 && (sys.page == 6u || sys.page == 18u || sys.page == 9u || sys.page == 17u ||
+                                         sys.page == 12u || sys.page == 13u)) {   /* ARP, GROOVE, KARMA, LOGIC, TAPE: PRESETS is the BPM */
         sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
         str_cpy(t, arp_ext() ? "MIDI CLOCK: BPM " : "BPM ", sizeof t);
         fmt_int(v, sys.arp_bpm);
