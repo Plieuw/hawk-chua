@@ -597,13 +597,17 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     /* -------------------------------------------------------- B: clusters --- */
     case 10: {  /* CLUSTER SAW: 16 saws a linear spread apart; Y how many */
         uint32_t nv = 2u + (uint32_t)(y * 14 / 32767), sp = (uint32_t)x / 8u;   /* (0 .. 0.0625 of f apart) */
+        static const uint32_t RD[8] = {1431655766u, 1073741825u, 858993460u, 715827883u, 613566757u, 536870913u,
+                                       477218589u, 429496730u};   /* (2^32 / d + 1: / 3 .. 10 as a multiply, exact
+                                                                   * for |s| <= 16 x 32768) */
+        uint64_t rd = RD[nv / 2u - 1u];
         for (i = 0; i < n; i++) {
             int32_t s = 0;
             for (j = 0; j < nv; j++) {
                 S->ph[j] += NPF(np_mul(inc, 65536u + sp * j));
                 s += np_saw(S->ph[j]);
             }
-            out[i] = s / (int32_t)(2u + nv / 2u);
+            out[i] = s < 0 ? -(int32_t)(((uint64_t)(uint32_t)-s * rd) >> 32) : (int32_t)(((uint64_t)(uint32_t)s * rd) >> 32);
         }
         break;
     }
@@ -823,10 +827,9 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     }
     case 28: {  /* RWALK BITCRUSH: nine walkers in a box tune nine pulses (and their widths); crushed by the first */
         int32_t box = 2000 + x * 3 / 2;
-        uint32_t ci[9];
+        uint32_t ci[9], bits = 12u;
         for (i = 0; i < n; i++) {
             int32_t s = 0, w;
-            uint32_t bits;
             for (j = 0; j < 9u; j++) {
                 if (!(i & 7u)) {
                     np_walk(&S->walk[j], &S->rng, 500, box);
@@ -835,8 +838,9 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
                 S->ph[j] += NPF(ci[j]);
                 s += np_pulse(S->ph[j], 0x80000000u + (uint32_t)S->walk[j] * 16384u);
             }
+            if (!(i & 7u))                           /* (with the walk: 3 .. 12 bits, no divide a sample) */
+                bits = 3u + (uint32_t)((S->walk[0] + box) * 9 / (2 * box + 1));
             s /= 4;
-            bits = 3u + (uint32_t)((S->walk[0] + box) * 9 / (2 * box + 1));   /* 3 .. 12 bits */
             s &= ~((1 << (16u - bits)) - 1);         /* (a mask: shifting a negative left is undefined) */
             w = np_verb(S, b, s / 2, 12000 + y / 2);
             out[i] = (s + w) / 2;

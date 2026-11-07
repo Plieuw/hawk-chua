@@ -769,10 +769,12 @@ static int32_t synth_pgain[2] = {4096, 4096};
 static struct { int32_t a, b, env, x1, y1, x2, y2, o; } spk;
 static void spk_bass(int32_t *l, int32_t *r, uint32_t n)
 {
-    int32_t amt = (int32_t)(sys.spk_bass & 127u);
+    int32_t amt = (int32_t)(sys.spk_bass & 127u), rec;
     uint32_t i;
     if (!amt)
         return;
+    rec = (int32_t)((1u << 30) / (uint32_t)((spk.env + 64) >> 1));   /* (1 / the level, once a block: no divide a
+                                                                     * sample; the level moves little in 32) */
     for (i = 0; i < n; i++) {
         int32_t m = (l[i] + r[i]) >> 1, b, ab, u, au, h, y;
         spk.a += (m - spk.a) * 934 >> 15;                       /* (two poles at ~200 Hz) */
@@ -781,7 +783,7 @@ static void spk_bass(int32_t *l, int32_t *r, uint32_t n)
         ab = b < 0 ? -b : b;
         spk.env += (ab - spk.env) * (ab > spk.env ? 150 : 5) >> 15;   /* (~5 ms up, ~150 ms down) */
         b = b > 65535 ? 65535 : b < -65535 ? -65535 : b;
-        u = (b << 14) / ((spk.env + 64) >> 1);                  /* (the bass at a unit level: the same overtones
+        u = (int32_t)(((int64_t)b * rec) >> 16);                /* (the bass at a unit level: the same overtones
                                                                   * loud or soft) */
         u = u > 65535 ? 65535 : u < -65535 ? -65535 : u;
         au = u < 0 ? -u : u;

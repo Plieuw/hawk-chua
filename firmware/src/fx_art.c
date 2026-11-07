@@ -55,7 +55,17 @@ static void art_px(int32_t x, int32_t y, uint16_t c, int32_t a)
     if ((uint32_t)y >= cv_h)
         return;
     p = &cv_px[(uint32_t)y * cv_w + (uint32_t)x];
-    *p = a >= 256 ? swap16(c) : swap16(ux_mix(swap16(*p), c, a * 100 / 256));
+    if (a >= 256)
+        *p = swap16(c);
+    else if (ux.mono)
+        *p = swap16(ux_mix(swap16(*p), c, a * 100 / 256));
+    else {   /* (the blend in one go: the three fields spread apart in a word, a in 32nds; no divide a pixel, the
+              * faces fill thousands) */
+        uint32_t s = swap16(*p), o = (s | s << 16) & 0x07E0F81Fu, t = ((uint32_t)c | (uint32_t)c << 16) & 0x07E0F81Fu;
+        uint32_t k = (uint32_t)(a + 4) >> 3;
+        o = (o + (((t - o) * k) >> 5)) & 0x07E0F81Fu;
+        *p = swap16((uint16_t)(o | o >> 16));
+    }
 }
 /* Wu's line, ends in Q8; dash: 0 solid, else on | off << 8 (pixels along the line) */
 static void art_ln(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c, uint32_t dash)
