@@ -2732,12 +2732,22 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_ARP]);
     if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
-    if (sys.page == 10u)
-        led_on(nl, panel.btn[B_SCL]);
+    {   /* SCL (BASIS, ORBIT) and LFO (FREE EG), while in use: a blink at each note (on their own page: lit, dark a
+         * moment at each note) */
+        static uint32_t ons_seen, on_ms;
+        int scl = (sys.basis & 127u) || sys.orbit, lfo = sys.feg_on && sys.feg_has, blink;
+        if (synth_ons != ons_seen) {
+            ons_seen = synth_ons;
+            on_ms = fm1_ms;
+        }
+        blink = fm1_ms - on_ms < 90u;
+        if (sys.page == 10u ? !(scl && blink) : scl && blink)
+            led_on(nl, panel.btn[B_SCL]);
+        if (sys.page == 8u ? !(lfo && blink) : lfo && blink)
+            led_on(nl, panel.btn[B_LFO]);
+    }
     if (sys.page == 11u)
         led_on(nl, panel.btn[B_EDIT]);
-    if (sys.page == 8u || (sys.feg_on && sys.feg_has))  /* LFO: FREE EG's page, or FREE EG playing */
-        led_on(nl, panel.btn[B_LFO]);
     if (sys.k_on || sys.page == 9u || sys.page == 17u)
         led_on(nl, panel.btn[B_SEQ]);
     {   /* the blinking, all in the tempo (the BPM, or the MIDI clock's): on for the first half of each beat; REC

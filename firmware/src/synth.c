@@ -306,10 +306,12 @@ static void env_params(void)
     eg.comp = LPG_COMP[sys.ring & 127u];
 }
 
+static volatile uint32_t synth_ons;              /* notes started (the panel's LFO and SCL blink on them) */
 static void synth_note_on(uint32_t key, uint32_t vel)
 {
     uint32_t i, note;
     voice_t *v = 0;
+    synth_ons++;
     {   /* the sound's octave (TRANSPOSE: the preset's register), the key kept for the note off */
         int32_t t = (int32_t)(key & 127u) + 12 * (int32_t)sys.transpose;
         while (t < 0)
