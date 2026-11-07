@@ -351,7 +351,12 @@ static void art_title(const int8_t *icon, const char *name)   /* the pictogram t
 }
 
 /* ------------------------------------------------------------------ MODAL --- */
-static const int8_t BELL_O[9][2] = {{0, 6}, {12, 7}, {19, 12}, {21, 24}, {22, 40}, {25, 54}, {31, 66}, {38, 74}, {41, 78}};
+/* a church bell's profile (radius, height down; the lip's diameter 82): its crown a low dome, the shoulder half the
+ * lip's width, the waist nearly straight and a little hollow, then the sound bow flaring out to the lip, its height
+ * 0.8 of the lip's width (the bell founders' proportions), the lip's thick rim turning in under it */
+#define BELL_NB 12u
+static const int8_t BELL_O[BELL_NB][2] = {{0, 5}, {9, 6}, {16, 8}, {20, 12}, {21, 20}, {20, 32}, {22, 45}, {26, 57},
+                                          {32, 67}, {38, 74}, {41, 78}, {36, 79}};
 /* the bell's wall at angle th, height j: pushed out and in by its modes (m,0), m = 2, 3, 4, each as strong as the
  * resonator's partial it stands for (rz_view: the model's own spectrum) and at its own speed; Q12 of the radius */
 static int32_t art_bamp[3];
@@ -361,28 +366,41 @@ static int32_t art_bell_d(uint32_t th, uint32_t j)
     uint32_t m;
     for (m = 0; m < 3u; m++)
         d += art_bamp[m] * art_cos((m + 2u) * th) / 32768;
-    return 4096 + d * BELL_O[j][1] / 78;
+    return 4096 + d * BELL_O[j][1] / 79;
+}
+static v3_t art_bell_p(uint32_t th, uint32_t j)
+{
+    int32_t r = BELL_O[j][0] * 250 * art_bell_d(th, j) / 4096;
+    return a3_rot(r * (art_cos(th) >> 7) >> 8, (BELL_O[j][1] - 44) * 268, r * (art_sin(th) >> 7) >> 8);
 }
 static void art_bell(void)
 {
     const uint32_t NM = 16u, NP = 48u;
     uint32_t i, j, k;
+    int32_t sw;
     for (i = 0; i < 3u; i++) {                                   /* the partials' levels -> the modes' depths */
         int32_t a = i < rz_view.n && sys.fx_mix ? (rz_view.a[i] < 0 ? 32767 : rz_view.a[i]) : 0;
         art_bamp[i] = art_lv * 16 * a / 32767 * art_sin(art_t * (0x2E000000u + i * 0x0B000000u)) / 32768 / (int32_t)(i + 1u);
     }
-    a3_view(art_t * 0x00A00000u, (uint32_t)-ART_DEG(18), 120, 68);
+    a3_view(art_t * 0x00A00000u, (uint32_t)-ART_DEG(14), 120, 70);
     a3_floor(Q8(36), Q8(80), Q8(60), Q8(20));
+    {   /* the clapper inside (behind the wall: dashed), swinging with the sound: its shank from the crown, its ball */
+        int32_t x0, y0, x1, y1;
+        sw = art_lv * art_sin(art_t * 0x09000000u) / 32768 * 20 / 256;   /* (pixels: to the lip at the loudest) */
+        a3_proj(a3_rot(0, Q8(8 - 44), 0), &x0, &y0);
+        a3_proj(a3_rot(Q8(sw), Q8(66 - 44), 0), &x1, &y1);
+        art_fa = 150;
+        art_ln(x0, y0, x1, y1, art_c3, 3u | 2u << 8);
+        art_ring(x1, y1, 4, art_c3);
+        art_fa = 256;
+    }
     {   /* the wall, lit: each cell between two meridians and two parallels */
-        static v3_t g[16][9];
+        static v3_t g[16][BELL_NB];
         for (i = 0; i < NM; i++)
-            for (j = 0; j < 9u; j++) {
-                uint32_t th = i * (0xFFFFFFFFu / NM);
-                int32_t r = BELL_O[j][0] * 250 * art_bell_d(th, j) / 4096;
-                g[i][j] = a3_rot(r * (art_cos(th) >> 7) >> 8, (BELL_O[j][1] - 44) * 268, r * (art_sin(th) >> 7) >> 8);
-            }
-        for (j = 0; j + 1u < 9u; j++) {
-            v3_t in = a3_rot(0, (BELL_O[j][1] + BELL_O[j + 1u][1] - 88) * 134, 0);
+            for (j = 0; j < BELL_NB; j++)
+                g[i][j] = art_bell_p(i * (0xFFFFFFFFu / NM), j);
+        for (j = 0; j + 1u < BELL_NB; j++) {
+            v3_t in = a3_rot(0, j + 2u < BELL_NB ? (BELL_O[j][1] + BELL_O[j + 1u][1] - 88) * 134 : Q8(30), 0);
             for (i = 0; i < NM; i++)
                 a3_face(g[i][j], g[(i + 1u) % NM][j], g[(i + 1u) % NM][j + 1u], g[i][j + 1u], in, art_c, 150);
         }
@@ -390,30 +408,37 @@ static void art_bell(void)
     for (i = 0; i < NM; i++) {                                   /* the meridians */
         uint32_t th = i * (0xFFFFFFFFu / NM);
         v3_t prev = {0, 0, 0};
-        for (j = 0; j < 9u; j++) {
-            int32_t r = BELL_O[j][0] * 250 * art_bell_d(th, j) / 4096;
-            v3_t p = a3_rot(r * (art_cos(th) >> 7) >> 8, (BELL_O[j][1] - 44) * 268, r * (art_sin(th) >> 7) >> 8);
+        for (j = 0; j < BELL_NB; j++) {
+            v3_t p = art_bell_p(th, j);
             if (j)
                 a3_seg(prev, p, 0, art_c2);
             prev = p;
         }
     }
-    for (j = 1; j < 9u; j++) {                                   /* the parallels, the lip bright */
+    for (j = 3; j < BELL_NB; j++) {                              /* the parallels: the shoulder, the sound bow, the lip */
         v3_t prev = {0, 0, 0};
+        if (j == 4u || j == 6u)
+            continue;
         for (k = 0; k <= NP; k++) {
-            uint32_t th = k * (0xFFFFFFFFu / NP);
-            int32_t r = BELL_O[j][0] * 250 * art_bell_d(th, j) / 4096;
-            v3_t p = a3_rot(r * (art_cos(th) >> 7) >> 8, (BELL_O[j][1] - 44) * 268, r * (art_sin(th) >> 7) >> 8);
+            v3_t p = art_bell_p(k * (0xFFFFFFFFu / NP), j);
             if (k)
-                a3_seg(prev, p, 0, j == 8u ? art_c : art_c2);
+                a3_seg(prev, p, 0, j >= BELL_NB - 2u || j == 3u ? art_c : art_c2);
             prev = p;
         }
     }
-    {   /* the axis */
-        int32_t x0, y0, x1, y1;
-        a3_proj(a3_rot(0, Q8(-46), 0), &x0, &y0);
-        a3_proj(a3_rot(0, Q8(42), 0), &x1, &y1);
-        art_ln(x0, y0, x1, y1, art_c3, 6u | 3u << 8);
+    {   /* the crown's loops (the canons it hangs by), the headstock over them */
+        static const int8_t CN[7][2] = {{-7, 5}, {-7, 0}, {-5, -4}, {0, -6}, {5, -4}, {7, 0}, {7, 5}};
+        for (k = 0; k < 2u; k++) {
+            v3_t prev = {0, 0, 0};
+            for (i = 0; i < 7u; i++) {
+                int32_t x = k ? 0 : CN[i][0], z = k ? CN[i][0] : 0;
+                v3_t p = a3_rot(Q8(x), Q8(CN[i][1] - 44), Q8(z));
+                if (i)
+                    a3_seg(prev, p, Q8(400), art_c);
+                prev = p;
+            }
+        }
+        a3_box(0, Q8(-9 - 44), 0, Q8(24), Q8(3), Q8(4), art_c2, 110);   /* (the headstock it hangs from) */
     }
     art_title(ICON_BELL, "BELL");
 }
