@@ -1764,10 +1764,28 @@ int main(int argc, char **argv)
             for (k = 0; k < ARP_NVP; k++) okk &= ARP_VPAT[k].s[0] || !k;
             for (k = 0; k < ARP_NGP; k++) okk &= ARP_GPAT[k].s[0] || !k;
             midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
-            sys.arp_gp = 0; sys.arp_vp = 0; sys.arp_on = 0;
+            sys.arp_gp = 0; sys.arp_vp = 0;
+            run_ms(100);
+            {   /* SEQ LENGTH 3: UP over four notes held loops its first three: 60 64 67 60 64 67 ... */
+                uint32_t j2;
+                synth_kill(); keys_all_off(); run_ms(50);
+                sys.arp_slen = 3;
+                w0 = arp_view.w;
+                midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100); midi_in(0x90, 72, 100);
+                run_ms(1000);
+                for (j2 = 0; j2 < 6u; j2++) {
+                    static const uint8_t L3[3] = {60, 64, 67};
+                    okk &= arp_view.note[(w0 + j2) & 31u] == L3[j2 % 3u];
+                }
+                if (arp_view.note[(w0 + 3u) & 31u] != 60u) printf("   (SEQ LENGTH 3: %u %u %u %u)\n", arp_view.note[w0 & 31u],
+                    arp_view.note[(w0 + 1u) & 31u], arp_view.note[(w0 + 2u) & 31u], arp_view.note[(w0 + 3u) & 31u]);
+                midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0); midi_in(0x80, 72, 0);
+                sys.arp_slen = 0;
+            }
+            sys.arp_on = 0;
             run_ms(100);
         }
-        check("ARP: own clock, MIDI clock in and out, gate, off, HOLD, every pattern, UP&DOWN B, echo, swing, GROOVE", okk);
+        check("ARP: own clock, MIDI clock in and out, gate, off, HOLD, every pattern, UP&DOWN B, echo, swing, GROOVE, SEQ LENGTH", okk);
     }
 
     /* KARMA (SEQ): the chord held makes a phrase. PULSE ARP at 120 BPM (sixteenths) starts at once and plays its hits

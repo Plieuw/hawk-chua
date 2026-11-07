@@ -1104,6 +1104,7 @@ typedef struct {
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
     uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100, 127) */
+    uint8_t arp_slen;                            /* (10: saved; before: OFF) */
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
 } settings_t;
@@ -1218,6 +1219,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic & 3u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
         sys.k_lq = (uint8_t)(s.snd >= 9u ? s.k_lq % LQ_N : LQ_CHORD);   /* (NOTE QUANT CHORD after this install, once) */
         sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
+        sys.arp_slen = (uint8_t)(s.snd >= 10u && s.arp_slen <= 16u ? s.arp_slen : 0u);
         if (s.snd >= 8u) {
             sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
             sys.arp_gp = (uint8_t)(s.arp_gp % ARP_NGP);
@@ -1246,7 +1248,8 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 9;
+    s.snd = 10;
+    s.arp_slen = sys.arp_slen;
     s.arp_vp = sys.arp_vp;
     s.arp_gp = sys.arp_gp;
     s.arp_vd = sys.arp_vd;
@@ -1858,7 +1861,7 @@ static void draw_groove(void)
     uint32_t nv = str_len(vs), ng = str_len(gs), i, cur = arp.gpos ? arp.gpos - 1u : 0u;
     int on = sys.arp_on && arp.n;
     cv_begin(240, PLOT_H, T_BG);
-    cv_text(8, 4, &AF_S, "VELOCITY", T_DIM);
+    cv_text(8, 4, &AF_S, "VELOCITY (ALGO)", T_DIM);
     cv_text(124, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
     for (i = 0; i < 8u && nv; i++) {             /* (the steps; the pattern repeated to eight) */
         int32_t lv = vs[i % nv] - '0', hgt = 4 + lv * 4, x = 8 + (int32_t)i * 28;
@@ -1875,7 +1878,7 @@ static void draw_groove(void)
             cv_rect(x, 92, wd, 10, col);
     }
     if (!nv && !ng)
-        cv_text(8, 108, &AF_S, "KNOB 1, 2: A PATTERN", T_DIM);
+        cv_text(8, 108, &AF_S, "ALGORITHM, KNOB 2: A PATTERN", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 /* LOGIC: the mode, the last steps where either hit: the ARP's row, KARMA's, and what came through */
@@ -2274,7 +2277,8 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
     } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY and NOTE OFF patterns, their depths */
-        ui_cell(T_C1, "1 VELOCITY", ARP_VPAT[sys.arp_vp % ARP_NVP].name);
+        fmt_int(v, (int32_t)sys.arp_slen);
+        ui_cell(T_C1, "1 SEQ LENGTH", sys.arp_slen >= 2u ? v : "OFF");
         ui_cell(T_C2, "2 NOTE OFF", ARP_GPAT[sys.arp_gp % ARP_NGP].name);
         fmt_int(v, (int32_t)(sys.arp_vd & 127u));
         ui_cell(T_C3, "3 VEL DEPTH", v);
@@ -3088,7 +3092,9 @@ static void ui_input(void)
         }
     } else if (sys.page == 18u) {               /* GROOVE */
         if ((s = ui_enc(EN_K1)) != 0) {
-            sys.arp_vp = (uint8_t)clamp((int32_t)sys.arp_vp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NVP - 1);
+            int32_t q = sys.arp_slen >= 2u ? (int32_t)sys.arp_slen : 1;   /* (OFF, 2 .. 16 steps) */
+            q = clamp(q + (s > 0 ? 1 : -1), 1, 16);
+            sys.arp_slen = (uint8_t)(q < 2 ? 0 : q);
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K2)) != 0) {
@@ -3329,6 +3335,11 @@ static void ui_input(void)
         sys.k_ge = (uint8_t)(((int32_t)sys.k_ge + (int32_t)KGE_N * 8 + s) % (int32_t)KGE_N);
         str_cpy(t, "GE ", sizeof t);
         ui_cat(t, sizeof t, k_ge()->name);
+        ui_say(t);
+    } else if (s && sys.page == 18u) {          /* GROOVE: the VELOCITY pattern */
+        sys.arp_vp = (uint8_t)clamp((int32_t)sys.arp_vp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NVP - 1);
+        str_cpy(t, "VELOCITY ", sizeof t);
+        ui_cat(t, sizeof t, ARP_VPAT[sys.arp_vp % ARP_NVP].name);
         ui_say(t);
     } else if (s && sys.page == 6u) {           /* ARP: the pattern */
         sys.arp_type = (uint8_t)(((int32_t)sys.arp_type + (int32_t)ARP_NTYPE * 8 + s) % (int32_t)ARP_NTYPE);

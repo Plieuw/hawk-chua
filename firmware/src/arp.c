@@ -198,6 +198,7 @@ static struct {
     uint32_t pt;                                 /* samples to the next of them */
     uint32_t lt;                                 /* LOGIC: clocks since KARMA's phrase started (its steps on them) */
     uint32_t gpos;                               /* GROOVE: steps since the start (each pattern its own length) */
+    uint32_t slc;                                /* SEQ LENGTH: steps since the pattern's start */
     int32_t vmul;                                /* GROOVE: this step's velocity, % */
     uint8_t lpass;                               /* LOGIC: the swung step waiting lets its notes through */
 } arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu, .vmul = 100};
@@ -288,6 +289,18 @@ static uint32_t arp_sorted(uint8_t *s, uint8_t *v)
     return n;
 }
 
+/* SEQ LENGTH (the GROOVE page): every so many steps the pattern (and the GROOVE's) from its start: a short loop of
+ * any pattern, against the bar or with it */
+static void arp_seqlen(void)
+{
+    if (sys.arp_slen >= 2u && arp.slc >= sys.arp_slen) {
+        arp.slc = 0;
+        arp.pos = 0;
+        arp.gpos = 0;
+        arp.gls = 0;
+    }
+    arp.slc++;
+}
 static void arp_sound(uint32_t note, uint32_t vel)
 {
     if (note > 127u || arp.non >= ARP_MAXN)
@@ -362,6 +375,7 @@ static void arp_do_step(void)
     uint32_t n = arp_sorted(s, v), type = sys.arp_type % ARP_NTYPE, i, nt, shown = 0;
     if (!n)
         return;
+    arp_seqlen();
     if (!arp_groove()) {                         /* (GROOVE's NOTE OFF: a rest; the pattern goes on) */
         arp_off_all();
         arp.npend = 0;
@@ -527,6 +541,7 @@ static void arp_lsync(void)                      /* (KARMA's phrase from its sta
     arp.pos = 0;
     arp.gls = 0;
     arp.gpos = 0;
+    arp.slc = 0;
 }
 static int arp_ltick(void)                       /* (a clock: a step due?) */
 {
@@ -544,6 +559,7 @@ static int arp_would_hit(void)                   /* (the next step plays notes: 
 }
 static void arp_skip(void)                       /* (a step held back: a rest, the pattern on) */
 {
+    arp_seqlen();
     arp.pos++;
     arp_off_all();
     arp.npend = 0;
@@ -610,6 +626,7 @@ static void arp_block(uint32_t n)
         arp.pos = 0;
         arp.gls = 0;
         arp.gpos = 0;
+        arp.slc = 0;
     }
     if (due) {
         arp.t = 0;
