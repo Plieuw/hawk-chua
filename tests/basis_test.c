@@ -1956,15 +1956,21 @@ int main(int argc, char **argv)
             synth_kill(); keys_all_off(); run_ms(50);
             sys.k_logic = 1; sys.arp_on = sys.k_on = 1; run_ms(5);
             arp.n = 3; arp.note[0] = 60; arp.note[1] = 64; arp.note[2] = 67;
-            sys.k_lq = 1;
+            sys.k_root = 0;
+            sys.k_lq = LQ_AUTO;
             okk &= logic_q(61) == 60u && logic_q(66) == 65u && logic_q(71) == 71u && logic_q(74) == 74u;
-            sys.k_lq = 2;
+            sys.k_lq = LQ_CHORD;
             okk &= logic_q(62) == 60u && logic_q(65) == 64u && logic_q(76) == 76u && logic_q(70) == 72u;
-            arp.note[0] = 57; arp.note[1] = 60; arp.note[2] = 64; sys.k_lq = 1;
+            arp.note[0] = 57; arp.note[1] = 60; arp.note[2] = 64; sys.k_lq = LQ_AUTO;
             okk &= logic_q(56) == 55u && logic_q(68) == 67u && logic_q(62) == 62u;
+            sys.k_lq = LQ_SCALES + 2u; sys.k_root = 3;   /* (D DORIAN: F# to F, B stays, C# to C) */
+            okk &= !strcmp(logic_q_name(sys.k_lq), "DORIAN") && logic_q(66) == 65u && logic_q(71) == 71u && logic_q(61) == 60u;
+            sys.k_lq = LQ_SCALES + 9u; sys.k_root = 0;   /* (PENTA MAJOR from the lowest, A: B stays, D to C#) */
+            okk &= logic_q(71) == 71u && logic_q(62) == 61u;
+            sys.k_root = 0;
             sys.k_lq = 0;
             okk &= logic_q(61) == 61u;
-            sys.k_lq = 1;
+            sys.k_lq = LQ_AUTO;
             gen_on(58, 100);                     /* (A#: sounds as A) */
             run_ms(5);
             {   uint32_t k, on57 = 0;

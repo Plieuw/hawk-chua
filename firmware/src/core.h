@@ -63,7 +63,8 @@ static volatile struct {
     uint8_t arp_vp, arp_gp, arp_vd, arp_gd;   /* arp.c, the ARP's GROOVE page (ARP 2x): the VELOCITY pattern and the
                                   * NOTE OFF pattern (0 off), each one's depth */
     uint8_t k_logic;             /* karma.c, the LOGIC page (SEQ 2x): the ARP with KARMA: 0 one or the other, OR, AND, XOR */
-    uint8_t k_lq;                /* arp.c, the LOGIC page: their notes to the key: 0 off, 1 the chord's scale, 2 its notes */
+    uint8_t k_lq, k_root;        /* arp.c, the LOGIC page: their notes to a key: 0 off, 1 the chord, 2 AUTO, 3.. a scale;
+                                  * its root: 0 AUTO (the lowest held), 1..12 C..B */
     uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */
     uint8_t mw_seen;
     int8_t transpose;              /* synth.c: the sound's octave (-3 .. +3: every oscillator, the FX tuned with it;

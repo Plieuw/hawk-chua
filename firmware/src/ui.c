@@ -1104,6 +1104,7 @@ typedef struct {
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
     uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100, 127) */
+    uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
 } settings_t;
 
@@ -1215,7 +1216,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
         sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic & 3u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
-        sys.k_lq = (uint8_t)(s.snd >= 6u ? s.k_lq % 3u : 1u);
+        sys.k_lq = (uint8_t)(s.snd >= 9u ? s.k_lq % LQ_N : LQ_CHORD);   /* (NOTE QUANT CHORD after this install, once) */
+        sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
         if (s.snd >= 8u) {
             sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
             sys.arp_gp = (uint8_t)(s.arp_gp % ARP_NGP);
@@ -1244,13 +1246,14 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 8;
+    s.snd = 9;
     s.arp_vp = sys.arp_vp;
     s.arp_gp = sys.arp_gp;
     s.arp_vd = sys.arp_vd;
     s.arp_gd = sys.arp_gd;
     s.k_logic = sys.k_logic;
     s.k_lq = sys.k_lq;
+    s.k_root = sys.k_root;
     s.bend_range = sys.bend_range;
     s.spk_bass = sys.spk_bass;
     s.lvl_match = sys.lvl_match;
@@ -1887,7 +1890,15 @@ static void draw_logic(void)
     cv_text(64, 4, &AF_M, LG[sys.k_logic & 3u], on ? T_ACCENT : T_DIM);
     cv_text(140, 4, &AF_M, "KARMA", on ? T_THEME : T_DIM);
     cv_text(8, 30, &AF_S, LD[sys.k_logic & 3u], T_DIM);
-    cv_text(160, 30, &AF_S, sys.k_lq == 2u ? "Q CHORD" : sys.k_lq ? "Q SCALE" : "Q OFF", sys.k_lq ? T_TEXT : T_DIM);
+    {
+        char q[24];
+        str_cpy(q, logic_q_name(sys.k_lq), sizeof q);
+        if (sys.k_lq >= LQ_AUTO) {
+            ui_cat(q, sizeof q, " ");
+            ui_cat(q, sizeof q, sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "");
+        }
+        cv_text(150, 30, &AF_S, q, sys.k_lq ? T_TEXT : T_DIM);
+    }
     cv_text(8, 52, &AF_S, "A", T_DIM);
     cv_text(8, 72, &AF_S, "K", T_DIM);
     cv_text(8, 96, &AF_S, "OUT", T_DIM);
@@ -2259,10 +2270,9 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 OFF DEPTH", v);
     } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
         static const char *const LG[4] = {"OFF", "OR", "AND", "XOR"};
-        static const char *const LQ[3] = {"OFF", "SCALE", "CHORD"};
         ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic & 3u]);
-        ui_cell(T_C2, "2 NOTE QUANT", LQ[sys.k_lq % 3u]);
-        ui_cell(T_C3, "3", "");
+        ui_cell(T_C2, "2 NOTE QUANT", logic_q_name(sys.k_lq));
+        ui_cell(T_C3, "3 ROOT", sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO");
         ui_cell(T_C4, "4", "");
     } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH */
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
@@ -3085,9 +3095,16 @@ static void ui_input(void)
             ui_say(LG[sys.k_logic & 3u]);
         }
         if ((s = ui_enc(EN_K2)) != 0) {
-            static const char *const LQ[3] = {"NOTE QUANT OFF", "NOTE QUANT: THE CHORD'S SCALE", "NOTE QUANT: THE CHORD"};
-            sys.k_lq = (uint8_t)clamp((int32_t)sys.k_lq + (s > 0 ? 1 : -1), 0, 2);
-            ui_say(LQ[sys.k_lq % 3u]);
+            sys.k_lq = (uint8_t)clamp((int32_t)sys.k_lq + (s > 0 ? 1 : -1), 0, (int32_t)LQ_N - 1);
+            str_cpy(t, "NOTE QUANT ", sizeof t);
+            ui_cat(t, sizeof t, logic_q_name(sys.k_lq));
+            ui_say(t);
+        }
+        if ((s = ui_enc(EN_K3)) != 0) {
+            sys.k_root = (uint8_t)clamp((int32_t)sys.k_root + (s > 0 ? 1 : -1), 0, 12);
+            str_cpy(t, "ROOT ", sizeof t);
+            ui_cat(t, sizeof t, sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO (LOWEST)");
+            ui_say(t);
         }
     } else if (sys.page == 16u) {               /* SOUND */
         knob(&sys.spk_bass, EN_K1, 0);

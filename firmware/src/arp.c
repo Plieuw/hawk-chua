@@ -479,20 +479,39 @@ static int arp_ext(void) { return arp.ext_age < ARP_EXT_TIMEOUT; }
  * after it, each its own; a step let through plays as it would, one held back is a rest (the pattern goes on) */
 static int logic_on(void) { return sys.k_logic && sys.arp_on && sys.k_on; }
 /* LOGIC's NOTE QUANT: what the two make (KARMA's echoes transposed, the ARP's glissando, its octaves folded) put
- * in the key of the chord held: SCALE the scale it implies from its lowest note (major, or minor with a minor third
- * and no major one; the chord's own notes always in), CHORD its notes only; a note outside to the nearest inside
- * (the lower of two as near) */
+ * in a key: CHORD the notes held only; AUTO the scale the chord implies from ROOT (major, or minor with a minor third
+ * and no major one; the chord's own notes always in); or a scale of its own from ROOT. ROOT (KNOB 3): AUTO the lowest
+ * note held, or C .. B. A note outside to the nearest inside (the lower of two as near) */
+enum { LQ_OFF, LQ_CHORD, LQ_AUTO, LQ_SCALES };
+static const struct { const char *name; uint16_t mask; } LQ_SCALE[] = {   /* (bit n: n semitones over the root) */
+    {"MAJOR", 0xAB5}, {"MINOR", 0x5AD}, {"DORIAN", 0x6AD}, {"PHRYGIAN", 0x5AB}, {"LYDIAN", 0xAD5},
+    {"MIXOLYDIAN", 0x6B5}, {"LOCRIAN", 0x56B}, {"HARM MINOR", 0x9AD}, {"MEL MINOR", 0xAAD}, {"PENTA MAJOR", 0x295},
+    {"PENTA MINOR", 0x4A9}, {"BLUES", 0x4E9}, {"WHOLE TONE", 0x555}, {"HIRAJOSHI", 0x18D}, {"DOUBLE HARM", 0x9B3},
+};
+#define LQ_N (LQ_SCALES + sizeof LQ_SCALE / sizeof LQ_SCALE[0])
+static const char *logic_q_name(uint32_t q)
+{
+    return q == LQ_OFF ? "OFF" : q == LQ_CHORD ? "CHORD" : q == LQ_AUTO ? "AUTO" : LQ_SCALE[(q - LQ_SCALES) % (LQ_N - LQ_SCALES)].name;
+}
 static uint32_t logic_q(uint32_t note)
 {
-    static const uint16_t MAJ = 0xAB5u, MIN = 0x5ADu;   /* (bits: 0 2 4 5 7 9 11; 0 2 3 5 7 8 10) */
-    uint32_t i, root = 127u, pcs = 0, mask, pc, d;
-    if (!logic_on() || !sys.k_lq || !arp.n || note > 127u)
+    uint32_t i, lo = 127u, root, held = 0, mask, pc, d, q = sys.k_lq % LQ_N;
+    if (!logic_on() || q == LQ_OFF || !arp.n || note > 127u)
         return note;
-    for (i = 0; i < arp.n; i++)
-        root = arp.note[i] < root ? arp.note[i] : root;
-    for (i = 0; i < arp.n; i++)
-        pcs |= 1u << ((arp.note[i] - root) % 12u);
-    mask = sys.k_lq >= 2u ? pcs : pcs | ((pcs >> 3 & 1u) && !(pcs >> 4 & 1u) ? MIN : MAJ);
+    for (i = 0; i < arp.n; i++) {
+        lo = arp.note[i] < lo ? arp.note[i] : lo;
+        held |= 1u << (arp.note[i] % 12u);       /* (the chord's pitch classes, from C) */
+    }
+    root = sys.k_root ? (sys.k_root - 1u) % 12u : lo % 12u;
+    held = ((held >> root) | (held << (12u - root))) & 0xFFFu;   /* (from the root) */
+    if (q == LQ_CHORD)
+        mask = held;
+    else if (q == LQ_AUTO)
+        mask = held | ((held >> 3 & 1u) && !(held >> 4 & 1u) ? 0x5ADu : 0xAB5u);
+    else
+        mask = LQ_SCALE[q - LQ_SCALES].mask;
+    if (!mask)
+        return note;
     pc = (note + 120u - root) % 12u;
     for (d = 0; d < 7u; d++) {
         if (mask >> ((pc + 12u - d) % 12u) & 1u)

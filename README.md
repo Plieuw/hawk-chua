@@ -244,9 +244,10 @@ als een rol; onderin de klok en de lengte ("20 x 1/16").
   (een noot van de een klinkt alleen waar de ander op dezelfde tel ook speelt), XOR (alleen waar de ander niet speelt:
   ze vullen elkaars gaten). Beide spelen dezelfde vastgehouden noten op één klok, die van KARMA: de ARP begint mee met
   de frase (op de zestiende), en de vergelijking gebeurt op het rechte raster; SWING komt daarna, voor elk apart. Een
-  stap die tegengehouden wordt is een rust, het patroon loopt door. KNOB 2 NOTE QUANT: SCALE (standaard: alles wat de
-  twee maken in de toonladder van het akkoord, majeur of mineur vanaf de laagste noot; de akkoordtonen zelf altijd),
-  CHORD (alleen de akkoordtonen) of OFF. PLAY op deze pagina zet ze samen aan en uit. De pagina laat de laatste tellen
+  stap die tegengehouden wordt is een rust, het patroon loopt door. KNOB 2 NOTE QUANT zet alles wat de twee maken in een toonsoort: CHORD (standaard: alleen de akkoordtonen), AUTO (de
+  toonladder van het akkoord, majeur of mineur, de akkoordtonen altijd erin), of een eigen toonladder: MAJOR, MINOR,
+  DORIAN, PHRYGIAN, LYDIAN, MIXOLYDIAN, LOCRIAN, HARM MINOR, MEL MINOR, PENTA MAJOR, PENTA MINOR, BLUES, WHOLE TONE,
+  HIRAJOSHI, DOUBLE HARM; of OFF. KNOB 3 ROOT: de grondtoon, AUTO (de laagste vastgehouden noot) of C .. B. PLAY op deze pagina zet ze samen aan en uit. De pagina laat de laatste tellen
   zien: wat de ARP speelt, wat KARMA speelt en wat erdoor komt.
 - *Eén tempo.* KARMA loopt op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de frase
   opnieuw), en neemt de SWING van de ARP-pagina over voor zijn zestienden (of achtsten). Een nieuwe frase begint op
