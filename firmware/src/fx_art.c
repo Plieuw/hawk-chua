@@ -1001,9 +1001,45 @@ static void a3_l(int32_t x0, int32_t y0, int32_t z0, int32_t x1, int32_t y1, int
     a3_proj(a3_rot(x1, y1, z1), &e, &f);
     art_ln(a, b, e, f, c, dash);
 }
+/* a disk in the x-y plane at depth z (Q8), lit (its face toward the camera), its rim drawn */
+static void a3_disk(int32_t cx, int32_t cy, int32_t z, int32_t r, uint32_t nseg, uint16_t c, int32_t str, uint16_t rim)
+{
+    uint32_t k;
+    v3_t ctr = a3_rot(cx, cy, z), in = a3_rot(cx, cy, z + Q8(2)), prev = {0, 0, 0}, p;
+    for (k = 0; k <= nseg; k++) {
+        uint32_t th = k * (0xFFFFFFFFu / nseg);
+        p = a3_rot(cx + (art_cos(th) >> 7) * (r >> 8), cy + (art_sin(th) >> 7) * (r >> 8), z);
+        if (k) {
+            if (str)
+                a3_face(ctr, prev, p, p, in, c, str);
+            if (rim)
+                a3_seg(prev, p, Q8(400), rim);
+        }
+        prev = p;
+    }
+}
+/* a drum (a cylinder along z, from z0 to z1) lit: its side; its rims drawn */
+static void a3_drum_z(int32_t cx, int32_t cy, int32_t z0, int32_t z1, int32_t r, uint32_t nseg, uint16_t c, int32_t str)
+{
+    uint32_t k;
+    v3_t in = a3_rot(cx, cy, (z0 + z1) / 2), pa = {0, 0, 0}, pb = {0, 0, 0}, qa, qb;
+    for (k = 0; k <= nseg; k++) {
+        uint32_t th = k * (0xFFFFFFFFu / nseg);
+        int32_t x = cx + (art_cos(th) >> 7) * (r >> 8), y = cy + (art_sin(th) >> 7) * (r >> 8);
+        qa = a3_rot(x, y, z0);
+        qb = a3_rot(x, y, z1);
+        if (k) {
+            a3_face(pa, qa, qb, pb, in, c, str);
+            a3_seg(pa, qa, in.z, c);
+            a3_seg(pb, qb, in.z, art_c2);
+        }
+        pa = qa;
+        pb = qb;
+    }
+}
 static void art_tape(void)
 {
-    const int32_t RX = Q8(50), RY = Q8(-10), RF = Q8(27);
+    const int32_t RX = Q8(50), RY = Q8(-12), RF = Q8(27);
     uint32_t len = tape.len ? tape.len : 1u, k, t, a = sys.tape_arm % 4u;
     int32_t p = (int32_t)((tape.pos >> 16) * 256u / len);       /* the loop's progress, 0..256 */
     int32_t rp[2], px[5], py[5];
@@ -1012,33 +1048,38 @@ static void art_tape(void)
     for (k = 0; k < 2u; k++)                                     /* (turning: the tape's speed over the pack) */
         if (tape.playing)
             art_reel[k] += tape.speed * 0x00060000u / (uint32_t)(rp[k] >> 8);
-    a3_view((uint32_t)ART_DEG(-16) + (uint32_t)(art_sin(art_t * 0x00400000u) * 2500), (uint32_t)-ART_DEG(12), 120, 66);
+    a3_view((uint32_t)ART_DEG(-16) + (uint32_t)(art_sin(art_t * 0x00400000u) * 2500), (uint32_t)-ART_DEG(14), 120, 64);
+    a3_floor(Q8(52), Q8(100), Q8(40), Q8(20));
+    a3_box(0, Q8(10), Q8(14), Q8(92), Q8(42), Q8(4), art_c2, 70);   /* the deck behind the reels */
     for (k = 0; k < 2u; k++) {                                   /* the reels */
         int32_t cx = k ? RX : -RX, j;
-        a3_circle(cx, RY, Q8(-5), RF, 32, art_c, Q8(400));      /* the flanges, front and back */
-        a3_circle(cx, RY, Q8(5), RF, 32, art_c3, Q8(400));
-        a3_circle(cx, RY, Q8(-3), rp[k], 24, art_c2, Q8(400));  /* the pack of tape */
-        a3_circle(cx, RY, Q8(-5), Q8(5), 12, art_c, Q8(400));   /* the hub */
-        for (j = 0; j < 3; j++) {                                /* the spokes */
-            uint32_t th = art_reel[k] * (k ? 1u : 1u) + (uint32_t)j * 0x55555555u;
+        a3_disk(cx, RY, Q8(6), RF, 24, art_c, 70, art_c3);       /* the back flange */
+        a3_drum_z(cx, RY, Q8(-3), Q8(3), rp[k], 20, art_c, 150);   /* the pack of tape, lit */
+        a3_disk(cx, RY, Q8(-3), rp[k], 20, art_c, 110, 0);       /* (its side toward us) */
+        a3_drum_z(cx, RY, Q8(-7), Q8(6), Q8(5), 10, art_c, 180);   /* the hub */
+        for (j = 0; j < 3; j++) {                                /* the front flange: its three spokes */
+            uint32_t th = art_reel[k] + (uint32_t)j * 0x55555555u;
             a3_l(cx + (art_cos(th) >> 7) * 5, RY + (art_sin(th) >> 7) * 5, Q8(-5),
-                 cx + (art_cos(th) >> 7) * 24, RY + (art_sin(th) >> 7) * 24, Q8(-5), art_c, 0);
+                 cx + (art_cos(th) >> 7) * 26, RY + (art_sin(th) >> 7) * 26, Q8(-5), art_c, 0);
         }
+        a3_disk(cx, RY, Q8(-5), RF, 32, art_c, 0, art_c);       /* (its rim) */
     }
-    /* the tape's path: off the supply pack, over a roller, past the head, a roller, onto the take-up */
+    /* the tape's path: off the supply pack, over a roller, past the head, a roller, onto the take-up; lit */
     px[0] = -RX; py[0] = RY + rp[0];
     px[1] = Q8(-30); py[1] = Q8(30);
     px[2] = 0; py[2] = Q8(33);
     px[3] = Q8(30); py[3] = Q8(30);
     px[4] = RX; py[4] = RY + rp[1];
     for (k = 0; k < 4u; k++) {
-        a3_l(px[k], py[k], Q8(-4), px[k + 1u], py[k + 1u], Q8(-4), art_c, 0);   /* the tape's two edges */
-        a3_l(px[k], py[k], Q8(4), px[k + 1u], py[k + 1u], Q8(4), art_c2, 0);
+        v3_t e0 = a3_rot(px[k], py[k], Q8(-3)), e1 = a3_rot(px[k + 1u], py[k + 1u], Q8(-3));
+        v3_t f0 = a3_rot(px[k], py[k], Q8(3)), f1 = a3_rot(px[k + 1u], py[k + 1u], Q8(3));
+        a3_face(e0, e1, f1, f0, a3_rot((px[k] + px[k + 1u]) / 2, (py[k] + py[k + 1u]) / 2 - Q8(20), 0), art_c, 120);
+        a3_face(e0, e1, f1, f0, a3_rot((px[k] + px[k + 1u]) / 2, (py[k] + py[k + 1u]) / 2 + Q8(20), 0), art_c, 120);
+        a3_seg(e0, e1, Q8(400), art_c);
+        a3_seg(f0, f1, Q8(400), art_c2);
     }
-    for (k = 1; k < 4u; k += 2u) {                               /* the rollers */
-        a3_circle(px[k], py[k] + Q8(3), Q8(-4), Q8(3), 10, art_c2, Q8(400));
-        a3_l(px[k], py[k] + Q8(3), Q8(-6), px[k], py[k] + Q8(3), Q8(6), art_c3, 0);
-    }
+    for (k = 1; k < 4u; k += 2u)                                 /* the rollers, lit */
+        a3_drum_z(px[k], py[k] + Q8(3), Q8(-5), Q8(5), Q8(3), 10, art_c2, 150);
     for (t = 0; t < 4u; t++) {                                   /* the four tracks on the tape, as bright as they sound */
         int32_t z = Q8(-3) + (int32_t)t * Q8(2), m = tape.meter[t] * 100 / 8000;
         uint16_t c = ux_mix(T_BG, art_c, clamp(30 + m, 30, 100));
@@ -1046,16 +1087,7 @@ static void art_tape(void)
             a3_l(px[k], py[k], z, px[k + 1u], py[k + 1u], z, t == a ? (tape.rec ? T_ACCENT : c) : c,
                  t == a ? 3u | 2u << 8 : 0);
     }
-    {   /* the head: a block under the tape */
-        int32_t hx = Q8(9), hy0 = Q8(34), hy1 = Q8(44), hz = Q8(6);
-        a3_l(-hx, hy0, -hz, hx, hy0, -hz, art_c, 0);
-        a3_l(-hx, hy1, -hz, hx, hy1, -hz, art_c, 0);
-        a3_l(-hx, hy0, -hz, -hx, hy1, -hz, art_c, 0);
-        a3_l(hx, hy0, -hz, hx, hy1, -hz, art_c, 0);
-        a3_l(-hx, hy0, hz, hx, hy0, hz, art_c3, 0);
-        a3_l(-hx, hy0, -hz, -hx, hy0, hz, art_c3, 0);
-        a3_l(hx, hy0, -hz, hx, hy0, hz, art_c3, 0);
-    }
+    a3_box(0, Q8(39), 0, Q8(9), Q8(5), Q8(6), art_c, 170);       /* the head: a block under the tape */
     if (tape.rec && (art_t & 8u)) {                              /* recording */
         cv_rect(200, 6, 6, 6, T_ACCENT);
         cv_text(210, 2, &AF_S, "REC", T_ACCENT);
