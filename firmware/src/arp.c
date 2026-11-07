@@ -565,6 +565,24 @@ static void arp_skip(void)                       /* (a step held back: a rest, t
     arp.npend = 0;
     arp_view.note[arp_view.w++ & 31u] = 0;
 }
+static void arp_lforce(void)                     /* (NOR: neither hit here: the ARP plays its last note, or the lowest
+                                                  * held, in the gap) */
+{
+    uint32_t i, lo = 127u;
+    for (i = 0; i < arp.n; i++)
+        lo = arp.note[i] < lo ? arp.note[i] : lo;
+    arp.t = 0;
+    arp.swing_wait = 0;
+    arp.gate = arp.len * (8u + (sys.arp_gate & 127u) * 92u / 127u) / 100u;
+    arp_skip();
+    if (arp.n) {
+        uint32_t nt = arp_last ? arp_last : lo;
+        arp.vmul = 100;
+        arp_sound(nt, arp.vel[0]);
+        arp_view.note[(arp_view.w - 1u) & 31u] = (uint8_t)nt;
+    }
+    arp.step++;
+}
 static void arp_lstep(int pass)                  /* (a step due at this clock: through or held back) */
 {
     uint32_t gate = 8u + (sys.arp_gate & 127u) * 92u / 127u, sw = 50u + (sys.arp_swing & 127u) * 33u / 127u;

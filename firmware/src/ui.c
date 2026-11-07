@@ -1103,6 +1103,7 @@ typedef struct {
     uint8_t spk_bass, lvl_match;
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
+    uint8_t k_inv;                               /* (11: saved; before: off) */
     uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100, 127) */
     uint8_t arp_slen;                            /* (10: saved; before: OFF) */
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
@@ -1204,7 +1205,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.feg_npts = (uint8_t)(s.feg_npts & 127u);
         for (uint32_t i = 0; i < FEG_N; i++)
             feg.curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
-        sys.k_on = (uint8_t)(s.k_on != 0 && (!sys.arp_on || (s.snd >= 6u ? s.k_logic & 3u : 1u)));
+        sys.k_on = (uint8_t)(s.k_on != 0 && (!sys.arp_on || (s.snd >= 6u ? s.k_logic % 7u : 1u)));
         sys.k_ge = (uint8_t)(s.k_ge % KGE_N);
         sys.k_latch = (uint8_t)(s.k_latch != 0);
         sys.mw_target = (uint8_t)(s.mw_target % FEG_NT);
@@ -1216,10 +1217,11 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
         sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
-        sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic & 3u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
+        sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic % 7u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
         sys.k_lq = (uint8_t)(s.snd >= 9u ? s.k_lq % LQ_N : LQ_CHORD);   /* (NOTE QUANT CHORD after this install, once) */
         sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
         sys.arp_slen = (uint8_t)(s.snd >= 10u && s.arp_slen <= 16u ? s.arp_slen : 0u);
+        sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         if (s.snd >= 8u) {
             sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
             sys.arp_gp = (uint8_t)(s.arp_gp % ARP_NGP);
@@ -1248,7 +1250,8 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 10;
+    s.snd = 11;
+    s.k_inv = sys.k_inv;
     s.arp_slen = sys.arp_slen;
     s.arp_vp = sys.arp_vp;
     s.arp_gp = sys.arp_gp;
@@ -1884,15 +1887,18 @@ static void draw_groove(void)
 /* LOGIC: the mode, the last steps where either hit: the ARP's row, KARMA's, and what came through */
 static void draw_logic(void)
 {
-    static const char *const LG[4] = {"OFF", "OR", "AND", "XOR"};
-    static const char *const LD[4] = {"ONE OR THE OTHER", "BOTH PLAY", "ONLY WHERE BOTH HIT", "ONLY WHERE ONE HITS"};
+    static const char *const LG[7] = {"OFF", "OR", "AND", "XOR", "NOR", "ALT", "S/R"};
+    static const char *const LD[7] = {"ONE OR THE OTHER", "BOTH PLAY", "ONLY WHERE BOTH HIT", "ONLY WHERE ONE HITS",
+                                      "THE GAPS OF BOTH", "IN TURN", "ARP SETS, KARMA RESETS"};
     uint32_t w = logic_view.w, i;
     int on = logic_on();
     cv_begin(240, PLOT_H, T_BG);
     cv_text(8, 4, &AF_M, "ARP", on ? T_THEME : T_DIM);
-    cv_text(64, 4, &AF_M, LG[sys.k_logic & 3u], on ? T_ACCENT : T_DIM);
+    cv_text(64, 4, &AF_M, LG[sys.k_logic % 7u], on ? T_ACCENT : T_DIM);
+    if (sys.k_inv)
+        cv_text(64, 22, &AF_S, "INVERSE", on ? T_ACCENT : T_DIM);
     cv_text(140, 4, &AF_M, "KARMA", on ? T_THEME : T_DIM);
-    cv_text(8, 30, &AF_S, LD[sys.k_logic & 3u], T_DIM);
+    cv_text(8, 30, &AF_S, LD[sys.k_logic % 7u], T_DIM);
     {
         char q[24];
         str_cpy(q, logic_q_name(sys.k_lq), sizeof q);
@@ -1915,7 +1921,7 @@ static void draw_logic(void)
         cv_rect(x, 98, 6, 10, b & 12u ? T_ACCENT : ux_mix(T_BG, T_DIM, 25));
     }
     if (!on)
-        cv_text(8, 112, &AF_S, sys.k_logic ? "PLAY: ARP + KARMA" : "LOGIC 1: OR AND XOR", T_DIM);
+        cv_text(8, 112, &AF_S, sys.k_logic ? "PLAY: ARP + KARMA" : "KNOB 1: A LOGIC", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 static void draw_sound(void)
@@ -2285,11 +2291,11 @@ static void ui_draw(void)
         fmt_int(v, (int32_t)(sys.arp_gd & 127u));
         ui_cell(T_C4, "4 OFF DEPTH", v);
     } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
-        static const char *const LG[4] = {"OFF", "OR", "AND", "XOR"};
-        ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic & 3u]);
+        static const char *const LG[7] = {"OFF", "OR", "AND", "XOR", "NOR", "ALT", "S/R"};
+        ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic % 7u]);
         ui_cell(T_C2, "2 NOTE QUANT", logic_q_name(sys.k_lq));
         ui_cell(T_C3, "3 ROOT", sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO");
-        ui_cell(T_C4, "4", "");
+        ui_cell(T_C4, "4 INVERSE", sys.k_inv ? "ON" : "OFF");
     } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH */
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
         ui_cell(T_C1, "1 SPEAKER BASS", sys.spk_bass & 127u ? v : "OFF");
@@ -3105,12 +3111,13 @@ static void ui_input(void)
         knob(&sys.arp_gd, EN_K4, 3);
     } else if (sys.page == 17u) {               /* LOGIC */
         if ((s = ui_enc(EN_K1)) != 0) {
-            static const char *const LG[4] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",
-                                              "LOGIC XOR: WHERE ONE HITS"};
-            sys.k_logic = (uint8_t)clamp((int32_t)sys.k_logic + (s > 0 ? 1 : -1), 0, 3);
+            static const char *const LG[7] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",
+                                              "LOGIC XOR: WHERE ONE HITS", "LOGIC NOR: THE GAPS", "LOGIC ALT: IN TURN",
+                                              "LOGIC S/R: ARP SETS"};
+            sys.k_logic = (uint8_t)clamp((int32_t)sys.k_logic + (s > 0 ? 1 : -1), 0, 6);
             if (!sys.k_logic && sys.arp_on && sys.k_on)   /* (OFF: one of them, KARMA) */
                 sys.arp_on = 0;
-            ui_say(LG[sys.k_logic & 3u]);
+            ui_say(LG[sys.k_logic % 7u]);
         }
         if ((s = ui_enc(EN_K2)) != 0) {
             sys.k_lq = (uint8_t)clamp((int32_t)sys.k_lq + (s > 0 ? 1 : -1), 0, (int32_t)LQ_N - 1);
@@ -3123,6 +3130,10 @@ static void ui_input(void)
             str_cpy(t, "ROOT ", sizeof t);
             ui_cat(t, sizeof t, sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO (LOWEST)");
             ui_say(t);
+        }
+        if ((s = ui_enc(EN_K4)) != 0) {
+            sys.k_inv = (uint8_t)(s > 0);
+            ui_say(sys.k_inv ? "INVERSE ON" : "INVERSE OFF");
         }
     } else if (sys.page == 16u) {               /* SOUND */
         knob(&sys.spk_bass, EN_K1, 0);

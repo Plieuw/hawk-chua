@@ -64,7 +64,8 @@ static volatile struct {
                                   * and the NOTE OFF pattern (0 off), each one's depth */
     uint8_t arp_slen;            /* arp.c, the GROOVE page's KNOB 1: SEQ LENGTH, the pattern from its start every 2 .. 16
                                   * steps (0: its own length) */
-    uint8_t k_logic;             /* karma.c, the LOGIC page (SEQ 2x): the ARP with KARMA: 0 one or the other, OR, AND, XOR */
+    uint8_t k_logic, k_inv;      /* karma.c, the LOGIC page (SEQ 2x): the ARP with KARMA: 0 one or the other, OR, AND, XOR,
+                                  * NOR, ALT, S/R; KNOB 4 INVERSE: what it would let through held back, and the other way */
     uint8_t k_lq, k_root;        /* arp.c, the LOGIC page: their notes to a key: 0 off, 1 the chord, 2 AUTO, 3.. a scale;
                                   * its root: 0 AUTO (the lowest held), 1..12 C..B */
     uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */

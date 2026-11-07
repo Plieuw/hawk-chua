@@ -242,7 +242,9 @@ als een rol; onderin de klok en de lengte ("20 x 1/16").
   ander uit en de vastgehouden noten gaan mee over. Zet je hem uit, dan klinkt het akkoord gewoon.
 - *Samen: LOGIC* (SEQ twee keer). KNOB 1 LOGIC: OFF (één tegelijk, zoals hierboven), OR (standaard: allebei spelen alles), AND
   (een noot van de een klinkt alleen waar de ander op dezelfde tel ook speelt), XOR (alleen waar de ander niet speelt:
-  ze vullen elkaars gaten). Beide spelen dezelfde vastgehouden noten op één klok, die van KARMA: de ARP begint mee met
+  ze vullen elkaars gaten), NOR (alleen in de gaten van allebei: de ARP speelt daar zijn laatste noot), ALT (om de
+  beurt: elke tel met een slag gaat naar de volgende), S/R (een slag van de ARP zet aan, een van KARMA zet uit: aan speelt
+  de ARP, uit KARMA). KNOB 4 INVERSE: wat de logica tegenhoudt komt erdoor en andersom. Beide spelen dezelfde vastgehouden noten op één klok, die van KARMA: de ARP begint mee met
   de frase (op de zestiende), en de vergelijking gebeurt op het rechte raster; SWING komt daarna, voor elk apart. Een
   stap die tegengehouden wordt is een rust, het patroon loopt door. KNOB 2 NOTE QUANT zet alles wat de twee maken in een toonsoort: CHORD (standaard: alleen de akkoordtonen), AUTO (de
   toonladder van het akkoord, majeur of mineur, de akkoordtonen altijd erin), of een eigen toonladder: MAJOR, MINOR,

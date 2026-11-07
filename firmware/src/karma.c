@@ -574,22 +574,56 @@ static struct { uint8_t v[32]; volatile uint32_t w; } logic_view;   /* (the LOGI
                                                                      * 2 the ARP's through, 3 KARMA's) */
 static void k_logic_tick(int trig, int kdue)
 {
-    int adue = trig ? (arp_lsync(), 1) : arp_ltick(), ah = adue && arp_would_hit(), kh = 0, pa, pk;
-    uint32_t nev0 = kar.nev, mode = sys.k_logic & 3u;
+    static uint8_t alt, sr;                      /* (ALT: whose turn; S/R: set by the ARP, reset by KARMA) */
+    int adue = trig ? (arp_lsync(), 1) : arp_ltick(), ah = adue && arp_would_hit(), kh = 0, pa, pk, force = 0;
+    uint32_t nev0 = kar.nev, mode = sys.k_logic % 7u;
     if (kdue) {
         kar.cap = 1;
         k_step();
         kar.cap = 0;
         kh = kar.nev > nev0;
     }
-    pa = mode == 2u ? ah && kh : mode == 3u ? ah && !kh : ah;   /* (1 OR: both as they are) */
-    pk = mode == 2u ? kh && ah : mode == 3u ? kh && !ah : kh;
+    if (trig)
+        alt = sr = 0;
+    switch (mode) {
+    case 2u: pa = ah && kh; pk = kh && ah; break;        /* AND: only where both hit */
+    case 3u: pa = ah && !kh; pk = kh && !ah; break;      /* XOR: only where one hits */
+    case 4u:                                             /* NOR: the gaps of both: the ARP fills them */
+        pa = pk = 0;
+        force = adue && !ah && !kh;
+        break;
+    case 5u:                                             /* ALT: each hit to the one whose turn it is, in turn */
+        pa = ah && !alt;
+        pk = kh && alt;
+        if (ah || kh)
+            alt = (uint8_t)!alt;
+        break;
+    case 6u:                                             /* S/R: the ARP's hit sets, KARMA's resets (both: flips);
+                                                          * set, the ARP plays, reset, KARMA */
+        if (ah && kh)
+            sr = (uint8_t)!sr;
+        else if (ah)
+            sr = 1;
+        else if (kh)
+            sr = 0;
+        pa = ah && sr;
+        pk = kh && !sr;
+        break;
+    default: pa = ah; pk = kh; break;                    /* OR: both as they are */
+    }
+    if (sys.k_inv) {                                     /* INVERSE: the hits it held back through, and the others back */
+        pa = ah && !pa;
+        pk = kh && !pk;
+        force = 0;
+    }
     if (kh && !pk)
         kar.nev = nev0;                          /* (KARMA's held back: this step's notes, its echoes) */
-    if (adue)
+    if (force)
+        arp_lforce();
+    else if (adue)
         arp_lstep(pa);
-    if (ah || kh)
-        logic_view.v[logic_view.w++ & 31u] = (uint8_t)(ah | kh << 1 | pa << 2 | pk << 3);
+    if (ah || kh || force)
+        logic_view.v[logic_view.w++ & 31u] = (uint8_t)(ah | kh << 1 | (pa || force) << 2 | pk << 3);
 }
 
 /* a MIDI clock (its own or MIDI's): the grid, the trigger waiting for a sixteenth, the step */

@@ -1950,12 +1950,12 @@ int main(int argc, char **argv)
         uint32_t okk = 1, m, d, ext;
         for (ext = 0; ext < 2u; ext++)
             for (d = 0; d < 3u; d++)             /* (1/16, 1/8, 1/12: SUBDIVIDE its own on the one clock) */
-                for (m = 1; m <= 3u; m++) {
+                for (m = 1; m <= 7u; m++) {      /* (7: OR INVERSE) */
                     uint32_t w0, g0, i, na = 0, nk = 0, pa = 0, pk = 0, both = 0, b;
                     synth_kill(); keys_all_off(); run_ms(300);
                     sys.arp_type = 0; sys.arp_div = d == 2u ? 6 : d ? 4 : 7; sys.arp_swing = 0; sys.arp_gate = 60; sys.arp_hold = 0;
                     sys.k_ge = 0; sys.k_latch = 0; sys.k_m[0] = sys.k_m[1] = sys.k_m[2] = sys.k_m[3] = 64;
-                    sys.arp_bpm = 120; sys.k_logic = (uint8_t)m; sys.k_on = 1; sys.arp_on = 1;
+                    sys.arp_bpm = 120; sys.k_logic = (uint8_t)(m == 7u ? 1u : m); sys.k_inv = (uint8_t)(m == 7u); sys.k_on = 1; sys.arp_on = 1;
                     run_ms(20);
                     if (ext) midi_in(0xFA, 0, 0);
                     midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
@@ -1973,12 +1973,15 @@ int main(int argc, char **argv)
                         if (m == 2u && ((v >> 2 & 1u) != (v & 3u) / 3u || (v >> 3 & 1u) != (v & 3u) / 3u)) okk = 0;
                         if (m == 3u && ((v >> 2 & 1u) != ((v & 3u) == 1u) || (v >> 3 & 1u) != ((v & 3u) == 2u))) okk = 0;
                         if (m == 1u && (v >> 2) != (v & 3u)) okk = 0;
+                        if ((m == 4u || m == 7u) && (v >> 2)) okk = 0;   /* (NOR: UP hits every step, no gap; OR INVERSE: none) */
+                        if ((m == 5u || m == 6u) && (v >> 2) == 3u) okk = 0;   /* (ALT, S/R: one at a time) */
                     }
                     if (logic_view.w - w0 > 32u) okk = 0;   /* (the view keeps 32) */
                     /* (the grid: the eighths' ARP hits on every 2nd sixteenth, on KARMA's own; all its hits met) */
                     if (na < (d == 2u ? 11u : d ? 7u : 14u) || nk < (d == 2u ? 5u : 10u) || both < (d == 2u ? 3u : d ? 5u : 10u)) okk = 0;
                     if (d == 2u && both > 5u) okk = 0;   /* (triplets meet the sixteenths once a beat) */
-                    if (gen_n - g0 < pa + pk - 2u || gen_n - g0 > pa + pk + 2u) okk = 0;
+                    if (gen_n - g0 + 2u < pa + pk || gen_n - g0 > pa + pk + 2u) okk = 0;
+                    if ((m == 5u || m == 6u) && (!pa || !pk)) okk = 0;   /* (each gets its turns) */
                     if (!okk) {
                         printf("   (LOGIC %u %s ext %u: entries %u arp %u karma %u both %u through %u + %u notes %u)\n", m,
                                d == 2u ? "1/12" : d ? "1/8" : "1/16", ext, logic_view.w - w0, na, nk, both, pa, pk, gen_n - g0);
@@ -2018,9 +2021,9 @@ int main(int argc, char **argv)
             arp.n = 0;
             if (!okk) printf("   (NOTE QUANT)\n");
         }
-        sys.k_on = sys.arp_on = 0; sys.k_logic = 0;
+        sys.k_on = sys.arp_on = 0; sys.k_logic = 0; sys.k_inv = 0;
         run_ms(100);
-        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR, on its own clock and MIDI clock; NOTE QUANT", okk);
+        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR / NOR / ALT / S/R, INVERSE, own clock and MIDI clock; NOTE QUANT", okk);
     }
 
     /* KARMA running every GE while the oscillator, X / Y, FM, the FX model and the GE's knobs are turned at random
