@@ -25,10 +25,10 @@ static void gen_on(uint32_t note, uint32_t vel)
     uint32_t q = logic_q(note);
     gen_n++;
     if (gen_q[note] && gen_q[note] - 1u != q)    /* (moved since: the one it sounded as ends) */
-        synth_note_off(gen_q[note] - 1u);
+        play_off(gen_q[note] - 1u);
     gen_q[note] = (uint8_t)(q + 1u);
     note = q;
-    synth_note_on(note, vel);
+    play_on(note, vel);
     if (gen_out[note])                           /* (the same note again: its old one ends first) */
         midi_out_event(0x08u | (0x80u | gen_ch[note]) << 8 | note << 16);
     gen_out[note] = 0;
@@ -45,7 +45,7 @@ static void gen_off(uint32_t note)
         gen_q[note & 127u] = 0;
         note = q;
     }
-    synth_note_off(note);
+    play_off(note);
     if (gen_out[note]) {
         gen_out[note] = 0;
         midi_out_event(0x08u | (0x80u | gen_ch[note]) << 8 | note << 16);

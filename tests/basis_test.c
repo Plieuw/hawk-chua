@@ -1434,8 +1434,26 @@ int main(int argc, char **argv)
         if (!okk) printf("   (multi: v0 %u/%u v1 %u/%u v2 %u/%u/%u v3 %u/%u/%u pk %d)\n", voice[0].stage, voice[0].part,
                          voice[1].stage, voice[1].part, voice[2].stage, voice[2].part, voice[2].osc, voice[3].stage,
                          voice[3].part, voice[3].osc, pk);
+        {   /* OMNI: B layered on A: one note on A's channel starts a voice of each part, its off ends both */
+            int a0 = 0, b0 = 0;
+            keys_all_off(); synth_kill(); run_ms(20);
+            sys.ch_b = 0;
+            midi_in(0x90, 62, 100);
+            run_ms(20);
+            for (k = 0; k < NVOICE; k++) {
+                a0 |= voice[k].stage != ST_OFF && voice[k].part == 0u && voice[k].key == 62u;
+                b0 |= voice[k].stage != ST_OFF && voice[k].part == 1u && voice[k].key == 62u && voice[k].osc == 19u;
+            }
+            okk &= a0 && b0;
+            midi_in(0x80, 62, 0);
+            run_ms(10);
+            for (k = 0; k < NVOICE; k++)
+                okk &= !(voice[k].key == 62u && (voice[k].stage == ST_SUSTAIN || voice[k].stage == ST_ATTACK));
+            if (!(a0 && b0)) printf("   (multi OMNI: A %d B %d)\n", a0, b0);
+            sys.ch_b = 2;
+        }
         keys_all_off(); synth_kill(); sys.multi = 0; sys.midi_rx = 0; run_ms(20);
-        check("MULTI: two parts on two channels, each its voices and sound", okk);
+        check("MULTI: two parts on two channels, each its voices and sound; B on OMNI layered on A", okk);
     }
     {   /* LESLIE: a steady 2 kHz tone comes out louder and softer as the horn turns (SIZE 127: fast), the two
          * microphones apart; SIZE 0 turns slower */

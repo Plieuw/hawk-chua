@@ -47,7 +47,7 @@ static void note_start(uint32_t note, uint32_t vel)
         vel = vel * 3u / 4u ? vel * 3u / 4u : 1u;
     if (note_sus[note] & 1u) {                   /* (played again while the pedal holds it: no longer pending) */
         note_sus[note] &= 2u;
-        synth_note_off(note);
+        play_off(note);
     }
     if (note_held[note] < 255u)
         note_held[note]++;
@@ -55,7 +55,7 @@ static void note_start(uint32_t note, uint32_t vel)
     case OWN_ARP: arp_add(note, vel); break;
     case OWN_KARMA: karma_add(note, vel); break;
     case OWN_BOTH: arp_add(note, vel); karma_add(note, vel); break;
-    default: synth_note_on(note, vel); break;
+    default: play_on(note, vel); break;
     }
 }
 
@@ -73,7 +73,7 @@ static void note_end(uint32_t note)
         case OWN_ARP: arp_remove(note); break;
         case OWN_KARMA: karma_remove(note); break;
         case OWN_BOTH: arp_remove(note); karma_remove(note); break;
-        default: synth_note_off(note); break;
+        default: play_off(note); break;
         }
     }
 }
@@ -102,7 +102,7 @@ static void arp_follow(void)
                 if (o == OWN_KARMA || o == OWN_BOTH)
                     karma_add(k, KEY_VEL);
                 if (o == OWN_SYNTH)
-                    synth_note_on(k, KEY_VEL);
+                    play_on(k, KEY_VEL);
             }
     }
     if (sys.arp_hold != arp_was_hold) {
@@ -166,7 +166,7 @@ static void pedal_release(void)
     for (k = 0; k < 128u; k++)
         if ((note_sus[k] & 1u) && !sys.pedal && !(note_sus[k] & 2u)) {
             note_sus[k] = 0;
-            synth_note_off(k);
+            play_off(k);
         }
 }
 
@@ -276,7 +276,8 @@ static void midi_in_block(void)
         mi_r++;
         if ((src == 2u && !sys.midi_trs) || (src == 1u && !(sys.midi_usb & 1u)))
             continue;                            /* (the GLO page: that input off) */
-        if (sys.multi && st < 0xF0u && ((pkt >> 8) & 0x0Fu) == (sys.ch_b + 15u) % 16u) {   /* MULTI: part B's channel */
+        if (sys.multi && sys.ch_b && st < 0xF0u && ((pkt >> 8) & 0x0Fu) == (sys.ch_b + 15u) % 16u) {   /* MULTI: B's channel
+                                                  * (OMNI: B layered on A, synth.c's play_on) */
             if (st == 0x90u && d2)
                 synth_note_on_b(d1, d2);
             else if (st == 0x80u || st == 0x90u)

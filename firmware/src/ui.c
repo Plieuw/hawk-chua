@@ -1147,7 +1147,7 @@ static void settings_boot(void)    /* power-on, before the audio */
             menv3_save = 1;
         }
         sys.multi = (uint8_t)(s.multi != 0);
-        sys.ch_b = (uint8_t)(s.ch_b >= 1u && s.ch_b <= 16u ? s.ch_b : 2u);
+        sys.ch_b = (uint8_t)(s.ch_b <= 16u ? s.ch_b : 2u);   /* (0: OMNI, B layered on A) */
         part_b_load(s.preset_b % NPRESETS);
         sys.octave = (int8_t)clamp(s.octave, OCT_MIN, OCT_MAX);
         sys.chaos = (uint8_t)(s.chaos & 127u);
@@ -1838,7 +1838,7 @@ static void draw_multi(void)
         int32_t y = 40 + (int32_t)p * 40;
         uint16_t c = sys.multi || !p ? T_TEXT : T_DIM;
         str_cpy(a, p ? "B  CH " : "A  CH ", sizeof a);
-        if (p || sys.midi_rx) {
+        if (p ? sys.ch_b : sys.midi_rx) {
             fmt_int(v, p ? sys.ch_b : sys.midi_rx);
             ui_cat(a, sizeof a, v);
         } else
@@ -2153,10 +2153,22 @@ static void ui_draw(void)
         ui_cat(b, sizeof b, " ");
         ui_cat(b, sizeof b, BANK_NAME[(sys.preset >> 7) % NBANKS]);
         ui_cell(T_C1, "1 BANK", b);
-        fmt_int(v, (int32_t)(sys.preset & 127u) + 1);
-        ui_cell(T_C2, "PROGRAM", v);
-        ui_cell(T_C3, "TURN", "PRESETS");
-        ui_cell(T_C4, "BACK", "HOME");
+        if (!sys.multi)
+            str_cpy(b, "OFF", sizeof b);
+        else if (!sys.ch_b)
+            str_cpy(b, "OMNI", sizeof b);
+        else {
+            fmt_int(v, sys.ch_b);
+            str_cpy(b, "CH ", sizeof b);
+            ui_cat(b, sizeof b, v);
+        }
+        ui_cell(T_C2, "2 PART B", b);
+        fmt_int(v, (int32_t)(part_b_preset >> 7) + 1);
+        str_cpy(b, v, sizeof b);
+        ui_cat(b, sizeof b, " ");
+        ui_cat(b, sizeof b, BANK_NAME[(part_b_preset >> 7) % NBANKS]);
+        ui_cell(T_C3, "3 B BANK", b);
+        ui_cell(T_C4, "4 B PRESET", PRESETS[part_b_preset % NPRESETS].name);
     } else if (sys.page == 13u) {                       /* TAPE's SPEED: the BPM, the ratio, the tape's own tempo, the pitch */
         const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
         int32_t st = (int32_t)(sys.tape_spd % TAPE_NSPD) - 12, c = tape_cents(tape.speed);
@@ -2287,7 +2299,7 @@ static void ui_draw(void)
     } else if (sys.page == 15u) {                /* MULTI: on, part B's channel, its bank, its program */
         ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
         fmt_int(v, sys.ch_b);
-        ui_cell(T_C2, "2 B CHANNEL", v);
+        ui_cell(T_C2, "2 B CHANNEL", sys.ch_b ? v : "OMNI");
         fmt_int(v, (int32_t)(part_b_preset >> 7) + 1);
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " ");
@@ -3124,7 +3136,8 @@ static void ui_input(void)
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K2)) != 0) {
-            sys.ch_b = (uint8_t)clamp((int32_t)sys.ch_b + s, 1, 16);
+            sys.ch_b = (uint8_t)clamp((int32_t)sys.ch_b + s, 0, 16);   /* (0: OMNI, layered on A) */
+            keys_panic_req = 1;
             ui_hot = 1; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K3)) != 0) {
@@ -3203,11 +3216,36 @@ static void ui_input(void)
         knob(&sys.fx_bright, EN_K2, 1);
         knob(&sys.fx_damp, EN_K3, 2);
         knob(&sys.fx_mix, EN_K4, 3);
+    } else if (sys.page == 14u) {               /* BANK: its knobs below (the bank, part B) */
     } else {
         knob(&sys.attack, EN_K1, 0);
         knob(&sys.decay, EN_K2, 1);
         knob(&sys.sustain, EN_K3, 2);
         knob(&sys.release, EN_K4, 3);
+    }
+    if (sys.page == 14u) {                       /* BANK: part B (MULTI) too: KNOB 2 off / OMNI / its channel, 3 its
+                                                  * bank, 4 its program (as on the MULTI page) */
+        if ((s = ui_enc(EN_K2)) != 0) {
+            int32_t m = sys.multi ? (sys.ch_b ? (int32_t)sys.ch_b + 1 : 1) : 0;
+            m = clamp(m + (s > 0 ? 1 : -1), 0, 17);
+            sys.multi = (uint8_t)(m != 0);
+            sys.ch_b = (uint8_t)(m > 1 ? m - 1 : 0);
+            keys_panic_req = 1;
+            ui_say(!m ? "PART B OFF" : m == 1 ? "PART B OMNI: LAYERED" : "PART B ON ITS CHANNEL");
+        }
+        if ((s = ui_enc(EN_K3)) != 0) {
+            part_b_load((uint32_t)(((int32_t)(part_b_preset >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
+                                   (int32_t)NBANKS) * 128u + (part_b_preset & 127u));
+            str_cpy(t, "B: ", sizeof t);
+            ui_cat(t, sizeof t, PRESETS[part_b_preset % NPRESETS].name);
+            ui_say(t);
+        }
+        if ((s = ui_enc(EN_K4)) != 0) {
+            part_b_load((part_b_preset & ~127u) + (uint32_t)(((int32_t)(part_b_preset & 127u) + 128 * 8 + s) % 128));
+            str_cpy(t, "B: ", sizeof t);
+            ui_cat(t, sizeof t, PRESETS[part_b_preset % NPRESETS].name);
+            ui_say(t);
+        }
     }
     if (sys.page == 14u) {                       /* BANK: SELECT and KNOB 1 turn it too (as PRESETS) */
         int32_t s2 = ui_enc(EN_SELECT) + ui_enc(EN_K1);

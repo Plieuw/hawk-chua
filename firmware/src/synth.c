@@ -414,6 +414,21 @@ static void synth_note_off_b(uint32_t key)
     synth_note_off(key);
     syn_part = 0;
 }
+/* a note played (keys, MIDI on A's channel, the ARP, KARMA): A's sound, and B's too when MULTI's B is on OMNI (the
+ * two layered) */
+static int synth_layer(void) { return sys.multi && !sys.ch_b; }
+static void play_on(uint32_t key, uint32_t vel)
+{
+    synth_note_on(key, vel);
+    if (synth_layer())
+        synth_note_on_b(key, vel);
+}
+static void play_off(uint32_t key)
+{
+    synth_note_off(key);
+    if (synth_layer())
+        synth_note_off_b(key);
+}
 
 static void synth_all_off(void)
 {
