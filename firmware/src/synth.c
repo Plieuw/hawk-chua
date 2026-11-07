@@ -306,6 +306,10 @@ static void env_params(void)
     eg.comp = LPG_COMP[sys.ring & 127u];
 }
 
+/* the duck: a sudden change (a preset, an FX model or preset, a shimmer preset) made in silence: the UI asks, the
+ * output fades out in ~3 ms, the change is made, it fades back in ~15 ms; no plop */
+static volatile uint8_t duck_req, duck_low;
+static int32_t duck_g = 4096;                    /* Q12 */
 static volatile uint32_t synth_ons;              /* notes started (the panel's LFO and SCL blink on them) */
 static void synth_note_on(uint32_t key, uint32_t vel)
 {
@@ -961,6 +965,14 @@ static void synth_render(int32_t *out, uint32_t n)
             r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
         }
         spk_bass(l, r, n);
+        if (duck_req || duck_g < 4096) {         /* (the duck: down ~3 ms, up ~15 ms) */
+            for (i = 0; i < n; i++) {
+                duck_g = duck_req ? (duck_g > 32 ? duck_g - 32 : 0) : (duck_g < 4090 ? duck_g + 6 : 4096);
+                l[i] = (int32_t)(((int64_t)l[i] * duck_g) >> 12);
+                r[i] = (int32_t)(((int64_t)r[i] * duck_g) >> 12);
+            }
+            duck_low = (uint8_t)(duck_g == 0);
+        }
         for (i = 0; i < n; i++) {
             l[i] = soft_clip(l[i]) * ml >> 12;
             r[i] = soft_clip(r[i]) * mr >> 12;

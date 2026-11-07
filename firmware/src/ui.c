@@ -870,6 +870,16 @@ static int upre_clear(void)                      /* the built-in presets back (t
     return e;
 }
 
+/* the duck around a sudden change (synth.c): fade out and wait for it (a few ms; not where the audio does not run on
+ * its own: the tests, the browser), then the change, then duck_end fades back in */
+static void duck_begin(void)
+{
+    uint32_t t0 = fm1_ms, spins = 0;
+    duck_req = 1;
+    while (!duck_low && fm1_ms - t0 < 8u && ++spins < 400000u)
+        ;
+}
+static void duck_end(void) { duck_req = 0; duck_low = 0; }
 static void preset_apply(uint32_t i)
 {
     const preset_t *p = &PRESETS[i % NPRESETS];
@@ -996,7 +1006,14 @@ static void part_b_load(uint32_t i)
     irq_restore(irq);
     lvl_set();
 }
-static void preset_load(uint32_t i)
+static void preset_load_(uint32_t i);
+static void preset_load(uint32_t i)                  /* (in the duck: no plop) */
+{
+    duck_begin();
+    preset_load_(i);
+    duck_end();
+}
+static void preset_load_(uint32_t i)
 {
     uint8_t on = sys.feg_on;
     sys.feg_on = 0;                              /* (FREE EG gives its parameter back; it takes the new value as */
@@ -3247,7 +3264,9 @@ static void ui_input(void)
         ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
         ui_say(t);
     } else if (s && sys.page == 2u) {
+        duck_begin();
         sys.fx_model = (uint8_t)((sys.fx_model + RZ_COUNT * 8 + s) % RZ_COUNT);
+        duck_end();
         str_cpy(t, "MODEL ", sizeof t);
         ui_cat(t, sizeof t, RZ_NAME[sys.fx_model]);
         ui_say(t);
@@ -3281,10 +3300,12 @@ static void ui_input(void)
         const fx_preset_t *f;
         fx_pre = (uint8_t)(((int32_t)fx_pre + (int32_t)NFX_PRESETS * 8 + s) % (int32_t)NFX_PRESETS);
         f = &FX_PRESETS[fx_pre];
+        duck_begin();
         sys.fx_mix = 0;                                 /* (the model changed silent, then its knobs, then heard) */
         sys.fx_model = f->model; sys.fx_struct = f->st; sys.fx_bright = f->br;
         sys.fx_damp = f->dm; sys.fx_pos = f->pos;
         sys.fx_mix = f->mix;
+        duck_end();
         str_cpy(t, "FX: ", sizeof t);
         ui_cat(t, sizeof t, f->name);
         ui_say(t);
@@ -3293,8 +3314,10 @@ static void ui_input(void)
         const sh_preset_t *h;
         sh_pre = (uint8_t)(((int32_t)sh_pre + (int32_t)NSH_PRESETS * 8 + s) % (int32_t)NSH_PRESETS);
         h = &SH_PRESETS[sh_pre];
+        duck_begin();
         sys.sh_size = h->size; sys.sh_decay = h->decay; sys.sh_shimmer = h->shimmer;
         sys.sh_interval = h->interval; sys.sh_tone = h->tone; sys.sh_space = h->space; sys.sh_mix = h->mix;
+        duck_end();
         str_cpy(t, "SHIMMER: ", sizeof t);
         ui_cat(t, sizeof t, h->name);
         ui_say(t);
