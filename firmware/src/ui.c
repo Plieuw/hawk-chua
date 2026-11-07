@@ -1086,7 +1086,7 @@ typedef struct {
     uint8_t spk_bass, lvl_match;
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
-    uint8_t k_lq;                                /* (4: saved; before: SCALE) */
+    uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1168,7 +1168,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_on = (uint8_t)(s.arp_on != 0);
         sys.arp_type = (uint8_t)(s.arp_type % ARP_NTYPE);
         sys.arp_bpm = (uint8_t)clamp(s.arp_bpm, 40, 250);
-        sys.arp_div = (uint8_t)(s.arp_div % ARP_NDIV);
+        sys.arp_div = (uint8_t)(s.snd >= 5u ? s.arp_div % ARP_NDIV : 4u);   /* (SUBDIVIDE 1/8 now, once) */
         sys.arp_gate = (uint8_t)(s.arp_gate & 127u);
         sys.arp_swing = (uint8_t)(s.arp_swing & 127u);
         sys.arp_hold = (uint8_t)(s.arp_hold != 0);
@@ -1220,7 +1220,7 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 4;
+    s.snd = 5;
     s.k_logic = sys.k_logic;
     s.k_lq = sys.k_lq;
     s.bend_range = sys.bend_range;

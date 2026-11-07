@@ -124,7 +124,7 @@ Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KA
 | Bediening | Functie |
 | --- | --- |
 | KNOB 1 BPM | 40..250 (onder MIDI clock staat er EXT en het gemeten tempo) |
-| KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 |
+| KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 (standaard 1/8) |
 | KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap |
 | KNOB 4 SWING | 50 % (geen) .. 83 % (de meeste), zoals de AN1x: elke tweede stap later |
 | ALGORITHM | het patroon (zie hieronder) |
