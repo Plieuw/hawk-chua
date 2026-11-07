@@ -231,9 +231,9 @@ Het scherm toont het ritme van de GE (hoogte = gewicht, het spelende stapje lich
 als een rol; onderin de klok en de lengte ("20 x 1/16").
 
 **KARMA, de ARP en FREE EG samen.**
-- *Eén tegelijk.* KARMA en de ARP pakken allebei de noten die je vasthoudt; zet je de een aan, dan gaat de ander uit
-  en de vastgehouden noten gaan mee over. Zet je hem uit, dan klinkt het akkoord gewoon.
-- *Samen: LOGIC* (SEQ twee keer). KNOB 1 LOGIC: OFF (één tegelijk, zoals hierboven), OR (allebei spelen alles), AND
+- *Eén tegelijk* (LOGIC OFF). KARMA en de ARP pakken allebei de noten die je vasthoudt; zet je de een aan, dan gaat de
+  ander uit en de vastgehouden noten gaan mee over. Zet je hem uit, dan klinkt het akkoord gewoon.
+- *Samen: LOGIC* (SEQ twee keer). KNOB 1 LOGIC: OFF (één tegelijk, zoals hierboven), OR (standaard: allebei spelen alles), AND
   (een noot van de een klinkt alleen waar de ander op dezelfde tel ook speelt), XOR (alleen waar de ander niet speelt:
   ze vullen elkaars gaten). Beide spelen dezelfde vastgehouden noten op één klok, die van KARMA: de ARP begint mee met
   de frase (op de zestiende), en de vergelijking gebeurt op het rechte raster; SWING komt daarna, voor elk apart. Een

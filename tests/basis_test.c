@@ -1738,6 +1738,7 @@ int main(int argc, char **argv)
         uint32_t okk = 1, w0, g, j, b, q, n0;
         uint8_t ring0;
         synth_kill(); keys_all_off(); run_ms(50);
+        sys.k_logic = 0;                         /* (one or the other: the handover below) */
         sys.arp_on = 0; sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100;
         sys.release = 20; sys.arp_bpm = 120; sys.arp_swing = 0; sys.feg_on = 0; sys.feg_has = 0;
         KOK(KGE_N == 46u);

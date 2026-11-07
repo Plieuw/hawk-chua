@@ -1086,7 +1086,7 @@ typedef struct {
     uint8_t spk_bass, lvl_match;
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
-    uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once) */
+    uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1184,7 +1184,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.feg_npts = (uint8_t)(s.feg_npts & 127u);
         for (uint32_t i = 0; i < FEG_N; i++)
             feg.curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
-        sys.k_on = (uint8_t)(s.k_on != 0 && (!sys.arp_on || (s.snd >= 4u && s.k_logic)));
+        sys.k_on = (uint8_t)(s.k_on != 0 && (!sys.arp_on || (s.snd >= 6u ? s.k_logic & 3u : 1u)));
         sys.k_ge = (uint8_t)(s.k_ge % KGE_N);
         sys.k_latch = (uint8_t)(s.k_latch != 0);
         sys.mw_target = (uint8_t)(s.mw_target % FEG_NT);
@@ -1196,8 +1196,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
         sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
-        sys.k_logic = (uint8_t)(s.snd >= 4u ? s.k_logic & 3u : 0u);
-        sys.k_lq = (uint8_t)(s.snd >= 4u ? s.k_lq % 3u : 1u);
+        sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic & 3u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
+        sys.k_lq = (uint8_t)(s.snd >= 6u ? s.k_lq % 3u : 1u);
         sys.bend_range = (uint8_t)(s.snd >= 3u ? (s.bend_range > 12u ? 12u : s.bend_range) : 12u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
@@ -1220,7 +1220,7 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 5;
+    s.snd = 6;
     s.k_logic = sys.k_logic;
     s.k_lq = sys.k_lq;
     s.bend_range = sys.bend_range;
