@@ -889,7 +889,7 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
     int32_t sx, sy, R = Q8(28) + Q8(24) * (int32_t)size / 127;
     span = span > nh - 1u ? nh - 1u : span;
     SP = span / NR ? span / NR : 1u;
-    a3_view((uint32_t)(art_sin(art_t * 0x00500000u) * 7000), (uint32_t)(art_sin(art_t * 0x00380000u) * 4000), 120, 66);
+    a3_view(0, 0, 120, 70);                                      /* (flat, face on: the ornament in the middle) */
     /* the frame: a double circle (rose), two squares (the girih's octagram), a square with four gates (mandala) */
     if (sp == SS_CATHEDRAL) {
         orn_circle(R + Q8(4), 48, art_c2);
