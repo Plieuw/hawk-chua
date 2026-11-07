@@ -7,7 +7,7 @@
  *
  *   ARP page   KNOB 1 BPM (EXT while MIDI clock comes in: its tempo shown), KNOB 2 SUBDIVIDE (the AN1x's ten:
  *              3/8 .. 1/32, dotted and triplets), KNOB 3 GATE, KNOB 4 SWING (50 .. 83 %, as the AN1x);
- *              ALGORITHM the pattern; SELECT HOLD (latch)
+ *              ALGORITHM the pattern; SELECT LATCH (as KARMA's)
  *
  * The patterns: the Yamaha AN1x's thirty Arpeggiator Types (1-15 orders, 16-30 step patterns) and two of the DJX's,
  * see ARP_STEPS.

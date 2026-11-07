@@ -30,7 +30,7 @@
  *   PLAY     starts / stops the ARP or KARMA (on their pages that one; elsewhere the last of them opened; lit while
  *            one runs)
  *   ARP      (the ARP button; again: back HOME; its LED lit while on) the arpeggiator (arp.c): KNOB 1 BPM (EXT under
- *            MIDI clock), KNOB 2 SUBDIVIDE, KNOB 3 GATE, KNOB 4 SWING; ALGORITHM the pattern, SELECT HOLD
+ *            MIDI clock), KNOB 2 SUBDIVIDE, KNOB 3 GATE, KNOB 4 SWING; ALGORITHM the pattern, SELECT LATCH
  *   LFO      the FREE EG page (feg.c): KNOB 1 the knob recorded, KNOB 2 LENGTH (NOTE, 1..8 STEPS, 1..4 BARS),
  *            KNOB 3 DEPTH, KNOB 4 the TARGET; SELECT PLAY; REC again there: record (NOTE: REC once more to stop)
  *   SEQ      the KARMA page (karma.c; again: back HOME; PLAY starts it, its LED lit while on): ALGORITHM the GE (the phrase
@@ -1086,7 +1086,7 @@ typedef struct {
     uint8_t spk_bass, lvl_match;
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
-    uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once) */
+    uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1171,7 +1171,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_div = (uint8_t)(s.snd >= 5u ? s.arp_div % ARP_NDIV : 4u);   /* (SUBDIVIDE 1/8 now, once) */
         sys.arp_gate = (uint8_t)(s.arp_gate & 127u);
         sys.arp_swing = (uint8_t)(s.arp_swing & 127u);
-        sys.arp_hold = (uint8_t)(s.arp_hold != 0);
+        sys.arp_hold = (uint8_t)(s.snd >= 7u ? s.arp_hold != 0 : 1u);   /* (LATCH on after this install, once) */
         sys.midi_trs = (uint8_t)(s.midi_trs != 0);
         sys.midi_usb = (uint8_t)(s.midi_usb & 3u);
         sys.midi_rx = (uint8_t)(s.midi_rx > 16u ? 0u : s.midi_rx);
@@ -1220,7 +1220,7 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 6;
+    s.snd = 7;
     s.k_logic = sys.k_logic;
     s.k_lq = sys.k_lq;
     s.bend_range = sys.bend_range;
@@ -2489,11 +2489,11 @@ static void ui_draw(void)
             ui_cat(a, sizeof a, ".");
             v[0] = (char)('0' + sp / 10u % 10u); v[1] = (char)('0' + sp % 10u); v[2] = 0;
             ui_cat(a, sizeof a, v);
-        } else if (sys.page == 6u) {             /* ARP: on or off, the pattern, HOLD */
+        } else if (sys.page == 6u) {             /* ARP: on or off, the pattern, LATCH */
             str_cpy(a, sys.arp_on ? "ARP ON  " : "ARP OFF  ", sizeof a);
             ui_cat(a, sizeof a, arp_type_name(sys.arp_type));
             if (sys.arp_hold)
-                ui_cat(a, sizeof a, "  HOLD");
+                ui_cat(a, sizeof a, "  LATCH");
         } else if (sys.page == 5u) {             /* MOD ENV: on what */
             str_cpy(a, "MOD ENV   ", sizeof a);
             if (!sys.osc)
@@ -3152,9 +3152,9 @@ static void ui_input(void)
             settings_save();
         str_cpy(t, C2[sys.cpu2 & 3u], sizeof t);
         ui_say(!was != !sys.cpu2 ? (sys.cpu2 ? "2ND CORE ON: RESTART" : "2ND CORE OFF: RESTART") : t);
-    } else if (s && sys.page == 6u) {           /* ARP: HOLD (right on, left off) */
+    } else if (s && sys.page == 6u) {           /* ARP: LATCH (right on, left off; as KARMA's) */
         sys.arp_hold = (uint8_t)(s > 0);
-        ui_say(sys.arp_hold ? "HOLD ON" : "HOLD OFF");
+        ui_say(sys.arp_hold ? "LATCH ON" : "LATCH OFF");
     } else if (s && (sys.page == 2u || sys.page == 3u)) {   /* (MOD, MOD ENV: nothing; RING is on HOME) */
         volatile uint8_t *p = sys.page == 3u ? &sys.sh_tone : &sys.fx_pos;
         *p = (uint8_t)clamp(*p + s, 0, 127);
