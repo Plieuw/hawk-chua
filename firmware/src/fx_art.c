@@ -476,15 +476,28 @@ static void art_string_model(void)
 {
     uint32_t k, pp = (sys.fx_pos & 127u) * (0x80000000u / 128u) + 0x01000000u;
     int32_t amp[4], one[4] = {0, 0, 0, 0}, mx = 1, x0 = Q8(-96), x1 = Q8(96), sx, sy, sx2, sy2;
-    a3_view((uint32_t)ART_DEG(-22) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(12), 120, 40);
+    a3_view((uint32_t)ART_DEG(-22) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(16), 120, 72);
+    a3_floor(Q8(30), Q8(110), Q8(50), Q8(22));
+    a3_box(0, Q8(16), Q8(4), Q8(104), Q8(6), Q8(12), art_c2, 100);   /* the monochord's sound box under the string */
+    {   /* its sound hole */
+        v3_t q = {0, 0, 0}, pp2;
+        uint32_t i;
+        for (i = 0; i <= 16u; i++) {
+            uint32_t th = i * (0xFFFFFFFFu / 16u);
+            pp2 = a3_rot(Q8(6) * (art_cos(th) >> 7) / 256, Q8(10) - 1, Q8(4) + Q8(6) * (art_sin(th) >> 7) / 256);
+            if (i)
+                a3_seg(q, pp2, Q8(400), art_c3);
+            q = pp2;
+        }
+    }
     for (k = 0; k < 4u; k++) {                                   /* each mode's weight: sin(n pi p) / n^2 */
         amp[k] = art_sin((k + 1u) * pp) / (int32_t)((k + 1u) * (k + 1u));
         mx = amp[k] > mx ? amp[k] : -amp[k] > mx ? -amp[k] : mx;
     }
     for (k = 0; k < 4u; k++)
         amp[k] = amp[k] * 32767 / mx;
-    for (k = 0; k < 4u; k++) {                                   /* the modes, one behind the other */
-        int32_t z = Q8(14) + (int32_t)k * Q8(10), yk = Q8(24) + (int32_t)k * Q8(18), lv = art_lv * amp[k] / 256, j;
+    for (k = 0; k < 4u; k++) {                                   /* the modes, ghosts rising behind it */
+        int32_t z = Q8(30) + (int32_t)k * Q8(10), yk = Q8(-12) - (int32_t)k * Q8(10), lv = art_lv * amp[k] / 256, j;
         one[k] = lv;
         {   /* (this mode alone, at its own speed) */
             int32_t a1[4] = {0, 0, 0, 0};
@@ -503,54 +516,54 @@ static void art_string_model(void)
     for (k = 0; k < 4u; k++)
         amp[k] = amp[k] * art_lv / 256;
     a3_string(x0, x1, Q8(4), 0, amp, 4, 0x26000000u, 14 * 256, art_c, 0);   /* the string: their sum, in front */
-    for (k = 0; k < 2u; k++) {                                   /* the bridges */
-        int32_t bx = k ? x1 : x0, ax, ay, bx2, by2, cx2, cy2;
-        a3_proj(a3_rot(bx - Q8(5), Q8(12), 0), &ax, &ay);
-        a3_proj(a3_rot(bx, Q8(4), 0), &bx2, &by2);
-        a3_proj(a3_rot(bx + Q8(5), Q8(12), 0), &cx2, &cy2);
-        art_ln(ax, ay, bx2, by2, art_c, 0); art_ln(bx2, by2, cx2, cy2, art_c, 0); art_ln(ax, ay, cx2, cy2, art_c, 0);
-    }
+    for (k = 0; k < 2u; k++)                                     /* the bridges, on the box */
+        a3_box(k ? x1 : x0, Q8(7), Q8(1), Q8(2), Q8(3), Q8(8), art_c, 170);
     {   /* where it is plucked */
         int32_t xp = x0 + (x1 - x0) / 127 * (int32_t)(sys.fx_pos & 127u);
         a3_proj(a3_rot(xp, Q8(4), 0), &sx, &sy);
-        a3_proj(a3_rot(xp, Q8(80), Q8(44)), &sx2, &sy2);
+        a3_proj(a3_rot(xp, Q8(-70), Q8(44)), &sx2, &sy2);
         art_ln(sx, sy, sx2, sy2, art_c3, 1u | 3u << 8);
     }
     art_title(ICON_STRING, "STRING");
 }
+static void a3_lathe(int32_t cx, int32_t cy, int32_t cz, const int32_t *pr, const int32_t *py, uint32_t n,
+                     uint32_t nseg, uint32_t bright, int32_t str);
 static void art_sitar(void)
 {
+    static const int32_t GR[7] = {0, 17, 25, 28, 26, 20, 9}, GY[7] = {-19, -16, -9, 0, 9, 16, 19};
     uint32_t k, nn = rz_view.n > 12u ? 12u : rz_view.n, fmin = 0xFFFFFFFFu, row = 0;
-    int32_t x0 = Q8(-100), x1 = Q8(100), a[1], sx, sy, sx2, sy2;
-    a3_view((uint32_t)ART_DEG(-18) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(10), 120, 46);
+    int32_t x0 = Q8(-46), x1 = Q8(96), a[1], pr[7], py[7];
+    a3_view((uint32_t)ART_DEG(-20) + (uint32_t)(art_sin(art_t * 0x00500000u) * 3000), (uint32_t)-ART_DEG(18), 132, 74);
+    a3_floor(Q8(26), Q8(110), Q8(44), Q8(22));
+    for (k = 0; k < 7u; k++) {                                   /* the gourd (tumba), its round body, lit */
+        pr[k] = Q8(GR[k]);
+        py[k] = Q8(GY[k]);
+    }
+    a3_lathe(Q8(-64), Q8(6), 0, pr, py, 7, 12, 3, 110);
+    a3_box(Q8(26), Q8(-10), 0, Q8(70), Q8(3), Q8(7), art_c2, 110);   /* the long neck (dandi) */
+    for (k = 0; k < 9u; k++)                                     /* its arched frets */
+        a3_box(Q8(-34) + (int32_t)k * Q8(13) + (int32_t)k * (int32_t)k * 48, Q8(-14), 0, Q8(1), Q8(1), Q8(8), art_c,
+               150);
+    a3_box(x0 - Q8(12), Q8(-15), 0, Q8(3), Q8(2), Q8(7), art_c, 170);   /* the jawari bridge on the gourd */
     a[0] = art_lv * 128;
-    a3_string(x0, x1, 0, 0, a, 1, 0x26000000u, 8 * 256, art_c, 1);   /* the played string, in front */
+    a3_string(x0 - Q8(12), x1, Q8(-17), Q8(-2), a, 1, 0x26000000u, 7 * 256, art_c, 1);   /* the played string */
     for (k = 0; k < nn; k++)
         if (rz_view.f[k] && rz_view.f[k] < fmin)
             fmin = rz_view.f[k];
-    for (k = 0; k < nn && sys.fx_mix; k++) {                     /* every resonance a string of its length, behind */
+    for (k = 0; k < nn && sys.fx_mix; k++) {                     /* every resonance a sympathetic string of its
+                                                                  * length, under the frets */
         uint32_t f = rz_view.f[k];
         int32_t len, sym = rz_view.a[k] < 0;
         if (!f)
             continue;
-        len = (int32_t)((fmin >> 12) * 200u / ((f >> 12) | 1u));
+        len = (int32_t)((fmin >> 12) * 130u / ((f >> 12) | 1u));
         len = len < 16 ? 16 : len;
         a[0] = sym ? art_lv * art_lv / 2 : rz_view.a[k] * art_lv / 64;
         if (row >= 8u)
             break;
-        a3_string(x1 - Q8(len), x1, Q8(12) + (int32_t)row * Q8(8), Q8(10) + (int32_t)row * Q8(6), a, 1,
-                  0x26000000u + k * 0x05000000u,
-                  5 * 256, sym ? art_c : art_c2, 1);
+        a3_string(x0 - Q8(10), x0 - Q8(10) + Q8(len), Q8(-12), Q8(-6) + (int32_t)row * Q8(2), a, 1,
+                  0x26000000u + k * 0x05000000u, 3 * 256, sym ? art_c : art_c2, 1);
         row++;
-    }
-    {   /* the bridge (the jawari) under the played string; the nut holding them all */
-        int32_t r = row ? (int32_t)row - 1 : 0;
-        a3_proj(a3_rot(x0, Q8(6), Q8(-6)), &sx, &sy);
-        a3_proj(a3_rot(x0, Q8(6), Q8(6)), &sx2, &sy2);
-        art_ln(sx, sy, sx2, sy2, art_c, 0);
-        a3_proj(a3_rot(x1, Q8(-2), Q8(-4)), &sx, &sy);
-        a3_proj(a3_rot(x1, Q8(14) + r * Q8(8), Q8(12) + r * Q8(6)), &sx2, &sy2);
-        art_ln(sx, sy, sx2, sy2, art_c2, 0);
     }
     art_title(ICON_SITAR, "SITAR");
 }
