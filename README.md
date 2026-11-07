@@ -468,7 +468,7 @@ audio-interrupt is fixed point (geen 64-bit delingen: die heeft de toolchain nie
 **CPU en de tweede core.** CHUA speelt 4 stemmen, net zoveel als er FX-resonatoren/waveguides zijn (één per noot):
 met de waveguides erbij was 8 te zwaar. Een vijfde noot neemt de oudste stem over. De AC79 heeft een tweede core; CHUA
 verdeelt de stemmen en de resonatoren (om en om) over beide. De tweede core start alleen bij het opstarten, dus **SELECT op de GLO-pagina** zet hem aan of
-uit voor de volgende start (meteen opgeslagen; standaard aan). Onderaan het scherm staat dan `CPU …% x2`. Op sommige
+uit voor de volgende start (meteen opgeslagen; standaard aan). (Op de MIDI-pagina staat of hij aan staat.) Op sommige
 FM-1's leest de tweede core verkeerd (zo gevonden door X0X en Jangada): dan merkt de firmware dat, gaat verder op één
 core en zet de instelling uit (`2ND CORE STOPPED: OFF`). De uitvoer is bit voor bit gelijk, met één of twee cores
 (getest, ook als echte thread onder ThreadSanitizer). `NVOICE` in `core.h` zet het aantal stemmen.
