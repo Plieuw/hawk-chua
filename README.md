@@ -220,7 +220,7 @@ steeds verder uit zijn baan), SCROLL HOPPER (OUTPUT golft over de frase: van de 
 PERC (voor de noise-programma's: korte tikken laag en hoog), BIRD CALLS (trillers in 1/32 en stilte: mooi met de
 SYRINX-waveguide), MINIMAL 5/4 (Reich-achtig, 20 zestienden, met echo een octaaf hoger) en LULLABY. Daarna tien
 naar de stijlen van de Roland MC-303: REGGAE SKANK (bas en korte skank-akkoorden op de achtertel), WALTZ (bas, akkoord,
-akkoord; de bas wisselt grondtoon en kwint), SWING WALTZ (in triolen), PIANO COMP (bas en gesyncopeerde akkoorden),
+akkoord; de bas wisselt grondtoon en kwint), SWING WALTZ (rechte achtsten: de swing komt, zoals bij alle GE's, van SWING op de ARP-pagina), PIANO COMP (bas en gesyncopeerde akkoorden),
 SLAP POP (duim en pop, octaven), GUITAR CHOP (korte aangeslagen akkoorden), SHAMISEN (de hoogste noot met loopjes,
 pentatonisch), SEQ LINE (een 16e-sequencerlijn met octaafsprongen, de helderheid golft mee), BOUNCING BALL (elke
 nieuwe noot stuitert uit: steeds snellere, zachtere herhalingen, van links naar rechts) en THREE FINGER. En twaalf met akkoorden: HOUSE PIANO (M1-house: akkoordstoten op de achtertel), GOSPEL COMP (bas en volle akkoorden met spookslagen), BOSSA NOVA (de syncopen van de gitaar over grondtoon en kwint), NEO SOUL (lui, gerolde akkoorden, achter de tel), CHARLESTON (de 1 en de en van 2), MONTUNO (salsapiano: octaven en tertsen, gesyncopeerd), DUB CHORDS (akkoorden op de achtertel die wegechoën), ROCK EIGHTS (rechte achtsten, de backbeat luider), HALFTIME (grote akkoorden, twee per maat, openend), OOM PAH (een mars: bas, akkoord), AFROBEAT CHOP (korte in elkaar grijpende chops, links en rechts) en CHORD STAIRS (het akkoord klimt door zijn omkeringen). De GE's met een

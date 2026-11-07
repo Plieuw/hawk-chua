@@ -22,7 +22,7 @@
  *
  * KARMA page   ALGORITHM the GE, KNOB 1..4 its four realtime controls (named per GE), SELECT LATCH; SEQ (on the
  *              page) KARMA on / off. The tempo is the instrument's one: the ARP page's BPM, or MIDI clock while it
- *              comes in (START restarts the phrase), the ARP's SWING its groove too.
+ *              comes in (START restarts the phrase), the ARP's SWING its groove too (its only swing).
  * With the ARP: one of them takes the notes held: KARMA on turns the ARP off (and the other way round), the notes
  * held move over. With FREE EG: its LENGTH PHRASE loops with KARMA's phrase (each trigger restarts it), and its
  * TARGETs include the four KARMA knobs: a recorded movement of DENSITY or REPEAT over bars, phrase-locked.
@@ -122,7 +122,7 @@ static const ge_t KGE[] = {
      1, IX_DIRECT, 0, 0, 1, 50, 22, 3, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_GATE, MC_ACCENT, MC_STRUM}},
     {"WALTZ", 24, "122122", "966866", "133133", "000200", "-00-00", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 60, 4,
      PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_GATE, MC_STRUM, MC_TRANSPOSE}},
-    {"SWING WALTZ", 8, "1..2.32.3", "9..7.57.4", "1..3.33.3", "0..0.00.0", "-..0.00.0", NS_CHORD, 1, IX_DIRECT, 0, 0,
+    {"SWING WALTZ", 12, "1.2323", "9.7574", "1.3333", "0.0000", "-.0000", NS_CHORD, 1, IX_DIRECT, 0, 0,
      1, 50, 50, 3, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR, {MC_DENSITY, MC_GATE, MC_ACCENT, MC_STRUM}},
     {"PIANO COMP", 6, "1..2..1.1.2.2.1.", "9..6..8.8.6.6.8.", "1..3..3.1.3.1.3.", "0..0..0.0.0.2.0.",
      "-..1..1.-.1.-.1.", NS_CHORD, 1, IX_DIRECT, 0, 0, 1, 50, 45, 2, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
@@ -149,7 +149,7 @@ static const ge_t KGE[] = {
      {MC_DENSITY, MC_CLUSTER, MC_ACCENT, MC_GATE}},   /* (bass and full chords, ghosted pickups) */
     {"BOSSA NOVA", 6, "1..2..1.1.2..2..", "8..6..7.8.6..6..", "1..3..3.1.3..3..", "0..0..0.2.0..0..", "-..0..0.-.0..0..", NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 45, 4, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
      {MC_DENSITY, MC_STRUM, MC_GATE, MC_ACCENT}},   /* (the guitar's syncopations over root and fifth) */
-    {"NEO SOUL", 8, "1--..2.-1--..2..", "7--..5.-7--..5..", "4--..3.-4--..3..", 0, 0, NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 90, 10, PN_ALT, EV_TRI, ET_BRIGHT, 40, 0, TR_AKR,
+    {"NEO SOUL", 12, "1--..2.-1--..2..", "7--..5.-7--..5..", "4--..3.-4--..3..", 0, 0, NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 90, 10, PN_ALT, EV_TRI, ET_BRIGHT, 40, 0, TR_AKR,
      {MC_DENSITY, MC_STRUM, MC_ENV, MC_GATE}},   /* (lazy, rolled chords, behind the beat) */
     {"CHARLESTON", 12, "1..2....", "9..8....", "3..3....", 0, 0, NS_CHORD, 1, IX_UP, 0, 0, 1, 50, 40, 2, PN_NONE, EV_NONE, 0, 0, 0, TR_AKR,
      {MC_DENSITY, MC_GATE, MC_ACCENT, MC_TRANSPOSE}},   /* (the 1 and the and of 2) */
@@ -490,7 +490,8 @@ static void k_step(void)
         g = g < 5u ? 5u : g > 100u ? 100u : g;
         dur = kar.steplen / 100u * g * (h == 'L' ? 3u : 1u);
     }
-    /* the groove: the ARP's SWING on the off sixteenths (or eighths) */
+    /* the groove: the ARP's SWING on the off sixteenths (or eighths), the only swing (the GEs straight: SWING WALTZ
+     * and NEO SOUL on eighths, swung by it) */
     if ((G->res == 6u || G->res == 12u) && (p & 1u)) {
         uint32_t sw = 50u + (sys.arp_swing & 127u) * 33u / 127u;
         uint32_t d = kar.steplen / 100u * 2u * (sw - 50u);
