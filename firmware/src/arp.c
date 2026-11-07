@@ -197,8 +197,10 @@ static struct {
     uint8_t pend[ARP_MAXN], pvel[ARP_MAXN], npend;   /* a strum's strings to come (one each ARP_STRUM samples) */
     uint32_t pt;                                 /* samples to the next of them */
     uint32_t lt;                                 /* LOGIC: clocks since KARMA's phrase started (its steps on them) */
+    uint32_t gpos;                               /* GROOVE: steps since the start (each pattern its own length) */
+    int32_t vmul;                                /* GROOVE: this step's velocity, % */
     uint8_t lpass;                               /* LOGIC: the swung step waiting lets its notes through */
-} arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu};
+} arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu, .vmul = 100};
 
 /* the ARP page's picture (ui.c): the last steps played, their notes (0: a rest) */
 static struct { uint8_t note[32]; volatile uint32_t w; } arp_view;
@@ -290,11 +292,51 @@ static void arp_sound(uint32_t note, uint32_t vel)
 {
     if (note > 127u || arp.non >= ARP_MAXN)
         return;
+    if (arp.vmul != 100) {                       /* (GROOVE's VELOCITY) */
+        int32_t v = (int32_t)vel * arp.vmul / 100;
+        vel = (uint32_t)(v < 1 ? 1 : v > 127 ? 127 : v);
+    }
     gen_on(note, vel);
     arp.on[arp.non++] = (uint8_t)note;
 }
 
 static uint8_t arp_last;                          /* the last note played (ARP_PREV: the echo) */
+
+/* GROOVE (the ARP's second page): two short patterns over the steps, each its own length, so they turn against the
+ * pattern and each other: VELOCITY (each step's level, 1 .. 9: x 0.55 .. 1.75 with DEPTH 127) and NOTE OFF (each
+ * step's gate, 1 .. 9 = 10 .. 90 % of the step, T tied on to the next, . a rest: no note), DEPTH from GATE's to the
+ * pattern's */
+typedef struct { const char *name, *s; } arp_groove_t;
+static const arp_groove_t ARP_VPAT[] = {
+    {"OFF", ""}, {"ACCENT 4", "9555"}, {"ACCENT 3", "955"}, {"OFFBEAT", "59"}, {"RAMP UP", "3579"},
+    {"RAMP DOWN", "9753"}, {"TRESILLO", "95595595"}, {"WALTZ", "966"}, {"GHOSTS", "9393"}, {"PUMP", "39"},
+    {"SWELL", "234567"}, {"FIVE", "95757"}, {"SEVEN", "9473582"}, {"BACKBEAT", "5595"},
+};
+static const arp_groove_t ARP_GPAT[] = {
+    {"OFF", ""}, {"STACCATO", "2"}, {"LEGATO", "T"}, {"LONG SHORT", "82"}, {"SHORT LONG", "28"},
+    {"DOTTED", "T.2"}, {"SKIP", "8."}, {"OFF SKIP", ".8"}, {"3 OF 4", "888."}, {"TRESILLO", "T..T..T."},
+    {"STUTTER", "2228"}, {"BREATH", "6666."}, {"FIVE", "8.88."}, {"TIE TWO", "T2"}, {"GALLOP", "8.22"},
+};
+#define ARP_NVP (sizeof ARP_VPAT / sizeof ARP_VPAT[0])
+#define ARP_NGP (sizeof ARP_GPAT / sizeof ARP_GPAT[0])
+static char arp_gchar(const char *s, uint32_t pos) { uint32_t n = (uint32_t)str_len(s); return n ? s[pos % n] : 0; }
+/* this step's groove (before its notes): 0 a rest (no notes), else 1; arp.vmul and arp.gate set */
+static int arp_groove(void)
+{
+    char vc = arp_gchar(ARP_VPAT[sys.arp_vp % ARP_NVP].s, arp.gpos), gc = arp_gchar(ARP_GPAT[sys.arp_gp % ARP_NGP].s, arp.gpos);
+    arp.gpos++;
+    arp.vmul = 100;
+    if (vc >= '1' && vc <= '9')
+        arp.vmul = 100 + ((40 + (vc - '0') * 15) - 100) * (int32_t)(sys.arp_vd & 127u) / 127;
+    if (gc == '.')
+        return 0;
+    if (gc) {
+        uint32_t want = gc == 'T' ? arp.len + arp.len / 8u : arp.len * (uint32_t)(gc - '0') / 10u;
+        int32_t d = (int32_t)want - (int32_t)arp.gate;
+        arp.gate = (uint32_t)((int32_t)arp.gate + d * (int32_t)(sys.arp_gd & 127u) / 127);
+    }
+    return 1;
+}
 /* the step patterns stay in the chord's octave: a note above or below (the pattern's octave steps, its places past
  * the highest held) is folded back by octaves into the lowest note held .. an octave above it (or the highest held, if
  * the chord is wider), so changing the pattern keeps the register */
@@ -320,6 +362,13 @@ static void arp_do_step(void)
     uint32_t n = arp_sorted(s, v), type = sys.arp_type % ARP_NTYPE, i, nt, shown = 0;
     if (!n)
         return;
+    if (!arp_groove()) {                         /* (GROOVE's NOTE OFF: a rest; the pattern goes on) */
+        arp_off_all();
+        arp.npend = 0;
+        arp.pos++;
+        arp_view.note[arp_view.w++ & 31u] = 0;
+        return;
+    }
     if (type < AT_BASIC) {
         static const uint8_t OCT[3] = {1, 2, 4};
         uint32_t total = n * OCT[type % 3u], p = arp.pos, idx, fam = type / 3u;
@@ -458,6 +507,7 @@ static void arp_lsync(void)                      /* (KARMA's phrase from its sta
     arp.lt = 0;
     arp.pos = 0;
     arp.gls = 0;
+    arp.gpos = 0;
 }
 static int arp_ltick(void)                       /* (a clock: a step due?) */
 {
@@ -540,6 +590,7 @@ static void arp_block(uint32_t n)
         arp.ticks = 0;
         arp.pos = 0;
         arp.gls = 0;
+        arp.gpos = 0;
     }
     if (due) {
         arp.t = 0;

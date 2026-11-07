@@ -130,6 +130,13 @@ Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KA
 | ALGORITHM | het patroon (zie hieronder) |
 | SELECT | LATCH (zoals bij KARMA, standaard aan): rechtsom aan (de noten blijven spelen als je loslaat, een nieuw akkoord vervangt ze), linksom uit |
 
+**GROOVE (ARP twee keer).** Twee korte patronen over de stappen van de ARP, elk met een eigen lengte (2 tot 8 stappen), zodat
+ze tegen het patroon en tegen elkaar in schuiven. KNOB 1 VELOCITY: het niveau per stap (ACCENT 4, ACCENT 3, OFFBEAT,
+RAMP UP/DOWN, TRESILLO, WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT). KNOB 2 NOTE OFF: de lengte per stap of een
+rust (STACCATO, LEGATO, LONG SHORT, SHORT LONG, DOTTED, SKIP, OFF SKIP, 3 OF 4, TRESILLO, STUTTER, BREATH, FIVE, TIE TWO,
+GALLOP); een rust slaat een noot over, het patroon loopt door. KNOB 3 en 4: hoe sterk elk patroon werkt (de NOTE
+OFF-diepte schuift van GATE naar het patroon). De pagina toont beide als blokjes, de stap die speelt licht op.
+
 De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,
 UPDW A (de uitersten één keer), UPDW B (de uitersten twee keer) en RANDOM, elk over 1, 2 of 4 octaven. 16–30: TECHNO-A
 (Euro), TECHNO-B (UK, met velocity), TECHNO-C (Japans), TECHNO-D (Duits), DA HOUSE (bas links, akkoorden rechts),

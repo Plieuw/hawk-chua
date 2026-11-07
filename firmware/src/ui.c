@@ -1086,6 +1086,7 @@ typedef struct {
     uint8_t spk_bass, lvl_match;
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
+    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100, 127) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
 } settings_t;
 
@@ -1198,6 +1199,12 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
         sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic & 3u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
         sys.k_lq = (uint8_t)(s.snd >= 6u ? s.k_lq % 3u : 1u);
+        if (s.snd >= 8u) {
+            sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
+            sys.arp_gp = (uint8_t)(s.arp_gp % ARP_NGP);
+            sys.arp_vd = (uint8_t)(s.arp_vd & 127u);
+            sys.arp_gd = (uint8_t)(s.arp_gd & 127u);
+        }
         sys.bend_range = (uint8_t)(s.snd >= 3u ? (s.bend_range > 12u ? 12u : s.bend_range) : 12u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
         sys.tape_spd = (uint8_t)(s.tape_spd % TAPE_NSPD);
@@ -1220,7 +1227,11 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 7;
+    s.snd = 8;
+    s.arp_vp = sys.arp_vp;
+    s.arp_gp = sys.arp_gp;
+    s.arp_vd = sys.arp_vd;
+    s.arp_gd = sys.arp_gd;
     s.k_logic = sys.k_logic;
     s.k_lq = sys.k_lq;
     s.bend_range = sys.bend_range;
@@ -1382,10 +1393,10 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
 static void ui_status(const char *s)
 {
     /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
-     * ENV), FX (SHIMMER), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
-    static const uint8_t LAYER[18] = {1, 1, 1, 2, 0, 2, 0, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2};
-    static const uint8_t COUNT[18] = {2, 2, 2, 2, 0, 2, 0, 3, 0, 2, 0, 0, 2, 2, 2, 3, 3, 2};
-    uint32_t pg = sys.page < 18u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
+     * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
+    static const uint8_t LAYER[19] = {1, 1, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2};
+    static const uint8_t COUNT[19] = {2, 2, 2, 2, 0, 2, 2, 3, 0, 2, 0, 0, 2, 2, 2, 3, 3, 2, 2};
+    uint32_t pg = sys.page < 19u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
     char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
     if (!ui_changed(T_STATUS, s, sig))
         return;
@@ -1819,6 +1830,34 @@ static void draw_multi(void)
     cv_blit(0, PLOT_Y);
 }
 
+/* GROOVE: the two patterns as steps: VELOCITY as heights, NOTE OFF as widths (a rest empty, a tie to the edge); the
+ * step playing lit */
+static void draw_groove(void)
+{
+    const char *vs = ARP_VPAT[sys.arp_vp % ARP_NVP].s, *gs = ARP_GPAT[sys.arp_gp % ARP_NGP].s;
+    uint32_t nv = str_len(vs), ng = str_len(gs), i, cur = arp.gpos ? arp.gpos - 1u : 0u;
+    int on = sys.arp_on && arp.n;
+    cv_begin(240, PLOT_H, T_BG);
+    cv_text(8, 4, &AF_S, "VELOCITY", T_DIM);
+    cv_text(124, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
+    for (i = 0; i < 8u && nv; i++) {             /* (the steps; the pattern repeated to eight) */
+        int32_t lv = vs[i % nv] - '0', hgt = 4 + lv * 4, x = 8 + (int32_t)i * 28;
+        cv_rect(x, 60 - hgt, 24, hgt, on && i == cur % nv ? T_ACCENT : i < nv ? T_THEME : ux_mix(T_BG, T_THEME, 35));
+    }
+    cv_text(8, 66, &AF_S, "NOTE OFF", T_DIM);
+    cv_text(124, 66, &AF_S, ARP_GPAT[sys.arp_gp % ARP_NGP].name, ng ? T_TEXT : T_DIM);
+    for (i = 0; i < 8u && ng; i++) {
+        char c = gs[i % ng];
+        int32_t x = 8 + (int32_t)i * 28, wd = c == 'T' ? 28 : c == '.' ? 0 : (c - '0') * 24 / 10 + 2;
+        uint16_t col = on && i == cur % ng ? T_ACCENT : i < ng ? T_THEME : ux_mix(T_BG, T_THEME, 35);
+        cv_frame(x, 90, 24, 14, ux_mix(T_BG, T_DIM, 40));
+        if (wd)
+            cv_rect(x, 92, wd, 10, col);
+    }
+    if (!nv && !ng)
+        cv_text(8, 108, &AF_S, "KNOB 1, 2: A PATTERN", T_DIM);
+    cv_blit(0, PLOT_Y);
+}
 /* LOGIC: the mode, the last steps where either hit: the ARP's row, KARMA's, and what came through */
 static void draw_logic(void)
 {
@@ -2194,6 +2233,13 @@ static void ui_draw(void)
         ui_val_c = FEG_FM(sys.feg_target) ? T_FM : 0;   /* (an FM target: green) */
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
+    } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY and NOTE OFF patterns, their depths */
+        ui_cell(T_C1, "1 VELOCITY", ARP_VPAT[sys.arp_vp % ARP_NVP].name);
+        ui_cell(T_C2, "2 NOTE OFF", ARP_GPAT[sys.arp_gp % ARP_NGP].name);
+        fmt_int(v, (int32_t)(sys.arp_vd & 127u));
+        ui_cell(T_C3, "3 VEL DEPTH", v);
+        fmt_int(v, (int32_t)(sys.arp_gd & 127u));
+        ui_cell(T_C4, "4 OFF DEPTH", v);
     } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
         static const char *const LG[4] = {"OFF", "OR", "AND", "XOR"};
         static const char *const LQ[3] = {"OFF", "SCALE", "CHORD"};
@@ -2568,6 +2614,8 @@ static void ui_draw(void)
         draw_sound();
     else if (sys.page == 17u)
         draw_logic();
+    else if (sys.page == 18u)
+        draw_groove();
     else if (sys.page == 12u || sys.page == 13u) {
         art_t++;
         art_c = T_THEME;
@@ -2684,7 +2732,7 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_HOME]);
     if (sys.page == 1u || sys.page == 5u)
         led_on(nl, panel.btn[B_ENV]);
-    if (sys.arp_on || sys.page == 6u)
+    if (sys.arp_on || sys.page == 6u || sys.page == 18u)
         led_on(nl, panel.btn[B_ARP]);
     if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
@@ -2872,8 +2920,8 @@ static void ui_input(void)
                 ui_force = 1;
             }
             break;
-        case B_ARP:                                     /* the ARP page (again: back HOME); PLAY starts it */
-            sys.page = sys.page == 6u ? 0u : 6u;
+        case B_ARP:                                     /* the ARP page, the GROOVE page, back HOME; PLAY starts it */
+            sys.page = sys.page == 6u ? 18u : sys.page == 18u ? 0u : 6u;   /* (the ARP, its GROOVE, back) */
             play_last = 0;
             ui_force = 1;
             break;
@@ -2893,7 +2941,7 @@ static void ui_input(void)
                     sys.k_logic = 1;
                 sys.arp_on = sys.k_on = (uint8_t)both;
                 ui_say(both ? "ARP + KARMA ON" : "STOP");
-            } else if (sys.page == 6u || (sys.page != 9u && !play_last && !sys.k_on)) {
+            } else if (sys.page == 6u || sys.page == 18u || (sys.page != 9u && !play_last && !sys.k_on)) {
                 sys.arp_on = (uint8_t)!sys.arp_on;
                 ui_say(sys.arp_on ? (sys.k_on ? (sys.k_logic ? "ARP ON + KARMA" : "ARP ON, KARMA OFF") : "ARP ON") : "ARP OFF");
             } else if (sys.page == 9u || (play_last && !sys.arp_on)) {
@@ -2993,6 +3041,17 @@ static void ui_input(void)
             sys.feg_target = (uint8_t)clamp((int32_t)sys.feg_target + s, 0, FEG_NT - 1);
             ui_hot = 3; ui_hot_ms = fm1_ms;
         }
+    } else if (sys.page == 18u) {               /* GROOVE */
+        if ((s = ui_enc(EN_K1)) != 0) {
+            sys.arp_vp = (uint8_t)clamp((int32_t)sys.arp_vp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NVP - 1);
+            ui_hot = 0; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K2)) != 0) {
+            sys.arp_gp = (uint8_t)clamp((int32_t)sys.arp_gp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NGP - 1);
+            ui_hot = 1; ui_hot_ms = fm1_ms;
+        }
+        knob(&sys.arp_vd, EN_K3, 2);
+        knob(&sys.arp_gd, EN_K4, 3);
     } else if (sys.page == 17u) {               /* LOGIC */
         if ((s = ui_enc(EN_K1)) != 0) {
             static const char *const LG[4] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",

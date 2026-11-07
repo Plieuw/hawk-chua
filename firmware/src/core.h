@@ -60,6 +60,8 @@ static volatile struct {
                                                   * 1..16; tx channel 0..15 */
     uint8_t feg_val, feg_len, feg_depth, feg_target, feg_on, feg_has, feg_npts;   /* feg.c: FREE EG (REC) */
     uint8_t k_on, k_ge, k_latch, k_m[4];
+    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;   /* arp.c, the ARP's GROOVE page (ARP 2x): the VELOCITY pattern and the
+                                  * NOTE OFF pattern (0 off), each one's depth */
     uint8_t k_logic;             /* karma.c, the LOGIC page (SEQ 2x): the ARP with KARMA: 0 one or the other, OR, AND, XOR */
     uint8_t k_lq;                /* arp.c, the LOGIC page: their notes to the key: 0 off, 1 the chord's scale, 2 its notes */
     uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */
@@ -88,4 +90,4 @@ static volatile struct {
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
          .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,
-         .tape_lv = {100, 100, 100, 100}, .tape_len = 4, .tape_arm = 0, .tape_spd = 12, .spk_bass = 4, .bend_range = 12, .k_lq = 1, .k_logic = 1, .lvl_match = 1};
+         .tape_lv = {100, 100, 100, 100}, .tape_len = 4, .tape_arm = 0, .tape_spd = 12, .spk_bass = 4, .bend_range = 12, .k_lq = 1, .k_logic = 1, .arp_vd = 100, .arp_gd = 127, .lvl_match = 1};
