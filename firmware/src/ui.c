@@ -2775,16 +2775,19 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_OCTUP]);
     if (sys.page == 0u || sys.page == 14u)
         led_on(nl, panel.btn[B_HOME]);
-    if (sys.page == 1u || sys.page == 5u)
+    if (sys.env_stage != 0u && sys.env_view > 48u)  /* ENV: lit while the envelope is open, as the ENV page's lamp
+                                                  * glows (the pages: their blocks on the screen) */
         led_on(nl, panel.btn[B_ENV]);
     if (sys.arp_on || sys.page == 6u || sys.page == 18u)
         led_on(nl, panel.btn[B_ARP]);
     if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
-    {   /* SCL (BASIS, ORBIT) and LFO (FREE EG), while in use: a blink at each note (on their own page: lit, dark a
-         * moment at each note) */
+    {   /* SCL (BASIS, ORBIT) while in use: a blink at each note (on its page: lit, dark a moment at each note); LFO
+         * follows FREE EG: lit while its curve is over the middle, as the ENV light follows the envelope */
         static uint32_t ons_seen, on_ms;
-        int scl = (sys.basis & 127u) || sys.orbit, lfo = sys.feg_on && sys.feg_has, blink;
+        uint8_t fp = feg.pos;
+        int scl = (sys.basis & 127u) || sys.orbit, blink;
+        int lfo = sys.feg_on && sys.feg_has && fp < FEG_N && feg.curve[fp] > 64u;
         if (synth_ons != ons_seen) {
             ons_seen = synth_ons;
             on_ms = fm1_ms;
@@ -2792,7 +2795,7 @@ static void ui_leds(void)
         blink = fm1_ms - on_ms < 90u;
         if (sys.page == 10u ? !(scl && blink) : scl && blink)
             led_on(nl, panel.btn[B_SCL]);
-        if (sys.page == 8u ? !(lfo && blink) : lfo && blink)
+        if (lfo || (sys.page == 8u && !(sys.feg_on && sys.feg_has)))   /* (its page, FREE EG not playing: lit) */
             led_on(nl, panel.btn[B_LFO]);
     }
     if (sys.page == 11u)
