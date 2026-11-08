@@ -61,8 +61,8 @@ static volatile struct {
     uint8_t feg_val, feg_len, feg_depth, feg_target, feg_on, feg_has, feg_npts;   /* feg.c: FREE EG (REC) */
     uint8_t k_on, k_ge, k_latch, k_m[4];
     uint8_t arp_vp, arp_vd;      /* arp.c, the ARP's GROOVE page (ARP 2x): the ARP VELOCITY SEQ (ALGORITHM; 0 off), its DEPTH */
-    uint8_t arp_slen;            /* arp.c, the GROOVE page's KNOB 1: SEQ LENGTH, the pattern from its start every 2 .. 16
-                                  * steps (0: its own length) */
+    uint8_t arp_slen;            /* arp.c, the GROOVE page's KNOB 1: the VELOCITY SEQ's length, 1 .. 8 (0: the pattern's own) */
+    uint8_t arp_gp, arp_glen;    /* arp.c, the GROOVE page's KNOB 4: the ARP GATE SEQ (0 off: GATE), KNOB 3 its length */
     uint8_t k_logic, k_inv;      /* karma.c, the LOGIC page (SEQ 2x): the ARP with KARMA: 0 one or the other, OR, AND, XOR,
                                   * NOR, ALT, S/R; KNOB 4 INVERSE: what it would let through held back, and the other way */
     uint8_t k_lq, k_root;        /* arp.c, the LOGIC page: their notes to a key: 0 off, 1 the chord, 2 AUTO, 3.. a scale;

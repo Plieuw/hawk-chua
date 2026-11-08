@@ -136,7 +136,11 @@ tegen het arp-patroon in schuift) dat per stap de velocity bepaalt, 1..9 zacht t
 WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT, en met rusten SKIP, OFF SKIP, 3 OF 4, CLAVE, GALLOP, BREATH, FIVE RESTS,
 STUTTER, SPARSE, HOLES. KNOB 1 SEQ LENGTH (1..8): hoeveel van de acht getoonde stappen
 (het patroon herhaald) de velocity seq loopt; de stappen erachter worden donker. Een ander patroon kiezen zet SEQ LENGTH op
-de eigen lengte van dat patroon. KNOB 2 DEPTH: hoe sterk de velocity's werken (de rusten altijd). De pagina toont
+de eigen lengte van dat patroon. KNOB 2 DEPTH: hoe sterk de velocity's werken (de rusten altijd). Daaronder de ARP GATE SEQ, in dezelfde stijl: per stap de
+gate, met GATE (KNOB 3 op de ARP-pagina) als basis: 1..9 is x 0,2 tot x 1,8 (5 is GATE zelf, hoogstens 100 %). KNOB 4
+kiest het patroon (OFF, LONG SHORT, SHORT LONG, SHORT x3, GALLOP, DOTTED, TRESILLO, RAMP UP/DOWN, BOUNCE, STAB,
+LEGATO 1/4, SWELL, STUTTER, WALTZ, BREATH), KNOB 3 GATE LENGTH (1..8) hoeveel van de acht stappen meelopen, zoals
+SEQ LENGTH. De pagina toont
 de stappen als staafjes, de stap die speelt licht op.
 
 De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,

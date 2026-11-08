@@ -1105,7 +1105,7 @@ typedef struct {
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
     uint8_t k_inv;                               /* (11: saved; before: off) */
-    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100; gp, gd no more: the NOTE OFF page) */
+    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100; 13: gp the GATE SEQ, gd its length) */
     uint8_t arp_slen;                            /* (10: saved; 12: the VELOCITY SEQ's length, 0 its own) */
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
@@ -1223,6 +1223,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
+        sys.arp_gp = (uint8_t)(s.snd >= 13u ? s.arp_gp % ARP_NGP : 0u);   /* (13: the GATE SEQ; before: the NOTE OFF page's) */
+        sys.arp_glen = (uint8_t)(s.snd >= 13u && s.arp_gd <= 8u ? s.arp_gd : 0u);
         if (s.snd >= 8u) {
             sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
             sys.arp_vd = (uint8_t)(s.arp_vd & 127u);
@@ -1249,9 +1251,11 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 12;
+    s.snd = 13;
     s.k_inv = sys.k_inv;
     s.arp_slen = sys.arp_slen;
+    s.arp_gp = sys.arp_gp;
+    s.arp_gd = sys.arp_glen;
     s.arp_vp = sys.arp_vp;
     s.arp_vd = sys.arp_vd;
     s.k_logic = sys.k_logic;
@@ -1853,27 +1857,30 @@ static void draw_multi(void)
     cv_blit(0, PLOT_Y);
 }
 
-/* GROOVE: the ARP VELOCITY SEQ as eight steps, the levels as heights (0 empty), past SEQ LENGTH dark; the step
- * playing lit */
+/* GROOVE: the ARP VELOCITY SEQ and the ARP GATE SEQ, each as eight steps (the pattern repeated), their levels as
+ * heights (a velocity 0: empty), past their lengths dark; the step playing lit */
+static void groove_row(int32_t y, const char *title, const arp_groove_t *P, uint32_t len, uint32_t pos, int on)
+{
+    const char *vs = P->s;
+    uint32_t nv = str_len(vs), i, cur = pos ? (pos - 1u) % len : 0u;
+    cv_text(8, y, &AF_S, title, T_DIM);
+    cv_text(140, y, &AF_S, P->name, nv ? T_TEXT : T_DIM);
+    for (i = 0; i < 8u; i++) {
+        int32_t lv = nv ? vs[i % nv] - '0' : 0, hgt = 2 + lv * 4, x = 8 + (int32_t)i * 28;
+        uint16_t col = on && i == cur ? T_ACCENT : i < len ? T_THEME : ux_mix(T_BG, T_THEME, 35);
+        cv_frame(x, y + 14, 24, 42, ux_mix(T_BG, T_DIM, 30));
+        if (lv)
+            cv_rect(x + 2, y + 54 - hgt, 20, hgt, col);
+        else if (on && nv && i == cur)
+            cv_frame(x + 1, y + 15, 22, 40, T_ACCENT);
+    }
+}
 static void draw_groove(void)
 {
-    const char *vs = ARP_VPAT[sys.arp_vp % ARP_NVP].s;
-    uint32_t nv = str_len(vs), i, len = arp_vlen(), cur = arp.gpos ? (arp.gpos - 1u) % len : 0u;
     int on = sys.arp_on && arp.n;
     cv_begin(240, PLOT_H, T_BG);
-    cv_text(8, 4, &AF_S, "ARP VELOCITY SEQ", T_DIM);
-    cv_text(140, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
-    for (i = 0; i < 8u && nv; i++) {             /* (the steps, the pattern repeated to eight; 0: an empty step) */
-        int32_t lv = vs[i % nv] - '0', hgt = 6 + lv * 9, x = 8 + (int32_t)i * 28;
-        uint16_t col = on && i == cur ? T_ACCENT : i < len ? T_THEME : ux_mix(T_BG, T_THEME, 35);
-        cv_frame(x, 24, 24, 88, ux_mix(T_BG, T_DIM, 30));
-        if (lv)
-            cv_rect(x + 2, 110 - hgt, 20, hgt, col);
-        else if (on && i == cur)
-            cv_frame(x + 1, 25, 22, 86, T_ACCENT);
-    }
-    if (!nv)
-        cv_text(8, 60, &AF_S, "ALGORITHM: A PATTERN", T_DIM);
+    groove_row(2, "ARP VELOCITY SEQ", &ARP_VPAT[sys.arp_vp % ARP_NVP], arp_vlen(), arp.gpos, on);
+    groove_row(64, "ARP GATE SEQ", &ARP_GPAT[sys.arp_gp % ARP_NGP], arp_glen(), arp.ggpos, on);
     cv_blit(0, PLOT_Y);
 }
 /* LOGIC: the mode, the last steps where either hit: the ARP's row, KARMA's, and what came through */
@@ -2274,13 +2281,14 @@ static void ui_draw(void)
         ui_val_c = FEG_FM(sys.feg_target) ? T_FM : 0;   /* (an FM target: green) */
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
-    } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY and NOTE OFF patterns, their depths */
+    } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY SEQ, the GATE SEQ */
         fmt_int(v, (int32_t)arp_vlen());
         ui_cell(T_C1, "1 SEQ LENGTH", v);
         fmt_int(v, (int32_t)(sys.arp_vd & 127u));
         ui_cell(T_C2, "2 DEPTH", v);
-        ui_cell(T_C3, "3", "");
-        ui_cell(T_C4, "4", "");
+        fmt_int(v, (int32_t)arp_glen());
+        ui_cell(T_C3, "3 GATE LENGTH", v);
+        ui_cell(T_C4, "4 GATE SEQ", ARP_GPAT[sys.arp_gp % ARP_NGP].name);
     } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
         static const char *const LG[7] = {"OFF", "OR", "AND", "XOR", "NOR", "ALT", "S/R"};
         ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic % 7u]);
@@ -3104,6 +3112,15 @@ static void ui_input(void)
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         knob(&sys.arp_vd, EN_K2, 1);
+        if ((s = ui_enc(EN_K3)) != 0) {
+            sys.arp_glen = (uint8_t)clamp((int32_t)arp_glen() + (s > 0 ? 1 : -1), 1, 8);   /* (1 .. 8 steps) */
+            ui_hot = 2; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K4)) != 0) {         /* (another GATE SEQ: its own length) */
+            sys.arp_gp = (uint8_t)clamp((int32_t)sys.arp_gp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NGP - 1);
+            sys.arp_glen = 0;
+            ui_hot = 3; ui_hot_ms = fm1_ms;
+        }
     } else if (sys.page == 17u) {               /* LOGIC */
         if ((s = ui_enc(EN_K1)) != 0) {
             static const char *const LG[7] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",

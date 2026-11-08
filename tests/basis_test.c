@@ -1782,6 +1782,16 @@ int main(int argc, char **argv)
                 sys.arp_slen = 0; sys.arp_vp = 0;
                 okk &= arp_vlen() == 1u;
             }
+            {   /* the GATE SEQ: GATE as its base (5 = GATE), LONG SHORT 8 2 = x 1.6, x 0.4; GATE LENGTH 1: only the long */
+                uint32_t g0, g1;
+                sys.arp_gp = 1; sys.arp_glen = 0;
+                okk &= arp_glen() == 2u;
+                arp.ggpos = 0; g0 = arp_gstep(50u); arp.ggpos = 1; g1 = arp_gstep(50u);
+                okk &= g0 == 80u && g1 == 20u && arp_gstep(80u) <= 100u;
+                sys.arp_glen = 1; okk &= arp_gstep(50u) == 80u;
+                sys.arp_gp = 0; sys.arp_glen = 0; okk &= arp_gstep(50u) == 50u;
+                if (!okk) printf("   (GATE SEQ: %u %u)\n", g0, g1);
+            }
             sys.arp_on = 0;
             run_ms(100);
         }

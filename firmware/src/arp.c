@@ -197,7 +197,7 @@ static struct {
     uint8_t pend[ARP_MAXN], pvel[ARP_MAXN], npend;   /* a strum's strings to come (one each ARP_STRUM samples) */
     uint32_t pt;                                 /* samples to the next of them */
     uint32_t lt;                                 /* LOGIC: clocks since KARMA's phrase started (its steps on them) */
-    uint32_t gpos;                               /* GROOVE: steps since the start (each pattern its own length) */
+    uint32_t gpos, ggpos;                        /* GROOVE: steps since the start (the VELOCITY SEQ's, the GATE SEQ's) */
     uint32_t bclk;                               /* its own clock: MIDI clocks since it started (its bars: 96) */
     uint8_t lslave;                              /* LOGIC: on KARMA's clock (joined at a bar of it, or it at one of ours) */
     uint8_t krun;                                /* LOGIC: KARMA's phrase plays (karma.c sets it) */
@@ -326,8 +326,30 @@ static uint32_t arp_vlen(void)
     uint32_t n = (uint32_t)str_len(ARP_VPAT[sys.arp_vp % ARP_NVP].s);
     return sys.arp_slen >= 1u && sys.arp_slen <= 8u ? sys.arp_slen : n > 8u ? 8u : n ? n : 1u;
 }
+/* the ARP GATE SEQ (the GROOVE page's lower row, KNOB 4; KNOB 3 its length as SEQ LENGTH's): each step's gate from
+ * GATE (the ARP page's KNOB 3) as its base: 1 .. 9 x 0.2 .. 1.8 (5: GATE itself; 100 % at most) */
+static const arp_groove_t ARP_GPAT[] = {
+    {"OFF", ""}, {"LONG SHORT", "82"}, {"SHORT LONG", "28"}, {"SHORT x3", "3338"}, {"GALLOP", "833"},
+    {"DOTTED", "853"}, {"TRESILLO", "83383383"}, {"RAMP UP", "2468"}, {"RAMP DOWN", "8642"}, {"BOUNCE", "8565"},
+    {"STAB", "1919"}, {"LEGATO 1/4", "9444"}, {"SWELL", "1357"}, {"STUTTER", "225"}, {"WALTZ", "844"},
+    {"BREATH", "66662"},
+};
+#define ARP_NGP (sizeof ARP_GPAT / sizeof ARP_GPAT[0])
+static uint32_t arp_glen(void)
+{
+    uint32_t n = (uint32_t)str_len(ARP_GPAT[sys.arp_gp % ARP_NGP].s);
+    return sys.arp_glen >= 1u && sys.arp_glen <= 8u ? sys.arp_glen : n > 8u ? 8u : n ? n : 1u;
+}
+/* the gate of the step about to play, % (GATE, through the GATE SEQ) */
+static uint32_t arp_gstep(uint32_t gate)
+{
+    char c = arp_gchar(ARP_GPAT[sys.arp_gp % ARP_NGP].s, arp.ggpos % arp_glen());
+    uint32_t g = c >= '1' && c <= '9' ? gate * (uint32_t)(c - '0') / 5u : gate;
+    return g < 3u ? 3u : g > 100u ? 100u : g;
+}
 static int arp_groove(void)
 {
+    arp.ggpos++;
     char vc = arp_gchar(ARP_VPAT[sys.arp_vp % ARP_NVP].s, arp.gpos % arp_vlen());
     arp.gpos++;
     arp.vmul = 100;
@@ -528,6 +550,7 @@ static void arp_lsync(void)                      /* (KARMA's phrase from its sta
     arp.pos = 0;
     arp.gls = 0;
     arp.gpos = 0;
+    arp.ggpos = 0;
 }
 static int arp_ltick(void)                       /* (a clock: a step due?) */
 {
@@ -577,7 +600,7 @@ static void arp_lstep(int pass)                  /* (a step due at this clock: t
         arp.swing_wait = 1u + arp.len * 2u * (sw - 50u) / 100u;
     } else {
         arp.swing_wait = 0;
-        arp.gate = arp.len * gate / 100u;
+        arp.gate = arp.len * arp_gstep(gate) / 100u;
         if (pass)
             arp_do_step();
         else
@@ -631,6 +654,7 @@ static void arp_block(uint32_t n)
         arp.pos = 0;
         arp.gls = 0;
         arp.gpos = 0;
+        arp.ggpos = 0;
             arp.bclk = 0;
     }
     if (due) {
@@ -642,7 +666,7 @@ static void arp_block(uint32_t n)
             arp.swing_wait = 1u + arp.len * 2u * (sw - 50u) / 100u;
         } else {
             arp.swing_wait = 0;
-            arp.gate = arp.len * gate / 100u;
+            arp.gate = arp.len * arp_gstep(gate) / 100u;
             arp_do_step();
             arp.step++;
         }
@@ -667,7 +691,7 @@ static void arp_block(uint32_t n)
         uint32_t left = arp.len > arp.swing_wait ? arp.len - arp.swing_wait : 1u;
         arp.swing_wait = 0;
         arp.t = 0;
-        arp.gate = left * gate / 100u;
+        arp.gate = left * arp_gstep(gate) / 100u;
         if (!logic_on() || arp.lpass)
             arp_do_step();
         else
