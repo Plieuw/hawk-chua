@@ -2831,7 +2831,11 @@ static void ui_draw(void)
         art_tape();
         cv_blit(0, PLOT_Y);
     }
-    else
+    else if (cv_backdrop && !cv_style_off) {   /* (a UI style: its scene instead of the picture, the oscillator played
+                                                * into it: ui_style.c) */
+        cv_begin(240, PLOT_H, T_BG);
+        cv_blit(0, PLOT_Y);
+    } else
         draw_plot();
     ui_force = 0;
 }
