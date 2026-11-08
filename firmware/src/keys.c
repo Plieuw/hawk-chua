@@ -91,7 +91,20 @@ static void arp_follow(void)
     arp_was_on = sys.arp_on;
     o = owner();
     if (o != own_was) {
+        uint32_t was = own_was;
         own_was = (uint8_t)o;
+        if (o == OWN_BOTH && (was == OWN_KARMA || was == OWN_ARP)) {
+            /* LOGIC: the one playing goes on, the one added joins at its bar with the same notes */
+            if (was == OWN_KARMA) {
+                arp_reset();
+                for (k = 0; k < kar.n; k++)
+                    arp_add(kar.note[k], kar.vel[k]);
+            } else {
+                for (k = 0; k < arp.n; k++)
+                    karma_add(arp.note[k], arp.vel[k]);
+            }
+            goto latch;
+        }
         arp_reset();
         karma_reset();
         synth_all_off();
@@ -105,6 +118,7 @@ static void arp_follow(void)
                     play_on(k, KEY_VEL);
             }
     }
+latch:
     if (sys.arp_hold != arp_was_hold) {
         arp_was_hold = sys.arp_hold;
         if (!sys.arp_hold)

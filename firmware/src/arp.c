@@ -199,6 +199,10 @@ static struct {
     uint32_t lt;                                 /* LOGIC: clocks since KARMA's phrase started (its steps on them) */
     uint32_t gpos;                               /* GROOVE: steps since the start (each pattern its own length) */
     uint32_t slc;                                /* SEQ LENGTH: steps since the pattern's start */
+    uint32_t bclk;                               /* its own clock: MIDI clocks since it started (its bars: 96) */
+    uint8_t lslave;                              /* LOGIC: on KARMA's clock (joined at a bar of it, or it at one of ours) */
+    uint8_t krun;                                /* LOGIC: KARMA's phrase plays (karma.c sets it) */
+    uint8_t bar_now;                             /* this block a step on a bar of our own clock (KARMA joins there) */
     int32_t vmul;                                /* GROOVE: this step's velocity, % */
     uint8_t lpass;                               /* LOGIC: the swung step waiting lets its notes through */
 } arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu, .vmul = 100};
@@ -527,6 +531,7 @@ static uint32_t logic_q(uint32_t note)
 }
 static void arp_lsync(void)                      /* (KARMA's phrase from its start: the pattern too) */
 {
+    arp.lslave = 1;
     arp.lt = 0;
     arp.pos = 0;
     arp.gls = 0;
@@ -598,6 +603,7 @@ static void arp_block(uint32_t n)
     uint32_t tps = ARP_TPS[sys.arp_div % ARP_NDIV], gate = 8u + (sys.arp_gate & 127u) * 92u / 127u;   /* 8..100 % */
     uint32_t sw = 50u + (sys.arp_swing & 127u) * 33u / 127u;                                            /* 50..83 % */
     int due = 0;
+    arp.bar_now = 0;                             /* (only this block's: karma.c reads it right after) */
     if (arp.ext_age < 0xFFFF0000u)
         arp.ext_age += n;
     arp.tick_t += n;
@@ -623,7 +629,8 @@ static void arp_block(uint32_t n)
             due = 1;
         }
     }
-    if (logic_on()) {                            /* (LOGIC: the steps on KARMA's clock, karma.c) */
+    if (logic_on() && (arp.lslave || arp.krun)) {   /* (LOGIC, KARMA playing: the steps on its clock, karma.c;
+                                                  * not joined yet: at its next bar) */
         due = 0;
         arp.running = 0;
     } else if (arp.running) {                    /* the first note: at once */
@@ -635,8 +642,12 @@ static void arp_block(uint32_t n)
         arp.gls = 0;
         arp.gpos = 0;
         arp.slc = 0;
+        arp.bclk = 0;
     }
     if (due) {
+        if (arp.bclk % 96u == 0u)                /* (a bar of our own clock: KARMA joining starts here) */
+            arp.bar_now = 1;
+        arp.bclk += tps;
         arp.t = 0;
         if (arp.pos & 1u && sw > 50u) {          /* the second of a pair: later */
             arp.swing_wait = 1u + arp.len * 2u * (sw - 50u) / 100u;

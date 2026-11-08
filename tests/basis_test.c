@@ -2020,9 +2020,41 @@ int main(int argc, char **argv)
             arp.n = 0;
             if (!okk) printf("   (NOTE QUANT)\n");
         }
+        {   /* joining at the bar: the ARP playing on its own, KARMA turned on mid-bar starts at the ARP's next bar
+             * (the ARP not restarted); KARMA playing, the ARP turned on starts at KARMA's next bar */
+            uint32_t tr0, w0, k3;
+            synth_kill(); keys_all_off(); sys.k_on = sys.arp_on = 0; run_ms(300);
+            sys.arp_type = 0; sys.arp_div = 7; sys.arp_swing = 0; sys.arp_hold = 0; sys.k_ge = 0; sys.k_latch = 0;
+            sys.arp_bpm = 120; sys.k_logic = 1; sys.k_inv = 0; sys.arp_on = 1;
+            run_ms(20);
+            midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
+            run_ms(700);                             /* (a bar: 2 s at 120) */
+            tr0 = kar.triggers;
+            sys.k_on = 1;
+            run_ms(600);
+            okk &= kar.triggers == tr0 && !arp.lslave && arp.bclk % 96u != 0u;   /* (still waiting for the bar) */
+            run_ms(900);
+            okk &= kar.triggers == tr0 + 1u && arp.lslave;   /* (joined at the ARP's bar) */
+            if (!okk) printf("   (LOGIC join: triggers %u -> %u, slave %u)\n", tr0, kar.triggers, arp.lslave);
+            midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
+            synth_kill(); keys_all_off(); sys.k_on = sys.arp_on = 0; run_ms(300);
+            sys.k_on = 1; run_ms(20);                /* (KARMA alone first) */
+            midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
+            run_ms(700);
+            w0 = arp_view.w;
+            sys.arp_on = 1;
+            run_ms(600);
+            okk &= arp_view.w == w0;                 /* (the ARP waits for KARMA's bar) */
+            for (k3 = 0; k3 < 90u && arp_view.w == w0; k3++)
+                run_ms(10);
+            okk &= arp_view.w != w0 && (kar.gt - kar.bar0) % 96u < 3u && arp.lslave;
+            if (arp_view.w == w0 || !arp.lslave) printf("   (LOGIC join 2: ARP steps %u, slave %u)\n", arp_view.w - w0, arp.lslave);
+            midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
+            run_ms(200);
+        }
         sys.k_on = sys.arp_on = 0; sys.k_logic = 0; sys.k_inv = 0;
         run_ms(100);
-        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR / NOR / ALT / S/R, INVERSE, own clock and MIDI clock; NOTE QUANT", okk);
+        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR / NOR / ALT / S/R, INVERSE, own clock and MIDI clock; NOTE QUANT; joining at the bar", okk);
     }
 
     /* KARMA running every GE while the oscillator, X / Y, FM, the FX model and the GE's knobs are turned at random

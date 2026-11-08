@@ -190,6 +190,8 @@ static struct {
     uint32_t triggers;                           /* phrase starts (FREE EG PHRASE starts again with them) */
     uint8_t running;                             /* the phrase plays */
     uint8_t cap;                                 /* LOGIC: a step's notes all queued (none at once) */
+    uint8_t follow;                              /* LOGIC: this trigger joins the ARP at its bar (its pattern goes on) */
+    uint32_t bar0;                               /* LOGIC: the clock the phrase started at (its bars: 96 on) */
     uint8_t wait;                                /* a trigger: 1 at the next sixteenth, 2 at once */
     uint8_t last_idx, strum_up, ge_seen;
     uint32_t rng;
@@ -575,7 +577,21 @@ static struct { uint8_t v[32]; volatile uint32_t w; } logic_view;   /* (the LOGI
 static void k_logic_tick(int trig, int kdue)
 {
     static uint8_t alt, sr;                      /* (ALT: whose turn; S/R: set by the ARP, reset by KARMA) */
-    int adue = trig ? (arp_lsync(), 1) : arp_ltick(), ah = adue && arp_would_hit(), kh = 0, pa, pk, force = 0;
+    int adue, ah, kh = 0, pa, pk, force = 0;
+    if (trig && kar.follow) {                    /* (joining the ARP at its bar: it played this step, on from here) */
+        kar.follow = 0;
+        arp.lslave = 1;
+        arp.lt = 0;
+        adue = 0;
+    } else if (trig)
+        adue = (arp_lsync(), 1);
+    else if (!arp.lslave) {                      /* (the ARP added while the phrase plays: from KARMA's next bar) */
+        adue = arp.n && (kar.gt - kar.bar0) % 96u == 0u;
+        if (adue)
+            arp_lsync();
+    } else
+        adue = arp_ltick();
+    ah = adue && arp_would_hit();
     uint32_t nev0 = kar.nev, mode = sys.k_logic % 7u;
     if (kdue) {
         kar.cap = 1;
@@ -631,8 +647,11 @@ static void k_tick(uint32_t res)
 {
     int trig = 0, kdue = 0;
     kar.gt++;
-    if (kar.wait == 1u && kar.gt % 6u == 0u) {   /* the trigger: the phrase from its start */
+    if (kar.wait == 1u && kar.gt % 6u == 0u &&    /* the trigger: the phrase from its start (LOGIC, the ARP playing
+                                                  * on its own: at its bar, karma_block) */
+        !(logic_on() && arp.n && !arp.lslave && !kar.follow && !kar.running)) {
         kar.wait = 0;
+        kar.bar0 = kar.gt;
         kar.running = 1;
         kar.pos = kar.step = kar.c = 0;
         kar.phrase_t = 0;
@@ -677,6 +696,8 @@ static void karma_block(uint32_t n)
         if (kar.nact || kar.nev || kar.running)
             k_all_off();
         k_stop();
+        arp.krun = 0;
+        arp.lslave = 0;
         kar.now += n;
         kar.clk_seen = arp.clk;
         kar.starts = arp.starts;
@@ -689,7 +710,16 @@ static void karma_block(uint32_t n)
         if (kar.n)
             kar.wait = 1;
     }
-    if (kar.wait == 2u) {                        /* from silence: at once (MIDI clock: the next sixteenth) */
+    if (logic_on() && kar.wait && !kar.running && arp.n && !arp.lslave) {   /* (LOGIC, the ARP on its own clock:
+                                                  * the phrase starts at its bar, its pattern going on) */
+        kar.wait = 1;
+        if (arp.bar_now) {
+            kar.follow = 1;
+            kar.gt = 0xFFFFFFFFu;
+            kar.tq8 = 0;
+            k_tick(res);
+        }
+    } else if (kar.wait == 2u) {                 /* from silence: at once (MIDI clock: the next sixteenth) */
         if (ext)
             kar.wait = 1;
         else {
@@ -731,6 +761,10 @@ static void karma_block(uint32_t n)
             i++;
     }
     kar.now += n;
+    arp.bar_now = 0;
+    arp.krun = kar.running;
+    if (!kar.running || !arp.n || !logic_on())
+        arp.lslave = 0;
     if (kar.running)
         kar.phrase_t = kar.phrase_t + n < kar.phrase_len ? kar.phrase_t + n : kar.phrase_len - 1u;
     k_env();
