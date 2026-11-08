@@ -60,8 +60,7 @@ static volatile struct {
                                                   * 1..16; tx channel 0..15 */
     uint8_t feg_val, feg_len, feg_depth, feg_target, feg_on, feg_has, feg_npts;   /* feg.c: FREE EG (REC) */
     uint8_t k_on, k_ge, k_latch, k_m[4];
-    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;   /* arp.c, the ARP's GROOVE page (ARP 2x): the ARP VELOCITY SEQ (ALGORITHM)
-                                  * and the NOTE OFF pattern (0 off), each one's depth */
+    uint8_t arp_vp, arp_vd;      /* arp.c, the ARP's GROOVE page (ARP 2x): the ARP VELOCITY SEQ (ALGORITHM; 0 off), its DEPTH */
     uint8_t arp_slen;            /* arp.c, the GROOVE page's KNOB 1: SEQ LENGTH, the pattern from its start every 2 .. 16
                                   * steps (0: its own length) */
     uint8_t k_logic, k_inv;      /* karma.c, the LOGIC page (SEQ 2x): the ARP with KARMA: 0 one or the other, OR, AND, XOR,
@@ -94,4 +93,4 @@ static volatile struct {
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
          .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,
-         .tape_lv = {100, 100, 100, 100}, .tape_len = 4, .tape_arm = 0, .tape_spd = 12, .spk_bass = 4, .bend_range = 12, .k_lq = 1, .k_logic = 1, .arp_vd = 100, .arp_gd = 127, .lvl_match = 1};
+         .tape_lv = {100, 100, 100, 100}, .tape_len = 4, .tape_arm = 0, .tape_spd = 12, .spk_bass = 4, .bend_range = 12, .k_lq = 1, .k_logic = 1, .arp_vd = 100, .lvl_match = 1};

@@ -1104,7 +1104,7 @@ typedef struct {
     uint8_t bend_range;                          /* (3: saved; before: 12) */
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
     uint8_t k_inv;                               /* (11: saved; before: off) */
-    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100, 127) */
+    uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100; gp, gd no more: the NOTE OFF page) */
     uint8_t arp_slen;                            /* (10: saved; before: OFF) */
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
@@ -1224,9 +1224,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         if (s.snd >= 8u) {
             sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
-            sys.arp_gp = (uint8_t)(s.arp_gp % ARP_NGP);
             sys.arp_vd = (uint8_t)(s.arp_vd & 127u);
-            sys.arp_gd = (uint8_t)(s.arp_gd & 127u);
         }
         sys.bend_range = (uint8_t)(s.snd >= 3u ? (s.bend_range > 12u ? 12u : s.bend_range) : 12u);
         sys.tape_arm = (uint8_t)(s.tape_arm & 3u);
@@ -1254,9 +1252,7 @@ static int settings_save(void)     /* 0 = saved */
     s.k_inv = sys.k_inv;
     s.arp_slen = sys.arp_slen;
     s.arp_vp = sys.arp_vp;
-    s.arp_gp = sys.arp_gp;
     s.arp_vd = sys.arp_vd;
-    s.arp_gd = sys.arp_gd;
     s.k_logic = sys.k_logic;
     s.k_lq = sys.k_lq;
     s.k_root = sys.k_root;
@@ -1860,28 +1856,23 @@ static void draw_multi(void)
  * step playing lit */
 static void draw_groove(void)
 {
-    const char *vs = ARP_VPAT[sys.arp_vp % ARP_NVP].s, *gs = ARP_GPAT[sys.arp_gp % ARP_NGP].s;
-    uint32_t nv = str_len(vs), ng = str_len(gs), i, cur = arp.gpos ? arp.gpos - 1u : 0u;
+    const char *vs = ARP_VPAT[sys.arp_vp % ARP_NVP].s;
+    uint32_t nv = str_len(vs), i, cur = arp.gpos ? arp.gpos - 1u : 0u;
     int on = sys.arp_on && arp.n;
     cv_begin(240, PLOT_H, T_BG);
     cv_text(8, 4, &AF_S, "ARP VELOCITY SEQ", T_DIM);
-    cv_text(124, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
-    for (i = 0; i < 8u && nv; i++) {             /* (the steps; the pattern repeated to eight) */
-        int32_t lv = vs[i % nv] - '0', hgt = 4 + lv * 4, x = 8 + (int32_t)i * 28;
-        cv_rect(x, 60 - hgt, 24, hgt, on && i == cur % nv ? T_ACCENT : i < nv ? T_THEME : ux_mix(T_BG, T_THEME, 35));
+    cv_text(140, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
+    for (i = 0; i < 8u && nv; i++) {             /* (the steps, the pattern repeated to eight; 0: an empty step) */
+        int32_t lv = vs[i % nv] - '0', hgt = 6 + lv * 9, x = 8 + (int32_t)i * 28;
+        uint16_t col = on && i == cur % nv ? T_ACCENT : i < nv ? T_THEME : ux_mix(T_BG, T_THEME, 35);
+        cv_frame(x, 24, 24, 88, ux_mix(T_BG, T_DIM, 30));
+        if (lv)
+            cv_rect(x + 2, 110 - hgt, 20, hgt, col);
+        else if (on && i == cur % nv)
+            cv_frame(x + 1, 25, 22, 86, T_ACCENT);
     }
-    cv_text(8, 66, &AF_S, "NOTE OFF", T_DIM);
-    cv_text(124, 66, &AF_S, ARP_GPAT[sys.arp_gp % ARP_NGP].name, ng ? T_TEXT : T_DIM);
-    for (i = 0; i < 8u && ng; i++) {
-        char c = gs[i % ng];
-        int32_t x = 8 + (int32_t)i * 28, wd = c == 'T' ? 28 : c == '.' ? 0 : (c - '0') * 24 / 10 + 2;
-        uint16_t col = on && i == cur % ng ? T_ACCENT : i < ng ? T_THEME : ux_mix(T_BG, T_THEME, 35);
-        cv_frame(x, 90, 24, 14, ux_mix(T_BG, T_DIM, 40));
-        if (wd)
-            cv_rect(x, 92, wd, 10, col);
-    }
-    if (!nv && !ng)
-        cv_text(8, 108, &AF_S, "ALGORITHM, KNOB 2: A PATTERN", T_DIM);
+    if (!nv)
+        cv_text(8, 60, &AF_S, "ALGORITHM: A PATTERN", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 /* LOGIC: the mode, the last steps where either hit: the ARP's row, KARMA's, and what came through */
@@ -2285,11 +2276,10 @@ static void ui_draw(void)
     } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY and NOTE OFF patterns, their depths */
         fmt_int(v, (int32_t)sys.arp_slen);
         ui_cell(T_C1, "1 SEQ LENGTH", sys.arp_slen >= 2u ? v : "OFF");
-        ui_cell(T_C2, "2 NOTE OFF", ARP_GPAT[sys.arp_gp % ARP_NGP].name);
         fmt_int(v, (int32_t)(sys.arp_vd & 127u));
-        ui_cell(T_C3, "3 VEL DEPTH", v);
-        fmt_int(v, (int32_t)(sys.arp_gd & 127u));
-        ui_cell(T_C4, "4 OFF DEPTH", v);
+        ui_cell(T_C2, "2 DEPTH", v);
+        ui_cell(T_C3, "3", "");
+        ui_cell(T_C4, "4", "");
     } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
         static const char *const LG[7] = {"OFF", "OR", "AND", "XOR", "NOR", "ALT", "S/R"};
         ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic % 7u]);
@@ -3106,12 +3096,7 @@ static void ui_input(void)
             sys.arp_slen = (uint8_t)(q < 2 ? 0 : q);
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
-        if ((s = ui_enc(EN_K2)) != 0) {
-            sys.arp_gp = (uint8_t)clamp((int32_t)sys.arp_gp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NGP - 1);
-            ui_hot = 1; ui_hot_ms = fm1_ms;
-        }
-        knob(&sys.arp_vd, EN_K3, 2);
-        knob(&sys.arp_gd, EN_K4, 3);
+        knob(&sys.arp_vd, EN_K2, 1);
     } else if (sys.page == 17u) {               /* LOGIC */
         if ((s = ui_enc(EN_K1)) != 0) {
             static const char *const LG[7] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",

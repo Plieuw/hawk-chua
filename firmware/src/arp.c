@@ -315,39 +315,29 @@ static void arp_sound(uint32_t note, uint32_t vel)
 
 static uint8_t arp_last;                          /* the last note played (ARP_PREV: the echo) */
 
-/* GROOVE (the ARP's second page): two short patterns over the steps, each its own length, so they turn against the
- * pattern and each other: ARP VELOCITY SEQ (ALGORITHM; each step's level, 1 .. 9: x 0.55 .. 1.75 with DEPTH 127) and NOTE OFF (each
- * step's gate, 1 .. 9 = 10 .. 90 % of the step, T tied on to the next, . a rest: no note), DEPTH from GATE's to the
- * pattern's */
+/* GROOVE (the ARP's second page): the ARP VELOCITY SEQ, a short pattern over the steps (2 .. 8, its own length, so
+ * it turns against the step pattern): each step's level, 1 .. 9 (x 0.55 .. 1.75 with DEPTH 127), 0 no note on that
+ * step (a rest; the step pattern goes on) */
 typedef struct { const char *name, *s; } arp_groove_t;
 static const arp_groove_t ARP_VPAT[] = {
     {"OFF", ""}, {"ACCENT 4", "9555"}, {"ACCENT 3", "955"}, {"OFFBEAT", "59"}, {"RAMP UP", "3579"},
     {"RAMP DOWN", "9753"}, {"TRESILLO", "95595595"}, {"WALTZ", "966"}, {"GHOSTS", "9393"}, {"PUMP", "39"},
     {"SWELL", "234567"}, {"FIVE", "95757"}, {"SEVEN", "9473582"}, {"BACKBEAT", "5595"},
-};
-static const arp_groove_t ARP_GPAT[] = {
-    {"OFF", ""}, {"STACCATO", "2"}, {"LEGATO", "T"}, {"LONG SHORT", "82"}, {"SHORT LONG", "28"},
-    {"DOTTED", "T.2"}, {"SKIP", "8."}, {"OFF SKIP", ".8"}, {"3 OF 4", "888."}, {"TRESILLO", "T..T..T."},
-    {"STUTTER", "2228"}, {"BREATH", "6666."}, {"FIVE", "8.88."}, {"TIE TWO", "T2"}, {"GALLOP", "8.22"},
+    {"SKIP", "90"}, {"OFF SKIP", "09"}, {"3 OF 4", "9770"}, {"CLAVE", "90090090"}, {"GALLOP", "9077"},
+    {"BREATH", "77770"}, {"FIVE RESTS", "90970"}, {"STUTTER", "999009"}, {"SPARSE", "9000"}, {"HOLES", "907050"},
 };
 #define ARP_NVP (sizeof ARP_VPAT / sizeof ARP_VPAT[0])
-#define ARP_NGP (sizeof ARP_GPAT / sizeof ARP_GPAT[0])
 static char arp_gchar(const char *s, uint32_t pos) { uint32_t n = (uint32_t)str_len(s); return n ? s[pos % n] : 0; }
-/* this step's groove (before its notes): 0 a rest (no notes), else 1; arp.vmul and arp.gate set */
+/* this step's level (before its notes): 0 a rest (no notes), else 1; arp.vmul set */
 static int arp_groove(void)
 {
-    char vc = arp_gchar(ARP_VPAT[sys.arp_vp % ARP_NVP].s, arp.gpos), gc = arp_gchar(ARP_GPAT[sys.arp_gp % ARP_NGP].s, arp.gpos);
+    char vc = arp_gchar(ARP_VPAT[sys.arp_vp % ARP_NVP].s, arp.gpos);
     arp.gpos++;
     arp.vmul = 100;
+    if (vc == '0')
+        return 0;
     if (vc >= '1' && vc <= '9')
         arp.vmul = 100 + ((40 + (vc - '0') * 15) - 100) * (int32_t)(sys.arp_vd & 127u) / 127;
-    if (gc == '.')
-        return 0;
-    if (gc) {
-        uint32_t want = gc == 'T' ? arp.len + arp.len / 8u : arp.len * (uint32_t)(gc - '0') / 10u;
-        int32_t d = (int32_t)want - (int32_t)arp.gate;
-        arp.gate = (uint32_t)((int32_t)arp.gate + d * (int32_t)(sys.arp_gd & 127u) / 127);
-    }
     return 1;
 }
 /* the step patterns stay in the chord's octave: a note above or below (the pattern's octave steps, its places past

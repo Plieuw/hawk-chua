@@ -130,12 +130,13 @@ Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KA
 | ALGORITHM | het patroon (zie hieronder) |
 | SELECT | LATCH (zoals bij KARMA, standaard aan): rechtsom aan (de noten blijven spelen als je loslaat, een nieuw akkoord vervangt ze), linksom uit |
 
-**GROOVE (ARP twee keer).** Twee korte patronen over de stappen van de ARP, elk met een eigen lengte (2 tot 8 stappen), zodat
-ze tegen het patroon en tegen elkaar in schuiven. KNOB 1 SEQ LENGTH: na zoveel stappen (2..16, OFF: de eigen lengte van het patroon) begint het patroon opnieuw, een korte loop van elk patroon. ALGORITHM: ARP VELOCITY SEQ, de velocity-sequence van de ARP: het niveau per stap (ACCENT 4, ACCENT 3, OFFBEAT,
-RAMP UP/DOWN, TRESILLO, WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT). KNOB 2 NOTE OFF: de lengte per stap of een
-rust (STACCATO, LEGATO, LONG SHORT, SHORT LONG, DOTTED, SKIP, OFF SKIP, 3 OF 4, TRESILLO, STUTTER, BREATH, FIVE, TIE TWO,
-GALLOP); een rust slaat een noot over, het patroon loopt door. KNOB 3 en 4: hoe sterk elk patroon werkt (de NOTE
-OFF-diepte schuift van GATE naar het patroon). De pagina toont beide als blokjes, de stap die speelt licht op.
+**GROOVE (ARP twee keer).** De ARP VELOCITY SEQ: een kort patroon (2 tot 8 stappen, met een eigen lengte, zodat het
+tegen het arp-patroon in schuift) dat per stap de velocity bepaalt, 1..9 zacht tot hard; een 0 is geen noot op die stap
+(een rust, het arp-patroon loopt door). ALGORITHM kiest het patroon: ACCENT 4, ACCENT 3, OFFBEAT, RAMP UP/DOWN, TRESILLO,
+WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT, en met rusten SKIP, OFF SKIP, 3 OF 4, CLAVE, GALLOP, BREATH, FIVE RESTS,
+STUTTER, SPARSE, HOLES. KNOB 1 SEQ LENGTH: na zoveel stappen (2..16, OFF: de eigen lengte) begint het arp-patroon
+opnieuw, een korte loop van elk patroon. KNOB 2 DEPTH: hoe sterk de velocity's werken (de rusten altijd). De pagina toont
+de stappen als staafjes, de stap die speelt licht op.
 
 De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,
 UPDW A (de uitersten één keer), UPDW B (de uitersten twee keer) en RANDOM, elk over 1, 2 of 4 octaven. 16–30: TECHNO-A

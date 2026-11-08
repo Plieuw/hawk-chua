@@ -1743,13 +1743,13 @@ int main(int argc, char **argv)
         sys.arp_on = 0;
         run_ms(20);
         synth_kill();
-        {   /* GROOVE: NOTE OFF SKIP (8 .) rests every second step (the pattern goes on: UP's notes 60 67 76 ...),
+        {   /* GROOVE: ARP VELOCITY SEQ SKIP (9 0): a rest every second step (the pattern goes on: UP's notes 60 67 76 ...),
              * VELOCITY ACCENT 4 louder on every fourth; LEGATO ties the notes on; every pattern a step or more */
             uint32_t g0, k, rests = 0, notes = 0;
             synth_kill(); keys_all_off(); run_ms(50);
             sys.arp_type = AT_UP; sys.arp_div = 7; sys.arp_gate = 60; sys.arp_swing = 0; sys.arp_hold = 0; sys.arp_on = 1;
-            sys.arp_gp = 6; sys.arp_vp = 1; sys.arp_vd = 127; sys.arp_gd = 127;
-            okk &= !strcmp(ARP_GPAT[6].name, "SKIP") && !strcmp(ARP_VPAT[1].name, "ACCENT 4");
+            sys.arp_vp = 14; sys.arp_vd = 127;
+            okk &= !strcmp(ARP_VPAT[14].name, "SKIP") && !strcmp(ARP_VPAT[1].name, "ACCENT 4");
             run_ms(10);
             w0 = arp_view.w; g0 = gen_n;
             midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
@@ -1762,9 +1762,8 @@ int main(int argc, char **argv)
             okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 2u) & 31u] == 67u;
             if (!okk) printf("   (GROOVE: %u notes, %u rests, %u made)\n", notes, rests, gen_n - g0);
             for (k = 0; k < ARP_NVP; k++) okk &= ARP_VPAT[k].s[0] || !k;
-            for (k = 0; k < ARP_NGP; k++) okk &= ARP_GPAT[k].s[0] || !k;
             midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
-            sys.arp_gp = 0; sys.arp_vp = 0;
+            sys.arp_vp = 0;
             run_ms(100);
             {   /* SEQ LENGTH 3: UP over four notes held loops its first three: 60 64 67 60 64 67 ... */
                 uint32_t j2;
