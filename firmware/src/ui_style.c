@@ -23,6 +23,12 @@
  *                 flowers, blue eyes glowing with the sound: tail wagging (faster as it gets louder), ears perking
  *                 up at each note, tongue out while you play, sparkles from the crown; a rainbow over it all, and it
  *                 rains ketamine: little K's and crystals drifting down, more of them as the sound gets louder
+ * Each style's scene changes with the oscillator (HOME: the circuit or a noise program): RAINBOW ROAD four lands
+ * (purple mountains, a neon city, palm trees, pyramids), the road's colours turned; GRADIENT other skies and
+ * aurora colours; PSYCHEDELIC 4 .. 8 arms, turning the other way, sometimes coarse; MAGIC CATS another cat (fur,
+ * hat) and the moon in another phase; JEZUS another sign (the cross, a sacred heart, the fish, a chalice) in gold,
+ * silver or rose light; SAIKO another season (dusk, night, snow, autumn) and another look (crown, shades, party hat).
+ * The pages themselves (the plot, the cells) stay as they are.
  * All drawn here from simple shapes (nothing copied). Saved with the settings. */
 
 /* (the styles: US_INITIAL .. US_COUNT, ui.c's top) */
@@ -69,6 +75,7 @@ static int32_t us_react(void)                    /* the sound now, 0 .. 1000, as
     uint32_t l = synth_out_lvl > 4000u ? 4000u : synth_out_lvl;
     return (int32_t)(l * (sys.ui_react & 127u) / 508u);
 }
+static uint32_t us_var(void) { return sys.osc & 31u; }   /* (the scene's variant: the oscillator) */
 static uint32_t us_hash(uint32_t i) { i ^= i >> 15; i *= 0x2C1B3C6Du; i ^= i >> 12; i *= 0x297A2D39u; return i ^ (i >> 15); }
 static int32_t us_abs(int32_t v) { return v < 0 ? -v : v; }
 static int32_t us_isqrt(int32_t v)              /* floor(sqrt(v)), bit by bit (v < 2^30) */
@@ -155,7 +162,11 @@ static void us_rainbow_road(uint32_t h)
     int32_t hz = (int32_t)h * 34 / 100, y, x, k = us_k(), L, span = (int32_t)h - hz, rc = us_react();
     uint32_t t = us_t(), run = t * 4u + fm1_ms * (uint32_t)rc / 3000u;   /* (the road's run: faster with the sound) */
     int32_t curve = us_sin(t << 22, 34);         /* (the far end swings: the road curves) */
-    us_gradient((uint32_t)hz, T_BG, US_RGB(96, 18, 112), 0);
+    static const uint16_t HZC[4] = {US_RGB(96, 18, 112), US_RGB(150, 34, 40), US_RGB(10, 96, 112), US_RGB(170, 90, 30)};
+    static const uint16_t SUN[4][2] = {{US_RGB(255, 226, 92), US_RGB(255, 52, 156)}, {US_RGB(255, 170, 60), US_RGB(230, 30, 60)},
+                                       {US_RGB(170, 255, 220), US_RGB(40, 170, 255)}, {US_RGB(255, 250, 200), US_RGB(255, 120, 40)}};
+    uint32_t v = us_var(), land = v & 3u, rot = v * 37u;   /* (the land; the road's colours turned) */
+    us_gradient((uint32_t)hz, T_BG, HZC[land], 0);
     us_stars(30, 2, hz - 16, US_RGB(255, 255, 255));
     {   /* a shooting star, every ~7 s */
         uint32_t ph = fm1_ms % 7000u, seed = us_hash(fm1_ms / 7000u);
@@ -173,11 +184,50 @@ static void us_rainbow_road(uint32_t h)
                 continue;
             {
                 int32_t w = us_isqrt(r * r - dy * dy);
-                uint16_t c = ux_mix(US_RGB(255, 226, 92), US_RGB(255, 52, 156), row * 100 / r);
+                uint16_t c = ux_mix(SUN[land][0], SUN[land][1], row * 100 / r);
                 cv_rect(120 - w, hz + dy, 2 * w + 1, 1, ux_mix(T_BG, c, 20 + k * 75 / 100));
             }
         }
     }
+    if (land == 1u) {                            /* a neon city: towers, lit windows twinkling */
+        for (x = 0; x < 240; ) {
+            uint32_t hs = us_hash((uint32_t)x * 17u + 5u);
+            int32_t bw = 6 + (int32_t)(hs % 9u), bh = 6 + (int32_t)((hs >> 4) % 22u), wy, wx;
+            if (us_abs(x + bw / 2 - 120) < 22)
+                bh = bh / 3 + 2;                 /* (low before the sun) */
+            cv_rect(x, hz - bh, bw - 1, bh, ux_mix(T_BG, US_RGB(24, 8, 40), k));
+            for (wy = hz - bh + 2; wy < hz - 1; wy += 3)
+                for (wx = x + 1; wx < x + bw - 2; wx += 2)
+                    if ((us_hash((uint32_t)(wx * 7 + wy * 131) + (uint32_t)(fm1_ms / 1500u)) & 7u) == 0u)
+                        cv_pset(wx, wy, ux_mix(T_BG, (hs >> 9) & 1u ? US_RGB(80, 240, 255) : US_RGB(255, 80, 200), k * 85 / 100));
+            x += bw;
+        }
+    } else if (land == 2u) {                     /* palm trees against the sun */
+        static const int16_t PX[4] = {22, 54, 186, 218};
+        uint16_t pc = ux_mix(T_BG, US_RGB(16, 6, 30), k);
+        int32_t i, j;
+        for (x = 0; x < 240; x++)                /* (a low shore) */
+            cv_rect(x, hz - 2 - us_abs(us_sin((uint32_t)x << 23, 2)), 1, 3, pc);
+        for (i = 0; i < 4; i++) {
+            int32_t px = PX[i], ph = 22 + (i & 1) * 6, tx = px + ((i & 1) ? 5 : -5), ty = hz - ph;
+            for (j = 0; j <= ph; j++)            /* (the trunk, leaning) */
+                cv_rect(px + (tx - px) * j * j / (ph * ph), hz - j, 2, 1, pc);
+            for (j = 0; j < 6; j++) {            /* (the fronds, drooping) */
+                int32_t dx = (j - 3) * 4 + (j >= 3 ? 4 : 0), m;
+                for (m = 0; m <= 8; m++)
+                    cv_rect(tx + dx * m / 8, ty + (m * m) / 10 - (6 - us_abs(dx)) / 3, 2, 1, pc);
+            }
+        }
+    } else if (land == 3u) {                     /* pyramids in the desert dusk */
+        static const int16_t QX[3] = {44, 82, 198}, QH[3] = {22, 14, 18};
+        int32_t i, y2;
+        for (i = 0; i < 3; i++)
+            for (y2 = 0; y2 < QH[i]; y2++) {
+                int32_t w = QH[i] - y2;
+                cv_rect(QX[i] - w, hz - y2 - 1, w, 1, ux_mix(T_BG, US_RGB(120, 60, 40), k));            /* (the lit side) */
+                cv_rect(QX[i], hz - y2 - 1, w, 1, ux_mix(T_BG, US_RGB(50, 20, 30), k));                 /* (the shade) */
+            }
+    } else
     for (x = 0; x < 240; x++) {                  /* two ranges of mountains before it */
         int32_t m1 = 8 + us_sin((uint32_t)x << 24, 4) + us_sin(((uint32_t)x * 3u + 70u) << 23, 3);
         int32_t m2 = 4 + us_abs(us_sin(((uint32_t)x * 5u + 11u) << 22, 6));
@@ -199,7 +249,7 @@ static void us_rainbow_road(uint32_t h)
         }
         for (L = 0; L < 7; L++) {
             int32_t xa = x0 + 2 * hw * L / 7, xb = x0 + 2 * hw * (L + 1) / 7;
-            uint16_t c = us_hue((uint32_t)L * 36u, stripe ? 255u : 175u);
+            uint16_t c = us_hue((uint32_t)L * 36u + rot, stripe ? 255u : 175u);
             cv_rect(xa, y, xb - xa, 1, ux_mix(T_BG, c, k * near / 100));
         }
         if (stripe) {                            /* (white posts at its edges) */
@@ -218,7 +268,7 @@ static void us_aurora(uint32_t h)
         {US_RGB(8, 30, 90), US_RGB(0, 150, 160)},     /* deep sea */
         {US_RGB(30, 90, 110), US_RGB(140, 230, 170)}, /* mint */
     };
-    uint32_t t = us_t(), ph = t * 2u, i = (ph >> 8) & 3u, j = (i + 1u) & 3u, x;
+    uint32_t t = us_t(), ph = t * 2u, i = ((ph >> 8) + us_var()) & 3u, j = (i + 1u) & 3u, x, ah = us_var() * 45u;
     int32_t f = (int32_t)(ph & 255u) * 100 / 255, k = us_k(), rc = us_react(), r;
     uint16_t top, bot;
     f = f < 70 ? 0 : (f - 70) * 100 / 30;        /* (each pair held a while, then a slow change) */
@@ -231,7 +281,7 @@ static void us_aurora(uint32_t h)
             int32_t yc = (int32_t)h * (28 + r * 18) / 100 + us_sin((x * 3u + t * (5u + (uint32_t)r * 3u)) << 22, 10) +
                          us_sin((x * 7u - t * 4u + (uint32_t)r * 90u) << 21, 5);
             int32_t len = 12 + us_sin((x * 5u + t * 6u) << 21, 5) + rc / 60, yy;
-            uint16_t c = us_hue(96u + (uint32_t)r * 70u + (x >> 2) + us_sin((x + t * 3u) << 23, 20), 255u);
+            uint16_t c = us_hue(96u + ah + (uint32_t)r * 70u + (x >> 2) + us_sin((x + t * 3u) << 23, 20), 255u);
             for (yy = 0; yy < len; yy++)
                 cv_rect((int32_t)x, yc + yy, 2, 1, ux_mix(US_SKY(yc + yy), c, (len - yy) * (75 + rc / 20) * k / (len * 100)));
         }
@@ -247,14 +297,15 @@ static void us_aurora(uint32_t h)
 static void us_psyche(uint32_t h)
 {
     int32_t bx, by, k = us_k() * 55 / 100, rc = us_react(), cy = (int32_t)h / 2;
-    uint32_t t = us_t();
-    for (by = 0; by < (int32_t)h; by += 4)       /* the kaleidoscope: six mirrored arms, spiralling */
-        for (bx = 0; bx < 240; bx += 4) {
-            int32_t dx = bx + 2 - 120, dy = (by + 2 - cy) * 2;
-            uint32_t r = (uint32_t)us_isqrt((dx * dx + dy * dy) >> 4) * 4u, a = us_ang(dx, dy) * 6u & 255u;
-            uint32_t fold = a > 127u ? 255u - a : a, hue = r * 3u + fold - t * 3u + (uint32_t)rc / 8u;
-            uint32_t v = ((r + fold / 2u - t * 2u) & 16u) ? 210u : 120u;
-            cv_rect(bx, by, 4, 4, ux_mix(T_BG, us_hue(hue, v), k + rc * (100 - k) / 2000));
+    uint32_t t = us_t(), var = us_var(), arms = 4u + var % 5u, bs = var % 3u == 2u ? 8u : 4u;
+    uint32_t tt = var & 1u ? 0u - t : t;         /* (some turn the other way) */
+    for (by = 0; by < (int32_t)h; by += (int32_t)bs)   /* the kaleidoscope: mirrored arms (4 .. 8), spiralling */
+        for (bx = 0; bx < 240; bx += (int32_t)bs) {
+            int32_t dx = bx + (int32_t)bs / 2 - 120, dy = (by + (int32_t)bs / 2 - cy) * 2;
+            uint32_t r = (uint32_t)us_isqrt((dx * dx + dy * dy) >> 4) * 4u, a = us_ang(dx, dy) * arms & 255u;
+            uint32_t fold = a > 127u ? 255u - a : a, hue = r * 3u + fold - tt * 3u + (uint32_t)rc / 8u + var * 29u;
+            uint32_t v = ((r + fold / 2u - tt * 2u) & 16u) ? 210u : 120u;
+            cv_rect(bx, by, (int32_t)bs, (int32_t)bs, ux_mix(T_BG, us_hue(hue, v), k + rc * (100 - k) / 2000));
         }
     {   /* the eye: an almond, its iris turning through the hues, the pupil opening with the sound; it blinks */
         int32_t dx, dy, W = 38, H = 18, open = (fm1_ms % 5200u) < 160u ? 2 : H;
@@ -312,14 +363,19 @@ static void us_cats(uint32_t h)
     int asleep = now - spark_t > 9000u, blink = asleep || (now % 4200u) < 140u, glow = us_react() > 120;
     int look = sys.last_note != 0xFFu && sys.last_note >= 60u;   /* (the eyes: to the last note, low left, high right) */
     int32_t sway = (int32_t)(np_sin(t << 23) >> 13);   /* -2 .. 2: the tail's swing */
-    uint16_t fur = ux_mix(T_BG, US_RGB(250, 220, 255), 20 + k * 60 / 100);
+    static const uint16_t FUR[5] = {US_RGB(250, 220, 255), US_RGB(70, 60, 96), US_RGB(255, 170, 90), US_RGB(170, 170, 190),
+                                    US_RGB(255, 236, 200)};   /* (lilac white, black, ginger, grey, cream) */
+    static const uint16_t HAT[4] = {US_RGB(110, 70, 200), US_RGB(200, 40, 60), US_RGB(20, 150, 150), US_RGB(30, 26, 40)};
+    static const int8_t MOON[4] = {5, 2, -5, 99};   /* (the shadow's offset: crescent, slim, waning, full) */
+    uint32_t var = us_var();
+    uint16_t fur = ux_mix(T_BG, FUR[var % 5u], 20 + k * 60 / 100);
     us_gradient(h, US_RGB(52, 26, 92), US_RGB(12, 6, 30), 0);
     us_stars(36, 2, (int32_t)h - 44, US_RGB(255, 236, 255));
     {   /* the moon: a disc with a darker one over it, a crescent */
         int32_t mx = 30, my = 22, dx, dy;
         for (dy = -10; dy <= 10; dy++)
             for (dx = -10; dx <= 10; dx++)
-                if (dx * dx + dy * dy <= 100 && (dx - 5) * (dx - 5) + (dy + 2) * (dy + 2) > 64)
+                if (dx * dx + dy * dy <= 100 && (dx - MOON[var & 3u]) * (dx - MOON[var & 3u]) + (dy + 2) * (dy + 2) > 64)
                     cv_pset(mx + dx, my + dy, ux_mix(T_BG, US_RGB(255, 246, 200), 30 + k * 60 / 100));
     }
     {   /* a fish drawn in the stars, faint lines between them */
@@ -361,7 +417,7 @@ static void us_cats(uint32_t h)
                 xs = c + sway * (US_CAT_H - 1 - r) / 6;
                 col = fur;
             } else if (p == 'H')
-                col = ux_mix(T_BG, US_RGB(110, 70, 200), 40 + k * 55 / 100);
+                col = ux_mix(T_BG, HAT[(var >> 1) & 3u], 40 + k * 55 / 100);
             else if (p == 'S')
                 col = ux_mix(T_BG, US_RGB(255, 230, 120), 50 + (int32_t)((np_sin(t << 24) >> 10) + 32) * k / 128);
             else if (p == 'P')
@@ -407,7 +463,9 @@ static void us_jezus(uint32_t h)
     int32_t k = us_k(), i, cx = 120, cy = 20, lvl = us_react() * 4;
     uint32_t t = us_t();
     int32_t shine = 30 + lvl * 50 / 4000;        /* (the light grows with the sound) */
-    uint16_t gold = US_RGB(242, 193, 78);
+    static const uint16_t LIGHT[3] = {US_RGB(242, 193, 78), US_RGB(225, 232, 255), US_RGB(255, 160, 150)};   /* gold, silver, rose */
+    uint32_t var = us_var(), sign = var & 3u;
+    uint16_t gold = LIGHT[(var >> 2) % 3u];
     us_gradient(h, US_RGB(34, 46, 112), T_BG, 0);
     for (i = 0; i < 18; i++) {                   /* golden rays from above the cross, turning slowly */
         uint32_t a0 = ART_DEG(20 + i * 8) + t * 600000u, a1 = a0 + ART_DEG(3);
@@ -424,10 +482,35 @@ static void us_jezus(uint32_t h)
                 if (q >= 13 * 13 && q <= 15 * 15)
                     cv_pset(cx + dx, cy + dy, ux_mix(T_BG, gold, 40 + shine * k / 200));
             }
-        cv_rect(cx - 3, cy - 13, 7, 30, ux_mix(T_BG, gold, 20 * k / 100));   /* (the glow) */
-        cv_rect(cx - 10, cy - 5, 21, 7, ux_mix(T_BG, gold, 20 * k / 100));
-        cv_rect(cx - 1, cy - 11, 3, 26, ux_mix(T_BG, gold, 50 + shine * k / 200));
-        cv_rect(cx - 8, cy - 3, 17, 3, ux_mix(T_BG, gold, 50 + shine * k / 200));
+        if (sign == 0u) {                        /* the cross */
+            cv_rect(cx - 3, cy - 13, 7, 30, ux_mix(T_BG, gold, 20 * k / 100));   /* (the glow) */
+            cv_rect(cx - 10, cy - 5, 21, 7, ux_mix(T_BG, gold, 20 * k / 100));
+            cv_rect(cx - 1, cy - 11, 3, 26, ux_mix(T_BG, gold, 50 + shine * k / 200));
+            cv_rect(cx - 8, cy - 3, 17, 3, ux_mix(T_BG, gold, 50 + shine * k / 200));
+        } else {                                 /* or another sign, drawn twice the size: H a heart, X the cross on it,
+                                                  * F its flame; O the fish's outline; C a chalice, W the wine */
+            static const char *const SIGN[3][11] = {
+                {"....F....", "...FXF...", "....X....", ".HH.X.HH.", "HHHHXHHHH", "HHHHHHHHH", ".HHHHHHH.", "..HHHHH..",
+                 "...HHH...", "....H....", "........."},
+                {".........", ".........", "..OOOO..O", ".O....OOO", "O..O...OO", ".O....OOO", "..OOOO..O", ".........",
+                 ".........", ".........", "........."},
+                {".........", "CCCCCCCCC", "CWWWWWWWC", ".CWWWWWC.", "..CCCCC..", "...CCC...", "....C....", "....C....",
+                 "....C....", "..CCCCC..", ".CCCCCCC."},
+            };
+            int32_t r2, c2, fl = (int32_t)(us_hash(fm1_ms / 90u) & 1u);
+            for (r2 = 0; r2 < 11; r2++)
+                for (c2 = 0; c2 < 9; c2++) {
+                    char p = SIGN[sign - 1u][r2][c2];
+                    uint16_t col;
+                    if (p == '.')
+                        continue;
+                    col = p == 'H' ? ux_mix(T_BG, US_RGB(220, 40, 60), 50 + shine * k / 200) :
+                          p == 'F' ? ux_mix(T_BG, fl ? US_RGB(255, 200, 60) : US_RGB(255, 120, 40), 60 + k / 3) :
+                          p == 'W' ? ux_mix(T_BG, US_RGB(150, 20, 50), 50 + shine * k / 200) :
+                                     ux_mix(T_BG, gold, 50 + shine * k / 200);
+                    cv_rect(cx - 9 + c2 * 2, cy - 11 + r2 * 2, 2, 2, col);
+                }
+        }
     }
     for (i = 0; i < 26; i++) {                   /* dust drifting in the light, glinting */
         uint32_t hs = us_hash((uint32_t)i * 977u + 3u);
@@ -508,13 +591,24 @@ static void us_saiko(uint32_t h)
         note_t = now;
     }
     since = now - note_t;
-    us_gradient((uint32_t)hz + 6u, US_RGB(110, 70, 170), US_RGB(255, 168, 210), 0);
-    us_stars(22, 2, hz / 2, US_RGB(255, 250, 230));
+    /* the season (the oscillator): dusk, night, snow, autumn: the sky, the hills, what falls */
+    static const uint16_t SKY[4][2] = {{US_RGB(110, 70, 170), US_RGB(255, 168, 210)}, {US_RGB(14, 14, 60), US_RGB(70, 50, 140)},
+                                       {US_RGB(120, 150, 200), US_RGB(225, 235, 250)}, {US_RGB(150, 70, 110), US_RGB(255, 170, 90)}};
+    static const uint16_t HILL[4][2] = {{US_RGB(150, 230, 190), US_RGB(70, 170, 120)}, {US_RGB(40, 90, 90), US_RGB(20, 60, 60)},
+                                        {US_RGB(240, 245, 255), US_RGB(190, 210, 240)}, {US_RGB(220, 140, 60), US_RGB(160, 80, 40)}};
+    uint32_t sea = us_var() & 3u, look = (us_var() >> 2) % 3u;
+    us_gradient((uint32_t)hz + 6u, SKY[sea][0], SKY[sea][1], 0);
+    us_stars(sea == 1u ? 60u : 22u, 2, sea == 1u ? hz : hz / 2, US_RGB(255, 250, 230));
+    if (sea == 1u) {                             /* (the night: a full moon) */
+        us_disc(214, 16, 9, ux_mix(T_BG, US_RGB(255, 250, 220), 40 + k / 2));
+        cv_pset(211, 14, ux_mix(T_BG, US_RGB(210, 205, 190), 40 + k / 2));
+        cv_pset(216, 19, ux_mix(T_BG, US_RGB(210, 205, 190), 40 + k / 2));
+    }
     {   /* a rainbow, over the hills: seven bands, the sky showing through a little */
         int32_t cx = 120, cy = hz + 26, R0 = 66, bw = 3, dy, b;
         for (dy = -(R0 + 7 * bw); dy < hz + 6 - cy && dy <= 0; dy++) {
             int32_t y = cy + dy, sky = y * 100 / (hz + 5);
-            uint16_t base = ux_mix(T_BG, ux_mix(US_RGB(110, 70, 170), US_RGB(255, 168, 210), sky < 0 ? 0 : sky > 100 ? 100 : sky), k);
+            uint16_t base = ux_mix(T_BG, ux_mix(SKY[sea][0], SKY[sea][1], sky < 0 ? 0 : sky > 100 ? 100 : sky), k);
             if (y < 0)
                 continue;
             for (b = 0; b < 7; b++) {
@@ -550,8 +644,8 @@ static void us_saiko(uint32_t h)
         int32_t x;
         for (x = 0; x < 240; x++) {
             int32_t y1 = hz + us_sin(((uint32_t)x * 2u + 40u) << 23, 6), y2 = hz + 12 + us_sin(((uint32_t)x * 3u + 170u) << 22, 7);
-            cv_rect(x, y1, 1, (int32_t)h - y1, ux_mix(T_BG, US_RGB(150, 230, 190), k * 75 / 100));
-            cv_rect(x, y2, 1, (int32_t)h - y2, ux_mix(T_BG, US_RGB(70, 170, 120), k * 80 / 100));
+            cv_rect(x, y1, 1, (int32_t)h - y1, ux_mix(T_BG, HILL[sea][0], k * 75 / 100));
+            cv_rect(x, y2, 1, (int32_t)h - y2, ux_mix(T_BG, HILL[sea][1], k * 80 / 100));
             if (((uint32_t)x * 7u + (uint32_t)y2) % 11u == 0u)   /* (little flowers in the grass) */
                 cv_pset(x, y2 + 4 + (x % 5), ux_mix(T_BG, us_hue((uint32_t)x * 37u, 255u), 40 + k / 2));
         }
@@ -561,7 +655,7 @@ static void us_saiko(uint32_t h)
         static const int8_t MS[4] = {6, 4, 5, 4};
         for (i = 0; i < 4; i++) {
             int32_t mx = MX[i], sz = MS[i], my = (int32_t)h - 6 - (i & 1) * 4, gl = 15 + rc / 25 + us_sin((t * 3u + (uint32_t)i * 60u) << 22, 8);
-            us_disc(mx, my - sz, sz + 4, ux_mix(ux_mix(T_BG, US_RGB(70, 170, 120), k * 80 / 100), US_RGB(255, 170, 220), gl * k / 100));
+            us_disc(mx, my - sz, sz + 4, ux_mix(ux_mix(T_BG, HILL[sea][1], k * 80 / 100), US_RGB(255, 170, 220), gl * k / 100));
             cv_rect(mx - 1, my - sz, 3, sz + 2, ux_mix(T_BG, US_RGB(255, 240, 220), 40 + k / 2));
             for (r = 0; r <= sz; r++)            /* (the cap: a half disc) */
                 cv_rect(mx - us_isqrt(sz * sz - r * r) - 1, my - sz - r, 2 * us_isqrt(sz * sz - r * r) + 3, 1,
@@ -609,6 +703,18 @@ static void us_saiko(uint32_t h)
             }
         }
     }
+    if (sea == 2u || sea == 3u)                  /* snow falling; or autumn's leaves */
+        for (i = 0; i < 24; i++) {
+            uint32_t hs = us_hash((uint32_t)i * 389u + 4u);
+            int32_t y = (int32_t)((t * (2u + (hs >> 6) % 3u) + (hs >> 3)) % (h + 8u)) - 4;
+            int32_t x = (int32_t)(hs % 240u) + us_sin((t * 3u + hs) << 21, 6);
+            if (sea == 2u) {
+                uint16_t sc = ux_mix(T_BG, US_RGB(255, 255, 255), 50 + k / 2);
+                cv_pset(x, y, sc);
+                if (hs & 4u) { cv_pset(x - 1, y, sc); cv_pset(x + 1, y, sc); cv_pset(x, y - 1, sc); cv_pset(x, y + 1, sc); }
+            } else
+                cv_rect(x, y, 2 + (int32_t)(hs & 1u), 2, ux_mix(T_BG, (hs >> 8) & 1u ? US_RGB(230, 110, 40) : US_RGB(200, 60, 40), 50 + k / 2));
+        }
     {   /* Saiko */
         int perk = since < 350u, tongue = since < 1500u || rc > 80, blink = (now % 3700u) < 130u;
         int32_t wag = us_sin(now * (4u + (uint32_t)rc / 40u) << 20, 3);
@@ -628,7 +734,7 @@ static void us_saiko(uint32_t h)
                 switch (p) {
                 case 'G': col = grey; break;
                 case 'P': col = ux_mix(T_BG, US_RGB(255, 170, 200), 45 + k / 2); break;
-                case 'F': col = ux_mix(T_BG, FL[(c + (int32_t)(t / 8u)) & 3], 50 + k / 2); break;
+                case 'F': col = look == 2u ? grey : ux_mix(T_BG, FL[(c + (int32_t)(t / 8u)) & 3], 50 + k / 2); break;
                 case 'E': col = blink ? grey : ux_mix(US_RGB(70, 160, 255), US_RGB(190, 245, 255), rc / 10); break;
                 case 'K': col = r == 6 && blink ? grey : US_RGB(20, 20, 30); break;
                 case 'M': col = ux_mix(T_BG, US_RGB(60, 50, 70), 70); break;
@@ -640,6 +746,21 @@ static void us_saiko(uint32_t h)
             }
         if (tongue)                              /* (the tongue hangs a little further) */
             cv_rect(x0 + 14, y0 + 22, 2, 2, US_RGB(255, 110, 150));
+        if (look == 1u) {                        /* shades: two dark lenses on a bar, a glint */
+            cv_rect(x0 + 4, y0 + 11, 22, 2, US_RGB(20, 20, 30));
+            cv_rect(x0 + 4, y0 + 11, 8, 5, US_RGB(20, 20, 30));
+            cv_rect(x0 + 18, y0 + 11, 8, 5, US_RGB(20, 20, 30));
+            cv_pset(x0 + 6, y0 + 12, ux_mix(US_RGB(20, 20, 30), US_RGB(140, 220, 255), 70 + rc / 20));
+            cv_pset(x0 + 20, y0 + 12, ux_mix(US_RGB(20, 20, 30), US_RGB(140, 220, 255), 70 + rc / 20));
+        } else if (look == 2u) {                 /* a party hat, striped, a pompom on top */
+            int32_t j;
+            for (j = 0; j < 14; j++) {
+                int32_t w = j * 2 / 3 + 1;
+                cv_rect(x0 + 15 - w, y0 + 7 - 14 + j, 2 * w, 1,
+                        ux_mix(T_BG, (j / 3) & 1 ? US_RGB(255, 230, 90) : US_RGB(90, 200, 255), 50 + k / 2));
+            }
+            us_disc(x0 + 15, y0 - 8, 2, ux_mix(T_BG, US_RGB(255, 120, 190), 60 + k / 2));
+        }
         if (since < 800u) {                      /* sparkles from the crown */
             uint32_t a = since;
             for (i = 0; i < 8; i++) {
