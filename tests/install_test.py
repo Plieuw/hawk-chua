@@ -217,8 +217,17 @@ def errors():
     image = I.logical_image(raw)
     p = pkgfile("ok.fwsc", raw)
 
-    rc, out, err = cli([p, "--yes"], FakeFM1(image, name="IAC Driver Bus 1"))
-    ok(rc == 3 and "not found" in err and "IAC Driver" in err, "no FM-1 port -> exit 3, lists the MIDI inputs")
+    dev = FakeFM1(image, name="IAC Driver Bus 1")
+    dev.connected = False
+    rc, out, err = cli([p, "--yes"], dev)
+    ok(rc == 3 and "not found" in err, "no FM-1 port -> exit 3")
+    dev = FakeFM1(image, identity="FM1_12", name="Chocolate MIDI")
+    rc, out, err = cli([p, "--yes"], dev)
+    ok(rc == 0 and dev.bad == 0 and dev.upgrades == 2 and "FM-1_900" in out,
+       "an alternative firmware (its own port name, identity FM1_12) -> found by the handshake, installs")
+    dev = FakeFM1(image, identity="FM-1 OPEN", name="FM1")
+    rc, out, err = cli([p, "--yes"], dev)
+    ok(rc == 0 and dev.upgrades == 2, "an identity without a version (FM-1 OPEN) -> installs")
     dev = FakeFM1(image)
     rc, out, err = cli([p, "--yes", "--port", "Felucca"], dev)
     ok(rc == 3 and dev.upgrades == 0, "--port that matches nothing -> exit 3")

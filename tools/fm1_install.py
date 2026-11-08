@@ -36,7 +36,7 @@ LOADER_MARK = b"FELUCCA-LOADER-1"
 # the unmodified official FM-1 V15 (FM-1.fwsc from M-VAVE): returning to it is allowed without --force,
 # as the web installer's "Return to official V15" (web/fm1pkg.js validateStockPackage)
 STOCK_V15_SHA256 = "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a"
-PORT_RE = re.compile(r"fm-1|felucca|ota|composite|sinco|usb-midi", re.I)   # never probe other gear
+PORT_RE = re.compile(r"fm-?1|m-?vave|felucca|hawk|plieuw|ota|composite|sinco|jieli|usb[- ]?midi|usb audio|midi device", re.I)   # an FM-1's names (any firmware's); never probe other gear
 
 # seconds; the tests shorten them
 DELAY = {"open": 0.3, "start": 2.0, "reply": 0.01, "loader": 3.0, "reboot": 3.0, "retry": 1.0,
@@ -120,8 +120,11 @@ def parse_identity(pkt):
     if len(d) != 34 or d[:3] != b"\x00\x59\x11":
         return None
     txt = printable(d[6:33].rstrip(b"\0"))
-    m = re.fullmatch(r"([^_]+)_(\d+)", txt)
-    return Identity(txt, m[1], int(m[2])) if m else None
+    # "FM-1_007"; other firmwares answer with their own text: the model before the last "_", a number after it
+    m = re.fullmatch(r"(.+)_([^_]*)", txt)
+    if not txt:
+        return None
+    return Identity(txt, m[1] if m else txt, int(m[2]) if m and m[2].isdigit() else 0)
 
 
 # --------------------------------------------------------------- package ---
@@ -142,7 +145,9 @@ def logical_image(raw):
 
 
 def model_of(text):
-    return text.split("_")[0].removeprefix("ota-")
+    """an FM-1 from any firmware ("FM-1_007", "FM1_1.2", "ota-FM-1_007" ...): "FM1"; anything else its own model"""
+    m = text.rsplit("_", 1)[0].removeprefix("ota-")
+    return "FM1" if "FM1" in re.sub(r"[^A-Z0-9]", "", m.upper()) else m
 
 
 # ------------------------------------------------------------------ MIDI ---
@@ -255,7 +260,8 @@ class Updater:
             if only_port:
                 return mine
             return mine + [n for n in names if n not in mine and PORT_RE.search(n)]
-        return [n for n in names if PORT_RE.search(n)]
+        known = [n for n in names if PORT_RE.search(n)]
+        return known or names                    # (none with an FM-1's name: an alternative firmware's own; all of them)
 
     def find(self, want=None, only_port=True):
         """the first matching port that answers the handshake (and want(identity))"""

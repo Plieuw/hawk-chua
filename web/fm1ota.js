@@ -12,6 +12,7 @@ const UPGRADE = [0xF0, 0x22, 0x24, 0x35, 0x7F, 0xF7];
 const MAXDATA = 512;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const IS_OTA = (id) => /^ota-/i.test(id.model);
+const PORT_RE = /fm-?1|m-?vave|felucca|hawk|plieuw|ota|composite|sinco|jieli|usb[- ]?midi|usb audio|midi device/i;
 
 // errors carry a code the pages translate: notfound, model, stopped, noloader, lost, noreturn,
 // mismatch (detail: the identity the device reports), badreq
@@ -60,10 +61,17 @@ function parseRequest(pkt) {
 function parseIdentity(pkt) {
   const d = unpack7(pkt.slice(1, -1));
   if (d.length !== 34 || d[0] !== 0 || d[1] !== 0x59 || d[2] !== 0x11) return null;
-  const txt = String.fromCharCode(...d.slice(6, 33)).replace(/\0+$/, "");
-  const m = /^([^_]+)_(\d+)$/.exec(txt);
-  return m ? { text: txt, model: m[1], version: parseInt(m[2], 10) } : null;
+  const txt = String.fromCharCode(...d.slice(6, 33)).replace(/\0+$/, "").replace(/[^\x20-\x7e]/g, "?");
+  // "FM-1_007"; other firmwares answer with their own text ("FM1_1.2", "FM-1 OPEN" ...): the model before the
+  // last "_", the version after it when it is a number
+  const m = /^(.+)_([^_]*)$/.exec(txt);
+  const model = m ? m[1] : txt, v = m ? parseInt(m[2], 10) : NaN;
+  return txt ? { text: txt, model, version: Number.isNaN(v) ? 0 : v } : null;
 }
+// an FM-1, whatever firmware runs on it: its model, letters and digits only, "FM1" in it (an FM-1 from any
+// firmware takes any FM-1 package; the loader comes from the package)
+const fm1ish = (model) => /FM1/.test(model.replace(/^ota-/i, "").toUpperCase().replace(/[^A-Z0-9]/g, ""));
+const sameModel = (a, b) => a === b || (fm1ish(a) && fm1ish(b));
 
 // one MIDI in/out pair with a SysEx queue
 class Link {
@@ -116,10 +124,16 @@ export class Updater {
 
   // every in/out pair with the same port name that answers the handshake
   async find(filter) {
+    return (await this.find1(filter, false)) || (await this.find1(filter, true));
+  }
+
+  // the ports with an FM-1's names first (any firmware's: FM-1, FM1, M-VAVE, Felucca, HAWK CHUA, the loader, the
+  // chip's own); the others only when none of those answered
+  async find1(filter, wide) {
     const outs = [...this.access.outputs.values()];
     for (const input of this.access.inputs.values()) {
       if (input.state === "disconnected") continue;
-      if (!/fm-1|felucca|hawk|ota|composite|sinco|usb-midi/i.test(input.name || "")) continue;   // never probe other gear
+      if (!PORT_RE.test(input.name || "") === !wide) continue;   // (first the known names; then, none found, the rest)
       const output = outs.find((o) => o.name === input.name && o.state !== "disconnected");
       if (!output) continue;
       try { await input.open(); await output.open(); } catch (_) { continue; }
@@ -176,7 +190,7 @@ export class Updater {
     const dev = await this.find((id) => !IS_OTA(id));
     if (!dev) throw fail("notfound", "FM-1 not found (USB cable, and no other app using it?)");
     const [model] = product.split("_");
-    if (dev.id.model !== model) { dev.link.close(); throw fail("model", `the device is ${dev.id.text}, the package is for ${product}`); }
+    if (!sameModel(dev.id.model, model)) { dev.link.close(); throw fail("model", `the device is ${dev.id.text}, the package is for ${product}`); }
     step("start", dev.id.text);
     dev.link.send(UPGRADE);
     await sleep(2000);
@@ -185,7 +199,7 @@ export class Updater {
     if (!s1.finished) throw fail(s1.lost ? "lost" : "stopped", `the device ${s1.lost ? "was disconnected" : "stopped"} after ${s1.served} requests: nothing was written`);
     step("loader");
     await sleep(3000);
-    const ota = await this.waitFor((id) => id.model === "ota-" + model, 30000);
+    const ota = await this.waitFor((id) => IS_OTA(id) && sameModel(id.model, model), 30000);
     if (!ota) throw fail("noloader", "the update loader did not appear. Replug the USB cable and press Install again: the device stays in update mode until it is finished.");
     const s2 = await this.write(ota, image, step);
     if (!s2.finished) throw fail(s2.lost ? "lost" : "stopped", `the loader ${s2.lost ? "was disconnected" : "stopped"} after ${s2.served} requests. Replug and press Install again to resume.`);
@@ -211,7 +225,7 @@ export class Updater {
   // resume: the device is already in update mode (loader) -> true when the write finished
   async resume(image, onStep, product = null) {
     const model = product && product.split("_")[0];
-    const ota = await this.find((id) => model ? id.model === "ota-" + model : IS_OTA(id));
+    const ota = await this.find((id) => IS_OTA(id) && (!model || sameModel(id.model, model)));
     if (!ota) return false;
     const step = onStep || (() => {});
     const result = await this.write(ota, image, step);
@@ -219,7 +233,7 @@ export class Updater {
     if (product) {
       step("reboot");
       await sleep(3000);
-      const back = await this.waitFor((id) => id.model === model, 40000);
+      const back = await this.waitFor((id) => !IS_OTA(id), 40000);
       if (!back) throw fail("noreturn", "The FM-1 did not return after resuming the write.");
       back.link.close();
       if (back.id.text !== product) throw fail("mismatch", "The FM-1 reports a different firmware after resuming.", back.id.text);

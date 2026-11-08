@@ -350,11 +350,12 @@ static uint8_t usb_cdc_on = FELUCCA_CDC_DEFAULT != 0;      /* the console is pre
 static const uint8_t STR0[4] = {4, 3, 0x09, 0x04};
 /* the names a computer shows: the maker, the instrument (the update loader: its updater) */
 static const uint8_t STR1[] = {20, 3, 'P', 0, 'l', 0, 'i', 0, 'e', 0, 'u', 0, 'w', 0, 's', 0, 'k', 0, 'i', 0};
+/* (the instrument's name with "FM-1" in it: any FM-1 updater (Felucca's, other firmwares') finds the port by that name,
+ * so moving to another firmware needs nothing more) */
 #ifdef FELUCCA_LOADER
-static const uint8_t STR2[] = {34, 3, 'H', 0, 'A', 0, 'W', 0, 'K', 0, ' ', 0, 'C', 0, 'H', 0, 'U', 0, 'A', 0, ' ', 0,
-                               'U', 0, 'p', 0, 'd', 0, 'a', 0, 't', 0, 'e', 0};
+static const uint8_t STR2[] = {38, 3, 'H', 0, 'A', 0, 'W', 0, 'K', 0, ' ', 0, 'C', 0, 'H', 0, 'U', 0, 'A', 0, ' ', 0, 'F', 0, 'M', 0, '-', 0, '1', 0, ' ', 0, 'O', 0, 'T', 0, 'A', 0};
 #else
-static const uint8_t STR2[] = {20, 3, 'H', 0, 'A', 0, 'W', 0, 'K', 0, ' ', 0, 'C', 0, 'H', 0, 'U', 0, 'A', 0};
+static const uint8_t STR2[] = {30, 3, 'H', 0, 'A', 0, 'W', 0, 'K', 0, ' ', 0, 'C', 0, 'H', 0, 'U', 0, 'A', 0, ' ', 0, 'F', 0, 'M', 0, '-', 0, '1', 0};
 #endif
 
 static int get_desc(uint32_t wvalue, const uint8_t **d, uint16_t *l)
