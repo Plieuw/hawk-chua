@@ -21,7 +21,8 @@
  *   SAIKO         Saiko the husky in fairyland: a pastel dusk over rolling hills, a castle far off with twinkling
  *                 windows, glowing toadstools, fairies flitting about with trails of light; Saiko sits in a crown of
  *                 flowers, blue eyes glowing with the sound: tail wagging (faster as it gets louder), ears perking
- *                 up at each note, tongue out while you play, sparkles from the crown
+ *                 up at each note, tongue out while you play, sparkles from the crown; a rainbow over it all, and it
+ *                 rains ketamine: little K's and crystals drifting down, more of them as the sound gets louder
  * All drawn here from simple shapes (nothing copied). Saved with the settings. */
 
 /* (the styles: US_INITIAL .. US_COUNT, ui.c's top) */
@@ -509,6 +510,27 @@ static void us_saiko(uint32_t h)
     since = now - note_t;
     us_gradient((uint32_t)hz + 6u, US_RGB(110, 70, 170), US_RGB(255, 168, 210), 0);
     us_stars(22, 2, hz / 2, US_RGB(255, 250, 230));
+    {   /* a rainbow, over the hills: seven bands, the sky showing through a little */
+        int32_t cx = 120, cy = hz + 26, R0 = 66, bw = 3, dy, b;
+        for (dy = -(R0 + 7 * bw); dy < hz + 6 - cy && dy <= 0; dy++) {
+            int32_t y = cy + dy, sky = y * 100 / (hz + 5);
+            uint16_t base = ux_mix(T_BG, ux_mix(US_RGB(110, 70, 170), US_RGB(255, 168, 210), sky < 0 ? 0 : sky > 100 ? 100 : sky), k);
+            if (y < 0)
+                continue;
+            for (b = 0; b < 7; b++) {
+                int32_t ro = R0 + (7 - b) * bw, ri = ro - bw, xo, xi;
+                if (dy * dy > ro * ro)
+                    continue;
+                xo = us_isqrt(ro * ro - dy * dy);
+                xi = dy * dy < ri * ri ? us_isqrt(ri * ri - dy * dy) : 0;
+                {
+                    uint16_t c = ux_mix(base, us_hue((uint32_t)b * 36u, 255u), 30 + k * 40 / 100);
+                    cv_rect(cx - xo, y, xo - xi, 1, c);
+                    cv_rect(cx + xi + 1, y, xo - xi, 1, c);
+                }
+            }
+        }
+    }
     {   /* the castle, far off: towers with pointed roofs, windows that twinkle */
         static const int8_t TX[5] = {18, 30, 42, 54, 66}, TH[5] = {18, 28, 36, 26, 16};
         uint16_t wall = ux_mix(T_BG, US_RGB(196, 150, 220), k * 80 / 100);
@@ -563,6 +585,28 @@ static void us_saiko(uint32_t h)
                 cv_pset(fx, fy, col);
             } else
                 cv_pset(fx, fy, ux_mix(T_BG, col, (60 - (int32_t)j * 9) * k / 100));
+        }
+    }
+    {   /* it rains ketamine: little K's and crystals drifting down (more with the sound) */
+        static const char *const KG[5] = {"X.X", "XX.", "X..", "XX.", "X.X"};
+        uint32_t n = 18u + (uint32_t)rc / 40u;
+        for (i = 0; i < (int32_t)n; i++) {
+            uint32_t hs = us_hash((uint32_t)i * 613u + 21u), fall = (uint32_t)h + 12u;
+            int32_t y = (int32_t)((t * (3u + (hs >> 7) % 4u) + (hs >> 3)) % fall) - 6;
+            int32_t x = (int32_t)(hs % 248u) - 4 + y / 6 + us_sin((t * 2u + hs) << 22, 3);
+            uint16_t col = ux_mix(T_BG, (hs >> 20) & 1u ? US_RGB(255, 255, 255) : US_RGB(225, 205, 255), 45 + k / 2);
+            if (hs & 1u) {                       /* a K */
+                int32_t a, b2;
+                for (a = 0; a < 5; a++)
+                    for (b2 = 0; b2 < 3; b2++)
+                        if (KG[a][b2] == 'X')
+                            cv_pset(x + b2, y + a, col);
+            } else {                             /* a crystal, glinting */
+                cv_pset(x, y, col);
+                if (((hs >> 9) + t) % 6u < 2u) {
+                    cv_pset(x - 1, y, col); cv_pset(x + 1, y, col); cv_pset(x, y - 1, col); cv_pset(x, y + 1, col);
+                }
+            }
         }
     }
     {   /* Saiko */
