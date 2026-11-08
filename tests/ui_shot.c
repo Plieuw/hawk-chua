@@ -735,6 +735,29 @@ int main(int argc, char **argv)
             bad = 1;
         }
     }
+    {   /* AUTO SAVE: a change kept 3 s after it, once all is quiet; not while the ARP plays */
+        settings_t st;
+        uint32_t i;
+        int ok = 1;
+        sys.arp_on = 0; sys.k_on = 0; arp.n = 0;
+        for (i = 0; i < 20u; i++) { run_ms(40); ui_input(); }   /* (the state as it is now: saved) */
+        sys.decay = 33;
+        for (i = 0; i < 25u; i++) { run_ms(40); ui_input(); }   /* (1 s: not yet) */
+        st_load(OBJ_SETTINGS, &st, sizeof st);
+        ok &= st.decay != 33u;
+        for (i = 0; i < 125u; i++) { run_ms(40); ui_input(); }  /* (6 s: kept) */
+        st_load(OBJ_SETTINGS, &st, sizeof st);
+        ok &= st.decay == 33u;
+        sys.arp_on = 1; arp.n = 1; sys.decay = 44;
+        for (i = 0; i < 150u; i++) { run_ms(40); ui_input(); }  /* (the ARP playing: never) */
+        st_load(OBJ_SETTINGS, &st, sizeof st);
+        ok &= st.decay == 33u;
+        arp.n = 0; sys.arp_on = 0;
+        for (i = 0; i < 150u; i++) { run_ms(40); ui_input(); }  /* (stopped: kept) */
+        st_load(OBJ_SETTINGS, &st, sizeof st);
+        ok &= st.decay == 44u;
+        if (!ok) { printf("auto save FAIL (%u)\n", st.decay); bad = 1; }
+    }
     if (off_screen) {
         printf("%d strips drawn outside the screen FAIL\n", off_screen);
         bad = 1;

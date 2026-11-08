@@ -1244,11 +1244,28 @@ static void settings_boot(void)    /* power-on, before the audio */
     }
 }
 
-static int settings_save(void)     /* 0 = saved */
+static settings_t set_saved;                     /* the state in flash (as last written, or found at boot) */
+static void settings_fill_now(settings_t *sp);
+static void settings_fill(settings_t *sp)        /* the state now, as saved: FREE EG's and the wheel's targets at the
+                                                  * values they give back (not where they move them) */
 {
-    settings_t s;
-    if (!flash_ok)
-        return -1;
+    uint32_t f = irq_save();
+    volatile uint8_t *fe = feg.playing ? feg_field(feg.target) : 0, *mw = mwd.on ? feg_field(mwd.target) : 0;
+    uint8_t fv = fe ? *fe : 0, mv = mw ? *mw : 0;
+    if (mw)
+        *mw = mwd.base;
+    if (fe)
+        *fe = feg.base;
+    settings_fill_now(sp);
+    if (fe)
+        *fe = fv;
+    if (mw)
+        *mw = mv;
+    irq_restore(f);
+}
+static void settings_fill_now(settings_t *sp)
+{
+#define s (*sp)
     memset(&s, 0, sizeof s);
     s.magic = SET_MAGIC;
     s.menv3 = 1;
@@ -1338,7 +1355,19 @@ static int settings_save(void)     /* 0 = saved */
     s.transpose = sys.transpose;
     for (uint32_t i = 0; i < 4u; i++)
         s.k_m[i] = sys.k_m[i];
-    return st_save(OBJ_SETTINGS, &s, sizeof s);
+#undef s
+}
+static int settings_save(void)     /* 0 = saved */
+{
+    settings_t s;
+    int e;
+    if (!flash_ok)
+        return -1;
+    settings_fill(&s);
+    e = st_save(OBJ_SETTINGS, &s, sizeof s);
+    if (!e)
+        set_saved = s;
+    return e;
 }
 
 /* -------------------------------------------------------------- text --- */
@@ -2877,20 +2906,23 @@ static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
 static int8_t oct_was;                           /* the octave before the OCTs went down (BOUNCE gives it back) */
 static uint8_t oct_both;                         /* OCT- and OCT+ both held: 1, 2 (a BOUNCE made) */
 static uint8_t play_last;                        /* PLAY outside the ARP / KARMA pages: 0 the ARP, 1 KARMA (the last opened) */
-/* the preset chosen kept: 3 s after it last changed, the settings saved (a power-on starts there). The flash write
- * stops the CPU for a moment (a hiccup in the sound, the LEDs flashing): only once all is quiet, the ARP, KARMA and
- * the TAPE not playing and no note started for 2 s */
+/* AUTO SAVE: the state kept, so switching the FM-1 off (its switch: no warning) loses nothing: 3 s after the last
+ * change the settings saved (the preset, the knobs, the pages' settings; power-on applies its own rules on them as
+ * ever: PLAY off ...). The flash write stops the CPU for a moment (a hiccup in the sound, the LEDs flashing): only
+ * once all is quiet, the ARP, KARMA and the TAPE not playing and no note started for 2 s */
 static void preset_keep(void)
 {
-    static uint16_t kept = 0xFFFFu, last;
+    static settings_t seen;
+    static uint8_t started, tick;
     static uint32_t since, ons, ons_t;
-    if (kept == 0xFFFFu) {                       /* (the first call: the one booted) */
-        kept = last = sys.preset;
+    settings_t now;
+    if (!flash_ok)
         return;
-    }
-    if (sys.preset != last) {
-        last = sys.preset;
-        since = fm1_ms;
+    if (!started) {                              /* (the first call: the state booted counts as saved) */
+        started = 1;
+        settings_fill(&set_saved);
+        seen = set_saved;
+        return;
     }
     if (synth_ons != ons) {
         ons = synth_ons;
@@ -2898,10 +2930,17 @@ static void preset_keep(void)
     }
     if ((sys.arp_on && arp.n) || (sys.k_on && (kar.running || kar.n)) || tape.playing || tape.rec)
         ons_t = fm1_ms;
-    if (sys.preset != kept && fm1_ms - since > 3000u && fm1_ms - ons_t > 2000u && flash_ok) {
-        kept = sys.preset;
-        settings_save();
+    if (++tick & 7u)                             /* (the state looked at every eighth frame) */
+        return;
+    settings_fill(&now);
+    if (!memcmp(&now, &set_saved, sizeof now))
+        return;
+    if (memcmp(&now, &seen, sizeof now)) {       /* (still changing: from this change) */
+        seen = now;
+        since = fm1_ms;
     }
+    if (fm1_ms - since > 3000u && fm1_ms - ons_t > 2000u)
+        settings_save();
 }
 static void ui_input(void)
 {
