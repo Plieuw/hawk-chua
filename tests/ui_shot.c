@@ -767,6 +767,21 @@ int main(int argc, char **argv)
                           10 * log10(lI / (ld + 1e-20)), 10 * log10(lA / (ld + 1e-20))); bad = 1; }
         sys.sh_mix = 0; synth_kill();
     }
+    {   /* a knob of choices: one detent, the next (the VOICE's size, the CLUSTER's voices) */
+        int ok = 1;
+        uint8_t m0 = sys.fx_model, st0 = sys.fx_struct, o0 = sys.osc, y0 = sys.np_y;
+        sys.fx_model = RZ_VOICE; sys.fx_struct = 0;
+        knob_step(&sys.fx_struct, 1); ok &= knob_choice(&sys.fx_struct, sys.fx_struct) == 1;
+        knob_step(&sys.fx_struct, 1); ok &= knob_choice(&sys.fx_struct, sys.fx_struct) == 2;
+        knob_step(&sys.fx_struct, -1); ok &= knob_choice(&sys.fx_struct, sys.fx_struct) == 1;
+        sys.osc = 11; sys.np_y = 0;
+        { int k; for (k = 0; k < 14; k++) knob_step(&sys.np_y, 1); }
+        ok &= sys.np_y == 127 && knob_choice(&sys.np_y, sys.np_y) == 13;   /* (2 .. 15 voices) */
+       
+        sys.fx_model = RZ_MODAL; ok &= !knob_step(&sys.fx_struct, 1);
+        sys.fx_model = m0; sys.fx_struct = st0; sys.osc = o0; sys.np_y = y0;
+        if (!ok) { printf("knob choices FAIL (struct %u y %u)\n", sys.fx_struct, sys.np_y); bad = 1; }
+    }
     {   /* the pages' presets: PRESETS on ENV, MOD ENV, SCL, FREE EG sets that page's knobs */
         int ok = 1;
         uint8_t pg = sys.page;

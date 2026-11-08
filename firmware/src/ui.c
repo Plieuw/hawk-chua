@@ -460,9 +460,8 @@ static const preset_t PRESETS[] = {
     {"ENGINE", NZK, 20, 80, 120, 80, 40, NOFX, NOSH, NZ(0, 9), 60, 20, .oct = -1},
     {"CROWD", NZK, 60, 90, 110, 96, 10, NOFX, HALL, NZ(0, 8), 60, 100},
     /* DOMINATOR: the Alpha Juno's "What the" hoover: six detuned pulses (PW CLUSTER, wide), each note diving in from
-     * an octave under the pitch and gliding up (MOD ENV: ~0.3 s, BEND fast at first, then easing onto the note), held
-     * full, a short release, an octave down, a room */
-    {"DOMINATOR", NZK, 24, 80, 120, 40, 10, NOFX, 85, 72, 0, 36, SI_OCT, 70, NZ(1, 1), 78, 44, 84, 0, 216, 0, SS_HALL, 0, 96,
+     * under the pitch (MOD ENV down ~0.8 octave, a fast fall back), held full, a short release, an octave down, a room */
+    {"DOMINATOR", NZK, 2, 80, 120, 40, 10, NOFX, 85, 72, 0, 36, SI_OCT, 70, NZ(1, 1), 78, 44, 70, 0, 208, 0, SS_HALL, 0, 34,
      .oct = -1},
     /* ---- BANK 3: SYNTH (playable synthesizer sounds: leads, basses, pads, keys, plucks, brass and strings,
      * sequence sounds, bells; 16 of each) ---- */
@@ -2434,7 +2433,7 @@ static void ui_draw(void)
         ui_cell(T_C1, a, v);
         str_cpy(a, "2 ", sizeof a);
         ui_cat(a, sizeof a, NP_Y[alg]);
-        fmt_int(v, sys.np_y);
+        fmt_int(v, alg == 10u ? 2 + (int32_t)(sys.np_y & 127u) * 258 * 14 / 32767 : sys.np_y);   /* (CLUSTER SAW: how many) */
         ui_val_c = np_is_fm(NP_Y[alg]) ? T_FM_IN : 0;
         ui_cell(T_C2, a, v);
         ui_val_c = 0;
@@ -2927,12 +2926,47 @@ static int32_t ui_enc(uint32_t role)            /* every knob and encoder: deten
     return s ? knob_accel(role, s) : 0;
 }
 
+/* a knob that picks among a few things (the VOICE's size, the ACCORDION's register, the BAGPIPE's key, the
+ * CLUSTER's voices, KARMA's octave): which one a value means (-1: a range, not choices) */
+static int32_t knob_choice(volatile uint8_t *p, int32_t v)
+{
+    uint32_t i;
+    if (p == &sys.fx_struct && sys.fx_model == RZ_VOICE)
+        return v * (int32_t)WV_COUNT / 128;
+    if (p == &sys.fx_pos && sys.fx_model == RZ_ACCORD)
+        return v * 5 / 128;
+    if (p == &sys.fx_pos && sys.fx_model == RZ_BAGPIPE)
+        return v * 12 / 128;
+    if (p == &sys.np_y && sys.osc == 11u)        /* (CLUSTER SAW: noise.c's 2 + y x 14 / 32767 voices) */
+        return v * 258 * 14 / 32767;
+    if (sys.page == 9u)
+        for (i = 0; i < 4u; i++)
+            if (p == &sys.k_m[i] && k_ge()->knob[i] == MC_TRANSPOSE)
+                return (v - 64) / 32;
+    return -1;
+}
+/* a turn of such a knob: one detent, the next choice (not a range's ten detents a choice) */
+static int knob_step(volatile uint8_t *p, int32_t s)
+{
+    int32_t v = *p & 127, c = knob_choice(p, v), d = s > 0 ? 1 : -1;
+    if (c < 0)
+        return 0;
+    while (v + d >= 0 && v + d <= 127) {
+        v += d;
+        if (knob_choice(p, v) != c)
+            break;
+    }
+    *p = (uint8_t)v;
+    return 1;
+}
+
 static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
 {
     int32_t s = ui_enc(role);
     if (!s)
         return;
-    *p = (uint8_t)clamp(*p + s, 0, 127);
+    if (!knob_step(p, s))
+        *p = (uint8_t)clamp(*p + s, 0, 127);
     if (cell < 4u) {
         ui_hot = (uint8_t)cell;
         ui_hot_ms = fm1_ms;
@@ -3513,7 +3547,8 @@ static void ui_input(void)
         ui_say(sys.arp_hold ? "LATCH ON" : "LATCH OFF");
     } else if (s && (sys.page == 2u || sys.page == 3u)) {   /* (MOD, MOD ENV: nothing; RING is on HOME) */
         volatile uint8_t *p = sys.page == 3u ? &sys.sh_tone : &sys.fx_pos;
-        *p = (uint8_t)clamp(*p + s, 0, 127);
+        if (!knob_step(p, s))
+            *p = (uint8_t)clamp(*p + s, 0, 127);
         if (sys.page == 3u) {
             str_cpy(t, "TONE ", sizeof t);
             fmt_int(v, *p);
