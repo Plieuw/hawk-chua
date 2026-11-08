@@ -43,7 +43,7 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {9000, 5200, 5200, 9000, 1800, 2600, 2600, 4500, 4500, 4500, 6000, 6000, 14000, 4500, 6000, 4500, 1800};
+static const int32_t RZ_GAIN[RZ_COUNT] = {4020, 4853, 7516, 11072, 2853, 1096, 2512, 2362, 7050, 6140, 12110, 1211, 11121, 4552, 689, 1792, 3201};
 static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
 static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */

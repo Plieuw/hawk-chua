@@ -6,7 +6,7 @@
  * same way (C4 E4 G4 C5 G5 C6 one by one, then C E G held 2 s, at the keys' velocity, master full, SPEAKER BASS off), its
  * loudness measured as BS.1770 does (K-weighting, gated: here 100 ms blocks; the mean of the integrated and the
  * loudest 400 ms, so a struck note's attack counts) with a speaker's low cut at
- * 120 Hz, and the gain to LM_TARGET LU found: never over its peak's room (to -1 dBFS), -20 .. +15 dB */
+ * 120 Hz, and the gain to LM_TARGET LU found: never over its peak's room (to -1 dBFS), -20 .. +24 dB */
 static void wr32(FILE *f, uint32_t v) { fwrite(&v, 4, 1, f); }
 static void wr16(FILE *f, uint16_t v) { fwrite(&v, 2, 1, f); }
 static FILE *wf; static uint32_t frames_;
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
             if (sys.osc == NP_PIANO + 1u)                    /* (the PIANO: its strikes heard louder than measured) */
                 gd -= 4.0;
             if (gd > -1.0 - pk) gd = -1.0 - pk;
-            gd = gd > 15 ? 15 : gd < -20 ? -20 : gd;
+            gd = gd > 24 ? 24 : gd < -20 ? -20 : gd;   /* (Q12 in 16 bits: x 15.8 at most) */
             if (lu < -90) gd = 0;
             gq[p] = (unsigned)(4096.0 * pow(10, gd / 20) + 0.5);
             fprintf(stderr, "%3d %6.1f LU  peak %6.1f  gain %+5.1f dB  %s\n", p, lu, pk, gd, PRESETS[p].name);

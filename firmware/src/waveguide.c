@@ -1031,6 +1031,9 @@ static void wg_mode(int32_t *a1, int32_t *a2, int32_t *b, uint32_t ph, uint32_t 
     *a2 = (int32_t)(((int64_t)r * r) >> 28);
     *b = (int32_t)(((int64_t)(sn >> 3) * amp) >> 16);
 }
+#ifndef BZ_DIV
+#define BZ_DIV 96
+#endif
 static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t tine,
                            int32_t buzz, int32_t bright, int32_t damp, uint32_t strike)
 {
@@ -1124,9 +1127,9 @@ static void wg_kalimba_run(wg_kalimba_t *K, const int32_t *in, int32_t *y, uint3
         o += br / 2;                             /* (and the bridge's own sound through the box: the body of it) */
         if (buzz) {                              /* the buzzers: a rattle as the swing passes their gap */
             a = K->y1[0] < 0 ? -K->y1[0] : K->y1[0];
-            a = a > PX_ONE / 6 ? a - PX_ONE / 6 : 0;
+            a = a > PX_ONE / 2 ? a - PX_ONE / 2 : 0;   /* (only the wide swing reaches them: the loud start) */
             K->bz += px_m(9000, px_m((int32_t)(px_rand(&K->rng) >> 11) - (1 << 20), a, 20) - K->bz, 15);
-            o += K->bz * buzz / 12;
+            o += K->bz * buzz / BZ_DIV;
         }
         wg_up(K->yh, o, y, i, n);   /* (back to the full rate) */
     }
