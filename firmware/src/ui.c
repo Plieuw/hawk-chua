@@ -2962,6 +2962,115 @@ static void preset_keep(void)
     if (fm1_ms - since > 3000u && fm1_ms - ons_t > 2000u)
         settings_save();
 }
+/* the pages' own presets (PRESETS on ENV, MOD ENV, FREE EG, SCL): starting points for that page's knobs only */
+typedef struct { const char *name; uint8_t a, d, s, r; } env_pre_t;
+static const env_pre_t ENV_PRE[] = {
+    {"PLUCK", 0, 56, 0, 50},      {"PIANO", 0, 80, 20, 60},     {"ORGAN", 0, 40, 127, 30},   {"PAD", 92, 100, 115, 104},
+    {"STRINGS", 62, 90, 118, 80}, {"BRASS", 40, 70, 100, 60},   {"PERC", 0, 48, 0, 40},      {"STAB", 0, 66, 40, 44},
+    {"ACID", 0, 72, 24, 40},      {"SWELL", 110, 100, 127, 110}, {"BELL", 0, 100, 0, 104},   {"GATE", 0, 30, 127, 20},
+    {"REVERSE", 104, 30, 0, 30},  {"LONG TAIL", 20, 90, 80, 118},
+};
+typedef struct { const char *name; uint8_t len, skew, height, bend; } menv_pre_t;   /* (HEIGHT bit 7: down) */
+static const menv_pre_t MENV_PRE[] = {
+    {"OFF", 64, 0, 0, 64},           {"DIVE UP", 84, 0, 216, 96},   {"ZAP", 62, 0, 110, 100},     {"KICK DROP", 56, 0, 90, 100},
+    {"BLIP", 40, 0, 64, 64},         {"OCTAVE CHIRP", 50, 0, 88, 64}, {"RISE", 90, 127, 60, 64},  {"SLOW SWEEP", 100, 127, 80, 40},
+    {"FALL", 96, 127, 200, 64},      {"SCOOP", 70, 0, 180, 110},
+};
+typedef struct { const char *name; uint8_t basis, orbit; } scl_pre_t;
+static const scl_pre_t SCL_PRE[] = {
+    {"MONO", 0, 0}, {"NARROW", 30, 0}, {"WIDE", 90, 0}, {"FULL", 127, 0}, {"SUBTLE DRIFT", 40, 15}, {"DRIFT", 60, 30},
+    {"SWIRL", 100, 80}, {"SPACE", 127, 127},
+};
+enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL };
+typedef struct { const char *name; uint8_t shape, lo, hi, len, target; } feg_pre_t;
+static const feg_pre_t FEG_PRE[] = {
+    {"OFF", 0, 0, 0, 0, 0},
+    {"RING SWEEP", FS_SINE, 30, 120, 15, 3},       /* (LENGTH: 15 LFO 0.25 HZ; TARGET 3 RING) */
+    {"WOBBLE 1/8", FS_DOWN, 20, 127, 2, 3},        /* (2 STEPS) */
+    {"SQUARE TRILL", FS_SQUARE, 30, 120, 1, 3},
+    {"BAR RISE", FS_UP, 20, 120, 9, 3},            /* (1 BAR) */
+    {"AUTO PAN", FS_TRI, 0, 127, 16, 18},          /* (0.5 HZ, BASIS) */
+    {"ORBIT DRIFT", FS_SINE, 0, 90, 14, 19},       /* (0.1 HZ, ORBIT) */
+    {"S&H CHAOS", FS_SH, 40, 100, 9, 0},           /* (CHAOS) */
+    {"BRIGHT LFO", FS_SINE, 30, 110, 18, 9},       /* (2 HZ, FX BRIGHTNESS) */
+    {"NOISE SCAN", FS_TRI, 10, 120, 10, 4},        /* (2 BARS, NOISE X) */
+    {"GATE PUMP", FS_UP, 20, 127, 4, 20},          /* (4 STEPS, ARP GATE) */
+    {"SHIMMER SWELL", FS_SWELL, 0, 110, 0, 16},    /* (NOTE, SHIMMER MIX) */
+    {"SCREAM RISE", FS_UP, 0, 127, 9, 27},         /* (SCREAM) */
+};
+#define NPAGE_PRE(t) ((int32_t)(sizeof t / sizeof t[0]))
+static void page_preset(int32_t s)
+{
+    static uint8_t pe = 0xFF, pm = 0xFF, pf = 0xFF, ps = 0xFF;   /* (none chosen yet: the first turn right the first) */
+    char t[28];
+    const char *nm;
+    s = s > 0 ? 1 : -1;
+    if (sys.page == 1u) {
+        const env_pre_t *e;
+        pe = (uint8_t)(pe == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(ENV_PRE) - 1) : (pe + NPAGE_PRE(ENV_PRE) * 8 + s) % NPAGE_PRE(ENV_PRE));
+        e = &ENV_PRE[pe];
+        sys.attack = e->a; sys.decay = e->d; sys.sustain = e->s; sys.release = e->r;
+        str_cpy(t, "ENV: ", sizeof t);
+        nm = e->name;
+    } else if (sys.page == 5u) {
+        const menv_pre_t *m;
+        pm = (uint8_t)(pm == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(MENV_PRE) - 1) : (pm + NPAGE_PRE(MENV_PRE) * 8 + s) % NPAGE_PRE(MENV_PRE));
+        m = &MENV_PRE[pm];
+        sys.menv_len = m->len; sys.menv_skew = m->skew; sys.menv_height = m->height; sys.menv_bend = m->bend;
+        str_cpy(t, "MOD ENV: ", sizeof t);
+        nm = m->name;
+    } else if (sys.page == 10u) {
+        ps = (uint8_t)(ps == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(SCL_PRE) - 1) : (ps + NPAGE_PRE(SCL_PRE) * 8 + s) % NPAGE_PRE(SCL_PRE));
+        sys.basis = SCL_PRE[ps].basis; sys.orbit = SCL_PRE[ps].orbit;
+        str_cpy(t, "PAN: ", sizeof t);
+        nm = SCL_PRE[ps].name;
+    } else {
+        const feg_pre_t *f;
+        uint32_t k;
+        pf = (uint8_t)(pf == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(FEG_PRE) - 1) : (pf + NPAGE_PRE(FEG_PRE) * 8 + s) % NPAGE_PRE(FEG_PRE));
+        f = &FEG_PRE[pf];
+        if (!pf)
+            sys.feg_on = 0;
+        else {
+            uint32_t rng = 0x2545F491u, sh = 0;
+            uint8_t c[FEG_N];
+            for (k = 0; k < FEG_N; k++) {        /* (the shape, 0 .. 1024 over the cycle) */
+                int32_t ph = (int32_t)k * 1024 / (int32_t)FEG_N, u;
+                switch (f->shape) {
+                case FS_SINE: u = 512 + (px_sin((uint32_t)k << 25) >> 21); break;   /* (Q30 -> +-512) */
+                case FS_TRI: u = ph < 512 ? ph * 2 : (1024 - ph) * 2; break;
+                case FS_UP: u = ph; break;
+                case FS_DOWN: u = 1024 - ph; break;
+                case FS_SQUARE: u = ph < 512 ? 1024 : 0; break;
+                case FS_SH:
+                    if (!(k & 7u)) { rng = rng * 1664525u + 1013904223u; sh = rng >> 22; }
+                    u = (int32_t)sh; break;
+                default: u = ph < 768 ? ph * 4 / 3 : 1024; break;   /* (SWELL: up over three quarters, then held) */
+                }
+                u = u < 0 ? 0 : u > 1024 ? 1024 : u;
+                c[k] = (uint8_t)(f->lo + ((int32_t)(f->hi - f->lo) * u >> 10));
+            }
+            {
+                uint32_t q = irq_save();
+                for (k = 0; k < FEG_N; k++)
+                    feg.curve[k] = c[k];
+                sys.feg_npts = 127;
+                sys.feg_len = f->len;
+                sys.feg_target = f->target;
+                sys.feg_depth = 127;
+                sys.feg_has = 1;
+                sys.feg_on = 1;
+                eg_from_preset = 0;              /* (chosen here: kept over the sound presets, as a recording) */
+                irq_restore(q);
+            }
+        }
+        str_cpy(t, "FREE EG: ", sizeof t);
+        nm = f->name;
+    }
+    ui_cat(t, sizeof t, nm);
+    ui_say(t);
+    ui_force = 1;
+}
 static void ui_input(void)
 {
     preset_keep();
@@ -3478,6 +3587,9 @@ static void ui_input(void)
         ui_cat(t, sizeof t, h->name);
         ui_say(t);
         ui_force = 1;
+    } else if (s && (sys.page == 1u || sys.page == 5u || sys.page == 8u || sys.page == 10u)) {   /* ENV, MOD ENV, FREE EG,
+                                                              * SCL: their own presets */
+        page_preset(s);
     } else if (s && ((fm1_in.buttons & btn_bit(B_HOME)) || sys.page == 14u)) {   /* the BANK menu (or HOME held):
                                                               * the bank (the same program in it) */
         uint32_t bk = (uint32_t)(((int32_t)(sys.preset >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) % (int32_t)NBANKS);

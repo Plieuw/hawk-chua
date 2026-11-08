@@ -735,6 +735,18 @@ int main(int argc, char **argv)
             bad = 1;
         }
     }
+    {   /* the pages' presets: PRESETS on ENV, MOD ENV, SCL, FREE EG sets that page's knobs */
+        int ok = 1;
+        uint8_t pg = sys.page;
+        sys.page = 1; page_preset(1); ok &= sys.attack == ENV_PRE[0].a && sys.decay == ENV_PRE[0].d;
+        page_preset(1); ok &= sys.sustain == ENV_PRE[1].s;
+        sys.page = 5; page_preset(1); page_preset(1); ok &= sys.menv_height == MENV_PRE[1].height;
+        sys.page = 10; page_preset(-1); ok &= sys.basis == SCL_PRE[NPAGE_PRE(SCL_PRE) - 1].basis;
+        sys.page = 8; page_preset(1); ok &= !sys.feg_on;
+        page_preset(1); ok &= sys.feg_on && sys.feg_has && sys.feg_target == 3u && feg.curve[32] > feg.curve[96];
+        sys.feg_on = 0; sys.page = pg;
+        if (!ok) { printf("page presets FAIL\n"); bad = 1; }
+    }
     {   /* AUTO SAVE: a change kept 3 s after it, once all is quiet; not while the ARP plays */
         settings_t st;
         uint32_t i;
