@@ -2075,9 +2075,33 @@ int main(int argc, char **argv)
             midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
             run_ms(200);
         }
+        {   /* both playing (LOGIC), a new chord: the two start again from it, together (LATCH on and off) */
+            uint32_t lt, tr0, w0, k3, ok2 = 1;
+            for (lt = 0; lt < 2u; lt++) {
+                synth_kill(); keys_all_off(); sys.k_on = sys.arp_on = 0; run_ms(300);
+                sys.arp_hold = sys.k_latch = (uint8_t)lt; sys.k_logic = 1; sys.arp_type = 0;
+                sys.k_on = 1; sys.arp_on = 1; run_ms(20);
+                midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
+                run_ms(1333);
+                midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
+                run_ms(lt ? 777 : 333);
+                tr0 = kar.triggers; w0 = arp_view.w;
+                midi_in(0x90, 62, 100); midi_in(0x90, 65, 100); midi_in(0x90, 69, 100);
+                for (k3 = 0; k3 < 40u && (kar.triggers == tr0 || arp_view.w == w0); k3++)
+                    run_ms(5);
+                if (!(kar.triggers == tr0 + 1u && arp_view.w != w0 && arp_view.note[w0 & 31u] == 62u && k3 * 5u <= 130u)) {
+                    printf("   (LOGIC new chord, LATCH %u: after %u ms triggers +%u, ARP steps %u, first %u, slave %u)\n", lt, k3 * 5u,
+                           kar.triggers - tr0, arp_view.w - w0, arp_view.note[w0 & 31u], arp.lslave);
+                    ok2 = 0;
+                }
+                midi_in(0x80, 62, 0); midi_in(0x80, 65, 0); midi_in(0x80, 69, 0);
+            }
+            sys.arp_hold = 0; sys.k_latch = 0;
+            okk &= ok2;
+        }
         sys.k_on = sys.arp_on = 0; sys.k_logic = 0; sys.k_inv = 0;
         run_ms(100);
-        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR / NOR / ALT / S/R, INVERSE, own clock and MIDI clock; NOTE QUANT; joining at the bar", okk);
+        check("LOGIC: the ARP and KARMA on one grid, OR / AND / XOR / NOR / ALT / S/R, INVERSE, own clock and MIDI clock; NOTE QUANT; joining at the bar; a new chord restarts both", okk);
     }
 
     /* KARMA running every GE while the oscillator, X / Y, FM, the FX model and the GE's knobs are turned at random

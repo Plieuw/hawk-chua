@@ -2801,6 +2801,12 @@ static void ui_leds(void)
     if (fm1_led_anim_on())                               /* the power-on sweep still runs (hal/fm1_led_anim.h) */
         return;
     memset(nl, 0, sizeof nl);
+    {   /* the ARP or KARMA on (PLAY) with nothing to play: the keys flash on each beat, waiting for notes */
+        uint32_t bpm = arp_bpm_now(), beat = 60000u / (bpm < 20u ? 20u : bpm);
+        int wait = (sys.arp_on || sys.k_on) && !((sys.arp_on && arp.n) || (sys.k_on && kar.n));
+        if (wait && fm1_ms % beat < beat / 6u)
+            notes = 0xFFFFFFFFu;
+    }
     for (i = 0; i < NKEYS; i++)
         if ((notes >> i) & 1u)
             led_on(nl, 14u + i);
