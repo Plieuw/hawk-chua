@@ -456,8 +456,9 @@ static const preset_t PRESETS[] = {
     {"ENGINE", NZK, 20, 80, 120, 80, 40, NOFX, NOSH, NZ(0, 9), 60, 20, .oct = -1},
     {"CROWD", NZK, 60, 90, 110, 96, 10, NOFX, HALL, NZ(0, 8), 60, 100},
     /* DOMINATOR: the Alpha Juno's "What the" hoover: six detuned pulses (PW CLUSTER, wide), each note diving in from
-     * under the pitch (MOD ENV down ~0.8 octave, a fast fall back), held full, a short release, an octave down, a room */
-    {"DOMINATOR", NZK, 2, 80, 120, 40, 10, NOFX, 85, 72, 0, 36, SI_OCT, 70, NZ(1, 1), 78, 44, 70, 0, 208, 0, SS_HALL, 0, 34,
+     * an octave under the pitch and gliding up (MOD ENV: ~0.3 s, BEND fast at first, then easing onto the note), held
+     * full, a short release, an octave down, a room */
+    {"DOMINATOR", NZK, 2, 80, 120, 40, 10, NOFX, 85, 72, 0, 36, SI_OCT, 70, NZ(1, 1), 78, 44, 84, 0, 216, 0, SS_HALL, 0, 96,
      .oct = -1},
     /* ---- BANK 3: SYNTH (playable synthesizer sounds: leads, basses, pads, keys, plucks, brass and strings,
      * sequence sounds, bells; 16 of each) ---- */
