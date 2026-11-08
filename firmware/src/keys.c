@@ -358,6 +358,14 @@ static void keys_block(void)
     midi_in_block();
     arp_block(CTL);
     karma_block(CTL);
+    {   /* GATE FIT (synth.c): a quarter of the ARP's gate, of KARMA's step */
+        uint32_t c = 0;
+        if (sys.arp_on && arp.n && arp.len)
+            c = arp.len * (8u + (sys.arp_gate & 127u) * 92u / 127u) / 400u;
+        if (sys.k_on && kar.n && kar.steplen && (!c || kar.steplen / 4u < c))
+            c = kar.steplen / 4u;
+        env_cap = c;
+    }
     feg_block(CTL, voice_clock);
     mw_block();
     tape_block();                 /* (voice_clock: the note ons, the arpeggiator's too) */

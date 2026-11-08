@@ -1792,6 +1792,18 @@ int main(int argc, char **argv)
                 sys.arp_gp = 0; sys.arp_glen = 0; okk &= arp_gstep(50u) == 50u;
                 if (!okk) printf("   (GATE SEQ: %u %u)\n", g0, g1);
             }
+            {   /* GATE FIT: the ARP at 128 BPM, 1/16, GATE 80 (65 %): a pad's slow attack cut to a quarter of the gate */
+                uint32_t att0 = sys.attack, cap;
+                synth_kill(); keys_all_off(); run_ms(50);
+                sys.attack = 96; sys.arp_bpm = 128; sys.arp_div = 7; sys.arp_gate = 80;
+                midi_in(0x90, 60, 100); run_ms(100);
+                cap = env_cap;
+                okk &= cap > 700u && cap < 1150u && ENV_MAX / eg.att <= cap && ENV_MAX / eg.att > cap * 9u / 10u;
+                if (!okk) printf("   (GATE FIT: cap %u, attack %u frames)\n", cap, ENV_MAX / eg.att);
+                midi_in(0x80, 60, 0); sys.arp_on = 0; run_ms(50);
+                okk &= env_cap == 0u && ENV_MAX / eg.att >= ENV_FRAMES[96] - 1u;
+                sys.arp_on = 1; sys.attack = (uint8_t)att0; sys.arp_bpm = 120;
+            }
             sys.arp_on = 0;
             run_ms(100);
         }

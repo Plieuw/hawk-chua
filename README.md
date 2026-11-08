@@ -125,7 +125,7 @@ Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KA
 | --- | --- |
 | KNOB 1 BPM | 40..250 (onder MIDI clock staat er EXT en het gemeten tempo); de PRESETS-knop doet hier ook de BPM, net als op de SEQ- en TAPE-pagina's |
 | KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 (standaard 1/8) |
-| KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap |
+| KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap (GATE FIT: zolang de ARP of KARMA speelt is de attack van elk geluid hoogstens een kwart van de gate, zodat ook trage pads op korte stappen meteen spreken; op de toetsen hun eigen attack) |
 | KNOB 4 SWING | 50 % (geen) .. 83 % (de meeste), zoals de AN1x: elke tweede stap later |
 | ALGORITHM | het patroon (zie hieronder) |
 | SELECT | LATCH (zoals bij KARMA, standaard aan): rechtsom aan (de noten blijven spelen als je loslaat, een nieuw akkoord vervangt ze), linksom uit |

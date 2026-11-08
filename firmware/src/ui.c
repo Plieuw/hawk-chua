@@ -1190,6 +1190,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_on = 0;                          /* (PLAY off at power-on: the ARP and KARMA wait for PLAY) */
         sys.arp_type = (uint8_t)(s.arp_type % ARP_NTYPE);
         sys.arp_bpm = (uint8_t)clamp(s.arp_bpm, 40, 250);
+        if (s.snd < 14u && sys.arp_bpm == 120u)     /* (14: 128 BPM the default; the old default moved, once) */
+            sys.arp_bpm = 128;
         sys.arp_div = (uint8_t)(s.snd >= 5u ? s.arp_div % ARP_NDIV : 4u);   /* (SUBDIVIDE 1/8 now, once) */
         sys.arp_gate = (uint8_t)(s.arp_gate & 127u);
         sys.arp_swing = (uint8_t)(s.arp_swing & 127u);
@@ -1251,7 +1253,7 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 13;
+    s.snd = 14;
     s.k_inv = sys.k_inv;
     s.arp_slen = sys.arp_slen;
     s.arp_gp = sys.arp_gp;
