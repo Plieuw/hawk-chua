@@ -61,7 +61,7 @@
 #define TRACE_DRAW 640u                  /* points drawn per frame (of chua_trace's TRACE_N) */
 #define PLOT_Y 24u                       /* the plot: 240 x 124 from here */
 #define PLOT_H 124
-enum { US_INITIAL, US_RAINBOW, US_GRADIENT, US_PSYCHE, US_CATS, US_JEZUS, US_COUNT };   /* the UI STYLEs (ui_style.c) */
+enum { US_INITIAL, US_RAINBOW, US_GRADIENT, US_PSYCHE, US_CATS, US_JEZUS, US_SAIKO, US_COUNT };   /* the UI STYLEs (ui_style.c) */
 #define UI_PALETTE 2u                    /* AMBER (build/gen/ui_palettes.h): an oscilloscope's colours */
 
 static const char *const NOTE_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
