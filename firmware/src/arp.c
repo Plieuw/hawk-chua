@@ -198,7 +198,6 @@ static struct {
     uint32_t pt;                                 /* samples to the next of them */
     uint32_t lt;                                 /* LOGIC: clocks since KARMA's phrase started (its steps on them) */
     uint32_t gpos;                               /* GROOVE: steps since the start (each pattern its own length) */
-    uint32_t slc;                                /* SEQ LENGTH: steps since the pattern's start */
     uint32_t bclk;                               /* its own clock: MIDI clocks since it started (its bars: 96) */
     uint8_t lslave;                              /* LOGIC: on KARMA's clock (joined at a bar of it, or it at one of ours) */
     uint8_t krun;                                /* LOGIC: KARMA's phrase plays (karma.c sets it) */
@@ -293,18 +292,6 @@ static uint32_t arp_sorted(uint8_t *s, uint8_t *v)
     return n;
 }
 
-/* SEQ LENGTH (the GROOVE page): every so many steps the pattern (and the GROOVE's) from its start: a short loop of
- * any pattern, against the bar or with it */
-static void arp_seqlen(void)
-{
-    if (sys.arp_slen >= 2u && arp.slc >= sys.arp_slen) {
-        arp.slc = 0;
-        arp.pos = 0;
-        arp.gpos = 0;
-        arp.gls = 0;
-    }
-    arp.slc++;
-}
 static void arp_sound(uint32_t note, uint32_t vel)
 {
     if (note > 127u || arp.non >= ARP_MAXN)
@@ -319,9 +306,10 @@ static void arp_sound(uint32_t note, uint32_t vel)
 
 static uint8_t arp_last;                          /* the last note played (ARP_PREV: the echo) */
 
-/* GROOVE (the ARP's second page): the ARP VELOCITY SEQ, a short pattern over the steps (2 .. 8, its own length, so
- * it turns against the step pattern): each step's level, 1 .. 9 (x 0.55 .. 1.75 with DEPTH 127), 0 no note on that
- * step (a rest; the step pattern goes on) */
+/* GROOVE (the ARP's second page): the ARP VELOCITY SEQ, a short pattern over the steps: each step's level, 1 .. 9
+ * (x 0.55 .. 1.75 with DEPTH 127), 0 no note on that step (a rest; the step pattern goes on). Shown as eight steps
+ * (the pattern repeated); SEQ LENGTH (KNOB 1, 1 .. 8) how many of them loop, so it turns against the step pattern;
+ * choosing a pattern sets it to the pattern's own length (0, older settings: that too) */
 typedef struct { const char *name, *s; } arp_groove_t;
 static const arp_groove_t ARP_VPAT[] = {
     {"OFF", ""}, {"ACCENT 4", "9555"}, {"ACCENT 3", "955"}, {"OFFBEAT", "59"}, {"RAMP UP", "3579"},
@@ -333,9 +321,14 @@ static const arp_groove_t ARP_VPAT[] = {
 #define ARP_NVP (sizeof ARP_VPAT / sizeof ARP_VPAT[0])
 static char arp_gchar(const char *s, uint32_t pos) { uint32_t n = (uint32_t)str_len(s); return n ? s[pos % n] : 0; }
 /* this step's level (before its notes): 0 a rest (no notes), else 1; arp.vmul set */
+static uint32_t arp_vlen(void)
+{
+    uint32_t n = (uint32_t)str_len(ARP_VPAT[sys.arp_vp % ARP_NVP].s);
+    return sys.arp_slen >= 1u && sys.arp_slen <= 8u ? sys.arp_slen : n > 8u ? 8u : n ? n : 1u;
+}
 static int arp_groove(void)
 {
-    char vc = arp_gchar(ARP_VPAT[sys.arp_vp % ARP_NVP].s, arp.gpos);
+    char vc = arp_gchar(ARP_VPAT[sys.arp_vp % ARP_NVP].s, arp.gpos % arp_vlen());
     arp.gpos++;
     arp.vmul = 100;
     if (vc == '0')
@@ -369,7 +362,6 @@ static void arp_do_step(void)
     uint32_t n = arp_sorted(s, v), type = sys.arp_type % ARP_NTYPE, i, nt, shown = 0;
     if (!n)
         return;
-    arp_seqlen();
     if (!arp_groove()) {                         /* (GROOVE's NOTE OFF: a rest; the pattern goes on) */
         arp_off_all();
         arp.npend = 0;
@@ -536,7 +528,6 @@ static void arp_lsync(void)                      /* (KARMA's phrase from its sta
     arp.pos = 0;
     arp.gls = 0;
     arp.gpos = 0;
-    arp.slc = 0;
 }
 static int arp_ltick(void)                       /* (a clock: a step due?) */
 {
@@ -554,7 +545,6 @@ static int arp_would_hit(void)                   /* (the next step plays notes: 
 }
 static void arp_skip(void)                       /* (a step held back: a rest, the pattern on) */
 {
-    arp_seqlen();
     arp.pos++;
     arp_off_all();
     arp.npend = 0;
@@ -641,8 +631,7 @@ static void arp_block(uint32_t n)
         arp.pos = 0;
         arp.gls = 0;
         arp.gpos = 0;
-        arp.slc = 0;
-        arp.bclk = 0;
+            arp.bclk = 0;
     }
     if (due) {
         if (arp.bclk % 96u == 0u)                /* (a bar of our own clock: KARMA joining starts here) */

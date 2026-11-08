@@ -134,8 +134,9 @@ Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KA
 tegen het arp-patroon in schuift) dat per stap de velocity bepaalt, 1..9 zacht tot hard; een 0 is geen noot op die stap
 (een rust, het arp-patroon loopt door). ALGORITHM kiest het patroon: ACCENT 4, ACCENT 3, OFFBEAT, RAMP UP/DOWN, TRESILLO,
 WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT, en met rusten SKIP, OFF SKIP, 3 OF 4, CLAVE, GALLOP, BREATH, FIVE RESTS,
-STUTTER, SPARSE, HOLES. KNOB 1 SEQ LENGTH: na zoveel stappen (2..16, OFF: de eigen lengte) begint het arp-patroon
-opnieuw, een korte loop van elk patroon. KNOB 2 DEPTH: hoe sterk de velocity's werken (de rusten altijd). De pagina toont
+STUTTER, SPARSE, HOLES. KNOB 1 SEQ LENGTH (1..8): hoeveel van de acht getoonde stappen
+(het patroon herhaald) de velocity seq loopt; de stappen erachter worden donker. Een ander patroon kiezen zet SEQ LENGTH op
+de eigen lengte van dat patroon. KNOB 2 DEPTH: hoe sterk de velocity's werken (de rusten altijd). De pagina toont
 de stappen als staafjes, de stap die speelt licht op.
 
 De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,

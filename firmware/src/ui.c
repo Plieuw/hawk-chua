@@ -1106,7 +1106,7 @@ typedef struct {
     uint8_t k_logic;                             /* (4: saved; before: OFF) */
     uint8_t k_inv;                               /* (11: saved; before: off) */
     uint8_t arp_vp, arp_gp, arp_vd, arp_gd;      /* (8: saved; before: off, 100; gp, gd no more: the NOTE OFF page) */
-    uint8_t arp_slen;                            /* (10: saved; before: OFF) */
+    uint8_t arp_slen;                            /* (10: saved; 12: the VELOCITY SEQ's length, 0 its own) */
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
 } settings_t;
@@ -1221,7 +1221,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic % 7u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
         sys.k_lq = (uint8_t)(s.snd >= 9u ? s.k_lq % LQ_N : LQ_CHORD);   /* (NOTE QUANT CHORD after this install, once) */
         sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
-        sys.arp_slen = (uint8_t)(s.snd >= 10u && s.arp_slen <= 16u ? s.arp_slen : 0u);
+        sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         if (s.snd >= 8u) {
             sys.arp_vp = (uint8_t)(s.arp_vp % ARP_NVP);
@@ -1249,7 +1249,7 @@ static int settings_save(void)     /* 0 = saved */
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 11;
+    s.snd = 12;
     s.k_inv = sys.k_inv;
     s.arp_slen = sys.arp_slen;
     s.arp_vp = sys.arp_vp;
@@ -1853,23 +1853,23 @@ static void draw_multi(void)
     cv_blit(0, PLOT_Y);
 }
 
-/* GROOVE: the two patterns as steps: VELOCITY as heights, NOTE OFF as widths (a rest empty, a tie to the edge); the
- * step playing lit */
+/* GROOVE: the ARP VELOCITY SEQ as eight steps, the levels as heights (0 empty), past SEQ LENGTH dark; the step
+ * playing lit */
 static void draw_groove(void)
 {
     const char *vs = ARP_VPAT[sys.arp_vp % ARP_NVP].s;
-    uint32_t nv = str_len(vs), i, cur = arp.gpos ? arp.gpos - 1u : 0u;
+    uint32_t nv = str_len(vs), i, len = arp_vlen(), cur = arp.gpos ? (arp.gpos - 1u) % len : 0u;
     int on = sys.arp_on && arp.n;
     cv_begin(240, PLOT_H, T_BG);
     cv_text(8, 4, &AF_S, "ARP VELOCITY SEQ", T_DIM);
     cv_text(140, 4, &AF_S, ARP_VPAT[sys.arp_vp % ARP_NVP].name, nv ? T_TEXT : T_DIM);
     for (i = 0; i < 8u && nv; i++) {             /* (the steps, the pattern repeated to eight; 0: an empty step) */
         int32_t lv = vs[i % nv] - '0', hgt = 6 + lv * 9, x = 8 + (int32_t)i * 28;
-        uint16_t col = on && i == cur % nv ? T_ACCENT : i < nv ? T_THEME : ux_mix(T_BG, T_THEME, 35);
+        uint16_t col = on && i == cur ? T_ACCENT : i < len ? T_THEME : ux_mix(T_BG, T_THEME, 35);
         cv_frame(x, 24, 24, 88, ux_mix(T_BG, T_DIM, 30));
         if (lv)
             cv_rect(x + 2, 110 - hgt, 20, hgt, col);
-        else if (on && i == cur % nv)
+        else if (on && i == cur)
             cv_frame(x + 1, 25, 22, 86, T_ACCENT);
     }
     if (!nv)
@@ -2275,8 +2275,8 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
     } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY and NOTE OFF patterns, their depths */
-        fmt_int(v, (int32_t)sys.arp_slen);
-        ui_cell(T_C1, "1 SEQ LENGTH", sys.arp_slen >= 2u ? v : "OFF");
+        fmt_int(v, (int32_t)arp_vlen());
+        ui_cell(T_C1, "1 SEQ LENGTH", v);
         fmt_int(v, (int32_t)(sys.arp_vd & 127u));
         ui_cell(T_C2, "2 DEPTH", v);
         ui_cell(T_C3, "3", "");
@@ -3100,9 +3100,7 @@ static void ui_input(void)
         }
     } else if (sys.page == 18u) {               /* GROOVE */
         if ((s = ui_enc(EN_K1)) != 0) {
-            int32_t q = sys.arp_slen >= 2u ? (int32_t)sys.arp_slen : 1;   /* (OFF, 2 .. 16 steps) */
-            q = clamp(q + (s > 0 ? 1 : -1), 1, 16);
-            sys.arp_slen = (uint8_t)(q < 2 ? 0 : q);
+            sys.arp_slen = (uint8_t)clamp((int32_t)arp_vlen() + (s > 0 ? 1 : -1), 1, 8);   /* (1 .. 8 steps) */
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         knob(&sys.arp_vd, EN_K2, 1);
@@ -3348,6 +3346,7 @@ static void ui_input(void)
         ui_say(t);
     } else if (s && sys.page == 18u) {          /* GROOVE: the VELOCITY pattern */
         sys.arp_vp = (uint8_t)clamp((int32_t)sys.arp_vp + (s > 0 ? 1 : -1), 0, (int32_t)ARP_NVP - 1);
+        sys.arp_slen = 0;                        /* (SEQ LENGTH: the pattern's own) */
         str_cpy(t, "ARP VEL SEQ ", sizeof t);
         ui_cat(t, sizeof t, ARP_VPAT[sys.arp_vp % ARP_NVP].name);
         ui_say(t);

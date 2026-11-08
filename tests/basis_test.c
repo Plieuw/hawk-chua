@@ -1765,21 +1765,22 @@ int main(int argc, char **argv)
             midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
             sys.arp_vp = 0;
             run_ms(100);
-            {   /* SEQ LENGTH 3: UP over four notes held loops its first three: 60 64 67 60 64 67 ... */
+            {   /* SEQ LENGTH 3 on SKIP (9 0): its eight steps 9 0 9 0 .. cut to 9 0 9: a rest every third step */
                 uint32_t j2;
                 synth_kill(); keys_all_off(); run_ms(50);
-                sys.arp_slen = 3;
+                sys.arp_vp = 14; sys.arp_slen = 3;
+                okk &= arp_vlen() == 3u;
                 w0 = arp_view.w;
-                midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100); midi_in(0x90, 72, 100);
-                run_ms(1000);
-                for (j2 = 0; j2 < 6u; j2++) {
-                    static const uint8_t L3[3] = {60, 64, 67};
-                    okk &= arp_view.note[(w0 + j2) & 31u] == L3[j2 % 3u];
-                }
-                if (arp_view.note[(w0 + 3u) & 31u] != 60u) printf("   (SEQ LENGTH 3: %u %u %u %u)\n", arp_view.note[w0 & 31u],
-                    arp_view.note[(w0 + 1u) & 31u], arp_view.note[(w0 + 2u) & 31u], arp_view.note[(w0 + 3u) & 31u]);
-                midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0); midi_in(0x80, 72, 0);
-                sys.arp_slen = 0;
+                midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
+                run_ms(1200);
+                for (j2 = 0; j2 < 6u; j2++)
+                    okk &= (arp_view.note[(w0 + j2) & 31u] == 0u) == (j2 % 3u == 1u);
+                if (!okk) printf("   (SEQ LENGTH 3: %u %u %u %u %u %u)\n", arp_view.note[w0 & 31u], arp_view.note[(w0 + 1u) & 31u],
+                    arp_view.note[(w0 + 2u) & 31u], arp_view.note[(w0 + 3u) & 31u], arp_view.note[(w0 + 4u) & 31u],
+                    arp_view.note[(w0 + 5u) & 31u]);
+                midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
+                sys.arp_slen = 0; sys.arp_vp = 0;
+                okk &= arp_vlen() == 1u;
             }
             sys.arp_on = 0;
             run_ms(100);
