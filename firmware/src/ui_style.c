@@ -579,8 +579,9 @@ static const char *const US_CAT[US_CAT_H] = {
 static void us_cats(uint32_t h)
 {
     static uint32_t ons_seen, spark_t = 0u - 100000u;
-    int32_t k = us_k(), S = 3, x0 = 182, y0 = (int32_t)h - 3 * US_CAT_H - 2 - us_hop(7), r, c;   /* (three times the size;
-                                                  * it hops on the ARP's and the SEQ's steps) */
+    int32_t k = us_k(), S = 5, x0 = 120 - 13 * S / 2, y0 = (int32_t)h - S * US_CAT_H - 1 - us_hop(10), r, c;   /* (the main
+                                                  * character: in the middle, five times the size; it hops on the ARP's
+                                                  * and the SEQ's steps) */
     uint32_t t = us_t(), now = fm1_ms;
     int asleep = now - spark_t > 9000u, blink = asleep || (now % 4200u) < 140u, glow = us_react() > 120;
     int look = us_sx > 0;                        /* (the eyes: on the laser dot, the oscillator's signal) */
@@ -628,13 +629,22 @@ static void us_cats(uint32_t h)
     {   /* the ball of yarn, its thread to the paw: knocked on a note, it rolls back */
         uint32_t a = now - spark_t;
         int32_t off = a < 900u ? us_sin((a * 3u) << 22, 14 - (int32_t)a * 14 / 900) : 0;
-        int32_t bxc = x0 - 18 - us_abs(off), byc = (int32_t)h - 8, i;
+        int32_t bxc = x0 - 22 - us_abs(off), byc = (int32_t)h - 9, i;
         uint16_t yarn = ux_mix(T_BG, US_RGB(255, 110, 170), 35 + k * 60 / 100);
         uint16_t dark = ux_mix(T_BG, US_RGB(170, 50, 110), 35 + k * 60 / 100);
         us_line(bxc + 5, byc + 2, x0 + 8, byc + 4, ux_mix(T_BG, US_RGB(255, 110, 170), 20 + k * 40 / 100));
-        us_disc(bxc, byc, 6, yarn);
+        us_disc(bxc, byc, 8, yarn);
         for (i = -1; i <= 1; i++)                /* (its winds, turning as it rolls) */
-            us_line(bxc - 4, byc + i * 2 + (off & 1), bxc + 4, byc - i * 2 - (off & 1), dark);
+            us_line(bxc - 6, byc + i * 3 + (off & 1), bxc + 6, byc - i * 3 - (off & 1), dark);
+    }
+    {   /* a rim of moonlight round it first (it stands out, whatever its fur) */
+        uint16_t rim = ux_mix(T_BG, US_RGB(255, 236, 255), 30 + k / 4);
+        for (r = 0; r < US_CAT_H; r++)
+            for (c = 0; c < 16; c++)
+                if (US_CAT[r][c] != '.') {
+                    int32_t xs = US_CAT[r][c] == 'T' ? c + sway * (US_CAT_H - 1 - r) / 6 : c;
+                    cv_rect(x0 + xs * S - 1, y0 + r * S - 1, S + 2, S + 2, rim);
+                }
     }
     for (r = 0; r < US_CAT_H; r++)
         for (c = 0; c < 16; c++) {
@@ -665,12 +675,12 @@ static void us_cats(uint32_t h)
                 col = fur;
             cv_rect(x0 + xs * S, y0 + ys * S, S, S, col);
         }
-    us_notes(x0 + 14, y0 - 2);
+    us_notes(x0 + 5 * S, y0 - 2);
     if (asleep) {                                /* z z z, rising from its head */
         uint32_t i;
         for (i = 0; i < 3u; i++) {
             uint32_t a = (now / 8u + i * 120u) % 360u;
-            int32_t zx = x0 - 4 - (int32_t)i * 3 + us_sin(a << 24, 2), zy = y0 + 18 - (int32_t)a / 9, sz = 2 + (int32_t)i;
+            int32_t zx = x0 - 6 - (int32_t)i * 4 + us_sin(a << 24, 2), zy = y0 + 6 * S - (int32_t)a / 9, sz = 3 + (int32_t)i;
             uint16_t zc = ux_mix(T_BG, US_RGB(230, 220, 255), (360 - (int32_t)a) * (40 + k / 2) / 360);
             cv_rect(zx, zy, sz + 1, 1, zc);      /* (a little z: top, diagonal, bottom) */
             us_line(zx + sz, zy, zx, zy + sz, zc);
@@ -681,7 +691,7 @@ static void us_cats(uint32_t h)
         uint32_t a = now - spark_t, i;
         for (i = 0; i < 6u + (uint32_t)us_react() / 150u; i++) {
             uint32_t rr = us_hash(i + spark_t);
-            int32_t sx = x0 + 10 + (int32_t)(rr % 14u), sy = y0 + 6 - (int32_t)(a * (16u + (rr >> 8) % 20u) / 700u);   /* (from the hat's star) */
+            int32_t sx = x0 + 4 * S + (int32_t)(rr % (uint32_t)(3 * S)), sy = y0 + 3 * S - (int32_t)(a * (16u + (rr >> 8) % 20u) / 700u);   /* (from the hat's star) */
             uint16_t sc = ux_mix(T_BG, i & 1u ? T_ACCENT : T_THEME, 100 - (int32_t)(a * 100u / 700u));
             cv_pset(sx, sy, sc);
             cv_pset(sx - 1, sy, sc); cv_pset(sx + 1, sy, sc); cv_pset(sx, sy - 1, sc); cv_pset(sx, sy + 1, sc);
@@ -892,7 +902,8 @@ static const char *const US_DOG[US_DOG_H] = {
 static void us_saiko(uint32_t h)
 {
     static uint32_t ons_seen, note_t = 0u - 100000u;
-    int32_t k = us_k(), rc = us_react(), i, S = 3, x0 = 170, y0 = (int32_t)h - 3 * US_DOG_H - 1 - us_hop(8), r, c;
+    int32_t k = us_k(), rc = us_react(), i, S = 5, x0 = 120 - 15 * S / 2, y0 = (int32_t)h - S * US_DOG_H - 1 - us_hop(10), r, c;   /* (the main
+                                                  * character: in the middle, five times the size) */
     uint32_t t = us_t(), now = fm1_ms, since;
     int32_t hz = (int32_t)h * 62 / 100;
     if (synth_ons != ons_seen) {
@@ -960,7 +971,7 @@ static void us_saiko(uint32_t h)
         }
     }
     {   /* glowing toadstools: red caps with white dots, the glow breathing with the sound */
-        static const int16_t MX[4] = {84, 108, 134, 154};
+        static const int16_t MX[4] = {20, 44, 200, 224};
         static const int8_t MS[4] = {6, 4, 5, 4};
         for (i = 0; i < 4; i++) {
             int32_t mx = MX[i], sz = MS[i], my = (int32_t)h - 6 - (i & 1) * 4, gl = 15 + rc / 25 + us_sin((t * 3u + (uint32_t)i * 60u) << 22, 8);
@@ -1046,6 +1057,15 @@ static void us_saiko(uint32_t h)
         uint16_t white = ux_mix(T_BG, US_RGB(250, 250, 255), 45 + k * 55 / 100);
         static const uint16_t FL[4] = {US_RGB(255, 120, 190), US_RGB(255, 230, 90), US_RGB(140, 210, 255), US_RGB(255, 255, 255)};
         us_disc(x0 + 8 * S, (int32_t)h + 3, 9 * S, ux_mix(T_BG, HILL[sea][1], k * 60 / 100));   /* (his shadow on the hill) */
+        {   /* a soft rim of light round him first */
+            uint16_t rim = ux_mix(T_BG, US_RGB(255, 245, 230), 30 + k / 4);
+            for (r = 0; r < US_DOG_H; r++)
+                for (c = 0; c < 20; c++)
+                    if (US_DOG[r][c] != '.') {
+                        int32_t xs = US_DOG[r][c] == 'T' ? c + wag * (15 - r) / 3 : c, ys = r <= 1 && perk ? r - 1 : r;
+                        cv_rect(x0 + xs * S - 1, y0 + ys * S - 1, S + 2, S + 2, rim);
+                    }
+        }
         for (r = 0; r < US_DOG_H; r++)
             for (c = 0; c < 20; c++) {
                 char p = US_DOG[r][c];
