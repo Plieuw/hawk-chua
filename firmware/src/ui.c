@@ -2808,8 +2808,16 @@ static void ui_leds(void)
     if (sys.env_stage != 0u && sys.env_view > 48u)  /* ENV: lit while the envelope is open, as the ENV page's lamp
                                                   * glows (the pages: their blocks on the screen) */
         led_on(nl, panel.btn[B_ENV]);
-    if (sys.arp_on || sys.page == 6u || sys.page == 18u)
-        led_on(nl, panel.btn[B_ARP]);
+    {   /* the next to start blinks in the tempo: at first SEQ; KARMA playing, the ARP (LOGIC: the two together); the ARP
+         * playing, SEQ; both playing: both lit */
+        uint32_t bpm = arp_bpm_now(), beat = 60000u / (bpm < 20u ? 20u : bpm);
+        int on = fm1_ms % beat < beat / 2u;
+        int inv_seq = !sys.k_on && (!sys.arp_on || sys.k_logic), inv_arp = sys.k_on && !sys.arp_on && sys.k_logic;
+        if (inv_arp ? on : sys.arp_on || sys.page == 6u || sys.page == 18u)
+            led_on(nl, panel.btn[B_ARP]);
+        if (inv_seq ? on : sys.k_on || sys.page == 9u || sys.page == 17u)
+            led_on(nl, panel.btn[B_SEQ]);
+    }
     if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
     {   /* SCL (BASIS, ORBIT) while in use: a blink at each note (on its page: lit, dark a moment at each note); LFO
@@ -2830,8 +2838,6 @@ static void ui_leds(void)
     }
     if (sys.page == 11u)
         led_on(nl, panel.btn[B_EDIT]);
-    if (sys.k_on || sys.page == 9u || sys.page == 17u)
-        led_on(nl, panel.btn[B_SEQ]);
     {   /* the blinking, all in the tempo (the BPM, or the MIDI clock's): on for the first half of each beat; REC
          * recording: twice as fast */
         uint32_t bpm = arp_bpm_now(), beat = 60000u / (bpm < 20u ? 20u : bpm), ph = fm1_ms % beat;
