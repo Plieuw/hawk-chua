@@ -653,6 +653,56 @@ static void us_saiko(uint32_t h)
     }
 }
 
+/* the panel: the rest of the screen in the style's colours, still (drawn only as the text over it changes): quiet,
+ * so the text stays readable */
+static uint16_t us_panel(int32_t x, int32_t y)
+{
+    uint32_t st = sys.ui_style % US_COUNT, hs;
+    int32_t yy = y < 0 ? 0 : y > 239 ? 239 : y;
+    uint16_t c;
+    switch (st) {
+    case US_RAINBOW:                             /* a purple dusk, scanlines; a rainbow at the screen's edges */
+        if (y < 2 || y > 236)
+            return us_hue((uint32_t)x * 255u / 240u, 220u);
+        c = ux_mix(T_BG, US_RGB(52, 12, 74), 20 + yy * 40 / 239);
+        return (y & 3) == 0 ? ux_mix(c, US_RGB(255, 60, 170), 8) : c;
+    case US_GRADIENT:                            /* indigo into teal, top to bottom */
+        return ux_mix(T_BG, ux_mix(US_RGB(76, 24, 128), US_RGB(0, 92, 110), yy * 100 / 239), 32);
+    case US_PSYCHE:                              /* faint stripes of colour, across */
+        return ux_mix(T_BG, us_hue((uint32_t)(x + y) * 2u, 255u), 13);
+    case US_CATS:                                /* the lilac night, a star here and there */
+        hs = us_hash((uint32_t)(y * 240 + x));
+        c = ux_mix(T_BG, US_RGB(60, 34, 100), 25 + yy * 20 / 239);
+        return (hs & 511u) == 0u ? ux_mix(c, US_RGB(255, 236, 255), 45) : c;
+    case US_JEZUS:                               /* the cathedral's blue, a faint lattice of gold */
+        c = ux_mix(T_BG, US_RGB(30, 44, 120), 30);
+        return ((x + y) % 24 == 0 || (x - y + 480) % 24 == 0) ? ux_mix(c, US_RGB(242, 193, 78), 14) : c;
+    case US_SAIKO:                               /* lavender into the meadow, tiny flowers */
+        hs = us_hash((uint32_t)(y * 240 + x) + 77u);
+        c = ux_mix(T_BG, ux_mix(US_RGB(110, 70, 170), US_RGB(60, 150, 110), yy * 100 / 239), 22);
+        return (hs & 1023u) == 0u ? ux_mix(c, us_hue(hs >> 12, 255u), 55) : c;
+    default:
+        return T_BG;
+    }
+}
+
+/* the whole screen's ground (a page drawn anew): the panel, in strips; plain where the style is off */
+static void style_ground(void)
+{
+    uint32_t y;
+    if (!cv_panel || cv_style_off) {
+        lcd_fill(0, 0, 240, 240, T_BG);
+        return;
+    }
+    for (y = 0; y < 240u; y += 40u) {            /* (strips under 64 rows: not the big canvas, no backdrop) */
+        cv_at(0, (int32_t)y);
+        cv_begin(240, 40, T_BG);
+        cv_blit(0, y);
+    }
+    lcd_sync();
+    lcd_fresh = 1;                               /* (painted over: the big canvas goes out whole again) */
+}
+
 static void us_backdrop(uint32_t h)
 {
     switch (sys.ui_style % US_COUNT) {
@@ -673,6 +723,7 @@ static void style_apply(void)
     if (st == US_INITIAL) {
         palette_set(UI_PALETTE);
         cv_backdrop = 0;
+        cv_panel = 0;
     } else {
         ux_cust.bg = US_PAL[st][0];
         ux_cust.surf = US_PAL[st][1];
@@ -681,6 +732,7 @@ static void style_apply(void)
         ux_cust.accent = US_PAL[st][4];
         palette_set(NPALETTES);
         cv_backdrop = us_backdrop;
+        cv_panel = us_panel;
     }
     ui_force = 1;
 }

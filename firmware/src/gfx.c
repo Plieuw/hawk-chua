@@ -73,7 +73,13 @@ static uint32_t cv_w, cv_h;
 static uint16_t cv_bg;           /* what cv_begin cleared the canvas to */
 static uint8_t cv_scroll;        /* 1: drawing a scrolled view (its text may run past the canvas) */
 static int32_t cv_oy;            /* y offset for graph drawing */
-static void (*cv_backdrop)(uint32_t h);   /* the UI style's backdrop (ui_style.c; 0: the plain background) */
+static void (*cv_backdrop)(uint32_t h);
+/* the UI style's panel: the static ground of the rest of the screen (the head, the cells, the status line, the gaps),
+ * a colour per screen pixel; a canvas told where it goes (cv_at) takes it instead of its plain background */
+static uint16_t (*cv_panel)(int32_t x, int32_t y);
+static uint8_t cv_style_off;                     /* (ui.c: the GLO pages keep the plain ground) */
+static int32_t cv_at_x = -1, cv_at_y;
+static void cv_at(int32_t x, int32_t y) { cv_at_x = x; cv_at_y = y; }   /* the UI style's backdrop (ui_style.c; 0: the plain background) */
 static int16_t cv_cy0, cv_cy1;   /* text clip: canvas rows cv_cy0 .. cv_cy1 - 1 (cv_begin: the whole canvas) */
 static uint8_t cv_flip;          /* cv_alpha_hc: the cell mirrored left <-> right (the header's metronome, ui_draw.c) */
 
@@ -202,8 +208,17 @@ static void cv_begin(uint32_t w, uint32_t h, uint16_t bg)
     n = w * h;
     for (i = 0; i < n; i++)
         cv_px[i] = s;
-    if (cv_backdrop && w == 240u && h >= 64u && bg == ux.bg)   /* (the UI style's backdrop under the big canvas: ui_style.c) */
-        cv_backdrop(h);
+    if (!cv_style_off && bg == ux.bg) {
+        if (cv_backdrop && w == 240u && h >= 64u)   /* (the UI style's backdrop under the big canvas: ui_style.c) */
+            cv_backdrop(h);
+        else if (cv_panel && cv_at_x >= 0) {     /* (its panel, where the canvas goes) */
+            uint32_t x, y;
+            for (y = 0; y < h; y++)
+                for (x = 0; x < w; x++)
+                    cv_px[y * w + x] = swap16(cv_panel(cv_at_x + (int32_t)x, cv_at_y + (int32_t)y));
+        }
+    }
+    cv_at_x = -1;
 }
 
 /* the big canvas (full width, the plot): only its bands of CV_BAND rows that changed since it was last sent there go
