@@ -2848,8 +2848,8 @@ static void ui_leds(void)
         } else if (!sys.arp_on && !sys.k_on && on &&   /* (stopped, on the ARP's or KARMA's pages: red, ready) */
                    (sys.page == 6u || sys.page == 18u || sys.page == 9u || sys.page == 17u))
             led_on(nl, panel.btn[B_PLAY]);
-        if (sys.page == 12u || sys.page == 13u || ((tape.rec || feg.rec) && on2) ||
-            (tape.playing && !tape.rec && on))   /* REC: the TAPE's pages; blinking: recording, the tape running */
+        if (sys.page == 12u || sys.page == 13u || ((tape.rec || feg.rec) && on2) || (sys.page == 8u && !feg.rec && on) ||
+            (tape.playing && !tape.rec && on))   /* REC: the TAPE's pages; blinking: recording, the tape running, FREE EG's page (REC records there) */
             led_on(nl, panel.btn[B_REC]);
         if (fm1_ms % (4u * beat) < beat / 2u)    /* SAVE: always, once a bar (4/4: on its first beat) */
             led_on(nl, panel.btn[B_SAVE]);
