@@ -1,0 +1,69 @@
+# HAWK CHUA, debugging: a CRASH screen's addresses to code. Run workflow with the addresses (hex, spaces between): it
+# builds this commit and annotates the run with their functions, the stack depths, the special-register uses and what
+# lies around the second core's stacks; the disassembly and symbols are under Artifacts.
+name: debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      crash_addrs:
+        description: "a CRASH screen's addresses (hex, spaces between)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  crash:
+    runs-on: ubuntu-latest
+    container: debian:bookworm-slim
+    env:
+      JIELI_TOOLCHAIN: /opt/jieli/toolchain
+      AC79_SDK: /opt/ac79-sdk
+    steps:
+      - name: Packages
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            git ca-certificates curl xz-utils python3 python3-pil python3-fonttools gcc libc6-dev clang lld >/dev/null
+
+      - uses: actions/checkout@v4
+
+      - name: Cache the JieLi toolchain and SDK files
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/jieli
+            /opt/ac79-sdk
+          key: jieli-toolchain-ac79-sdk-v1.2.1-2023-12-13
+
+      - name: "JieLi toolchain and SDK files (from the firmware workflow's cache)"
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          echo "::error::the toolchain cache is empty: run the firmware workflow on this branch first"
+          exit 1
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Crash addresses
+        run: |
+          python3 tools/crash_where.py --gh ${{ github.event.inputs.crash_addrs }}
+          python3 tools/stack_depth.py --gh
+
+      - name: Special registers
+        run: python3 tools/insn_scan.py --gh
+
+      - name: Around the second core's stacks
+        run: |
+          python3 tools/sym_near.py --gh _c1_ustack 10
+          python3 tools/sym_near.py --gh _c1_sstack_top 10
+
+      - name: Disassembly
+        uses: actions/upload-artifact@v4
+        with:
+          name: disassembly
+          path: |
+            build/felucca.dis
+            build/felucca.sym

@@ -1,7 +1,8 @@
-# Builds the CHUA firmware on every push, runs the host tests, and publishes the web installer on GitHub Pages:
-#   https://<owner>.github.io/<repo>/   -> open in Chrome or Edge, connect the FM-1 by USB, press Install.
-# A tag vX.Y (one digit each, e.g. v1.0) also makes a release build and a GitHub Release with the .fwsc.
-# One-time setup: Settings > Pages > Build and deployment > Source: "GitHub Actions".
+# HAWK CHUA: on every push to main, build the firmware, run the host tests, build the browser version and publish the
+# installer on GitHub Pages (https://<owner>.github.io/<repo>/). A release: Run workflow with a version X.Y.Z (one digit
+# each), or push a tag vX.Y.Z: a release build and a GitHub Release with the .fwsc.
+# One-time setup in a fork: Settings > Pages > Build and deployment > Source: "GitHub Actions".
+# (A CRASH screen's addresses to code: debug.yml.)
 name: firmware
 
 on:
@@ -12,11 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: "make a release of this commit: its version X.Y (e.g. 1.0); the tag vX.Y is made with it"
-        required: false
-        default: ""
-      crash_addrs:
-        description: "a CRASH screen's addresses (hex, spaces between): their functions as annotations"
+        description: "make a release of this commit: its version X.Y.Z (e.g. 1.9.9); the tag vX.Y.Z is made with it"
         required: false
         default: ""
 
@@ -122,34 +119,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hawk-chua-${{ steps.ver.outputs.label }}
-          path: |
-            build/hawk-chua.fwsc
-            build/host/ui/sheet.png
-            build/host/basis.wav
-
-      - name: Crash addresses
-        if: github.event.inputs.crash_addrs != ''
-        run: |
-          python3 tools/crash_where.py --gh ${{ github.event.inputs.crash_addrs }}
-          python3 tools/stack_depth.py --gh
-
-      - name: Special registers
-        if: github.event.inputs.crash_addrs != ''
-        run: python3 tools/insn_scan.py --gh
-
-      - name: Around the second core's stacks
-        if: github.event.inputs.crash_addrs != ''
-        run: |
-          python3 tools/sym_near.py --gh _c1_ustack 10
-          python3 tools/sym_near.py --gh _c1_sstack_top 10
-
-      - name: Disassembly (a crash report's addresses to code)
-        uses: actions/upload-artifact@v4
-        with:
-          name: disassembly-${{ steps.ver.outputs.label }}
-          path: |
-            build/felucca.dis
-            build/felucca.sym
+          path: build/hawk-chua.fwsc
 
       - name: Pages artifact
         if: github.event_name != 'pull_request'
