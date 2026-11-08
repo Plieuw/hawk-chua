@@ -843,6 +843,7 @@ static void spk_bass(int32_t *l, int32_t *r, uint32_t n)
         r[i] += h;
     }
 }
+static volatile uint32_t synth_out_lvl;          /* (ui.c: the ENV light) */
 static void synth_render(int32_t *out, uint32_t n)
 {
     uint32_t i, k, busy = 0, newest = 0, mask = 0, own = 0;
@@ -998,6 +999,15 @@ static void synth_render(int32_t *out, uint32_t n)
             r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
         }
         spk_bass(l, r, n);
+        {   /* the output's level (the ENV light: lit while the sound rings, the FX's tail too), a peak, falling */
+            uint32_t pk = 0;
+            for (i = 0; i < n; i++) {
+                uint32_t a = (uint32_t)(l[i] < 0 ? -l[i] : l[i]), b = (uint32_t)(r[i] < 0 ? -r[i] : r[i]);
+                pk = a > pk ? a : pk;
+                pk = b > pk ? b : pk;
+            }
+            synth_out_lvl = pk > synth_out_lvl ? pk : synth_out_lvl - (synth_out_lvl >> 5) - (synth_out_lvl != 0u);
+        }
         if (duck_req || duck_g < 4096) {         /* (the duck: down ~3 ms, up ~15 ms) */
             for (i = 0; i < n; i++) {
                 duck_g = duck_req ? (duck_g > 32 ? duck_g - 32 : 0) : (duck_g < 4090 ? duck_g + 6 : 4096);

@@ -2834,8 +2834,9 @@ static void ui_leds(void)
         led_on(nl, panel.btn[B_OCTUP]);
     if (sys.page == 0u || sys.page == 14u)
         led_on(nl, panel.btn[B_HOME]);
-    if (sys.env_stage != 0u && sys.env_view > 48u)  /* ENV: lit while the envelope is open, as the ENV page's lamp
-                                                  * glows (the pages: their blocks on the screen) */
+    if ((sys.env_stage != 0u && sys.env_view > 48u) || synth_out_lvl > 160u)   /* ENV: lit while the envelope is open,
+                                                  * as the ENV page's lamp glows, and on while the sound rings out (an
+                                                  * FX's or the reverb's tail: the output over ~-46 dB) */
         led_on(nl, panel.btn[B_ENV]);
     {   /* the next to start blinks in the tempo: at first SEQ; KARMA playing, the ARP (LOGIC: the two together); the ARP
          * playing, SEQ; both playing: both lit */
