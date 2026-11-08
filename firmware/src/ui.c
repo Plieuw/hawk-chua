@@ -332,7 +332,10 @@ static const preset_t PRESETS[] = {
     {"FRETLESS 2", 6, 40, 64, 0, 76, 100, 60, 50, RZ_STRING, 60, 30, 72, 50, 60, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"POP BASS", 54, 60, 64, 0, 50, 0, 50, 110, RZ_STRING, 40, 100, 50, 10, 50, .oct = -2},
     {"THUMB BASS", 38, 50, 32, 0, 58, 30, 54, 90, .oct = -2},
-    {"ACID BASS", 85, 30, 0, 0, 56, 60, 48, 110, .eg = EG_OPEN, .oct = -2},
+    /* the ACIDs: the TB-303: one saw (CLUSTER SAW, 2 voices, no spread) through the gate held near ringing (RING high:
+     * the squelch), its envelope a quick fall to little (the cutoff sweep, DECAY ~0.15 s), a short release; a dotted
+     * eighth ping-pong (the classic) */
+    {"ACID BASS", NZK, 0, 72, 24, 40, 118, NOFX, 64, 70, 95, 30, 1, 30, NZ(1, 0), 0, 0, 0, 0, 0, 0, SS_PINGPONG, 0, 0, .oct = -2},
     {"RUBBER BASS", 6, 40, 64, 0, 64, 90, 56, 60, .oct = -2},
     /* STRINGS 41-48 */
     {"SLOW VIOLIN", 85, 76, 0, 98, 90, 118, 80, 20, RZ_BOW, 110, 80, 88, 60, 127, 30, 20, 0, 72, SI_OCT, 100, 17, 63, 63, 0, 0, 0, 0, SS_VIOLIN, 0, 0, .eg = EG_SWELL},
@@ -473,7 +476,7 @@ static const preset_t PRESETS[] = {
     {"SCREAMER", 110, 64, 96, 2, 64, 110, 60, 70, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"BANG SAW LEAD", 30, 64, 0, 2, 64, 115, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, ROOM, NZ(3, 0), 85, 0},
     {"SOFT FLUTE LEAD", 113, 0, 57, 0, 76, 127, 64, 30, 4, 40, 60, 6, 40, 92, 85, 72, 0, 30, 0, 70, 4, 12, 20, 80, 10, 0, 0, 0, 64, 64, .eg = EG_OVERTONE},   /* (yours: saved on the FM-1) */
-    {"ACID LEAD", 85, 30, 0, 0, 60, 90, 50, 110, 7, 110, 120, 63, 0, 0, 85, 72, 0, 0, 0, 70, 11, 12, 20, 80, 10, 0, 0, 0, 64, 64, .eg = EG_OPEN},   /* (yours: saved on the FM-1) */
+    {"ACID LEAD", NZK, 0, 76, 40, 44, 122, NOFX, 64, 80, 105, 40, 1, 40, NZ(1, 0), 6, 0, 0, 0, 0, 0, SS_PINGPONG, 0, 0},
     {"BRASSY LEAD", 85, 76, 0, 6, 70, 110, 60, 50, RZ_BRASS, 110, 120, 63, 0, 80, 85, 72, 0, 30, SI_OCT, 70, 11, 6, 20, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
     {"ATARI LEAD", 85, 76, 0, 2, 64, 115, 60, 77, 7, 110, 120, 63, 0, 0, 85, 72, 0, 0, 0, 70, 22, 43, 8, 80, 10, 0, 0, 0, 64, 64},   /* (yours: saved on the FM-1) */
     {"PHASE LEAD", 85, 76, 0, 2, 64, 115, 60, 40, RZ_MODAL, 0, 0, 0, 0, 0, 64, 55, SH_DFILT, 28, 2, 10, 20, 10, 60, 0, 0, 0, 0, SS_PINGPONG},
@@ -482,7 +485,7 @@ static const preset_t PRESETS[] = {
     {"SAW BASS", 85, 76, 0, 0, 60, 100, 50, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 2, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"SQUARE BASS", 85, 76, 0, 0, 60, 100, 50, 50, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 12, 2, 64, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"CHUA BASS", 38, 64, 32, 0, 60, 100, 50, 80, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
-    {"ACID BASS 2", 85, 20, 0, 0, 56, 60, 48, 115, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 5, 0, 9, 80, 10, 0, 0, 0, 60, 64, .eg = EG_OPEN, .oct = -2},   /* (yours: saved on the FM-1) */
+    {"ACID BASS 2", NZK, 0, 66, 16, 36, 124, NOFX, 64, 60, 90, 26, 1, 40, NZ(1, 0), 3, 0, 0, 0, 0, 0, SS_PINGPONG, 0, 0, .oct = -2},
     {"RESO BASS", 85, 76, 0, 0, 60, 80, 50, 100, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
     {"FM BASS", 85, 76, 0, 0, 60, 100, 50, 40, 1, 70, 90, 75, 90, 0, 85, 72, 0, 0, 0, 70, 16, 2, 80, 64, 0, 117, 0, 0, 64, 127, .oct = -2},   /* (yours: saved on the FM-1) */
     {"PLUCK BASS", 85, 76, 0, 0, 50, 0, 50, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 19, 2, 30, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
@@ -561,7 +564,7 @@ static const preset_t PRESETS[] = {
     {"SEQ SAW", 85, 76, 0, 0, 44, 20, 44, 70, RZ_MODAL, 0, 0, 0, 0, 0, 64, 50, SH_DFILT, 28, 0, 10, 11, 4, 0, 0, 0, 0, 0, SS_PINGPONG},
     {"SEQ SQUARE", 85, 76, 0, 0, 44, 66, 22, 0, 9, 60, 90, 78, 60, 0, 85, 72, 0, 0, 0, 70, 12, 2, 0, 80, 86, 42, 0, 0, 64, 117},   /* (yours: saved on the FM-1) */
     {"SEQ CHUA", 40, 104, 32, 0, 127, 20, 44, 90, 11, 56, 90, 78, 81, 48, 99, 82, 13, 16, 2, 79, 0, 2, 0, 80, 86, 65, 0, 3, 64, 117, .oct = 2},   /* (yours: saved on the FM-1) */
-    {"SEQ ACID", 85, 30, 0, 0, 48, 30, 44, 115, 0, 100, 120, 80, 30, 0, 99, 82, 13, 0, 2, 79, 9, 4, 80, 80, 10, 0, 0, 3, 64, 64},   /* (yours: saved on the FM-1) */
+    {"SEQ ACID", NZK, 0, 68, 10, 36, 120, NOFX, 64, 75, 100, 34, 1, 30, NZ(1, 0), 0, 0, 0, 0, 0, 0, SS_PINGPONG, 0, 0},
     {"SEQ FM", 85, 76, 0, 0, 44, 10, 44, 40, RZ_MODAL, 0, 0, 0, 0, 0, 64, 55, SH_DFILT, 28, 2, 10, 14, 4, 80, 0, 0, 0, 0, SS_PINGPONG},
     {"SEQ BELL", 85, 76, 0, 0, 38, 0, 40, 0, RZ_MODAL, 100, 120, 80, 30, 90, 32, 50, SH_DFILT, 28, 2, 20, 5, 63, 0, 0, 0, 0, 0, SS_PATTERN, 127},
     {"SEQ PLUCK", 85, 76, 0, 0, 40, 0, 40, 30, RZ_STRING, 40, 100, 50, 40, 90, 32, 55, SH_DFILT, 30, 0, 30, 19, 0, 63, 0, 0, 0, 0, SS_PATTERN, 127},
