@@ -40,7 +40,7 @@ static void meas(uint32_t ms)
         }
     }
 }
-#define LM_TARGET (-24.0)
+#define LM_TARGET (-22.0)
 static unsigned gq[NPRESETS];
 int main(int argc, char **argv)
 {
