@@ -31,7 +31,6 @@ circuit, and the screen draws the attractor it is tracing, live.
 - **ARP** (with a velocity and a gate sequence) and **KARMA**, a phrase generator, playing together through **LOGIC**
   (AND, OR, XOR …) on one grid, with a scale quantiser.
 - **TAPE**: a looper in the tempo; **MULTI**: two sounds on two MIDI channels; USB-MIDI and USB audio, TRS MIDI.
-- **UI STYLE** (GLO, fourth page): seven looks for the screen: INITIAL, RAINBOW ROAD, GRADIENT, PSYCHEDELIC, MAGIC CATS, JEZUS and SAIKO (the husky in fairyland), with motion, backdrop strength and how much they react to the sound.
 - **512 presets** in four banks (two General MIDI banks, SYNTH, LAB), all at one loudness, plus your own.
 - The settings are saved by themselves; works on both FM-1 versions (Puya P25Q80 and UC25HQ80 flash).
 
