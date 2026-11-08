@@ -866,20 +866,71 @@ static void art_delay(const uint8_t *hist, uint32_t nh)
     art_title(ICON_SHIMMER, SH_SPACE_NAME[sys.sh_space % SS_COUNT]);
 }
 
+/* MOUTH: a mouth, open as the vowel has it (F1: how far, F2: how wide; SIZE its size), speaking with the sound */
+static void art_mouth(const uint8_t *hist, uint32_t nh)
+{
+    uint32_t iv = sys.sh_interval % SI_COUNT, nv = SH_MPATH[iv][0], k, NP = 24u;
+    const uint8_t *path = iv ? &SH_MPATH[iv][1] : SH_MPATH5;
+    uint32_t pos = (sys.sh_shimmer & 127u) * (nv - 1u) * 256u / 127u, seg = pos >> 8, fr = pos & 255u;
+    int32_t f1, f2, W, H, lv = nh ? hist[nh - 1u] : 0, sz = 80 + (int32_t)(127u - (sys.sh_size & 127u)) * 60 / 127;
+    int32_t ux[25], uy[25], lx[25], ly[25], ix[25], iy[25], jx[25], jy[25];
+    if (seg >= nv - 1u) { seg = nv - 2u; fr = 256u; }
+    f1 = (int32_t)((SH_VOWEL[path[seg]][0] * (256u - fr) + SH_VOWEL[path[seg + 1u]][0] * fr) >> 8);
+    f2 = (int32_t)((SH_VOWEL[path[seg]][1] * (256u - fr) + SH_VOWEL[path[seg + 1u]][1] * fr) >> 8);
+    W = (26 + (f2 - 800) * 22 / 1500) * sz / 100;             /* (half the width, px) */
+    H = (3 + (f1 - 250) * 26 / 500) * sz / 100 * (60 + lv * 40 / 255) / 100;   /* (the opening, px: the sound moves it) */
+    H = H < 2 ? 2 : H;
+    a3_view(0, 0, 120, 66);
+    for (k = 0; k <= NP; k++) {                                  /* the lips: outer and inner edges, top and bottom */
+        int32_t t = (int32_t)k * 65536 / (int32_t)NP, x = (t - 32768) * W / 32768;   /* (-W .. W) */
+        int32_t s = art_sin((uint32_t)t << 15) >> 7;             /* (sin pi t, Q8) */
+        int32_t bow = art_cos((uint32_t)t << 17) >> 7;           /* (the cupid's bow: two humps) */
+        int32_t top = -(H / 2) * s - (6 * s + 3 * (256 - bow) / 2 * s / 256), bot = (H / 2) * s + 9 * s;
+        v3_t p;
+        p = a3_rot(Q8(x), top, 0); a3_proj(p, &ux[k], &uy[k]);
+        p = a3_rot(Q8(x) * 9 / 10, -(H / 2) * s, 0); a3_proj(p, &ix[k], &iy[k]);
+        p = a3_rot(Q8(x) * 9 / 10, (H / 2) * s, 0); a3_proj(p, &jx[k], &jy[k]);
+        p = a3_rot(Q8(x), bot, 0); a3_proj(p, &lx[k], &ly[k]);
+    }
+    for (k = 0; k < NP; k++) {                                   /* (the lips filled, the mouth dark) */
+        art_tri(ux[k], uy[k], ux[k + 1u], uy[k + 1u], ix[k], iy[k], art_c, 120);
+        art_tri(ix[k], iy[k], ux[k + 1u], uy[k + 1u], ix[k + 1u], iy[k + 1u], art_c, 120);
+        art_tri(lx[k], ly[k], lx[k + 1u], ly[k + 1u], jx[k], jy[k], art_c, 120);
+        art_tri(jx[k], jy[k], lx[k + 1u], ly[k + 1u], jx[k + 1u], jy[k + 1u], art_c, 120);
+    }
+    art_curve(ux, uy, NP + 1u, art_c, 0, 0);
+    art_curve(lx, ly, NP + 1u, art_c, 0, 0);
+    art_curve(ix, iy, NP + 1u, art_c, 0, 0);
+    art_curve(jx, jy, NP + 1u, art_c, 0, 0);
+    {
+        char t[16];
+        static const char VW[5] = {'U', 'O', 'A', 'E', 'I'};
+        str_cpy(t, SH_MPATH_NAME[iv], sizeof t);
+        cv_text(150, 6, &AF_S, t, art_c2);
+        t[0] = VW[path[fr < 128u ? seg : seg + 1u]]; t[1] = 0;
+        cv_text(112, 104, &AF_M, t, art_c);
+    }
+    art_title(ICON_SHIMMER, "MOUTH");
+}
+
 static void art_shimmer(const uint8_t *hist, uint32_t nh)
 {
+    if (sys.sh_space % SS_COUNT == SS_MOUTH) {
+        art_mouth(hist, nh);
+        return;
+    }
     {
         uint32_t d = fm1_ms - orn_ms, bpm = arp_bpm_now();
         orn_ms = fm1_ms;
         d = d > 200u ? 200u : d;                                 /* (after a pause: no jump) */
         orn_beat += d * (bpm ? bpm : 120u) * 1118u / 1024u;     /* (beats, Q16: 65536 / 60000 a ms a BPM) */
     }
-    if (sys.sh_space % SS_COUNT >= SS_DELAY) {                   /* a delay: its pattern, a ball bouncing on it */
+    if (SS_IS_DELAY(sys.sh_space % SS_COUNT)) {                   /* a delay: its pattern, a ball bouncing on it */
         art_delay(hist, nh);
         return;
     }
     static const uint8_t RATIO8[SI_COUNT] = {16, 12, 24, 32};    /* the interval's ratio (down) x 8 */
-    static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8, 6, 6, 6, 6, 6, 6, 6, 12, 6, 6, 6, 6};
+    static const uint8_t FOLD[SS_COUNT] = {6, 8, 12, 8, 6, 6, 6, 6, 6, 6, 6, 12, 6, 6, 6, 6, 6};
     /* the knobs, each across its whole range: SIZE the window (28 .. 52 px) and its rings (4 .. 7); DECAY how far back
      * the rings reach into the tail (0.8 .. 7.6 s); SHIMMER how many steps the outer rings sink (0 .. 3); TONE how
      * bright the outer rings stay; MIX how bright it all is */

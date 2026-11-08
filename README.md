@@ -426,6 +426,7 @@ patroon:
 | PING PONG | STRAIGHT (links na een stap, rechts na twee), DOTTED (anderhalve stap), TRIPLET (2/3), FILTER (links donker, rechts helder) |
 | PATTERN DLY | TRESILLO (3 + 3 + 2), DUB (gepunteerd en de stap erna, donker), GALLOP, CLAVE (de son-clave 3-2, een maat) |
 | BOUNCE DLY | BALL (een vallende bal: elke stuit eerder en zachter, rollend naar rechts), BALL PONG (stuiterend van links naar rechts), RISE (de bal achteruit: steeds langzamer en luider, over het stereobeeld), SCATTER (taps verspreid, elk een eigen filter) |
+| MOUTH | het geluid door een mond, zoals een talkbox: vier formanten van het spraakkanaal maken er een klinker van. KNOB 3 (VOWEL, in plaats van SHIMMER) beweegt de mond langs het pad van ALGORITHM: U O A E I, WAH (U naar A), YAI (A naar I), OUI (O U I); SIZE de mond (groot: lager, klein: hoger), DECAY en TONE het kamertje eromheen. Met FREE EG op SHIMMER praat hij: de LFO-presets TALK en YOI YOI. Presets op de FX-pagina: TALK BOX, WAH MOUTH, YAI VOICE, GIANT MOUTH. Op het scherm een mond die opengaat met de klinker en meebeweegt met het geluid |
 
 | Bediening (delay) | Functie |
 | --- | --- |

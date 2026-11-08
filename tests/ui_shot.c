@@ -735,6 +735,38 @@ int main(int argc, char **argv)
             bad = 1;
         }
     }
+    {   /* MOUTH: the vowel heard (I: its F2 ~2.3 kHz strong, A: weak), as loud as the dry within a few dB */
+        double eI = 0, eA = 0, lI = 0, lA = 0, ld = 0;
+        int vw, ok = 1;
+        for (vw = 0; vw < 3; vw++) {
+            double b0, b1, b2, a1, a2, z1 = 0, z2 = 0, e = 0, l = 0;
+            uint32_t b, k;
+            { double w = 2 * M_PI * 2300.0 / FS, al = sin(w) / (2 * 4.0), a0 = 1 + al;
+              b0 = al / a0; b1 = 0; b2 = -al / a0; a1 = -2 * cos(w) / a0; a2 = (1 - al) / a0; }
+            synth_kill(); preset_load(0); sys.attack = 0; sys.sustain = 127; sys.decay = 90; sys.release = 20;
+            sys.osc = NP_COUNT > 10 ? 11 : 0; sys.np_x = 0; sys.np_y = 0; sys.fx_mix = 0; sys.master_q12 = 4095;
+            synth_pgain[0] = 4096; sys.lvl_match = 0;
+            sys.sh_space = SS_MOUTH; sys.sh_interval = 0; sys.sh_size = 64; sys.sh_decay = 30; sys.sh_tone = 64;
+            sys.sh_mix = vw == 2 ? 0 : 127; sys.sh_shimmer = vw == 0 ? 127 : 64;   /* (I, A, the dry) */
+            run_ms(200);
+            synth_note_on(48, 100);
+            run_ms(300);
+            for (b = 0; b < 600u * FS / 1000u / CTL; b++) {
+                synth_render(abuf_, CTL);
+                for (k = 0; k < CTL; k++) {
+                    double x = (abuf_[2 * k] + abuf_[2 * k + 1]) / 65536.0, y = b0 * x + z1;
+                    z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y;
+                    e += y * y; l += x * x;
+                }
+            }
+            synth_note_off(48);
+            if (vw == 0) { eI = e; lI = l; } else if (vw == 1) { eA = e; lA = l; } else ld = l;
+        }
+        ok &= eI > eA * 2.0 && lI > ld / 4.0 && lI < ld * 4.0 && lA > ld / 4.0 && lA < ld * 4.0;
+        if (!ok) { printf("MOUTH FAIL (I/A at 2.3 kHz %.1f dB; I, A against the dry %.1f %.1f dB)\n", 10 * log10(eI / (eA + 1e-20)),
+                          10 * log10(lI / (ld + 1e-20)), 10 * log10(lA / (ld + 1e-20))); bad = 1; }
+        sys.sh_mix = 0; synth_kill();
+    }
     {   /* the pages' presets: PRESETS on ENV, MOD ENV, SCL, FREE EG sets that page's knobs */
         int ok = 1;
         uint8_t pg = sys.page;

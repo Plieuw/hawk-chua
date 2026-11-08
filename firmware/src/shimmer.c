@@ -46,14 +46,15 @@ static const char *const SH_INTERVAL_NAME[SI_COUNT] = {"-OCT", "-5TH", "-OCT-5TH
 static const uint32_t SH_INC[SI_COUNT] = {1u << 21, 699051u, 1398101u, 3u << 20};   /* (1 - ratio) 2^32 / SH_WIN:
                                                   * 1/2, 2/3, 1/3, 1/4 */
 enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_PIANO, SS_GUITAR, SS_VIOLIN, SS_CELLO, SS_HARP, SS_ACCORDION,
-       SS_BAGPIPE, SS_ORGAN, SS_LESLIE, SS_PINGPONG, SS_PATTERN, SS_BOUNCE, SS_COUNT };   /* (16 at most: a preset
-                                                  * keeps it in 4 bits, ui.c PR_SPACE) */
-#define SS_DELAY SS_PINGPONG                     /* (from here: the delays) */
+       SS_BAGPIPE, SS_ORGAN, SS_LESLIE, SS_PINGPONG, SS_PATTERN, SS_BOUNCE, SS_MOUTH, SS_COUNT };   /* (32 at most: a
+                                                  * preset keeps it in 5 bits, ui.c PR_SPACE) */
+#define SS_DELAY SS_PINGPONG                     /* (the delays: PING PONG .. BOUNCE) */
+#define SS_IS_DELAY(sp) ((sp) >= SS_DELAY && (sp) <= SS_BOUNCE)
 #define SS_BODY SS_PIANO                         /* (from here: an instrument's body) */
 static const char *const SH_SPACE_NAME[SS_COUNT] = {"HALL", "TEMPLE", "CATHEDRAL", "MOSQUE", "PIANO BODY",
                                                     "GUITAR BODY", "VIOLIN BODY", "CELLO BODY", "HARP BODY",
                                                     "ACCORDION", "BAGPIPE", "PIPE ORGAN", "LESLIE", "PING PONG",
-                                                    "PATTERN DLY", "BOUNCE DLY"};
+                                                    "PATTERN DLY", "BOUNCE DLY", "MOUTH"};
 /* each space: its three modes (two-pole resonators: a1 = 2 r cos w, a2 = r^2, b = (1 - r) 2 sin w x 2 gain: the peak
  * twice the gain; Q28), its early
  * reflections (taps in ms, gains Q15; MOSQUE: one tap fed back, the flutter), its damping (x / 16 of TONE's) */
@@ -74,18 +75,19 @@ static const int32_t SH_MODE[SS_COUNT][SH_NMODE][3] = {
     { {536644126, 268225188, 1318}, {536454553, 268085100, 3845}, {535906832, 267735202, 13176}, {535018389, 267176315, 29624}, {533130235, 266055719, 67905}, {528344945, 263384177, 230892}, {520075121, 259411678, 464527}, {497193038, 249977914, 1056203} },   /* ORGAN: 55 110 220 330 500 800 1200 2000 Hz */
     {{0, 0, 0}},                                 /* LESLIE: none (its rotors, fx_shimmer) */
     {{0, 0, 0}}, {{0, 0, 0}}, {{0, 0, 0}},       /* the delays: none */
+    {{0, 0, 0}},                                 /* MOUTH: its formants move (sh_mouth_set) */
 };
-static const uint8_t SH_NMODES[SS_COUNT] = {0, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0};
-static const uint8_t SH_ROOM8[SS_COUNT] = {8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 2, 8, 1, 0, 0, 0};   /* the tank's share, / 8 (the
+static const uint8_t SH_NMODES[SS_COUNT] = {0, 3, 3, 3, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0};
+static const uint8_t SH_ROOM8[SS_COUNT] = {8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 2, 8, 1, 0, 0, 0, 1};   /* the tank's share, / 8 (the
                                                   * bodies: a small room; PIPE ORGAN: its church) */
 static const uint8_t SH_ER_MS[SS_COUNT][4] = {{0, 0, 0, 0}, {7, 13, 19, 29}, {23, 41, 67, 89}, {31, 0, 0, 0},
                                               {3, 5, 8, 12}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {4, 9, 0, 0},
-                                              {0, 0, 0, 0}, {0, 0, 0, 0}, {29, 53, 0, 0}, {0, 0, 0, 0}, {0}, {0}, {0}};
+                                              {0, 0, 0, 0}, {0, 0, 0, 0}, {29, 53, 0, 0}, {0, 0, 0, 0}, {0}, {0}, {0}, {0}};
 static const uint16_t SH_ER_G[SS_COUNT][4] = {{0, 0, 0, 0}, {16384, 13107, 9830, 6554}, {14746, 13107, 11469, 9830},
                                               {18022, 0, 0, 0}, {9830, 8192, 6554, 4915}, {0, 0, 0, 0}, {0, 0, 0, 0},
                                               {0, 0, 0, 0}, {8192, 4915, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0},
-                                              {13107, 9830, 0, 0}, {0, 0, 0, 0}, {0}, {0}, {0}};
-static const uint8_t SH_DAMP16[SS_COUNT] = {16, 9, 12, 20, 12, 12, 14, 10, 12, 14, 16, 10, 12, 16, 16, 16};
+                                              {13107, 9830, 0, 0}, {0, 0, 0, 0}, {0}, {0}, {0}, {0}};
+static const uint8_t SH_DAMP16[SS_COUNT] = {16, 9, 12, 20, 12, 12, 14, 10, 12, 14, 16, 10, 12, 16, 16, 16, 12};
 #define SH_ER 4096u                              /* the early reflections' line (93 ms, a power of two) */
 
 #define SH_DLEN (SH_NLINE * SH_MAXLEN + SH_AP1 + SH_AP2 + SH_PS + SH_ER)   /* the delays' line: the reverb's memory */
@@ -154,6 +156,69 @@ static void sh_body(uint32_t sp, int32_t x, int32_t *bm, int32_t *bs)
     *bs = d;
 }
 
+/* --------------------------------------------------------------------- MOUTH --- */
+/* MOUTH: the sound through a mouth, as a talk box puts it: the vocal tract's four formants (two-pole resonators, in
+ * parallel) shaping what is played into a vowel; SHIMMER (FREE EG's SHIMMER target: talking) moves the mouth along the
+ * INTERVAL's path of vowels (U O A E I, WAH: U to A, YAI: A to I, OUI: O U I), SIZE the mouth (big: the formants down,
+ * x 0.75; small: up, x 1.4), TONE and DECAY the little room around it */
+#ifndef SH_MOUTH_G
+#define SH_MOUTH_G 5                             /* (the mouth about as loud as the dry) */
+#endif
+static const char *const SH_MPATH_NAME[SI_COUNT] = {"U O A E I", "WAH", "YAI", "OUI"};
+static const uint16_t SH_VOWEL[5][4] = {         /* F1 .. F4, Hz (a man's: Peterson and Barney) */
+    {300, 870, 2240, 3300},                      /* U */
+    {450, 800, 2830, 3500},                      /* O */
+    {730, 1090, 2440, 3400},                     /* A */
+    {530, 1840, 2480, 3500},                     /* E */
+    {270, 2290, 3010, 3700},                     /* I */
+};
+static const uint8_t SH_MPATH[SI_COUNT][4] = {{5, 0, 1, 2}, {2, 0, 2, 0}, {2, 2, 4, 0}, {3, 1, 0, 4}};   /* (count, vowels) */
+static const uint8_t SH_MPATH5[5] = {0, 1, 2, 3, 4};
+static const uint16_t SH_FBW[4] = {70, 90, 140, 180};          /* their bandwidths, Hz */
+static const uint16_t SH_FG[4] = {32768, 16000, 6000, 3000};    /* their levels, Q15 */
+static int32_t sh_mc[4][3];                      /* the formants now: a1, a2, b (Q28) */
+static void sh_mouth_set(void)                   /* (once a block) */
+{
+    uint32_t iv = sys.sh_interval % SI_COUNT, nv = SH_MPATH[iv][0], k;
+    const uint8_t *path = iv ? &SH_MPATH[iv][1] : SH_MPATH5;
+    uint32_t pos = (sys.sh_shimmer & 127u) * (nv - 1u) * 256u / 127u, seg = pos >> 8, fr = pos & 255u;
+    uint32_t scale = 49152u + (sys.sh_size & 127u) * 42598u / 127u;   /* Q16, 0.75 .. 1.4 */
+    if (seg >= nv - 1u) { seg = nv - 2u; fr = 256u; }
+    for (k = 0; k < 4u; k++) {
+        uint32_t f0 = SH_VOWEL[path[seg]][k], f1 = SH_VOWEL[path[seg + 1u]][k];
+        uint32_t f = (f0 * (256u - fr) + f1 * fr) >> 8, ph;
+        int32_t r16, cw, sw;
+        f = (uint32_t)(((uint64_t)f * scale) >> 16);
+        f = f > 9000u ? 9000u : f;
+        ph = f * 97391u;                         /* (a turn, Q32: f / 44100) */
+        r16 = (int32_t)px_exp2(-(int32_t)((uint32_t)SH_FBW[k] * scale / 65536u * 6735u / 1000u));   /* e^(-pi bw / FS), Q16 */
+        cw = px_sin(ph + 0x40000000u);           /* Q30 */
+        sw = px_sin(ph);
+        sh_mc[k][0] = (int32_t)(((int64_t)r16 * cw) >> 17);                 /* 2 r cos w, Q28 */
+        sh_mc[k][1] = (int32_t)(((int64_t)r16 * r16) >> 4);                 /* r^2 */
+        sh_mc[k][2] = (int32_t)(((((((int64_t)(65536 - r16) * sw) >> 17) * SH_FG[k]) >> 15) * (int32_t)f) / 600);   /* (1 - r)
+                                                  * 2 sin w g, x f / 600 Hz: as loud on any vowel (what is played falls
+                                                  * ~6 dB an octave) */
+    }
+}
+static void sh_mouth(int32_t x, int32_t *bm, int32_t *bs)   /* (as sh_body: the sum, the sum with every other turned) */
+{
+    uint32_t k;
+    int32_t e = x * 2048, m = 0, d = 0;
+    for (k = 0; k < 4u; k++) {
+        int32_t z = (int32_t)(((int64_t)sh_mc[k][0] * sh.my[k][0] - (int64_t)sh_mc[k][1] * sh.my[k][1] +
+                               (int64_t)sh_mc[k][2] * e + (1 << 27)) >> 28);
+        z = z > 245760000 ? 245760000 : z < -245760000 ? -245760000 : z;
+        sh.my[k][1] = sh.my[k][0];
+        sh.my[k][0] = z;
+        z >>= 12;
+        m += z;
+        d += k & 1u ? -z : z;
+    }
+    *bm = m * SH_MOUTH_G;
+    *bs = d * SH_MOUTH_G;
+}
+
 /* ------------------------------------------------------------------ the DELAYS --- */
 /* Three delays in the tempo (the BPM, or MIDI clock's), in the reverb's memory (a quarter rate, 11025 Hz: up to ~2.5 s,
  * dark and soft as a tape echo), each a pattern of taps on one line: a tap a time after the note (in a step's 24ths),
@@ -206,7 +271,8 @@ static const sh_dpat_t SH_DPAT[3][SI_COUNT] = {
 static uint32_t arp_bpm_now(void);               /* (arp.c: the tempo, its own or MIDI clock's) */
 static const char *sh_iv_name(uint32_t sp, uint32_t iv)   /* the INTERVAL's name, a delay's pattern */
 {
-    return sp >= SS_DELAY ? SH_DPAT[sp - SS_DELAY][iv % SI_COUNT].name : SH_INTERVAL_NAME[iv % SI_COUNT];
+    return SS_IS_DELAY(sp) ? SH_DPAT[sp - SS_DELAY][iv % SI_COUNT].name : sp == SS_MOUTH ? SH_MPATH_NAME[iv % SI_COUNT] :
+           SH_INTERVAL_NAME[iv % SI_COUNT];
 }
 static uint32_t sh_dtime(void) { return (sys.sh_size & 127u) * SH_DTIMES / 128u; }
 
@@ -300,11 +366,11 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         }
         return;
     }
-    if (sh.dmode != (sp >= SS_DELAY ? 2u : 1u)) {   /* (the memory changing hands: from silence) */
+    if (sh.dmode != (SS_IS_DELAY(sp) ? 2u : 1u)) {   /* (the memory changing hands: from silence) */
         memset(&sh, 0, sizeof sh);
-        sh.dmode = sp >= SS_DELAY ? 2u : 1u;
+        sh.dmode = SS_IS_DELAY(sp) ? 2u : 1u;
     }
-    if (sp >= SS_DELAY) {                        /* a delay: in the tempo (above) */
+    if (SS_IS_DELAY(sp)) {                       /* a delay: in the tempo (above) */
         int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = mix > 64 ? 32768 : mix * 32768 / 64;
         sh_dry = dr;
         sh.on = 1;
@@ -336,13 +402,15 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         damp = 32768 - (int32_t)(px_exp2(-(int32_t)(((uint64_t)fc * 13794u) >> 10)) >> 1);
         {   /* the crossfade: c = 0 .. 0.3 of the amplitude; a = 1 - c, b = sqrt(1 - a^2) x 1.22 (the shifter's two
              * triangle-weighted taps keep ~2/3 of the energy of uncorrelated input) */
-            int32_t c = (int32_t)(sys.sh_shimmer & 127u) * 77;           /* Q15, 0 .. 0.3 */
+            int32_t c = sp == SS_MOUTH ? 0 : (int32_t)(sys.sh_shimmer & 127u) * 77;   /* Q15, 0 .. 0.3 (MOUTH: the vowel) */
             uint32_t a2;
             fa = 32768 - c;
             a2 = (uint32_t)(((int64_t)fa * fa) >> 15);                   /* a^2, Q15 */
             fb_ = (int32_t)px_isqrt64((uint64_t)(32768u - a2) << 15);    /* Q15 */
             fb_ = (int32_t)(((int64_t)fb_ * 40132) >> 15);                /* x 1.22 */
         }
+        if (sp == SS_MOUTH)
+            sh_mouth_set();
         dry = mix < 64 ? 32768 : (127 - mix) * 32768 / 63;
         wet = mix > 64 ? 32768 : mix * 32768 / 64;
         sh_dry = dry;
@@ -391,7 +459,10 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             x += (bm + bs) / 8;
         } else if (sp >= SS_BODY) {              /* the instrument's body: its modes rung by the dry sound (left and
                                                   * right: the odd modes turned over, a little width) */
-            sh_body(sp, in[i], &bm, &bs);
+            if (sp == SS_MOUTH)
+                sh_mouth(in[i], &bm, &bs);
+            else
+                sh_body(sp, in[i], &bm, &bs);
             x += bm / 4;                         /* (the room hears the body) */
         }
         /* the building: early reflections (MOSQUE: the flutter, fed back) into the tank's input */

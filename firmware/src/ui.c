@@ -792,6 +792,11 @@ static const sh_preset_t SH_PRESETS[] = {
     {"BALL PONG", 64, 30, SH_DFILT, 50, 1, 20, SS_BOUNCE},
     {"RISING BALL", 64, 25, SH_DFILT, 50, 2, 30, SS_BOUNCE},
     {"SCATTER DELAY", 64, 50, SH_DFILT, 46, 3, 60, SS_BOUNCE},
+    /* MOUTH: SHIMMER the vowel (FREE EG on SHIMMER: talking), the INTERVAL its path, SIZE the mouth */
+    {"TALK BOX", 64, 20, 64, 110, 0, 60, SS_MOUTH},
+    {"WAH MOUTH", 70, 20, 20, 100, 1, 60, SS_MOUTH},
+    {"YAI VOICE", 50, 30, 90, 100, 2, 70, SS_MOUTH},
+    {"GIANT MOUTH", 0, 40, 50, 100, 0, 50, SS_MOUTH},
 };
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
 static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not saved: the knobs are) */
@@ -802,8 +807,8 @@ static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not
 #define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
 typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
 /* value 27: the SPACE (bits 0, 1 and 5, 6) with the sound's octave (bits 2 .. 4, two's complement) */
-#define PR_SPACE(b) ((((uint32_t)(b) & 3u) | ((uint32_t)(b) >> 3 & 12u)) % SS_COUNT)
-#define PR_PACK27(sp, oct) ((uint8_t)(((uint32_t)(sp) & 3u) | ((uint32_t)(oct) & 7u) << 2 | ((uint32_t)(sp) & 12u) << 3))
+#define PR_SPACE(b) ((((uint32_t)(b) & 3u) | ((uint32_t)(b) >> 3 & 28u)) % SS_COUNT)   /* (bits 0-1, 5-7) */
+#define PR_PACK27(sp, oct) ((uint8_t)(((uint32_t)(sp) & 3u) | ((uint32_t)(oct) & 7u) << 2 | ((uint32_t)(sp) & 28u) << 3))
 #define PR_MH 25u                                /* value 25: MOD ENV HEIGHT, its bit 7 the way (down) */
 /* a HEIGHT saved before it went both ways: then 36 x (h / 127)^2 semitones, now 36 x (h / 127)^3: the same sweep */
 static uint8_t menv_old(uint8_t h)
@@ -2491,7 +2496,7 @@ static void ui_draw(void)
         }
         fmt_int(v, sys.ring);
         ui_cell(T_C4, "4 RING", v);
-    } else if (sys.page == 3u && sys.sh_space % SS_COUNT >= SS_DELAY) {   /* a delay: TIME, FEEDBACK, FILTER, MIX */
+    } else if (sys.page == 3u && SS_IS_DELAY(sys.sh_space % SS_COUNT)) {   /* a delay: TIME, FEEDBACK, FILTER, MIX */
         ui_cell(T_C1, "1 TIME", SH_DTIME_NAME[sh_dtime()]);
         fmt_int(v, (int32_t)((sys.sh_decay & 127u) * 95u / 127u));
         str_cpy(b, v, sizeof b);
@@ -2526,8 +2531,17 @@ static void ui_draw(void)
             ui_cat(b, sizeof b, " s");
         }
         ui_cell(T_C2, "2 DECAY", b);
-        fmt_int(v, sys.sh_shimmer);
-        ui_cell(T_C3, "3 SHIMMER", v);
+        if (sys.sh_space % SS_COUNT == SS_MOUTH) {   /* (MOUTH: SHIMMER is the vowel, along the INTERVAL's path) */
+            static const char VW[5] = {'U', 'O', 'A', 'E', 'I'};
+            uint32_t iv = sys.sh_interval % SI_COUNT, nv = SH_MPATH[iv][0];
+            const uint8_t *path = iv ? &SH_MPATH[iv][1] : SH_MPATH5;
+            uint32_t q = ((sys.sh_shimmer & 127u) * (nv - 1u) + 63u) / 127u;
+            v[0] = VW[path[q]]; v[1] = 0;
+            ui_cell(T_C3, "3 VOWEL", v);
+        } else {
+            fmt_int(v, sys.sh_shimmer);
+            ui_cell(T_C3, "3 SHIMMER", v);
+        }
         if (sys.sh_mix) {
             fmt_int(v, (int32_t)(sys.sh_mix * 100u / 127u));
             str_cpy(b, v, sizeof b);
@@ -2580,7 +2594,7 @@ static void ui_draw(void)
             str_cpy(a, SH_SPACE_NAME[sys.sh_space % SS_COUNT], sizeof a);
             ui_cat(a, sizeof a, " ");
             ui_cat(a, sizeof a, sh_iv_name(sys.sh_space % SS_COUNT, sys.sh_interval));
-            ui_cat(a, sizeof a, sys.sh_space % SS_COUNT >= SS_DELAY ? "  RESO " : "  TONE ");
+            ui_cat(a, sizeof a, SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "  RESO " : "  TONE ");
             fmt_int(v, sys.sh_tone);
             ui_cat(a, sizeof a, v);
         } else if (sys.page == 2u) {
@@ -2997,6 +3011,8 @@ static const feg_pre_t FEG_PRE[] = {
     {"GATE PUMP", FS_UP, 20, 127, 4, 20},          /* (4 STEPS, ARP GATE) */
     {"SHIMMER SWELL", FS_SWELL, 0, 110, 0, 16},    /* (NOTE, SHIMMER MIX) */
     {"SCREAM RISE", FS_UP, 0, 127, 9, 27},         /* (SCREAM) */
+    {"TALK", FS_SINE, 0, 127, 17, 15},             /* (1 HZ, SHIMMER: MOUTH's vowel) */
+    {"YOI YOI", FS_TRI, 10, 120, 2, 15},           /* (2 STEPS, the vowel) */
 };
 #define NPAGE_PRE(t) ((int32_t)(sizeof t / sizeof t[0]))
 static void page_preset(int32_t s)
@@ -3513,8 +3529,8 @@ static void ui_input(void)
     } else if (s && sys.page == 3u) {
         int32_t q = (int32_t)(sys.sh_space % SS_COUNT) * SI_COUNT + (int32_t)(sys.sh_interval % SI_COUNT);
         q = (q + SS_COUNT * SI_COUNT * 8 + s) % (SS_COUNT * SI_COUNT);   /* (the SPACE, each with its INTERVALs) */
-        if ((q / SI_COUNT >= SS_DELAY) != (sys.sh_space % SS_COUNT >= SS_DELAY))
-            sys.sh_shimmer = (q / SI_COUNT >= SS_DELAY) ? SH_DFILT : 70u;   /* (into a delay: its filter ~1 kHz) */
+        if (SS_IS_DELAY(q / SI_COUNT) != (SS_IS_DELAY(sys.sh_space % SS_COUNT)))
+            sys.sh_shimmer = SS_IS_DELAY(q / SI_COUNT) ? SH_DFILT : 70u;   /* (into a delay: its filter ~1 kHz) */
         sys.sh_space = (uint8_t)(q / SI_COUNT);
         sys.sh_interval = (uint8_t)(q % SI_COUNT);
         str_cpy(t, SH_SPACE_NAME[sys.sh_space], sizeof t);
