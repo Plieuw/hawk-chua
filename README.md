@@ -359,7 +359,7 @@ speed, -12), 8/15, 9/16, 3/5, 5/8, 2/3 (-7), 45/64, 3/4 (-5), 4/5, 5/6, 9/10, 15
 4/3, 45/32, 3/2 (+7), 8/5, 5/3, 9/5, 15/8, 2/1 (dubbel, +12). Kies je er een, dan springt de globale BPM naar het tempo
 dat daarbij hoort (het tempo van de band x de verhouding) en loopt de band precies op die verhouding: zuiver op de
 toon en in de maat met ARP en KARMA (draai je daarna aan de BPM, dan is het weer vrije varispeed).
-KNOB 3 LENGTH van de lus: 1 tel, 2 tellen, 1 maat, 2 maten, 4 maten (standaard; zo lang als de band past: 7,2 s, dus 4 maten vanaf ~133 BPM, daaronder 2 maten, dan licht de waarde op);
+KNOB 3 LENGTH van de lus: 1 tel, 2 tellen, 1 maat, 2 maten (standaard), 4 maten (zo lang als de band past: 7,2 s, dus 4 maten vanaf ~133 BPM, daaronder 2 maten, dan licht de waarde op);
 KNOB 4 de toonhoogte nu in halve tonen; onderin staat het tempo waarop de band is opgenomen.
 
 De eerste opname op een lege band legt zijn tempo vast; zijn alle vier sporen gewist, dan is de band weer leeg. MIDI

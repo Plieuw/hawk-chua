@@ -1121,7 +1121,7 @@ static void settings_boot(void)    /* power-on, before the audio */
 {
     settings_t s;
     uint32_t f = irq_save();
-    sys.tape_len = 4;                            /* (the tape's LENGTH: 4 bars, unless saved) */
+    sys.tape_len = 3;                            /* (the tape's LENGTH: 2 bars, unless saved) */
     flash_ok = fl_id_ok(FL_FAR(fl_jedec_ram)());   /* (either chip) */
     irq_restore(f);
     if (!flash_ok) {
@@ -1220,7 +1220,9 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.vel_amt = (uint8_t)(s.vel_amt & 127u);
         for (uint32_t i = 0; i < 4u; i++)
             sys.tape_lv[i] = (uint8_t)(s.tape_lv[i] & 127u);
-        sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 4u);
+        sys.tape_len = (uint8_t)(s.tape4 ? s.tape_len % 5u : 3u);
+        if (s.snd < 15u && sys.tape_len == 4u)    /* (15: 2 BARS the default; the old 4 BARS moved, once) */
+            sys.tape_len = 3;
         sys.spk_bass = (uint8_t)(s.snd >= 2u ? s.spk_bass & 127u : 4u);   /* (1.9.2 saved 64: 4 now, once) */
         sys.lvl_match = (uint8_t)(s.snd ? s.lvl_match != 0 : 1u);
         sys.k_logic = (uint8_t)(s.snd >= 6u ? s.k_logic % 7u : 1u);   /* (LOGIC OR, NOTE QUANT SCALE now, once) */
@@ -1273,7 +1275,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 14;
+    s.snd = 15;
     s.k_inv = sys.k_inv;
     s.arp_slen = sys.arp_slen;
     s.arp_gp = sys.arp_gp;

@@ -75,7 +75,7 @@ static volatile struct {
     uint8_t at, at_seen, scream;   /* keys.c: MIDI aftertouch (channel pressure; poly per note: at_poly), one has come
                                   * (from then on it is the breath: resonator.c); SCREAM (feg.c's list): the voices' own
                                   * sound driving the waveguides' breath */
-    uint8_t tape_lv[4], tape_len, tape_arm, tape_spd;   /* tape.c: the tracks' levels, LENGTH (1 2 4 8 16 beats), the armed track */             /* a mod wheel has sent (until then it leaves FREE EG's depth alone) */
+    uint8_t tape_lv[4], tape_len, tape_arm, tape_spd;   /* tape.c: the tracks' levels, LENGTH (1 2 4 8 16 beats; 3: 2 bars), the armed track */             /* a mod wheel has sent (until then it leaves FREE EG's depth alone) */
     uint8_t bend_range;          /* keys.c, the SOUND page: MIDI pitch bend up and down, 0 .. 12 semitones */
     uint8_t spk_bass, lvl_match; /* synth.c, the SOUND page (GLO 3x): SPEAKER BASS 0 .. 127 (its overtones for a small
                                   * speaker), LEVEL MATCH on (each preset at its measured level) */
@@ -93,4 +93,4 @@ static volatile struct {
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
          .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,
-         .tape_lv = {100, 100, 100, 100}, .tape_len = 4, .tape_arm = 0, .tape_spd = 12, .spk_bass = 4, .bend_range = 12, .k_lq = 1, .k_logic = 1, .arp_vd = 100, .lvl_match = 1};
+         .tape_lv = {100, 100, 100, 100}, .tape_len = 3, .tape_arm = 0, .tape_spd = 12, .spk_bass = 4, .bend_range = 12, .k_lq = 1, .k_logic = 1, .arp_vd = 100, .lvl_match = 1};
