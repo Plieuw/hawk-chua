@@ -299,16 +299,22 @@ static struct { uint8_t vol, expr, pan, soft; } mcc = { 100, 127, 64, 0 };
 /* GATE FIT: while the ARP or KARMA plays, the attack at most a quarter of the gate (keys.c sets it, frames; 0: no
  * cap), so a slow preset still speaks on short steps (at 128 BPM, 1/16, GATE 80 = 65 %: ~19 ms); played, its own attack */
 static uint32_t env_cap;
+#ifndef ENV_A_MIN
+#define ENV_A_MIN 14u                            /* (ENV_FRAMES[14]: 66 frames, 1.5 ms) */
+#endif
 static void env_params(void)
 {
     uint32_t a = sys.attack & 127u;
+    if (a < ENV_A_MIN)                           /* (the gate never opens in under ~1.5 ms: no click from the step; a
+                                                  * strike's own transient is the exciter's, not the gate's) */
+        a = ENV_A_MIN;
     if (env_cap && ENV_FRAMES[a] > env_cap) {         /* (the longest attack that fits) */
         uint32_t lo = 0, hi = a;
         while (lo < hi) {
             uint32_t m = (lo + hi + 1u) >> 1;
             if (ENV_FRAMES[m] <= env_cap) lo = m; else hi = m - 1u;
         }
-        a = lo;
+        a = lo < ENV_A_MIN ? ENV_A_MIN : lo;
     }
     eg.att = ENV_MAX / ENV_FRAMES[a];
     eg.dec = ENV_COEF[sys.decay & 127u];
