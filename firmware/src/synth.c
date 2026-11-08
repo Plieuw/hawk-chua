@@ -251,6 +251,11 @@ static uint32_t seat_next;                       /* the seat the next note takes
 /* ORBIT: the pan also follows the voice's picture: the circuit's x (the double scroll's two lobes: left and right),
  * low-passed to ~7 Hz, or for a noise program (whose picture is noise) a drift to a new random place every ~0.2 s;
  * ORBIT how far (added to BASIS's place, together at most full left / right). The resonators follow their voices */
+/* LIGHT: only where the CPU cannot keep up at all, as in a browser's emulated FM-1 at a low clock (a real FM-1 never
+ * gets there: its halves are always in time): audio.c raises it after halves came too late, lowers it after 10 s
+ * of ease. 1: a voice fewer (a new note takes the oldest's place instead), SPEAKER BASS off; 2, 3: two, three
+ * voices fewer (each voice is also its FX model's: the most of the load) */
+static volatile uint8_t synth_light;
 static volatile uint8_t synth_shed;              /* audio.c: the last half took too long: let the least needed voice go */
 static uint32_t synth_sheds;                     /* (how often: a diagnostic) */
 static uint32_t voice_rr;                        /* the voice the next note looks at first (the cycle) */
@@ -346,9 +351,17 @@ static void synth_note_on(uint32_t key, uint32_t vel)
     for (i = lo; i < lo + pn && !v; i++)            /* the same key again: retrigger its voice */
         if (voice[i].stage != ST_OFF && voice[i].key == key)
             v = &voice[i];
+    if (synth_light) {                              /* (LIGHT: past its voices, a new note takes the oldest's) */
+        uint32_t busy = 0, cap = pn > synth_light ? pn - synth_light : 1u;
+        for (i = lo; i < lo + pn; i++)
+            busy += voice[i].stage != ST_OFF;
+        if (busy >= cap)
+            goto steal;                             /* (no free voice looked for) */
+    }
     for (i = 0; i < pn && !v; i++)                  /* a free voice: the next of the cycle */
         if (voice[lo + (voice_rr + i) % pn].stage == ST_OFF)
             v = &voice[lo + (voice_rr + i) % pn];
+steal:
     if (!v) {                                       /* steal: the oldest ringing tail, else released, else the oldest */
         voice_t *best = 0;
         uint32_t s;
@@ -357,9 +370,11 @@ static void synth_note_on(uint32_t key, uint32_t vel)
                 if (voice[i].stage == s && (!best || voice[i].age < best->age))
                     best = &voice[i];
         if (!best)
-            for (i = lo, best = &voice[lo]; i < lo + pn; i++)
-                if (voice[i].age < best->age)
+            for (i = lo; i < lo + pn; i++)         /* (the sounding ones: under LIGHT there are free ones too) */
+                if (voice[i].stage != ST_OFF && (!best || voice[i].age < best->age))
                     best = &voice[i];
+        if (!best)
+            best = &voice[lo];
         v = best;
     }
     v->part = (uint8_t)(sys.multi ? syn_part : 0u);
@@ -998,7 +1013,8 @@ static void synth_render(int32_t *out, uint32_t n)
             l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
             r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
         }
-        spk_bass(l, r, n);
+        if (!synth_light)
+            spk_bass(l, r, n);
         {   /* the output's level (the ENV light: lit while the sound rings, the FX's tail too), a peak, falling */
             uint32_t pk = 0;
             for (i = 0; i < n; i++) {

@@ -2613,6 +2613,19 @@ int main(int argc, char **argv)
         check("shimmer: every corner bounded, no DC, the tail sinks; MIX 0 bit for bit dry and mono", okk);
     }
 
+    {   /* LIGHT (only where halves come late: an emulator at a low clock): fewer voices, a new note takes the oldest */
+        synth_kill(); keys_all_off();
+        synth_light = 2;
+        synth_note_on(48, 100); synth_note_on(52, 100); synth_note_on(55, 100); synth_note_on(60, 100);
+        run_ms(20);
+        if (sounding() != NVOICE - 2) printf("   (LIGHT 2: %u voices: %u %u %u %u)\n", sounding(), voice[0].stage, voice[1].stage, voice[2].stage, voice[3].stage);
+        check("LIGHT 2: four notes, two voices sound (the newest)", sounding() == NVOICE - 2);
+        synth_light = 0; synth_kill();
+        synth_note_on(48, 100); synth_note_on(52, 100); synth_note_on(55, 100); synth_note_on(60, 100);
+        run_ms(20);
+        check("... LIGHT 0: all four", sounding() == 4);
+        synth_kill();
+    }
     {   /* the MOD ENV on a parameter (FX MIX): a note pushes it up by HEIGHT, it falls back to the knob's value */
         uint8_t mx0 = sys.fx_mix, mid, end;
         synth_kill(); keys_all_off(); sys.arp_on = sys.k_on = 0;

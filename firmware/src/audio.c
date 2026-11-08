@@ -64,8 +64,27 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
             sys.cpu_q8 = load / CPU_AVG;
             audio_cpu_rem = load % CPU_AVG;
         }
-        if (fm1_audio_free_half() != half)
-            felucca_dbg.late++;                         /* the DMA moved on while we rendered */
+        {   /* LIGHT (synth.c): halves late (the DMA moved on while we rendered) or the load over 95 %: lighter;
+             * 10 s under 50 %: back */
+            static uint16_t hot, cool;
+            int late = fm1_audio_free_half() != half;
+            if (late)
+                felucca_dbg.late++;
+            if (late || sys.cpu_q8 > 243u) {
+                cool = 0;
+                if (++hot >= 3u) {
+                    hot = 0;
+                    if (synth_light < 3u)
+                        synth_light++;
+                }
+            } else {
+                hot = 0;
+                if (synth_light && sys.cpu_q8 < 128u && ++cool >= 3450u) {   /* (3450 halves: ~10 s) */
+                    cool = 0;
+                    synth_light--;
+                }
+            }
+        }
         if (us * 100u > (HALF_FRAMES * 1000000u / FS) * 80u)
             synth_shed = 1;                             /* (over 80 % of the half: the synth lets a voice go) */
         felucca_dbg.halves++;
