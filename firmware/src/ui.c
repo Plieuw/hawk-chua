@@ -1136,6 +1136,12 @@ static void settings_boot(void)    /* power-on, before the audio */
     uint32_t f = irq_save();
     sys.tape_len = 3;                            /* (the tape's LENGTH: 2 bars, unless saved) */
     flash_ok = fl_id_ok(FL_FAR(fl_jedec_ram)());   /* (either chip) */
+    if (fl_emulated()) {                         /* (a browser's emulated FM-1: lighter, so it plays in time there; a
+                                                  * real FM-1 never: see fl_emulated) */
+        fm1_emu = 1;
+        synth_light_min = 1;
+        synth_light = 1;
+    }
     irq_restore(f);
     if (!flash_ok) {
         preset_load(BOOT_PRESET);

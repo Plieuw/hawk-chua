@@ -304,11 +304,16 @@ static void fm1_main(void)
         if (!(fm1_in.buttons & btn_bit(B_OCTDN) && fm1_in.buttons & btn_bit(B_OCTUP)))
             ui_draw();                                  /* (the countdown has the screen while both are held) */
         felucca_dbg.stage = 9;
-        while (fm1_ms - m < 15u) {                      /* ~60 UI frames/s at most */
+        while (fm1_ms - m < (fm1_emu ? 40u : 15u)) {   /* ~60 UI frames/s at most (an emulated FM-1: 25) */
 #if FELUCCA_OTA
             rm_service();
             ota_service();
 #endif
+            /* (the timer read three times close together: an emulator sees a wait here and skips it; nothing
+             * else on a real FM-1) */
+            (void)fm1_ticks();
+            (void)fm1_ticks();
+            (void)fm1_ticks();
         }
     }
 }

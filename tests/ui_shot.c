@@ -74,6 +74,7 @@ static uint32_t irq_save(void) { return 0; }
 static void irq_restore(uint32_t f) { (void)f; }
 static uint32_t fl_jedec(void) { return 0xB36014u; }   /* (the newer units' chip: saving as on the first) */
 static int fl_id_ok(uint32_t id) { return id == 0x856014u || id == 0xB36014u; }
+static int fl_emulated(void) { return 0; }      /* (a host build: not the emulated FM-1 of fm1-emu) */
 #define FL_FAR(f) fl_jedec
 static void midi_out_event(uint32_t pkt) { (void)pkt; }   /* (usb.c: not in this test) */
 #include "../firmware/src/panel.c"

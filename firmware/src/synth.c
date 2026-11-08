@@ -256,6 +256,7 @@ static uint32_t seat_next;                       /* the seat the next note takes
  * of ease. 1: a voice fewer (a new note takes the oldest's place instead), SPEAKER BASS off; 2, 3: two, three
  * voices fewer (each voice is also its FX model's: the most of the load) */
 static volatile uint8_t synth_light;
+static uint8_t synth_light_min, fm1_emu;          /* (ui.c: an emulated FM-1: LIGHT 1 at least, the screen slower) */
 static volatile uint8_t synth_shed;              /* audio.c: the last half took too long: let the least needed voice go */
 static uint32_t synth_sheds;                     /* (how often: a diagnostic) */
 static uint32_t voice_rr;                        /* the voice the next note looks at first (the cycle) */

@@ -79,7 +79,7 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
                 }
             } else {
                 hot = 0;
-                if (synth_light && sys.cpu_q8 < 128u && ++cool >= 3450u) {   /* (3450 halves: ~10 s) */
+                if (synth_light > synth_light_min && sys.cpu_q8 < 128u && ++cool >= 3450u) {   /* (3450 halves: ~10 s) */
                     cool = 0;
                     synth_light--;
                 }

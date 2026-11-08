@@ -150,6 +150,9 @@ RAMINL int fl_wait_ready(uint32_t max_us, uint32_t *took_us)
 
 /* the FM-1's flash: a Puya P25Q80 (JEDEC 0x856014) in the first units, a UC25HQ80 (0xB36014) in those sold from
  * autumn 2026 (the logo printed on the front); both 1 MiB with the same commands (06 05 35 20 02 0B) */
+/* an emulated FM-1 (a browser's: fm1-emu): its flash controller reads 0, which on a real one cannot be while code runs
+ * from the flash (SFC_CON 0 is XIP off). Read from the flash's code, so on a real FM-1 always 0 */
+static inline int fl_emulated(void) { return SFC_CON == 0u; }
 static inline int fl_id_ok(uint32_t id) { return id == 0x856014u || id == 0xB36014u; }
 static RAMFN uint32_t fl_jedec_ram(void)                 /* see fl_id_ok */
 {
