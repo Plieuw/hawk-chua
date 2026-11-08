@@ -346,6 +346,56 @@ static void keys_init(void)
         kb_note[k] = KB_SILENT;
 }
 
+/* the MOD ENV on a parameter (sys.menv_target, not the pitch): one envelope for the instrument, from 0 again at each
+ * note (as noise.c's per voice: LENGTH, SKEW, BEND), HEIGHT the most it moves the parameter (up, or down: bit 7), on
+ * top of where its knob is; given back as it falls (only what it moved: the knob may be turned meanwhile) */
+/* (its state: menv_p, synth.c) */
+static void menv_undo(void)
+{
+    if (menv_p.target && menv_p.moved) {
+        volatile uint8_t *f = feg_field(menv_p.target - 1u);
+        *f = (uint8_t)clamp((int32_t)*f - menv_p.moved, 0, 127);
+    }
+    menv_p.moved = 0;
+}
+static void menv_param(void)
+{
+    uint32_t len, a, ia, id, t = sys.menv_target;
+    int32_t want, h;
+    volatile uint8_t *f;
+    if (t != menv_p.target) {                    /* (another parameter: the last one given back) */
+        menv_undo();
+        menv_p.target = (uint8_t)t;
+        menv_p.stage = 2;
+    }
+    if (!t)
+        return;
+    if (synth_ons != menv_p.ons) {               /* (a note: from 0 again) */
+        menv_p.ons = synth_ons;
+        menv_p.stage = 0;
+        menv_p.env = 0;
+    }
+    len = ENV_FRAMES[sys.menv_len & 127u];
+    a = len * (sys.menv_skew & 127u) / 127u;
+    ia = a > CTL ? ENV_MAX / a * CTL : ENV_MAX;   /* (a block's step: CTL samples) */
+    id = len - a > CTL ? ENV_MAX / (len - a) * CTL : ENV_MAX;
+    if (menv_p.stage == 0) {
+        if (ENV_MAX - menv_p.env <= ia) { menv_p.env = ENV_MAX; menv_p.stage = 1; } else menv_p.env += ia;
+    } else if (menv_p.stage == 1) {
+        if (menv_p.env <= id) { menv_p.env = 0; menv_p.stage = 2; } else menv_p.env -= id;
+    }
+    h = (int32_t)(sys.menv_height & 127u);
+    want = menv_p.stage == 2 ? 0 : (h * np_bend((int32_t)(menv_p.env >> 15), sys.menv_bend)) >> 15;
+    if (sys.menv_height & 0x80u)
+        want = -want;
+    f = feg_field(t - 1u);
+    {
+        int32_t base = (int32_t)*f - menv_p.moved, now = clamp(base + want, 0, 127);
+        *f = (uint8_t)now;
+        menv_p.moved = (int16_t)(now - base);
+    }
+}
+
 static void keys_block(void)
 {
     if (keys_panic_req) {
@@ -366,6 +416,7 @@ static void keys_block(void)
             c = kar.steplen / 4u;
         env_cap = c;
     }
+    menv_param();
     feg_block(CTL, voice_clock);
     mw_block();
     tape_block();                 /* (voice_clock: the note ons, the arpeggiator's too) */

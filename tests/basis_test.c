@@ -2613,6 +2613,24 @@ int main(int argc, char **argv)
         check("shimmer: every corner bounded, no DC, the tail sinks; MIX 0 bit for bit dry and mono", okk);
     }
 
+    {   /* the MOD ENV on a parameter (FX MIX): a note pushes it up by HEIGHT, it falls back to the knob's value */
+        uint8_t mx0 = sys.fx_mix, mid, end;
+        synth_kill(); keys_all_off(); sys.arp_on = sys.k_on = 0;
+        sys.fx_mix = 40; sys.menv_target = 12 + 1; sys.menv_height = 60; sys.menv_skew = 0; sys.menv_len = 70;
+        sys.menv_bend = 64;
+        run_ms(20);
+        midi_in(0x90, 60, 100);
+        run_ms(8);
+        mid = sys.fx_mix;
+        run_ms(400);
+        end = sys.fx_mix;
+        midi_in(0x80, 60, 0);
+        sys.menv_target = 0; run_ms(10);
+        check("MOD ENV on a parameter: pushed up at the note, back to the knob's value", mid > 90 && end == 40 && sys.fx_mix == 40);
+        if (!(mid > 90 && end == 40)) printf("   (FX MIX at the note %u, after %u)\n", mid, end);
+        sys.fx_mix = mx0; sys.menv_height = 0; synth_kill();
+    }
+
     /* MASTER at 0: silence */
     sys.master_q12 = 0;
     peak = 0;

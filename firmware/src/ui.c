@@ -947,6 +947,10 @@ static void preset_apply(uint32_t i)
         sys.menv_len = p->menv_height ? p->menv_len : 80;
         sys.menv_skew = p->menv_height ? p->menv_skew : 10;
         sys.menv_height = p->menv_height;
+        sys.menv_target = 0;                     /* (a preset's MOD ENV is on the pitch; the last push forgotten:
+                                                  * the preset's own values are its base) */
+        menv_p.target = 0;
+        menv_p.moved = 0;
         sys.menv_bend = p->menv_bend ? p->menv_bend : 64u;
     }
     sys.scream = p->scream;
@@ -1120,6 +1124,7 @@ typedef struct {
     uint8_t arp_slen;                            /* (10: saved; 12: the VELOCITY SEQ's length, 0 its own) */
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
+    uint8_t menv_target;                         /* (16: saved; before: the pitch) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1238,6 +1243,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
+        sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
         sys.arp_gp = (uint8_t)(s.snd >= 13u ? s.arp_gp % ARP_NGP : 0u);   /* (13: the GATE SEQ; before: the NOTE OFF page's) */
         sys.arp_glen = (uint8_t)(s.snd >= 13u && s.arp_gd <= 8u ? s.arp_gd : 0u);
         if (s.snd >= 8u) {
@@ -1264,7 +1270,10 @@ static void settings_fill(settings_t *sp)        /* the state now, as saved: FRE
 {
     uint32_t f = irq_save();
     volatile uint8_t *fe = feg.playing ? feg_field(feg.target) : 0, *mw = mwd.on ? feg_field(mwd.target) : 0;
-    uint8_t fv = fe ? *fe : 0, mv = mw ? *mw : 0;
+    volatile uint8_t *me = menv_p.target && menv_p.moved ? feg_field(menv_p.target - 1u) : 0;
+    uint8_t fv = fe ? *fe : 0, mv = mw ? *mw : 0, ev = me ? *me : 0;
+    if (me)
+        *me = (uint8_t)clamp((int32_t)*me - menv_p.moved, 0, 127);
     if (mw)
         *mw = mwd.base;
     if (fe)
@@ -1274,6 +1283,8 @@ static void settings_fill(settings_t *sp)        /* the state now, as saved: FRE
         *fe = fv;
     if (mw)
         *mw = mv;
+    if (me)
+        *me = ev;
     irq_restore(f);
 }
 static void settings_fill_now(settings_t *sp)
@@ -1283,8 +1294,9 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 15;
+    s.snd = 16;
     s.k_inv = sys.k_inv;
+    s.menv_target = sys.menv_target;
     s.arp_slen = sys.arp_slen;
     s.arp_gp = sys.arp_gp;
     s.arp_gd = sys.arp_glen;
@@ -2068,7 +2080,8 @@ static void draw_menv(void)
     int32_t hm = (int32_t)(sys.menv_height & 127u), dn = (sys.menv_height & 0x80u) != 0;
     int32_t dh = hm * hm * hm / 127;             /* (cubic, as noise.c: / 127^3 of the half) */
     int32_t mid = top + hh / 2, yf = mid, yp = dn ? mid + dh * (hh / 2) / 16129 : mid - dh * (hh / 2) / 16129;
-    int32_t lv = (int32_t)sys.menv_view * (hh / 2) / 32767 * (dn ? -1 : 1);
+    int32_t lv = sys.menv_target ? (int32_t)menv_p.moved * (hh / 2) / 127   /* (on a parameter: how far it is pushed) */
+                                 : (int32_t)sys.menv_view * (hh / 2) / 32767 * (dn ? -1 : 1);
     uint32_t on = sys.osc && hm;
     uint16_t c = on ? T_FM : T_DIM;
     cv_begin(240, PLOT_H, T_BG);
@@ -2093,7 +2106,7 @@ static void draw_menv(void)
         cv_rect(214, mid + 1, 16, -lv, on ? T_FM : T_DIM);
     cv_text(x0, bot + 3, &AF_S, "NOTE", T_DIM);
     cv_text_r(xl < 60 ? 60 : xl, bot + 3, &AF_S, "END", T_DIM, T_BG);
-    cv_text(200, bot + 3, &AF_S, "PITCH", T_DIM);
+    cv_text(sys.menv_target ? 206 : 200, bot + 3, &AF_S, sys.menv_target ? "PUSH" : "PITCH", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 
@@ -2172,6 +2185,47 @@ static void fx_pos_text(char *d, uint32_t n, int brief)
     }
     fmt_int(v, (int32_t)p);
     ui_cat(d, n, v);
+}
+
+/* the MOD ENV's targets: the pitch, then what the oscillator and the FX have now (their knobs' own names): 0 the
+ * pitch, else 1 + feg.c's parameter */
+static uint32_t menv_targets(uint8_t *t, const char **nm)
+{
+    static const char *const K1[RZ_COUNT] = {"STRUCTURE", "CHORD", "STRUCTURE", "SIZE", "JET", "CHIRP", "SCREAM", "LIP",
+                                             "PRESSURE", "REED", "KETTLE", "UNISON", "MUSETTE", "SOFT REED", "TINE", "LIPS",
+                                             "MURAIKI"};
+    uint32_t n = 0, md = sys.fx_model % RZ_COUNT, alg = sys.osc ? (sys.osc - 1u) % NP_COUNT : 0u;
+#define MT(f, s) do { t[n] = (uint8_t)((f) + 1u); nm[n] = (s); n++; } while (0)
+    t[n] = 0; nm[n] = sys.osc ? "PITCH" : "PITCH (NOISE ONLY)"; n++;
+    if (!sys.osc) {
+        MT(0, "CHAOS"); MT(1, "SHAPE"); MT(2, "OUTPUT");
+    } else {
+        MT(4, NP_X[alg]); MT(5, NP_Y[alg]); MT(6, "NOISE LEVEL");
+    }
+    MT(3, "RING");
+    MT(8, K1[md]); MT(9, "FX BRIGHTNESS");
+    MT(10, md == RZ_BAGPIPE ? "DRONES" : md == RZ_ACCORD ? "CHAMBER" : "FX DAMPING");
+    {   /* (the POSITION knob's name, as fx_pos_text's) */
+        static const char *const L[RZ_COUNT] = {"FX POSITION", "AMOUNT", "FX POSITION", "VOWEL", "BREATH", "TWO VOICE",
+                                                "RASP", "MUTE", "BOW AT", "BORE", "STRIKE", "HAMMER", "REGISTER",
+                                                "DRONES IN", "BUZZ", "MOUTH", "MERI"};
+        MT(11, L[md]);
+    }
+    MT(12, "FX MIX");
+    MT(15, sys.sh_space % SS_COUNT == SS_MOUTH ? "VOWEL (MOUTH)" : SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "DELAY FILTER" : "SHIMMER");
+    MT(16, "SPACE MIX");
+#undef MT
+    return n;
+}
+static const char *menv_target_name(void)
+{
+    uint8_t t[20];
+    const char *nm[20];
+    uint32_t n = menv_targets(t, nm), i;
+    for (i = 0; i < n; i++)
+        if (t[i] == sys.menv_target)
+            return nm[i];
+    return FEG_T_NAME[(sys.menv_target - 1u) % FEG_NT];
 }
 
 /* the oscillator's short name: "CHUA", or the noise program's bank and number ("A5") */
@@ -2402,7 +2456,11 @@ static void ui_draw(void)
                 ui_cat(b, sizeof b, " %");
         }
         ui_cell(T_C2, "2 SKEW", b);
-        if (sys.menv_height & 127u) {               /* (the sweep at the peak, in semitones: HEIGHT^3, 36 the top, up or
+        if ((sys.menv_height & 127u) && sys.menv_target) {   /* (on a parameter: how far it moves it, up or down) */
+            str_cpy(b, sys.menv_height & 0x80u ? "-" : "+", sizeof b);
+            fmt_int(v, (int32_t)(sys.menv_height & 127u));
+            ui_cat(b, sizeof b, v);
+        } else if (sys.menv_height & 127u) {        /* (the sweep at the peak, in semitones: HEIGHT^3, 36 the top, up or
                                                   * down; tenths under 10) */
             uint32_t h = sys.menv_height & 127u, t = (uint32_t)(((uint64_t)h * h * h * 11794u) >> 26);   /* tenths */
             str_cpy(b, sys.menv_height & 0x80u ? "-" : "+", sizeof b);
@@ -2642,14 +2700,8 @@ static void ui_draw(void)
             if (sys.arp_hold)
                 ui_cat(a, sizeof a, "  LATCH");
         } else if (sys.page == 5u) {             /* MOD ENV: on what */
-            str_cpy(a, "MOD ENV   ", sizeof a);
-            if (!sys.osc)
-                ui_cat(a, sizeof a, "CHUA: NOISE ONLY");
-            else {
-                osc_code(v, sizeof v, sys.osc);
-                ui_cat(a, sizeof a, v);
-                ui_cat(a, sizeof a, " PITCH");
-            }
+            str_cpy(a, "MOD ENV > ", sizeof a);  /* (SELECT: on what) */
+            ui_cat(a, sizeof a, menv_target_name());
         } else if (sys.page) {
             str_cpy(a, "BASIS ", sizeof a);
             if (sys.basis)
@@ -3542,6 +3594,18 @@ static void ui_input(void)
             settings_save();
         str_cpy(t, C2[sys.cpu2 & 3u], sizeof t);
         ui_say(!was != !sys.cpu2 ? (sys.cpu2 ? "2ND CORE ON: RESTART" : "2ND CORE OFF: RESTART") : t);
+    } else if (s && sys.page == 5u) {           /* MOD ENV: on what (the pitch, an oscillator's or an FX's parameter) */
+        uint8_t tl[20];
+        const char *nm[20];
+        uint32_t n = menv_targets(tl, nm), i, k = 0;
+        for (i = 0; i < n; i++)
+            if (tl[i] == sys.menv_target)
+                k = i;
+        k = (uint32_t)clamp((int32_t)k + (s > 0 ? 1 : -1), 0, (int32_t)n - 1);
+        sys.menv_target = tl[k];
+        str_cpy(t, "MOD ENV: ", sizeof t);
+        ui_cat(t, sizeof t, nm[k]);
+        ui_say(t);
     } else if (s && sys.page == 6u) {           /* ARP: LATCH (right on, left off; as KARMA's) */
         sys.arp_hold = (uint8_t)(s > 0);
         ui_say(sys.arp_hold ? "LATCH ON" : "LATCH OFF");

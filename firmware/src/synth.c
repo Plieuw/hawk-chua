@@ -1031,5 +1031,10 @@ static void synth_render(int32_t *out, uint32_t n)
 
 #include "arp.c"                                 /* the arpeggiator (keys.c drives it) */
 #include "karma.c"                               /* KARMA: the phrase generator (SEQ) */
+static struct {                                 /* keys.c's MOD ENV on a parameter (ui.c: its push shown, saved without it) */
+    uint32_t env, ons;
+    uint8_t stage, target;
+    int16_t moved;                               /* what it added to the parameter now (after the 0 .. 127 limits) */
+} menv_p;
 #include "feg.c"                                 /* FREE EG: a knob recorded, played onto a parameter */
 #include "tape.c"                                /* TAPE: the four-track reel-to-reel (LFO) */

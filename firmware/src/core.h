@@ -52,6 +52,8 @@ static volatile struct {
     uint8_t np_x, np_y, np_level;   /* noise.c: its X, Y and level, 0..127 */
     uint8_t menv_len, menv_skew, menv_height;   /* noise.c: its AD envelope (ENV again: the MOD ENV page) */
     uint8_t menv_bend;           /* noise.c: its curve, 0 (bent up: fast, then slow) .. 64 straight .. 127 (bent down) */
+    uint8_t menv_target;         /* keys.c: the MOD ENV on what: 0 the pitch (noise.c), else 1 + feg.c's parameter (an
+                                  * oscillator's or an FX's: the MOD ENV page's SELECT) */
     uint8_t basis;               /* synth.c: the voices' stereo spread, 0 (mono) .. 127 (ENV page, SELECT) */
     uint8_t orbit;               /* synth.c: how far each voice's picture moves it in the stereo field (ENV, ALGORITHM) */
     uint8_t arp_on, arp_type, arp_bpm, arp_div, arp_gate, arp_swing, arp_hold;   /* arp.c: the arpeggiator (ARP) */

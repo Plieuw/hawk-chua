@@ -431,7 +431,7 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     int16_t *b = np_buf[k];
     int32_t x = (int32_t)(sys.np_x & 127u) * 258, y = (int32_t)(sys.np_y & 127u) * 258;   /* Q15 0 .. 32766 */
     uint32_t i, j;
-    uint32_t fk[CTL], hgt = sys.menv_height & 127u, fm = hgt;
+    uint32_t fk[CTL], hgt = sys.menv_target ? 0u : sys.menv_height & 127u, fm = hgt;   /* (on a parameter: keys.c) */
     if (inc > 0x20000000u)                       /* (an eighth of the rate: room for the ratios above it) */
         inc = 0x20000000u;
     if (n > CTL)
