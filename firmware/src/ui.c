@@ -455,8 +455,10 @@ static const preset_t PRESETS[] = {
     {"DIAL TONE", CYC, 0, 64, 127, 40, 0, NOFX, NOSH},
     {"ENGINE", NZK, 20, 80, 120, 80, 40, NOFX, NOSH, NZ(0, 9), 60, 20, .oct = -1},
     {"CROWD", NZK, 60, 90, 110, 96, 10, NOFX, HALL, NZ(0, 8), 60, 100},
-    {"THUNDER", NZK, 20, 90, 0, 96, 20, NOFX, 127, 120, 0, 60, SI_OCT, 40, NZ(2, 0), 40, 10,
-     .sh_space = SS_CATHEDRAL, .oct = -2},
+    /* DOMINATOR: the Alpha Juno's "What the" hoover: six detuned pulses (PW CLUSTER, wide), each note diving in from
+     * under the pitch (MOD ENV down ~0.8 octave, a fast fall back), held full, a short release, an octave down, a room */
+    {"DOMINATOR", NZK, 2, 80, 120, 40, 10, NOFX, 85, 72, 0, 36, SI_OCT, 70, NZ(1, 1), 78, 44, 70, 0, 208, 0, SS_HALL, 0, 34,
+     .oct = -1},
     /* ---- BANK 3: SYNTH (playable synthesizer sounds: leads, basses, pads, keys, plucks, brass and strings,
      * sequence sounds, bells; 16 of each) ---- */
     {"MONO SAW", 85, 76, 0, 2, 64, 115, 60, 50, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 4, 0, 0, 0, 0, 0, SS_HALL, 0, 0},
