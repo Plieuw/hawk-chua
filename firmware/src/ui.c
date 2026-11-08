@@ -2808,7 +2808,9 @@ static void ui_leds(void)
         if ((sys.arp_on || sys.k_on) && on) {    /* PLAY (and its green): the ARP or KARMA on */
             led_on(nl, panel.btn[B_PLAY]);
             nl[LED_PLAY_GREEN_COL] |= (uint8_t)(1u << LED_PLAY_GREEN_ROW);
-        }
+        } else if (!sys.arp_on && !sys.k_on && on &&   /* (stopped, on the ARP's or KARMA's pages: red, ready) */
+                   (sys.page == 6u || sys.page == 18u || sys.page == 9u || sys.page == 17u))
+            led_on(nl, panel.btn[B_PLAY]);
         if (sys.page == 12u || sys.page == 13u || ((tape.rec || feg.rec) && on2) ||
             (tape.playing && !tape.rec && on))   /* REC: the TAPE's pages; blinking: recording, the tape running */
             led_on(nl, panel.btn[B_REC]);
