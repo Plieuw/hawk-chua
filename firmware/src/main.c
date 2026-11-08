@@ -206,7 +206,7 @@ static void fm1_main(void)
     if (flash_ok)
         ota_boot_cleanup();                             /* staging area left by an update */
 #endif
-    palette_set(UI_PALETTE);                            /* ui.c; build/gen/ui_palettes.h: GREY GREEN AMBER ICE .. */
+    style_apply();                                      /* ui_style.c: the UI STYLE's palette (INITIAL: AMBER) */
     lcd_init();
     draw_splash();
     if (felucca_dbg.magic != DBG_MAGIC) {

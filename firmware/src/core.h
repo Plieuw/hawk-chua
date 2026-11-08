@@ -52,6 +52,7 @@ static volatile struct {
     uint8_t np_x, np_y, np_level;   /* noise.c: its X, Y and level, 0..127 */
     uint8_t menv_len, menv_skew, menv_height;   /* noise.c: its AD envelope (ENV again: the MOD ENV page) */
     uint8_t menv_bend;           /* noise.c: its curve, 0 (bent up: fast, then slow) .. 64 straight .. 127 (bent down) */
+    uint8_t ui_style, ui_motion, ui_backdrop, ui_react;   /* ui_style.c: the screen's look (GLO's fourth page) */
     uint8_t menv_target;         /* keys.c: the MOD ENV on what: 0 the pitch (noise.c), else 1 + feg.c's parameter (an
                                   * oscillator's or an FX's: the MOD ENV page's SELECT) */
     uint8_t basis;               /* synth.c: the voices' stereo spread, 0 (mono) .. 127 (ENV page, SELECT) */
@@ -89,7 +90,7 @@ static volatile struct {
          .sh_size = 100, .sh_decay = 90, .sh_shimmer = 70, .sh_mix = 0, .sh_interval = 0, .sh_tone = 80, .sh_space = 0,
          .osc = 0, .np_x = 64, .np_y = 64, .np_level = 64,
          
-         .menv_len = 80, .menv_skew = 10, .menv_height = 0, .menv_bend = 64, .basis = 0, .orbit = 0,
+         .menv_len = 80, .menv_skew = 10, .menv_height = 0, .menv_bend = 64, .ui_style = 0, .ui_motion = 64, .ui_backdrop = 70, .ui_react = 80, .basis = 0, .orbit = 0,
          .arp_on = 0, .arp_type = 0, .arp_bpm = 128, .arp_div = 4, .arp_gate = 80, .arp_swing = 0, .arp_hold = 1,
          .multi = 0, .ch_b = 2, .midi_trs = 1, .midi_usb = 3, .midi_rx = 0, .midi_tx = 0,
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,

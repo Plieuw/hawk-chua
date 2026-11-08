@@ -101,11 +101,11 @@ static uint32_t chua_regime(uint32_t chaos)      /* what the CHAOS knob's positi
 }
 static int32_t chua_beta_q16(uint32_t shape) { return (10 << 16) + (int32_t)(shape * (24u << 16) / 127u); }
 
-/* a table at (SHAPE, CHAOS): bilinear */
+/* a table at (SHAPE, CHAOS), both Q8 (the knobs smoothed: between their steps too): bilinear */
 static int32_t chua_lookup(const int32_t *t, uint32_t shape, uint32_t chaos)
 {
-    uint32_t rq = shape * ((CHUA_NB - 1u) << 8) / 127u, r = rq >> 8, rf = rq & 255u;
-    uint32_t c = chaos >> 3, cf = (chaos & 7u) << 5;           /* 8 knob steps per column, cf /256 */
+    uint32_t rq = shape * (CHUA_NB - 1u) / 127u, r = rq >> 8, rf = rq & 255u;
+    uint32_t c = chaos >> 11, cf = (chaos >> 3) & 255u;        /* 8 knob steps per column, cf /256 */
     const int32_t *a = t + r * CHUA_NK + c, *b = r + 1u < CHUA_NB ? a + CHUA_NK : a;
     int32_t top = a[0] + (int32_t)(((int64_t)(a[1] - a[0]) * cf) >> 8);
     int32_t bot = b[0] + (int32_t)(((int64_t)(b[1] - b[0]) * cf) >> 8);
@@ -114,7 +114,7 @@ static int32_t chua_lookup(const int32_t *t, uint32_t shape, uint32_t chaos)
 static int32_t chua_lookup16(const uint16_t *t, uint32_t shape, uint32_t chaos)
 {
     int32_t tmp[2][2];
-    uint32_t rq = shape * ((CHUA_NB - 1u) << 8) / 127u, r = rq >> 8, rf = rq & 255u, c = chaos >> 3, cf = (chaos & 7u) << 5;
+    uint32_t rq = shape * (CHUA_NB - 1u) / 127u, r = rq >> 8, rf = rq & 255u, c = chaos >> 11, cf = (chaos >> 3) & 255u;
     uint32_t r1 = r + 1u < CHUA_NB ? r + 1u : r;
     tmp[0][0] = t[r * CHUA_NK + c]; tmp[0][1] = t[r * CHUA_NK + c + 1u];
     tmp[1][0] = t[r1 * CHUA_NK + c]; tmp[1][1] = t[r1 * CHUA_NK + c + 1u];
@@ -125,30 +125,55 @@ static int32_t chua_lookup16(const uint16_t *t, uint32_t shape, uint32_t chaos)
 
 /* the per-block circuit for the knobs as they are now */
 static struct {
-    uint8_t chaos, shape, output, valid;
+    uint8_t chaos, shape, output, valid;         /* (the knobs rounded: chua_regime) */
+    int32_t chq, shq, oq;                        /* as smoothed, Q8 */
     int32_t alpha, beta, period;                 /* Q16 */
     int32_t gx, gy, gz;                          /* output gains: Q20 state -> Q15, x2^12 (see synth_render) */
 } cc;
 #define CHUA_LEVEL 7000                          /* each component's RMS in the output (Q15): about -13 dBFS */
 
-static void chua_params(void)
+/* the knobs, smoothed (KNOB 1..4 of HOME: the circuit's CHAOS, SHAPE, OUTPUT and RING; noise.c: X, Y, LEVEL): a knob's
+ * step (1/127) glides over ~12 ms in 1/256ths of a step, a block at a time, as a pot does: no zipper noise while it is
+ * turned. Per part (MULTI). A preset's change (made in silence: the duck) and a first use take the value at once */
+static struct { int32_t v[4]; uint8_t ep, ok; } ksm[2];
+static volatile uint8_t ksm_epoch;               /* (+1 while the output is ducked: everything snaps) */
+static int32_t ksm_glide(int32_t *s, uint32_t knob, int snap)   /* -> Q8 0 .. 127 x 256 */
 {
-    uint32_t chaos = sys.chaos > 127u ? 127u : sys.chaos, shape = sys.shape > 127u ? 127u : sys.shape;
-    uint32_t o = sys.output > 127u ? 127u : sys.output;
+    int32_t t = (int32_t)((knob & 127u) << 8), d = t - *s;
+    if (snap || (d < 24 && d > -24))
+        *s = t;
+    else
+        *s += d / 16;
+    return *s;
+}
+static int ksm_snap(uint32_t part)
+{
+    int r = !ksm[part].ok || ksm[part].ep != ksm_epoch;
+    ksm[part].ok = 1;
+    ksm[part].ep = ksm_epoch;
+    return r;
+}
+
+static void chua_params_q(int32_t chq, int32_t shq, int32_t oq)
+{
     int32_t wx, wy, wz, rx, ry, rz;
-    if (cc.valid && cc.chaos == chaos && cc.shape == shape && cc.output == o)
+    uint32_t chaos = (uint32_t)chq, shape = (uint32_t)shq;
+    if (cc.valid && cc.chq == chq && cc.shq == shq && cc.oq == oq)
         return;
-    cc.chaos = (uint8_t)chaos;
-    cc.shape = (uint8_t)shape;
-    cc.output = (uint8_t)o;
+    cc.chq = chq;
+    cc.shq = shq;
+    cc.oq = oq;
+    cc.chaos = (uint8_t)((chq + 128) >> 8);
+    cc.shape = (uint8_t)((shq + 128) >> 8);
+    cc.output = (uint8_t)((oq + 128) >> 8);
     cc.valid = 1;
     cc.alpha = chua_lookup(&CHUA_ALPHA[0][0], shape, chaos);
     cc.period = chua_lookup(&CHUA_PERIOD[0][0], shape, chaos);
-    cc.beta = chua_beta_q16(shape);
+    cc.beta = (10 << 16) + shq * 6144 / 127;     /* (chua_beta_q16, Q8 SHAPE) */
     /* OUTPUT 0 X, 32 X+Y, 64 Y, 96 Y+Z, 127 Z: weights /256, a constant sum */
-    wx = 256 - 4 * (int32_t)o;
+    wx = 256 - (oq >> 6);
     wx = wx < 0 ? 0 : wx;
-    wz = 4 * (int32_t)o - 256;
+    wz = (oq >> 6) - 256;
     wz = wz < 0 ? 0 : wz > 256 ? 256 : wz;
     wy = 256 - wx - wz;
     rx = chua_lookup16(&CHUA_RMS[0][0][0], shape, chaos);
@@ -159,6 +184,15 @@ static void chua_params(void)
     cc.gx = (int32_t)(((uint32_t)(CHUA_LEVEL * CHUA_RMS_Q) / (uint32_t)(rx < 16 ? 16 : rx) * (uint32_t)wx) >> 8);
     cc.gy = (int32_t)(((uint32_t)(CHUA_LEVEL * CHUA_RMS_Q) / (uint32_t)(ry < 16 ? 16 : ry) * (uint32_t)wy) >> 8);
     cc.gz = (int32_t)(((uint32_t)(CHUA_LEVEL * CHUA_RMS_Q) / (uint32_t)(rz < 16 ? 16 : rz) * (uint32_t)wz) >> 8);
+}
+static void chua_params(void)                    /* the knobs as they are (at once) */
+{
+    chua_params_q((int32_t)((sys.chaos & 127u) << 8), (int32_t)((sys.shape & 127u) << 8), (int32_t)((sys.output & 127u) << 8));
+}
+static void chua_params_part(uint32_t part, int snap)   /* the knobs smoothed (synth_render, a block) */
+{
+    int32_t *v = ksm[part & 1u].v;
+    chua_params_q(ksm_glide(&v[0], sys.chaos, snap), ksm_glide(&v[1], sys.shape, snap), ksm_glide(&v[2], sys.output, snap));
 }
 
 /* --------------------------------------------------------------- trace --- */
@@ -308,7 +342,7 @@ static uint32_t env_cap;
 #ifndef ENV_A_MIN
 #define ENV_A_MIN 14u                            /* (ENV_FRAMES[14]: 66 frames, 1.5 ms) */
 #endif
-static void env_params(void)
+static void env_params_r(int32_t rq)             /* rq: RING, Q8 */
 {
     uint32_t a = sys.attack & 127u;
     if (a < ENV_A_MIN)                           /* (the gate never opens in under ~1.5 ms: no click from the step; a
@@ -326,9 +360,13 @@ static void env_params(void)
     eg.dec = ENV_COEF[sys.decay & 127u];
     eg.sus = (uint32_t)(sys.sustain & 127u) * (ENV_MAX / 127u);
     eg.rel = ENV_COEF[sys.release & 127u];
-    eg.k = (int32_t)LPG_K[sys.ring & 127u];
-    eg.comp = LPG_COMP[sys.ring & 127u];
+    {   /* (between the table's steps: RING smoothed) */
+        uint32_t i = (uint32_t)rq >> 8, f = (uint32_t)rq & 255u, j = i < 127u ? i + 1u : i;
+        eg.k = (int32_t)LPG_K[i] + (int32_t)(((int64_t)((int32_t)LPG_K[j] - (int32_t)LPG_K[i]) * (int32_t)f) >> 8);
+        eg.comp = (int32_t)LPG_COMP[i] + ((((int32_t)LPG_COMP[j] - (int32_t)LPG_COMP[i]) * (int32_t)f) >> 8);
+    }
 }
+static void env_params(void) { env_params_r((int32_t)((sys.ring & 127u) << 8)); }
 
 /* the duck: a sudden change (a preset, an FX model or preset, a shimmer preset) made in silence: the UI asks, the
  * output fades out in ~3 ms, the change is made, it fades back in ~15 ms; no plop */
@@ -477,6 +515,8 @@ static void synth_kill(void)
     uint32_t i;
     for (i = 0; i < NVOICE; i++)
         voice[i].stage = ST_OFF;
+    ksm[0].ok = ksm[1].ok = 0;                      /* (the knobs: taken at once again) */
+    ksm_epoch++;
     voice_rr = 0;                                   /* (the cycle from the first voice again) */
     seat_next = 0;
 }
@@ -891,8 +931,11 @@ static void synth_render(int32_t *out, uint32_t n)
             synth_sheds++;
         }
     }
-    chua_params();
-    env_params();
+    {
+        int snap = ksm_snap(0);
+        chua_params_part(0, snap);
+        env_params_r(ksm_glide(&ksm[0].v[3], sys.ring, snap));
+    }
     inner = chua_regime(cc.chaos) != REG_OUTER;
     memset(rz_bus, 0, sizeof rz_bus);                   /* the voices into the bus of the resonator they feed */
     memset(dl, 0, sizeof dl);
@@ -934,8 +977,11 @@ static void synth_render(int32_t *out, uint32_t n)
         memset(dl, 0, sizeof dl);
         memset(dr, 0, sizeof dr);
         mask = own = 0;
-        chua_params();                                  /* (the part's sound) */
-        env_params();
+        if (pp) {                                       /* (the part's sound; A's: above) */
+            int snap = ksm_snap(pp);
+            chua_params_part(pp, snap);
+            env_params_r(ksm_glide(&ksm[pp].v[3], sys.ring, snap));
+        }
         inner = chua_regime(cc.chaos) != REG_OUTER;
     }
     for (k = 0; k < NVOICE; k++) {
@@ -1032,6 +1078,8 @@ static void synth_render(int32_t *out, uint32_t n)
                 r[i] = (int32_t)(((int64_t)r[i] * duck_g) >> 12);
             }
             duck_low = (uint8_t)(duck_g == 0);
+            if (duck_low)
+                ksm_epoch++;                     /* (the change is made in silence: the knobs take it at once) */
         }
         for (i = 0; i < n; i++) {
             l[i] = soft_clip(l[i]) * ml >> 12;

@@ -2643,6 +2643,37 @@ int main(int argc, char **argv)
         if (!(mid > 90 && end == 40)) printf("   (FX MIX at the note %u, after %u)\n", mid, end);
         sys.fx_mix = mx0; sys.menv_height = 0; synth_kill();
     }
+    {   /* the knobs glide (no zipper noise): a step of CHAOS, RING, X, LEVEL in between after a block, there in ~100 ms */
+        uint8_t c0 = sys.chaos, r0 = sys.ring, o0 = sys.osc, x0 = sys.np_x, l0 = sys.np_level;
+        int32_t chq1, k1, xs1, gs1, kt, kfrom;
+        int okk;
+        uint32_t vk;
+        synth_kill(); keys_all_off(); sys.arp_on = sys.k_on = 0;
+        sys.osc = 0; sys.chaos = 85; sys.ring = 20;
+        synth_note_on(60, 100); run_ms(20);
+        kfrom = eg.k;
+        sys.chaos = 95; sys.ring = 90;
+        synth_render(buf, CTL);
+        chq1 = cc.chq; k1 = eg.k;
+        run_ms(150);
+        env_params(); kt = eg.k;
+        run_ms(1);
+        okk = chq1 > 85 * 256 && chq1 < 95 * 256 && cc.chq == 95 * 256 && k1 != kfrom && k1 != kt && eg.k == kt;
+        synth_kill();
+        sys.osc = 3; sys.np_x = 20; sys.np_level = 100;
+        synth_note_on(60, 100); run_ms(20);
+        for (vk = 0; vk < NVOICE && voice[vk].stage == ST_OFF; vk++) ;
+        sys.np_x = 100; sys.np_level = 30;
+        synth_render(buf, CTL);
+        xs1 = np_state[vk].xs; gs1 = np_state[vk].gs;
+        run_ms(150);
+        okk &= xs1 > 20 * 258 && xs1 < 100 * 258 && np_state[vk].xs == 100 * 258;
+        okk &= gs1 < (int32_t)NP_GAIN[2] * 100 / 64 && gs1 > (int32_t)NP_GAIN[2] * 30 / 64 &&
+               np_state[vk].gs == (int32_t)NP_GAIN[2] * 30 / 64;
+        check("knobs glide: CHAOS, RING, X, LEVEL in between after a block, there after 150 ms", okk);
+        synth_kill();
+        sys.chaos = c0; sys.ring = r0; sys.osc = o0; sys.np_x = x0; sys.np_level = l0;
+    }
 
     /* MASTER at 0: silence */
     sys.master_q12 = 0;

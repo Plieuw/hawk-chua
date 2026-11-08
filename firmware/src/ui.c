@@ -61,6 +61,7 @@
 #define TRACE_DRAW 640u                  /* points drawn per frame (of chua_trace's TRACE_N) */
 #define PLOT_Y 24u                       /* the plot: 240 x 124 from here */
 #define PLOT_H 124
+enum { US_INITIAL, US_RAINBOW, US_GRADIENT, US_PSYCHE, US_CATS, US_JEZUS, US_COUNT };   /* the UI STYLEs (ui_style.c) */
 #define UI_PALETTE 2u                    /* AMBER (build/gen/ui_palettes.h): an oscilloscope's colours */
 
 static const char *const NOTE_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -1125,6 +1126,7 @@ typedef struct {
     uint8_t k_root;                              /* (9: saved; NOTE QUANT's new list, CHORD once) */
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
     uint8_t menv_target;                         /* (16: saved; before: the pitch) */
+    uint8_t ui_style, ui_motion, ui_backdrop, ui_react;   /* (17: saved; before: INITIAL, 64, 70, 80) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1250,6 +1252,12 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
+        if (s.snd >= 17u) {
+            sys.ui_style = (uint8_t)(s.ui_style % US_COUNT);
+            sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
+            sys.ui_backdrop = (uint8_t)(s.ui_backdrop & 127u);
+            sys.ui_react = (uint8_t)(s.ui_react & 127u);
+        }
         sys.arp_gp = (uint8_t)(s.snd >= 13u ? s.arp_gp % ARP_NGP : 0u);   /* (13: the GATE SEQ; before: the NOTE OFF page's) */
         sys.arp_glen = (uint8_t)(s.snd >= 13u && s.arp_gd <= 8u ? s.arp_gd : 0u);
         if (s.snd >= 8u) {
@@ -1300,9 +1308,13 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 16;
+    s.snd = 17;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
+    s.ui_style = sys.ui_style;
+    s.ui_motion = sys.ui_motion;
+    s.ui_backdrop = sys.ui_backdrop;
+    s.ui_react = sys.ui_react;
     s.arp_slen = sys.arp_slen;
     s.arp_gp = sys.arp_gp;
     s.arp_gd = sys.arp_glen;
@@ -1483,9 +1495,9 @@ static void ui_status(const char *s)
 {
     /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
      * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
-    static const uint8_t LAYER[19] = {1, 1, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2};
-    static const uint8_t COUNT[19] = {2, 2, 2, 2, 0, 2, 2, 3, 0, 2, 0, 0, 2, 2, 2, 3, 3, 2, 2};
-    uint32_t pg = sys.page < 19u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
+    static const uint8_t LAYER[20] = {1, 1, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2, 4};
+    static const uint8_t COUNT[20] = {2, 2, 2, 2, 0, 2, 2, 4, 0, 2, 0, 0, 2, 2, 2, 4, 4, 2, 2, 4};
+    uint32_t pg = sys.page < 20u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
     char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
     if (!ui_changed(T_STATUS, s, sig))
         return;
@@ -1702,6 +1714,7 @@ static void draw_env(void)
 }
 
 #include "fx_art.c"                              /* the FX page's pictures: each model drawn, moving with its sound */
+#include "ui_style.c"                            /* the UI STYLE: palettes and backdrops (GLO's fourth page) */
 
 /* the SHIMMER page's picture (fx_art.c art_shimmer): the room in 3D, the tail's wavefronts spreading and climbing;
  * the tail's level over the last ~4 s (one value a UI frame) is what the wavefronts carry */
@@ -2004,6 +2017,19 @@ static void draw_sound(void)
     cv_text(8, 114, &AF_S, a, sys.bend_range ? T_TEXT : T_DIM);
     cv_blit(0, PLOT_Y);
 }
+/* UI STYLE: the style's name over its own backdrop, what it is, the knobs */
+static void draw_style(void)
+{
+    uint32_t st = sys.ui_style % US_COUNT;
+    cv_begin(240, PLOT_H, T_BG);
+    cv_text(8, 6, &AF_S, "UI STYLE", T_MID);
+    cv_text(9, 27, &AF_M, US_NAME[st], T_BG);   /* (a shadow: it stays readable over any backdrop) */
+    cv_text(10, 28, &AF_M, US_NAME[st], T_BG);
+    cv_text(8, 26, &AF_M, US_NAME[st], T_THEME);
+    cv_text(9, 59, &AF_S, US_WHAT[st], T_BG);
+    cv_text(8, 58, &AF_S, US_WHAT[st], T_TEXT);
+    cv_blit(0, PLOT_Y);
+}
 static void draw_midi(void)
 {
     char a[40], v[12];
@@ -2245,6 +2271,7 @@ static void ui_draw(void)
 {
     char a[40], b[24], v[12];
     uint32_t note = sys.last_note, reg = chua_regime(sys.chaos);
+    style_frame();                               /* (the UI STYLE's moving colours) */
     if (ui_force)
         lcd_fill(0, 0, 240, 240, T_BG);
     str_cpy(a, PRESETS[sys.preset % NPRESETS].name, sizeof a);
@@ -2409,6 +2436,16 @@ static void ui_draw(void)
             ui_cat(b, sizeof b, v);
         ui_cell(T_C3, "3 BEND RANGE", b);
         ui_cell(T_C4, "4", "");
+    } else if (sys.page == 19u) {                /* UI STYLE: the look, its motion, its backdrop */
+        ui_cell(T_C1, "1 STYLE", US_NAME[sys.ui_style % US_COUNT]);
+        fmt_int(v, (int32_t)(sys.ui_motion & 127u));
+        ui_cell(T_C2, "2 MOTION", sys.ui_motion & 127u ? v : "STILL");
+        fmt_int(v, (int32_t)((sys.ui_backdrop & 127u) * 100u / 127u));
+        str_cpy(b, v, sizeof b);
+        ui_cat(b, sizeof b, " %");
+        ui_cell(T_C3, "3 BACKDROP", sys.ui_style % US_COUNT ? b : "-");
+        fmt_int(v, (int32_t)(sys.ui_react & 127u));
+        ui_cell(T_C4, "4 REACT", sys.ui_react & 127u ? v : "OFF");
     } else if (sys.page == 15u) {                /* MULTI: on, part B's channel, its bank, its program */
         ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
         fmt_int(v, sys.ch_b);
@@ -2767,6 +2804,8 @@ static void ui_draw(void)
         draw_multi();
     else if (sys.page == 16u)
         draw_sound();
+    else if (sys.page == 19u)
+        draw_style();
     else if (sys.page == 17u)
         draw_logic();
     else if (sys.page == 18u)
@@ -2905,7 +2944,7 @@ static void ui_leds(void)
         if (inv_seq ? on : sys.k_on || sys.page == 9u || sys.page == 17u)
             led_on(nl, panel.btn[B_SEQ]);
     }
-    if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.multi)   /* (lit: MULTI on too) */
+    if (sys.page == 7u || sys.page == 15u || sys.page == 16u || sys.page == 19u || sys.multi)   /* (lit: MULTI on too) */
         led_on(nl, panel.btn[B_GLO]);
     {   /* SCL (BASIS, ORBIT) while in use: a blink at each note (on its page: lit, dark a moment at each note); LFO
          * follows FREE EG: lit while its curve is over the middle, as the ENV light follows the envelope */
@@ -3312,7 +3351,7 @@ static void ui_input(void)
             ui_force = 1;
             break;
         case B_GLO:                                     /* the MIDI page, the MULTI page, the SOUND page, back */
-            sys.page = sys.page == 7u ? 15u : sys.page == 15u ? 16u : sys.page == 16u ? 0u : 7u;
+            sys.page = sys.page == 7u ? 15u : sys.page == 15u ? 16u : sys.page == 16u ? 19u : sys.page == 19u ? 0u : 7u;
             ui_force = 1;
             break;
         default:
@@ -3429,6 +3468,15 @@ static void ui_input(void)
             sys.k_inv = (uint8_t)(s > 0);
             ui_say(sys.k_inv ? "INVERSE ON" : "INVERSE OFF");
         }
+    } else if (sys.page == 19u) {               /* UI STYLE */
+        if ((s = ui_enc(EN_K1)) != 0) {
+            sys.ui_style = (uint8_t)((sys.ui_style + (s > 0 ? 1u : US_COUNT - 1u)) % US_COUNT);
+            style_apply();
+            ui_hot = 0; ui_hot_ms = fm1_ms;
+        }
+        knob(&sys.ui_motion, EN_K2, 1);
+        knob(&sys.ui_backdrop, EN_K3, 2);
+        knob(&sys.ui_react, EN_K4, 3);
     } else if (sys.page == 16u) {               /* SOUND */
         knob(&sys.spk_bass, EN_K1, 0);
         if ((s = ui_enc(EN_K2)) != 0) {

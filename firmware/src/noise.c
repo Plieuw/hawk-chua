@@ -93,6 +93,9 @@ typedef struct {
     uint32_t menv, mage;                         /* its envelope (0..ENV_MAX), the voice's age it was started for */
     uint8_t mstage;                              /* 0 rising, 1 falling, 2 done */
     int32_t bang;                                /* BIG BANG: the heat left of the note's bang, Q15 */
+    int32_t xs, ys, gs;                          /* X, Y (Q15) and the level (Q12) as smoothed (synth.c: ksm_glide) */
+    uint32_t kage;                               /* the note they were taken at once for */
+    uint8_t kep;                                 /* ksm_epoch then */
 } np_t;
 static np_t np_state[NVOICE];
 #define NP_PNK 24u
@@ -430,7 +433,31 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     np_t *S = &np_state[k];
     int16_t *b = np_buf[k];
     int32_t x = (int32_t)(sys.np_x & 127u) * 258, y = (int32_t)(sys.np_y & 127u) * 258;   /* Q15 0 .. 32766 */
+    int32_t g0, g1;                              /* the level: from, to (this block) */
     uint32_t i, j;
+    {   /* the knobs glide (no zipper noise as they turn: synth.c, ksm_glide); a new note, or a change made in silence,
+         * takes them at once */
+        int32_t gt = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg >= NP_BIGBANG ? 64 : (int32_t)(sys.np_level & 127u)) / 64;
+                                                 /* (BIG BANG, PIANO: their own knobs where LEVEL was: at 64) */
+        if (voice[k].age != S->kage || S->kep != ksm_epoch) {
+            S->kage = voice[k].age;
+            S->kep = ksm_epoch;
+            S->xs = x;
+            S->ys = y;
+            S->gs = gt;
+            g0 = gt;
+        } else {
+            int32_t dx = x - S->xs, dy = y - S->ys, dg = gt - S->gs;
+            S->xs = dx < 24 && dx > -24 ? x : S->xs + dx / 16;
+            S->ys = dy < 24 && dy > -24 ? y : S->ys + dy / 16;
+            dg = dg < 16 && dg > -16 ? dg : dg / 16;
+            g0 = S->gs;
+            S->gs += dg;
+        }
+        g1 = S->gs;
+        x = S->xs;
+        y = S->ys;
+    }
     uint32_t fk[CTL], hgt = sys.menv_target ? 0u : sys.menv_height & 127u, fm = hgt;   /* (on a parameter: keys.c) */
     if (inc > 0x20000000u)                       /* (an eighth of the rate: room for the ratios above it) */
         inc = 0x20000000u;
@@ -848,7 +875,7 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
         break;
     }
     case 30: {  /* BIG BANG: the standard waves from the harmonic series, entropy, the bang, the stretch */
-        int32_t w16[16], e, e2, st = (int32_t)(sys.output & 127u) * 32768 / 127, a;
+        int32_t w16[16], e, e2, st = ksm[voice[k].part & 1u].v[2] * 128 / 127, a;   /* (EXPAND smoothed: synth.c) */
         uint32_t ci[16], seg = (uint32_t)x * 3u, sg = seg >> 15, fr = seg & 32767u, chs = sys.chaos & 127u;
         if (sg > 2u) {
             sg = 2u;
@@ -908,10 +935,11 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     }
     }
 #undef NPF
-    {   /* the level */
-        int32_t g = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg >= NP_BIGBANG ? 64 : (int32_t)(sys.np_level & 127u)) / 64;
-                                                 /* (BIG BANG, PIANO: their own knobs where LEVEL was: at 64) */
-        for (i = 0; i < n; i++)
+    {   /* the level (smoothed above), a ramp through the block */
+        int32_t g = g0, dg = n ? (g1 - g0) / (int32_t)n : 0;
+        for (i = 0; i < n; i++) {
+            g = i + 1u == n ? g1 : g + dg;
             out[i] = np_clip((int32_t)(((int64_t)out[i] * g) >> 12));
+        }
     }
 }
