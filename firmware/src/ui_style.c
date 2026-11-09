@@ -6,12 +6,12 @@
  * answers the sound (the rings flare, the eyes glow).
  *   PSYCHEDELIC   a kaleidoscope spiralling out of the middle, and in it an eye that looks at you: its iris turns
  *                 through the hues, its pupil opens with the sound, it blinks; the blocks round it stay plain
- *   SAIKO         Saiko the husky in fairyland: a pastel dusk over rolling hills, a castle in the air on clouds
- *                 (floating to and fro over 4 bars) with twinkling windows, glowing toadstools, fairies flitting
- *                 about with trails of light; Saiko sits in a crown of flowers, blue eyes glowing with the sound:
- *                 tail wagging (faster as it gets louder), ears perking up at each note, tongue out while you play,
- *                 sparkles from the crown; a rainbow over it all, and it rains ketamine: little K's and crystals
- *                 drifting down, more of them as the sound gets louder
+ *   SAIKO         Saiko the husky running through fairyland, the world in layers going by at the tempo: the sky
+ *                 still (stars, the moon at night, a rainbow), behind it far hills and a castle in the air on clouds
+ *                 (a screen's width each 8 bars), before them rolling hills with glowing toadstools (each 4 bars),
+ *                 the path under his feet (each 4 beats); he gallops a stride a beat, dust behind him, his blue
+ *                 eyes glowing with the sound, ears up at each note, tongue out while you play, sparkles from his
+ *                 head; fairies flitting, and it rains ketamine: little K's and crystals, more as it gets louder
  * While the ARP, the SEQ or the TAPE plays, everything grooves: holograms rise on each step (a ring of light, a
  * spinning hexagon glitching upward), a display of the eight steps across the top, a scan line down the screen, the
  * flashes pulse on the tempo's beat between the notes too, Saiko hops. The envelope plays them too (the rings crowd
@@ -423,45 +423,42 @@ static void us_psyche(uint32_t h)
     us_holo(120, cy - 20);
 }
 
-static uint32_t us_bars4(uint32_t *cyc)          /* where in a run of 4 bars (16 beats of the tempo) we are, ms; which run */
-{
-    uint32_t bpm = arp_bpm_now(), beat = 60000u / (bpm < 20u ? 20u : bpm), per = 16u * beat;
-    if (cyc)
-        *cyc = fm1_ms / per;
-    return fm1_ms % per;
-}
-/* Saiko, sitting: 20 x 19, drawn twice the size. G the grey coat, W white, P the ears' insides, F the crown of
- * flowers, E an eye (husky blue), K the pupils and the nose, M the mouth, L the tongue (out while you play), T the
- * tail (it wags) */
-#define US_DOG_H 19
-static const char *const US_DOG[US_DOG_H] = {
-    "..G.........G.......",
-    "..GG.......GG.......",
-    "..GPG.....GPG.......",
-    "..GPFFFFFFFPG.......",
-    "..GGGGGGGGGGG.......",
-    ".GGWWGGGGGWWGG......",
-    ".GWEKWGGGWKEWG......",
-    ".GWWWWWGWWWWWG......",
-    "..WWWWWKWWWWW.......",
-    "..WWWWMMMWWWW.......",
-    "...WWWWLWWWW....TT..",
-    "....WWWWWWW....T..T.",
-    "...GWWWWWWWG...T....",
-    "..GGWWWWWWWGG..T....",
-    "..GGWWWWWWWGGTT.....",
-    ".GGGWWWWWWWGGG......",
-    ".GGWWWWGWWWWGG......",
-    ".GGWW..G..WWGG......",
-    "..WW.......WW.......",
+/* Saiko, running (side on, to the right): 28 x 15. G the grey coat, W white, P the ears' insides, E an eye (husky
+ * blue), K the pupil and the nose, M the mouth, L the tongue (out while you play), T the tail (curled over, it
+ * wags); the legs (rows 11 .. 14) in four frames of a gallop */
+#define US_DOG_W 28
+static const char *const US_DOG[11] = {
+    "...................G..G.....",
+    "..................GPGGPG....",
+    "..TT..............GGGGGGG...",
+    ".T..T............GGGEKGGG...",
+    ".T...T...........GGWWWWWWK..",
+    "..T..T...........GWWWWWWWW..",
+    "...TT.GGGGGGGGGGGGWWWWMM....",
+    "....GGGGGGGGGGGGGGGWWWWL....",
+    "...GGGGGGGGGGGGGGGGWWWW.....",
+    "...GGWWWWWWWWWWWWWGWWW......",
+    "....WWWWWWWWWWWWWWWWW.......",
 };
+static const char *const US_LEGS[4][4] = {
+    {"...GG.............WW........", "..GG...............WW.......", ".WW.................WW......", "WW...................WW....."},   /* stretched */
+    {"....GG...........WW.........", "...GG.............W.........", "...WW............WW.........", "..WW............WW.........."},   /* passing */
+    {"....GGG.........WWW.........", ".....GW.........WW..........", ".....WW.........WW..........", "....WW.........WW..........."},   /* gathered */
+    {"....GG...........WW.........", "...GG.............W.........", "...WW............WW.........", "..WW............WW.........."},
+};
+/* a layer's scroll: how far (0 .. 239 px) through one screen's width it is, a width each n beats of the tempo */
+static int32_t us_scroll(uint32_t beats)
+{
+    uint32_t bpm = arp_bpm_now(), per = beats * (60000u / (bpm < 20u ? 20u : bpm));
+    return (int32_t)((uint64_t)(fm1_ms % per) * 240u / per);
+}
 static void us_saiko(uint32_t h)
 {
     static uint32_t ons_seen, note_t = 0u - 100000u;
-    int32_t k = us_k(), rc = us_react(), i, S = 5, x0 = 120 - 15 * S / 2, y0 = (int32_t)h - S * US_DOG_H - 1 - us_hop(10), r, c;   /* (the main
-                                                  * character: in the middle, five times the size) */
+    int32_t k = us_k(), rc = us_react(), i, S = 4, r, c;
     uint32_t t = us_t(), now = fm1_ms, since;
-    int32_t hz = (int32_t)h * 62 / 100;
+    int32_t hz = (int32_t)h * 52 / 100, gy = (int32_t)h - 14;   /* (the horizon; the ground's top) */
+    int32_t sb = us_scroll(32u), sm = us_scroll(16u), sg = us_scroll(4u);   /* the layers: 8 bars, 4 bars, 4 beats */
     if (synth_ons != ons_seen) {
         ons_seen = synth_ons;
         note_t = now;
@@ -470,20 +467,23 @@ static void us_saiko(uint32_t h)
     /* the season (the oscillator): dusk, night, snow, autumn: the sky, the hills, what falls */
     static const uint16_t SKY[4][2] = {{US_RGB(110, 70, 170), US_RGB(255, 168, 210)}, {US_RGB(14, 14, 60), US_RGB(70, 50, 140)},
                                        {US_RGB(120, 150, 200), US_RGB(225, 235, 250)}, {US_RGB(150, 70, 110), US_RGB(255, 170, 90)}};
-    static const uint16_t HILL[4][2] = {{US_RGB(150, 230, 190), US_RGB(70, 170, 120)}, {US_RGB(40, 90, 90), US_RGB(20, 60, 60)},
-                                        {US_RGB(240, 245, 255), US_RGB(190, 210, 240)}, {US_RGB(220, 140, 60), US_RGB(160, 80, 40)}};
+    static const uint16_t HILL[4][3] = {{US_RGB(170, 220, 230), US_RGB(110, 200, 150), US_RGB(60, 140, 90)},
+                                        {US_RGB(50, 70, 110), US_RGB(40, 90, 90), US_RGB(20, 50, 50)},
+                                        {US_RGB(225, 235, 250), US_RGB(240, 245, 255), US_RGB(190, 205, 235)},
+                                        {US_RGB(200, 150, 140), US_RGB(220, 140, 60), US_RGB(130, 70, 40)}};
     uint32_t sea = us_var() & 3u, look = (us_var() >> 2) % 3u;
-    us_gradient((uint32_t)hz + 6u, SKY[sea][0], SKY[sea][1], 0);
+    /* ---- the sky: still ---- */
+    us_gradient((uint32_t)hz + 10u, SKY[sea][0], SKY[sea][1], 0);
     us_stars(sea == 1u ? 60u : 22u, 2, sea == 1u ? hz : hz / 2, US_RGB(255, 250, 230));
     if (sea == 1u) {                             /* (the night: a full moon) */
         us_disc(214, 16, 9, ux_mix(T_BG, US_RGB(255, 250, 220), 40 + k / 2));
         cv_pset(211, 14, ux_mix(T_BG, US_RGB(210, 205, 190), 40 + k / 2));
         cv_pset(216, 19, ux_mix(T_BG, US_RGB(210, 205, 190), 40 + k / 2));
     }
-    {   /* a rainbow, over the hills: seven bands, the sky showing through a little */
-        int32_t cx = 120, cy = hz + 26, R0 = 46 + us_kn(1) / 5, bw = 3, dy, b;   /* (KNOB 2: how big) */
-        for (dy = -(R0 + 7 * bw); dy < hz + 6 - cy && dy <= 0; dy++) {
-            int32_t y = cy + dy, sky = y * 100 / (hz + 5);
+    {   /* a rainbow, over it all: seven bands, the sky showing through a little */
+        int32_t cx = 120, cy = hz + 30, R0 = 46 + us_kn(1) / 5, bw = 3, dy, b;   /* (KNOB 2: how big) */
+        for (dy = -(R0 + 7 * bw); dy < hz + 10 - cy && dy <= 0; dy++) {
+            int32_t y = cy + dy, sky = y * 100 / (hz + 9);
             uint16_t base = ux_mix(T_BG, ux_mix(SKY[sea][0], SKY[sea][1], sky < 0 ? 0 : sky > 100 ? 100 : sky), k);
             if (y < 0)
                 continue;
@@ -494,55 +494,64 @@ static void us_saiko(uint32_t h)
                 xo = us_isqrt(ro * ro - dy * dy);
                 xi = dy * dy < ri * ri ? us_isqrt(ri * ri - dy * dy) : 0;
                 {
-                    uint16_t c = ux_mix(base, us_hue((uint32_t)b * 36u, 255u), 30 + k * 40 / 100);
-                    cv_rect(cx - xo, y, xo - xi, 1, c);
-                    cv_rect(cx + xi + 1, y, xo - xi, 1, c);
+                    uint16_t c2 = ux_mix(base, us_hue((uint32_t)b * 36u, 255u), 30 + k * 40 / 100);
+                    cv_rect(cx - xo, y, xo - xi, 1, c2);
+                    cv_rect(cx + xi + 1, y, xo - xi, 1, c2);
                 }
             }
         }
     }
-    {   /* the castle in the air, on clouds: it floats to and fro over 4 bars (the tempo's), bobbing; towers with
-         * pointed roofs, windows that twinkle, the clouds puffing under it */
-        static const int8_t TX[5] = {4, 16, 28, 40, 52}, TH[5] = {18, 28, 36, 26, 16};
-        uint32_t ph4 = us_bars4(0), bpm = arp_bpm_now(), per = 16u * (60000u / (bpm < 20u ? 20u : bpm));
-        uint32_t turn = (uint32_t)((uint64_t)ph4 * 0xFFFFFFFFu / per);   /* (the 4 bars: one turn) */
-        int32_t ox = 12 + us_sin(turn, 12), base = hz - 20 + us_sin(turn * 2u, 4);
-        uint16_t wall = ux_mix(T_BG, US_RGB(196, 150, 220), k * 80 / 100);
-        cv_rect(ox, base - 12, 58, 12, wall);
-        for (i = 0; i < 5; i++) {
-            int32_t tx = ox + TX[i], th = TH[i], y;
-            cv_rect(tx - 4, base - th, 9, th, wall);
-            for (y = 0; y < 8; y++)              /* (its roof) */
-                cv_rect(tx - 4 + y / 2, base - th - 8 + y, 9 - y, 1, ux_mix(T_BG, US_RGB(230, 120, 190), k * 85 / 100));
-            if ((us_hash((uint32_t)i * 5u + now / 700u) & 3u) != 0u)
-                cv_rect(tx - 1, base - th + 4, 2, 3, ux_mix(T_BG, US_RGB(255, 236, 140), 40 + k / 2));
-        }
-        cv_rect(ox + 25, base - 7, 6, 7, ux_mix(T_BG, US_RGB(120, 70, 140), k));   /* (the gate) */
-        for (i = 0; i < 7; i++) {                /* the clouds: puffs under it, breathing, a pink shade below */
-            int32_t px = ox - 6 + i * 11, py = base + 2 + (i & 1) * 3, pr = 6 + (i % 3) * 2 + us_sin((turn * 4u) + (uint32_t)i * 0x24924924u, 2);
-            us_disc(px, py + 2, pr, ux_mix(T_BG, US_RGB(255, 190, 220), 40 + k / 2));
-            us_disc(px, py, pr, ux_mix(T_BG, US_RGB(255, 252, 255), 50 + k / 2));
-        }
-        for (i = 0; i < 3; i++) {                /* (a few wisps drifting off behind) */
-            int32_t wx = ox - 14 - i * 12 - (int32_t)((ph4 / 40u + (uint32_t)i * 30u) % 30u), wy = base + 6 + i * 2;
-            us_disc(wx, wy, 3 - i / 2, ux_mix(T_BG, US_RGB(255, 252, 255), 35 + k / 3 - i * 8));
-        }
-    }
-    {   /* two rolling hills, mint and deeper green */
+    /* ---- the back: far hills and the castle in the air on its clouds, a screen each 8 bars ---- */
+    {
         int32_t x;
         for (x = 0; x < 240; x++) {
-            int32_t y1 = hz + us_sin(((uint32_t)x * 2u + 40u) << 23, 6), y2 = hz + 12 + us_sin(((uint32_t)x * 3u + 170u) << 22, 7);
-            cv_rect(x, y1, 1, (int32_t)h - y1, ux_mix(T_BG, HILL[sea][0], k * 75 / 100));
-            cv_rect(x, y2, 1, (int32_t)h - y2, ux_mix(T_BG, HILL[sea][1], k * 80 / 100));
-            if (((uint32_t)x * 7u + (uint32_t)y2) % 11u == 0u)   /* (little flowers in the grass) */
-                cv_pset(x, y2 + 4 + (x % 5), ux_mix(T_BG, us_hue((uint32_t)x * 37u, 255u), 40 + k / 2));
+            uint32_t w = (uint32_t)(x + sb);     /* (the world's x: the hills repeat each 240) */
+            int32_t y1 = hz + us_sin(w * 0x01111111u * 2u, 6) + us_sin(w * 0x01111111u * 5u + 0x40000000u, 3);
+            cv_rect(x, y1, 1, gy - y1, ux_mix(T_BG, HILL[sea][0], k * 70 / 100));
         }
     }
-    {   /* glowing toadstools: red caps with white dots, the glow breathing with the sound */
-        static const int16_t MX[4] = {20, 44, 200, 224};
+    {
+        static const int8_t TX[5] = {4, 16, 28, 40, 52}, TH[5] = {18, 28, 36, 26, 16};
+        int32_t ox = 150 - sb, base = hz - 16, rep2;
+        uint16_t wall = ux_mix(T_BG, US_RGB(196, 150, 220), k * 80 / 100);
+        for (rep2 = 0; rep2 < 2; rep2++, ox += 240) {   /* (and its next turn, coming in from the right) */
+            if (ox < -80 || ox > 250)
+                continue;
+            for (i = 0; i < 7; i++) {            /* the clouds under it, breathing, a pink shade below */
+                int32_t px = ox - 6 + i * 11, py = base + 2 + (i & 1) * 3, pr = 6 + (i % 3) * 2 + us_sin((t * 6u) + (uint32_t)i * 0x24924924u, 2);
+                us_disc(px, py + 2, pr, ux_mix(T_BG, US_RGB(255, 190, 220), 40 + k / 2));
+                us_disc(px, py, pr, ux_mix(T_BG, US_RGB(255, 252, 255), 50 + k / 2));
+            }
+            cv_rect(ox, base - 12, 58, 12, wall);
+            for (i = 0; i < 5; i++) {
+                int32_t tx = ox + TX[i], th = TH[i], y;
+                cv_rect(tx - 4, base - th, 9, th, wall);
+                for (y = 0; y < 8; y++)          /* (its roofs) */
+                    cv_rect(tx - 4 + y / 2, base - th - 8 + y, 9 - y, 1, ux_mix(T_BG, US_RGB(230, 120, 190), k * 85 / 100));
+                if ((us_hash((uint32_t)i * 5u + now / 700u) & 3u) != 0u)
+                    cv_rect(tx - 1, base - th + 4, 2, 3, ux_mix(T_BG, US_RGB(255, 236, 140), 40 + k / 2));
+            }
+            cv_rect(ox + 25, base - 7, 6, 7, ux_mix(T_BG, US_RGB(120, 70, 140), k));   /* (the gate) */
+        }
+    }
+    /* ---- the middle: rolling hills and glowing toadstools, a screen each 4 bars ---- */
+    {
+        int32_t x;
+        for (x = 0; x < 240; x++) {
+            uint32_t w = (uint32_t)(x + sm);
+            int32_t y2 = hz + 14 + us_sin(w * 0x01111111u * 3u, 7);
+            cv_rect(x, y2, 1, gy - y2, ux_mix(T_BG, HILL[sea][1], k * 80 / 100));
+            if ((w * 7u + (uint32_t)y2) % 11u == 0u)   /* (little flowers in the grass) */
+                cv_pset(x, y2 + 4 + (int32_t)(w % 5u), ux_mix(T_BG, us_hue(w * 37u, 255u), 40 + k / 2));
+        }
+    }
+    {
+        static const int16_t MX[4] = {20, 80, 150, 205};
         static const int8_t MS[4] = {6, 4, 5, 4};
         for (i = 0; i < 4; i++) {
-            int32_t mx = MX[i], sz = MS[i], my = (int32_t)h - 6 - (i & 1) * 4, gl = 15 + rc / 25 + us_sin((t * 3u + (uint32_t)i * 60u) << 22, 8);
+            int32_t mx = MX[i] - sm, sz = MS[i], my = gy - 2 - (i & 1) * 3, gl = 15 + rc / 25 + us_sin((t * 3u + (uint32_t)i * 60u) << 22, 8);
+            if (mx < -12)
+                mx += 240;
             us_disc(mx, my - sz, sz + 4, ux_mix(ux_mix(T_BG, HILL[sea][1], k * 80 / 100), US_RGB(255, 170, 220), gl * k / 100));
             cv_rect(mx - 1, my - sz, 3, sz + 2, ux_mix(T_BG, US_RGB(255, 240, 220), 40 + k / 2));
             for (r = 0; r <= sz; r++)            /* (the cap: a half disc) */
@@ -551,6 +560,25 @@ static void us_saiko(uint32_t h)
             cv_pset(mx - sz / 2, my - sz - sz / 2, US_RGB(255, 255, 255));
             cv_pset(mx + sz / 2, my - sz - 1, US_RGB(255, 255, 255));
             cv_pset(mx, my - 2 * sz + 1, US_RGB(255, 255, 255));
+        }
+    }
+    /* ---- the ground under him: a path with grass, stones and flowers, a screen each 4 beats ---- */
+    {
+        int32_t x;
+        uint16_t soil = ux_mix(T_BG, HILL[sea][2], k * 85 / 100), edge = ux_mix(T_BG, ux_mix(HILL[sea][1], US_RGB(255, 255, 255), 30), k * 85 / 100);
+        cv_rect(0, gy, 240, (int32_t)h - gy, soil);
+        cv_rect(0, gy, 240, 2, edge);
+        for (x = 0; x < 240; x++) {
+            uint32_t w = (uint32_t)(x + sg), hs = us_hash(w);
+            if (w % 12u == 0u) {                 /* (tufts of grass) */
+                cv_pset(x, gy - 1, edge); cv_pset(x + 1, gy - 2, edge); cv_pset(x + 2, gy - 1, edge);
+            }
+            if ((hs & 63u) == 0u)                /* (a flower) */
+                cv_rect(x, gy - 3, 2, 2, ux_mix(T_BG, us_hue(hs >> 8, 255u), 60 + k / 3));
+            if ((hs & 31u) == 5u)                /* (a stone in the path) */
+                cv_rect(x, gy + 5 + (int32_t)((hs >> 8) % 6u), 3, 2, ux_mix(soil, US_RGB(255, 255, 255), 20));
+            if (w % 24u == 0u)                   /* (the path's ruts, rushing by) */
+                cv_rect(x, gy + 4, 8, 1, ux_mix(soil, US_RGB(0, 0, 0), 25));
         }
     }
     for (i = 0; i < 2 + us_kn(0) / 18; i++) {   /* fairies, flitting, a trail of light behind each (KNOB 1: how many) */
@@ -603,7 +631,7 @@ static void us_saiko(uint32_t h)
             } else
                 cv_rect(x, y, 2 + (int32_t)(hs & 1u), 2, ux_mix(T_BG, (hs >> 8) & 1u ? US_RGB(230, 110, 40) : US_RGB(200, 60, 40), 50 + k / 2));
         }
-    us_visitor(h, 6, hz - 10);
+    us_visitor(h, 6, hz - 14);
     {   /* his own fairy, flying where the oscillator's signal goes, a sparkling trail */
         static int32_t px[12], py[12];
         static uint32_t pn;
@@ -618,78 +646,95 @@ static void us_saiko(uint32_t h)
         cv_pset(fx - 3, fy - 2 - (int32_t)((fm1_ms / 50u) & 1u), US_RGB(200, 240, 255));
         cv_pset(fx + 3, fy - 2 - (int32_t)((fm1_ms / 50u) & 1u), US_RGB(200, 240, 255));
     }
-    {   /* Saiko */
+    {   /* Saiko, running: a gallop of four frames, one stride a beat (with the ground), his body rising and falling
+         * with it; on the ARP's and SEQ's steps a leap */
         int at, env = us_env(&at);               /* (the envelope: the wag's width, the ears up in the attack, a howl) */
         int perk = since < 350u || at, tongue = since < 1500u || rc > 80, blink = (now % 3700u) < 130u, howl = env > 70;
-        int32_t wag = us_sin(now * (4u + (uint32_t)rc / 40u) << 20, 2 + env / 30);
+        uint32_t bpm = arp_bpm_now(), beat = 60000u / (bpm < 20u ? 20u : bpm), fr = (now % beat) * 4u / beat;
+        int32_t bob = fr == 0u ? -S : fr == 2u ? S / 2 : 0;   /* (up stretched, down gathered) */
+        int32_t x0 = 120 - US_DOG_W * S / 2, y0 = gy - 15 * S + 2 + bob - us_hop(14);
+        int32_t wag = us_sin(now * (4u + (uint32_t)rc / 40u) << 20, 1 + env / 40);
         uint16_t grey = ux_mix(T_BG, US_RGB(120, 128, 150), 45 + k * 55 / 100);
         uint16_t white = ux_mix(T_BG, US_RGB(250, 250, 255), 45 + k * 55 / 100);
+        uint16_t rim = ux_mix(T_BG, US_RGB(255, 245, 230), 30 + k / 4);
         static const uint16_t FL[4] = {US_RGB(255, 120, 190), US_RGB(255, 230, 90), US_RGB(140, 210, 255), US_RGB(255, 255, 255)};
-        us_disc(x0 + 8 * S, (int32_t)h + 3, 9 * S, ux_mix(T_BG, HILL[sea][1], k * 60 / 100));   /* (his shadow on the hill) */
-        {   /* a soft rim of light round him first */
-            uint16_t rim = ux_mix(T_BG, US_RGB(255, 245, 230), 30 + k / 4);
-            for (r = 0; r < US_DOG_H; r++)
-                for (c = 0; c < 20; c++)
-                    if (US_DOG[r][c] != '.') {
-                        int32_t xs = US_DOG[r][c] == 'T' ? c + wag * (15 - r) / 3 : c, ys = r <= 1 && perk ? r - 1 : r;
-                        cv_rect(x0 + xs * S - 1, y0 + ys * S - 1, S + 2, S + 2, rim);
-                    }
+        int32_t pass;
+        uint16_t soil = ux_mix(T_BG, HILL[sea][2], k * 85 / 100);
+        {   /* his shadow on the path: flat, smaller as he leaps */
+            int32_t sw = 11 * S - us_hop(14), j;
+            for (j = 0; j < 3; j++)
+                cv_rect(120 - sw + j * 3, gy + 1 + j, 2 * (sw - j * 3), 1, ux_mix(soil, US_RGB(0, 0, 0), 35 - j * 8));
         }
-        for (r = 0; r < US_DOG_H; r++)
-            for (c = 0; c < 20; c++) {
-                char p = US_DOG[r][c];
-                uint16_t col;
-                int32_t xs = c, ys = r;
-                if (p == '.')
-                    continue;
-                if (r <= 1 && perk)              /* (the ears up at a note) */
-                    ys = r - 1;
-                switch (p) {
-                case 'G': col = grey; break;
-                case 'P': col = ux_mix(T_BG, US_RGB(255, 170, 200), 45 + k / 2); break;
-                case 'F': col = look == 2u ? grey : ux_mix(T_BG, FL[(c + (int32_t)(t / 8u) + us_kn(2) / 32) & 3], 50 + k / 2); break;
-                case 'E': col = blink ? grey : ux_mix(US_RGB(70, 160, 255), US_RGB(190, 245, 255), rc / 10); break;
-                case 'K': col = r == 6 && blink ? grey : US_RGB(20, 20, 30); break;
-                case 'M': col = howl ? US_RGB(40, 20, 40) : ux_mix(T_BG, US_RGB(60, 50, 70), 70); break;
-                case 'L': col = tongue ? US_RGB(255, 110, 150) : white; break;
-                case 'T': xs = c + wag * (15 - r) / 3; col = r <= 11 ? white : grey; break;
-                default: col = white; break;
+        for (i = 0; i < 5; i++) {            /* (dust kicked up behind him, flying back with the ground) */
+            uint32_t a2 = (now + (uint32_t)i * (beat / 5u)) % beat;
+            int32_t dx = x0 + 2 * S - (int32_t)(a2 * 40u / beat), dy = gy - 2 - (int32_t)(a2 * 8u / beat);
+            us_disc(dx, dy, 1 + (int32_t)(a2 * 3u / beat), ux_mix(soil, US_RGB(255, 245, 230), 55 - (int32_t)(a2 * 50u / beat)));
+        }
+        for (pass = 0; pass < 2; pass++)         /* (a soft rim of light first, then him) */
+            for (r = 0; r < 15; r++)
+                for (c = 0; c < US_DOG_W; c++) {
+                    char p = r < 11 ? US_DOG[r][c] : US_LEGS[fr][r - 11][c];
+                    uint16_t col;
+                    int32_t xs = c, ys = r;
+                    if (p == '.')
+                        continue;
+                    if (r <= 1 && perk)          /* (the ears up at a note) */
+                        ys = r - 1;
+                    if (p == 'T')
+                        ys = r + wag * (6 - r) / 4 - 1;   /* (the tail wags up and down) */
+                    if (!pass) {
+                        cv_rect(x0 + xs * S - 1, y0 + ys * S - 1, S + 2, S + 2, rim);
+                        continue;
+                    }
+                    switch (p) {
+                    case 'G': col = grey; break;
+                    case 'P': col = ux_mix(T_BG, US_RGB(255, 170, 200), 45 + k / 2); break;
+                    case 'E': col = blink ? grey : ux_mix(US_RGB(70, 160, 255), US_RGB(190, 245, 255), rc / 10); break;
+                    case 'K': col = r == 3 && blink ? grey : US_RGB(20, 20, 30); break;
+                    case 'M': col = howl ? US_RGB(40, 20, 40) : ux_mix(T_BG, US_RGB(60, 50, 70), 70); break;
+                    case 'L': col = tongue ? US_RGB(255, 110, 150) : white; break;
+                    case 'T': col = r <= 3 ? white : grey; break;
+                    default: col = white; break;
+                    }
+                    cv_rect(x0 + xs * S, y0 + ys * S, S, S, col);
                 }
-                cv_rect(x0 + xs * S, y0 + ys * S, S, S, col);
-            }
-        if (howl) {                              /* the howl: the mouth open, rings of sound rising from it (as loud as the envelope) */
-            int32_t j, mx = x0 + 7 * S + S / 2, my = y0 + 9 * S;
-            cv_rect(x0 + 6 * S, y0 + 9 * S, 3 * S, 2 * S, US_RGB(40, 20, 40));
+        if (tongue && !howl) {                   /* (the tongue flapping out behind his jaw) */
+            cv_rect(x0 + 23 * S, y0 + 7 * S, S, S, US_RGB(255, 110, 150));
+            cv_rect(x0 + 23 * S - (fr & 1u ? 2 : 0), y0 + 8 * S, S, S, US_RGB(255, 110, 150));
+        }
+        if (howl) {                              /* the howl: the jaw open, rings of sound rising from it */
+            int32_t j, mx = x0 + 24 * S, my = y0 + 6 * S;
+            cv_rect(x0 + 22 * S, y0 + 6 * S, 3 * S, S + 1, US_RGB(40, 20, 40));
             for (j = 0; j < 3; j++) {
                 int32_t rr = 6 + j * 7 + (int32_t)((now / 40u) % 7u), m;
                 uint16_t wc = ux_mix(T_BG, US_RGB(255, 240, 255), (env - 50) * 2 - j * 20);
-                for (m = -10; m <= 10; m++)      /* (an arc over the head, opening upward) */
-                    cv_pset(mx + us_sin((uint32_t)m * (1u << 25), rr), my - 4 * S - us_sin((uint32_t)m * (1u << 25) + (1u << 30), rr) / 2, wc);
+                for (m = -8; m <= 8; m++)        /* (an arc ahead of him, opening up and forward) */
+                    cv_pset(mx + us_sin((uint32_t)m * (1u << 25) + (1u << 29), rr), my - us_sin((uint32_t)m * (1u << 25) + (1u << 29) + (1u << 30), rr), wc);
             }
-        } else if (tongue)                       /* (the tongue hangs a little further) */
-            cv_rect(x0 + 7 * S, y0 + 11 * S, S, S, US_RGB(255, 110, 150));
-        if (look == 1u) {                        /* shades: two dark lenses on a bar, a glint */
-            cv_rect(x0 + 2 * S, y0 + 6 * S - 1, 11 * S, 2, US_RGB(20, 20, 30));
-            cv_rect(x0 + 2 * S, y0 + 6 * S - 1, 4 * S, 2 * S + 1, US_RGB(20, 20, 30));
-            cv_rect(x0 + 9 * S, y0 + 6 * S - 1, 4 * S, 2 * S + 1, US_RGB(20, 20, 30));
-            cv_rect(x0 + 3 * S, y0 + 6 * S, 2, 1, ux_mix(US_RGB(20, 20, 30), US_RGB(140, 220, 255), 70 + rc / 20));
-            cv_rect(x0 + 10 * S, y0 + 6 * S, 2, 1, ux_mix(US_RGB(20, 20, 30), US_RGB(140, 220, 255), 70 + rc / 20));
-        } else if (look == 2u) {                 /* a party hat, striped, a pompom on top */
-            int32_t j, hh = 7 * S, hx = x0 + 7 * S + S / 2;
+        }
+        if (look == 0u)                          /* the crown of flowers between his ears */
+            for (c = 0; c < 4; c++)
+                cv_rect(x0 + (19 + c) * S, y0 + (perk ? 0 : 1) * S + (c & 1), S, S - 1,
+                        ux_mix(T_BG, FL[(c + (int32_t)(t / 8u) + us_kn(2) / 32) & 3], 60 + k / 2));
+        else if (look == 1u) {                   /* shades over his eye, a glint */
+            cv_rect(x0 + 19 * S, y0 + 3 * S, 4 * S, S + 2, US_RGB(20, 20, 30));
+            cv_rect(x0 + 17 * S, y0 + 3 * S, 2 * S, 1, US_RGB(20, 20, 30));
+            cv_rect(x0 + 20 * S, y0 + 3 * S + 1, 2, 1, ux_mix(US_RGB(20, 20, 30), US_RGB(140, 220, 255), 70 + rc / 20));
+        } else {                                 /* a party hat, striped, a pompom on top */
+            int32_t j, hh = 6 * S, hx = x0 + 21 * S;
             for (j = 0; j < hh; j++) {
                 int32_t w = j * S / 6 + 1;
-                cv_rect(hx - w, y0 + 4 * S - hh + j, 2 * w, 1,
-                        ux_mix(T_BG, (j / S) & 1 ? US_RGB(255, 230, 90) : US_RGB(90, 200, 255), 50 + k / 2));
+                cv_rect(hx - w, y0 + S - hh + j, 2 * w, 1, ux_mix(T_BG, (j / S) & 1 ? US_RGB(255, 230, 90) : US_RGB(90, 200, 255), 50 + k / 2));
             }
-            us_disc(hx, y0 + 4 * S - hh - 2, S, ux_mix(T_BG, US_RGB(255, 120, 190), 60 + k / 2));
+            us_disc(hx, y0 + S - hh - 2, S, ux_mix(T_BG, US_RGB(255, 120, 190), 60 + k / 2));
         }
-        us_holo(x0 + 7 * S, y0 - 4);
-        if (since < 800u) {                      /* sparkles from the crown */
+        us_holo(x0 + 21 * S, y0 - 4);
+        if (since < 800u) {                      /* sparkles from his head */
             uint32_t a = since;
             for (i = 0; i < 8; i++) {
                 uint32_t rr = us_hash((uint32_t)i + note_t);
-                int32_t sx = x0 + 4 * S + (int32_t)(rr % 7u) * S + us_sin((rr + a * 4u) << 22, 3);
-                int32_t sy = y0 + 3 * S - (int32_t)(a * (14u + (rr >> 8) % 20u) / 800u);
+                int32_t sx = x0 + 18 * S + (int32_t)(rr % 6u) * S + us_sin((rr + a * 4u) << 22, 3);
+                int32_t sy = y0 + S - (int32_t)(a * (14u + (rr >> 8) % 20u) / 800u);
                 uint16_t sc = ux_mix(T_BG, FL[i & 3], 100 - (int32_t)(a * 100u / 800u));
                 cv_pset(sx, sy, sc); cv_pset(sx - 1, sy, sc); cv_pset(sx + 1, sy, sc); cv_pset(sx, sy - 1, sc); cv_pset(sx, sy + 1, sc);
             }
