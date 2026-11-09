@@ -315,12 +315,83 @@ static void us_mash(uint32_t h, int32_t dim)    /* dim: how bright, % */
     }
 }
 
+/* PSYCHEDELIC's FX pictures: each model as a simple line drawing, big in the middle, as plain as the eye (the
+ * pictograms of fx_icons.h, and a few more for the reverb's rooms), breathing with the sound and flashing on the
+ * beat, a halo round it like the eye's lids; the oscillator's mash turning behind (us_mash) */
+static const int8_t US_IC_HALL[] = {2, 2, 8, 44, 8, 20, 1, 5, 8, 20, 12, 10, 24, 6, 36, 10, 40, 20, 2, 2, 40, 20, 40, 44,
+                                    2, 2, 2, 44, 46, 44, 1, 3, 18, 44, 24, 32, 30, 44, 0};
+static const int8_t US_IC_TEMPLE[] = {2, 4, 4, 16, 24, 4, 44, 16, 4, 16, 2, 2, 10, 16, 10, 40, 2, 2, 20, 16, 20, 40, 2, 2, 28,
+                                      16, 28, 40, 2, 2, 38, 16, 38, 40, 2, 2, 4, 42, 44, 42, 0};
+static const int8_t US_IC_CATHEDRAL[] = {2, 3, 18, 14, 24, 2, 30, 14, 2, 4, 14, 44, 14, 14, 34, 14, 34, 44, 3, 24, 24, 10,
+                                         1, 3, 20, 44, 24, 36, 28, 44, 2, 2, 8, 44, 40, 44, 0};
+static const int8_t US_IC_MOSQUE[] = {1, 5, 12, 24, 14, 14, 24, 8, 34, 14, 36, 24, 2, 2, 12, 24, 36, 24, 2, 4, 10, 44, 10, 24,
+                                      38, 24, 38, 44, 2, 2, 4, 44, 4, 12, 2, 2, 44, 44, 44, 12, 4, 4, 8, 4, 44, 8, 2, 2, 2, 44,
+                                      46, 44, 0};
+static const int8_t US_IC_ORGAN[] = {2, 2, 6, 44, 6, 22, 2, 2, 12, 44, 12, 14, 2, 2, 18, 44, 18, 8, 2, 2, 24, 44, 24, 4, 2, 2,
+                                     30, 44, 30, 8, 2, 2, 36, 44, 36, 14, 2, 2, 42, 44, 42, 22, 2, 2, 2, 44, 46, 44, 0};
+static const int8_t US_IC_LESLIE[] = {3, 24, 14, 20, 3, 24, 34, 20, 2, 2, 24, 4, 24, 44, 2, 2, 14, 14, 34, 14, 2, 2, 14, 34,
+                                      34, 34, 0};
+static const int8_t US_IC_DELAY[] = {1, 3, 4, 40, 12, 10, 20, 40, 1, 3, 20, 40, 27, 22, 34, 40, 1, 3, 34, 40, 38, 32, 42,
+                                     40, 2, 2, 2, 42, 46, 42, 3, 12, 8, 6, 0};
+/* a pictogram (fx_icons.h's format: half pixels on 48) at (cx, cy), sc/256 px a unit */
+static void us_icon(const int8_t *p, int32_t cx, int32_t cy, int32_t sc, uint16_t c)
+{
+    while (*p) {
+        int32_t op = *p++, n, i, x0 = 0, y0 = 0;
+        if (op == 1 || op == 2) {                /* (a curve or a polyline: lines between its points) */
+            n = *p++;
+            for (i = 0; i < n; i++, p += 2) {
+                int32_t x = cx + (p[0] - 24) * sc / 256, y = cy + (p[1] - 24) * sc / 256;
+                if (i)
+                    cv_line(x0, y0, x, y, c);
+                x0 = x;
+                y0 = y;
+            }
+        } else if (op == 3) {                    /* (a ring) */
+            us_poly(cx + (p[0] - 24) * sc / 256, cy + (p[1] - 24) * sc / 256, p[2] * sc / 512 + 1, 16u, 0, 256, c);
+            p += 3;
+        } else {                                 /* (a dot) */
+            cv_rect(cx + (p[0] - 24) * sc / 256 - 1, cy + (p[1] - 24) * sc / 256 - 1, 3, 3, c);
+            p += 2;
+        }
+    }
+}
+static void us_fx_pic(int verb)
+{
+    static const int8_t *const RZ_IC[RZ_COUNT] = {ICON_BELL, ICON_SITAR, ICON_STRING, ICON_HUMAN, ICON_FLUTE,
+        ICON_SONGBIRD, ICON_HAWK, ICON_TRUMPET, ICON_VIOLIN, ICON_SAX, ICON_DRUM, ICON_PIANO, ICON_PIANO, ICON_SAX,
+        ICON_PIANO, ICON_SAX, ICON_FLUTE};
+    static const int8_t *const SS_IC[SS_COUNT] = {US_IC_HALL, US_IC_TEMPLE, US_IC_CATHEDRAL, US_IC_MOSQUE, ICON_PIANO,
+        ICON_STRING, ICON_VIOLIN, ICON_VIOLIN, ICON_SITAR, ICON_PIANO, ICON_SAX, US_IC_ORGAN, US_IC_LESLIE, US_IC_DELAY,
+        US_IC_DELAY, US_IC_DELAY, ICON_HUMAN};
+    uint32_t m = verb ? sys.sh_space % SS_COUNT : sys.fx_model % RZ_COUNT, t = us_t();
+    int on = verb ? sys.sh_mix != 0 : sys.fx_mix != 0;
+    const int8_t *ic = verb ? SS_IC[m] : RZ_IC[m];
+    int32_t cy = PLOT_H / 2, gf = us_gf(), ev = us_env(0), rc = us_react(), k = us_k();
+    int32_t sc = 400 + ev + rc / 6 + gf / 2 + us_sin(t << 22, 12);   /* (it breathes with the sound) */
+    uint32_t hue = t * 3u + m * 37u + (verb ? 128u : 0u) + (us_groove() ? us_bn * 24u : 0u);
+    uint16_t line = ux_mix(US_RGB(255, 255, 255), us_hue(hue, 255u), 25);
+    uint16_t glow = ux_mix(T_BG, us_hue(hue + 40u, 255u), (on ? 45 : 20) + gf / 6);
+    cv_begin(240, PLOT_H, T_BG);                 /* (the mash behind: the backdrop) */
+    if (!on)
+        line = ux_mix(T_BG, line, 45);
+    us_poly(120, cy, 24 * sc / 256 + 10, 32u, t << 21, 200, glow);   /* (the halo, as the eye's lids) */
+    us_icon(ic, 120, cy + 2, sc, glow);          /* (a glow under the lines) */
+    us_icon(ic, 122, cy, sc, glow);
+    us_icon(ic, 120, cy, sc, ux_mix(T_BG, line, 50 + k / 2));
+    us_icon(ic, 121, cy, sc, ux_mix(T_BG, line, 50 + k / 2));   /* (the lines two wide) */
+    cv_text(8, 4, &AF_S, verb ? SH_SPACE_NAME[m] : RZ_NAME[m], ux_mix(T_BG, us_hue(hue, 255u), 80));
+    if (!on)
+        cv_text(160, 4, &AF_S, "MIX OFF", T_MID);
+    cv_blit(0, PLOT_Y);
+}
+
 static void us_backdrop(uint32_t h)
 {
     if (sys.ui_style % US_COUNT != US_PSYCHE)
         return;
     if (sys.page == 2u || sys.page == 3u)        /* (the FX pages: the oscillator's vectors with the FX's) */
-        us_mash(h, 100);
+        us_mash(h, 40);                          /* (softly: the model's drawing over it stays plain) */
     else
         us_psyche(h);
 }

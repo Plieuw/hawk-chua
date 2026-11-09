@@ -1789,6 +1789,10 @@ static void draw_sh(void)
     art_c = sys.sh_mix ? T_THEME : ux_mix(T_BG, T_THEME, 45);
     art_c2 = ux_mix(T_BG, art_c, 75);
     art_c3 = ux_mix(T_BG, art_c, 45);
+    if (sys.ui_style % US_COUNT == US_PSYCHE) {  /* (PSYCHEDELIC: the space as a simple line drawing) */
+        us_fx_pic(1);
+        return;
+    }
     cv_begin(240, PLOT_H, T_BG);
     art_shimmer(sh_hist, sizeof sh_hist);
     if (!sys.sh_mix)
@@ -2833,8 +2837,12 @@ static void ui_draw(void)
     }
     if (sys.page == 1u)
         draw_env();
-    else if (sys.page == 2u)
-        art_draw();
+    else if (sys.page == 2u) {
+        if (sys.ui_style % US_COUNT == US_PSYCHE)
+            us_fx_pic(0);                        /* (PSYCHEDELIC: the model as a simple line drawing) */
+        else
+            art_draw();
+    }
     else if (sys.page == 3u)
         draw_sh();
     else if (sys.page == 5u)
