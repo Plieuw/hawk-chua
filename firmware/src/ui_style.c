@@ -298,12 +298,35 @@ static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/
 #define US_NP 96                                 /* (the points of a figure) */
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
+/* where the sound is in the stereo field: the voices sounding, each at its seat (SCL's BASIS: MONO all in the
+ * middle), weighted by its envelope; the eye glides there (~0.3 s), never jumps; with nothing sounding it stays */
+static int32_t us_pan_x(void)
+{
+    static int32_t x = 120 << 8;
+    static uint32_t last;
+    int64_t sum = 0, wt = 0;
+    uint32_t i, dt = fm1_ms - last;
+    for (i = 0; i < NVOICE; i++)
+        if (voice[i].stage != ST_OFF) {
+            int64_t e = (int64_t)(voice[i].env >> 16) + 1;
+            sum += e * vpan[i];
+            wt += e;
+        }
+    last = fm1_ms;
+    if (wt && dt) {
+        int32_t tg = (120 + (int32_t)(sum / wt) * 80 / 32767) << 8;   /* (hard left .. right: 40 .. 200) */
+        int32_t k = dt > 300u ? 256 : (int32_t)dt * 256 / 300;
+        x += (int32_t)((int64_t)(tg - x) * k / 256);
+    }
+    return x >> 8;
+}
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
     uint32_t t = us_t(), var = us_var(), beat = us_beatms(), osc = sys.osc % 33u;
     int32_t frac = (int32_t)((fm1_ms % beat) * 256u / beat);   /* (the rings' advance through a beat) */
-    int32_t vx = 120, vy = cy;                   /* (in balance: all round the middle, as sand on a plate) */
+    int32_t vx = us_pan_x(), vy = cy;            /* (in balance round the eye, as sand on a plate; the eye where the
+                                                  * sound is in the stereo field: SCL's BASIS) */
     const uint8_t *fg = US_FIG[osc];
     /* the picture's modifiers, as they are with no knob on them; then each knob's, its value 0 .. 127 */
     int32_t folds = fg[1] < 2u ? 2 : fg[1], shape = US_SHAPE0[fg[0]], gain = 64, fm = 0, det = 0, nr = 9, jit = 0;
