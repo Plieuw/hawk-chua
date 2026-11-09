@@ -217,7 +217,7 @@ static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv)
 
 #define US_TR 14
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
-static void us_mash(uint32_t h, int32_t dim);
+static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
@@ -235,10 +235,14 @@ static void us_psyche(uint32_t h)
     uint32_t hue0 = t * 3u + (uint32_t)us_kn(2) * 2u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
     uint32_t m2 = n * 2u, step = 0xFFFFFFFFu / m2 + 1u, j;
+    int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
     for (i = 0; i < nr; i++) {                   /* far (0) .. near */
         int32_t z = (nr - i) * 256 - frac;       /* (Q8 depth: 1 .. nr) */
         int32_t R = (60 + ev / 2 + rc / 40) * 256 / (z < 64 ? 64 : z), e;
         int32_t ccx = 120 + (vx - 120) * z / (nr * 256), ccy = cy + (vy - cy) * z / (nr * 256);
+        R = R * f / 260;
+        ccx = vx + (ccx - vx) * f / 260;
+        ccy = vy + (ccy - vy) * f / 260;
         uint32_t rot = (tt << 21) + (uint32_t)z * (uint32_t)twist * 4096u;
         int32_t fade = 15 + 85 * (nr * 256 - z) / (nr * 256);
         uint16_t col = ux_mix(T_BG, us_hue(hue0 + (uint32_t)(i * 40), 255u), fade * lit / 100);
@@ -267,13 +271,18 @@ static void us_psyche(uint32_t h)
     if (us_splash)
         return;
     if (sys.page == 0u)                          /* (HOME: the oscillator's own vectors shining through, softly) */
-        us_mash(h, 55);
+        us_mash(h, 55, vx, vy);
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
-        us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, 3 + rc / 150 + ev / 25 + gf / 60, hue0, gf, 0);   /* (it blinks
+        W = W * f / 260;
+        H = W / 2;
+        if (W >= 4)
+            us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, (3 + rc / 150 + ev / 25 + gf / 60) * f / 260, hue0, gf, 0);   /* (it blinks
                                                   * every 2 bars; wide in an attack) */
     }
+    if (op < 32)                                 /* (folded: a point left glowing in the eye, fading) */
+        cv_rect(vx - 1, vy - 1, 3, 3, ux_mix(T_BG, us_hue(hue0, 255u), 40 + op * 2));
 }
 
 /* on the FX pages: the oscillator's picture (its trace turning in 3D, as HOME's INITIAL shows it) mashed up with
@@ -281,7 +290,7 @@ static void us_psyche(uint32_t h)
  * POSITION, the reverb's SHIMMER), each copy its own hue running along the trace (the FX model's colours), as
  * big as the FX's BRIGHTNESS or the reverb's SIZE with the envelope's swell, as long as the DAMPING or the reverb's
  * DECAY lets it trail, turning as fast as the STRUCTURE (the reverb: its TONE); it flashes on the beat */
-static void us_mash(uint32_t h, int32_t dim)    /* dim: how bright, % */
+static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey)   /* dim: how bright, %; (ex, ey): where it folds to */
 {
     static const int16_t *const AX[3] = {chua_trace.x, chua_trace.y, chua_trace.z};
     int verb = sys.page == 3u;
@@ -292,7 +301,8 @@ static void us_mash(uint32_t h, int32_t dim)    /* dim: how bright, % */
     uint32_t spin = (uint32_t)((verb ? sys.sh_tone : sys.fx_struct) & 127u);
     int32_t k = us_k(), cy = (int32_t)h / 2, gf = us_gf(), ev = us_env(0);
     int32_t S = 34 + (int32_t)((verb ? sys.sh_size : sys.fx_bright) & 127u) * 40 / 127 + ev / 5 + us_react() / 60;
-    S = S * (wave_open() + 4) / 260;             /* (the silent collapse, ui.c) */
+    int32_t f = wave_open() + 4, ox = ex + (120 - ex) * f / 260, oy = ey + (cy - ey) * f / 260;
+    S = S * f / 260;                             /* (the silent collapse, ui.c: folded into (ex, ey)) */
     int32_t lit = (25 + k * 35 / 100 + (int32_t)((verb ? sys.sh_mix : sys.fx_mix) & 127u) * 20 / 127) * dim / 100;   /* (under the FX's own) */
     uint32_t ang = (uint32_t)((uint64_t)fm1_ms * (20u + spin) / 160u) & 255u;   /* (the 3D turn) */
     int32_t ca = plot_sin(ang + 64u), sa = plot_sin(ang);
@@ -310,7 +320,7 @@ static void us_mash(uint32_t h, int32_t dim)    /* dim: how bright, % */
             int32_t x = plot_norm(chua_trace.x[at], 0), y = plot_norm(chua_trace.y[at], 1), z = plot_norm(chua_trace.z[at], 2);
             int32_t d = (-x * sa + z * ca) >> 15, u = (x * ca + z * sa) >> 15, v = (y * 29696 + d * 13848) >> 15;
             int32_t ru = (u * cs - v * sn) / 256 * mir, rv = (u * sn + v * cs) / 256;
-            int32_t X = 120 + ru * S / 4096, Y = cy - rv * S / 4096;
+            int32_t X = ox + ru * S / 4096, Y = oy - rv * S / 4096;
             if (i) {
                 uint16_t col = ux_mix(T_BG, us_hue(hue0 + c * 256u / copies + i * 96u / n, 255u),
                                       (20 + 80 * (int32_t)i / (int32_t)n) * lit / 100);
@@ -400,7 +410,7 @@ static void us_backdrop(uint32_t h)
     if (sys.ui_style % US_COUNT != US_PSYCHE)
         return;
     if (sys.page == 2u || sys.page == 3u)        /* (the FX pages: the oscillator's vectors with the FX's) */
-        us_mash(h, 40);                          /* (softly: the model's drawing over it stays plain) */
+        us_mash(h, 40, 120, (int32_t)h / 2);                          /* (softly: the model's drawing over it stays plain) */
     else
         us_psyche(h);
 }
