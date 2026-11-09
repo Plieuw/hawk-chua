@@ -1597,25 +1597,27 @@ static int16_t plot_sin(uint32_t a)                          /* a: 256 per turn,
     return (int16_t)(q & 128u ? -s : s);
 }
 
-/* the silent collapse: with no note sounding the waveform pictures fold in on themselves (graphics only; the sound
- * is not touched), as an old screen's picture shrinks to a point: 256 open .. 0 a point; it opens in ~80 ms when a
- * note starts and folds over ~700 ms once no note is held (its release, a tail: folding away) */
+/* the silent collapse: as the sound dies away the waveform pictures fold in on themselves (graphics only; the
+ * sound is not touched), as an old screen's picture shrinks to a point: 256 open .. 0 a point. It follows the audio
+ * out's level (synth.c's peak), in octaves: a point below ~-54 dB, fully open from ~-24 dB; the release, the reverb's
+ * tail fold it slowly as they fade. It opens in ~60 ms, folds at most ~400 ms a full fold (smoothing the level) */
 static int32_t wave_open(void)
 {
     static int32_t c = 256;
     static uint32_t last;
-    uint32_t dt = fm1_ms - last;
-    int sounding = 0;
-    uint32_t i;
-    for (i = 0; i < NVOICE; i++)                 /* (a note played: a voice's gate open, in its attack or sustain) */
-        sounding |= voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN;
+    uint32_t dt = fm1_ms - last, l = synth_out_lvl, b = 0u;
+    int32_t lg, tg;
+    while (b < 31u && (l >> (b + 1u)))           /* (log2 of the level, Q8: its top bit, then the next 8 bits) */
+        b++;
+    lg = l ? (int32_t)(b * 256u + ((b >= 8u ? l >> (b - 8u) : l << (8u - b)) & 255u)) : 0;
+    tg = (lg - 6 * 256) / 5;                     /* (64 .. 2048: 0 .. 256) */
+    tg = tg < 0 ? 0 : tg > 256 ? 256 : tg;
     if (dt) {
+        int32_t up = (int32_t)(dt > 200u ? 200u : dt) * 256 / 60, dn = (int32_t)(dt > 200u ? 200u : dt) * 256 / 400;
         last = fm1_ms;
-        dt = dt > 200u ? 200u : dt;
-        c += sounding ? (int32_t)dt * 256 / 80 : -(int32_t)dt * 256 / 700;
-        c = c < 0 ? 0 : c > 256 ? 256 : c;
+        c = tg > c ? (c + up < tg ? c + up : tg) : (c - dn > tg ? c - dn : tg);
     }
-    return c * c / 256;                          /* (eased: slow at the end, as it folds to the point) */
+    return c;
 }
 
 static void draw_plot(void)
