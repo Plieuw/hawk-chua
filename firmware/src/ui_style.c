@@ -12,7 +12,8 @@
  *                the DECAY lets them, its pupil opening with the envelope and the sound and narrowing to a slit
  *                with the RING (the resonance), it looks where the signal goes, blinks every 2 bars and wide on
  *                each note's ATTACK
- * On the FX pages the oscillator's own picture instead, mashed up with the FX's vectors (us_mash).
+ * On the FX pages the oscillator's own picture instead, mashed up with the FX's vectors (us_mash); on HOME it
+ * shines through the tunnel, softly, under the eye.
  * KNOB 2 MOTION how fast it moves (0 still), KNOB 3 BACKDROP how strongly it shows, KNOB 4 REACT how much it answers
  * the sound. The rest of the screen stays plain. Saved with the settings. */
 
@@ -170,6 +171,7 @@ static void us_poly(int32_t cx, int32_t cy, int32_t r, uint32_t n, uint32_t a, i
     }
 }
 #define US_TR 14
+static void us_mash(uint32_t h, int32_t dim);
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
@@ -216,6 +218,8 @@ static void us_psyche(uint32_t h)
             for (j = 0; j < m2; j += 2u)
                 cv_line(px[i - 1][j], py[i - 1][j], px[i][j], py[i][j], ux_mix(T_BG, col, 20 + us_kn(3) / 2));
     }
+    if (sys.page == 0u)                          /* (HOME: the oscillator's own vectors shining through, softly) */
+        us_mash(h, 55);
     {   /* the eye at the tunnel's end, in lines */
         uint32_t bar2 = beat * 8u, bp = fm1_ms % bar2;
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
@@ -269,7 +273,7 @@ static void style_ground(void)
  * POSITION, the reverb's SHIMMER), each copy its own hue running along the trace (the FX model's colours), as
  * big as the FX's BRIGHTNESS or the reverb's SIZE with the envelope's swell, as long as the DAMPING or the reverb's
  * DECAY lets it trail, turning as fast as the STRUCTURE (the reverb: its TONE); it flashes on the beat */
-static void us_mash(uint32_t h)
+static void us_mash(uint32_t h, int32_t dim)    /* dim: how bright, % */
 {
     static const int16_t *const AX[3] = {chua_trace.x, chua_trace.y, chua_trace.z};
     int verb = sys.page == 3u;
@@ -280,7 +284,7 @@ static void us_mash(uint32_t h)
     uint32_t spin = (uint32_t)((verb ? sys.sh_tone : sys.fx_struct) & 127u);
     int32_t k = us_k(), cy = (int32_t)h / 2, gf = us_gf(), ev = us_env(0);
     int32_t S = 34 + (int32_t)((verb ? sys.sh_size : sys.fx_bright) & 127u) * 40 / 127 + ev / 5 + us_react() / 60;
-    int32_t lit = 25 + k * 35 / 100 + (int32_t)((verb ? sys.sh_mix : sys.fx_mix) & 127u) * 20 / 127;   /* (under the FX's own) */
+    int32_t lit = (25 + k * 35 / 100 + (int32_t)((verb ? sys.sh_mix : sys.fx_mix) & 127u) * 20 / 127) * dim / 100;   /* (under the FX's own) */
     uint32_t ang = (uint32_t)((uint64_t)fm1_ms * (20u + spin) / 160u) & 255u;   /* (the 3D turn) */
     int32_t ca = plot_sin(ang + 64u), sa = plot_sin(ang);
     if (n < 2u)
@@ -316,7 +320,7 @@ static void us_backdrop(uint32_t h)
     if (sys.ui_style % US_COUNT != US_PSYCHE)
         return;
     if (sys.page == 2u || sys.page == 3u)        /* (the FX pages: the oscillator's vectors with the FX's) */
-        us_mash(h);
+        us_mash(h, 100);
     else
         us_psyche(h);
 }
