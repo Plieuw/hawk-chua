@@ -1473,6 +1473,44 @@ static int np_is_fm(const char *s)              /* a noise program's knob that i
 }
 #define FEG_FM(t) ((t) % FEG_NT == 7u)   /* FREE EG's MOD ENV HEIGHT (green, as its page) */
 
+/* PSYCHEDELIC (UI STYLE): a value's colour by what it is: a number round the hues (0 red .. 127 violet, and on), a
+ * word its own hue, OFF and - quiet; pale enough to read */
+static uint16_t ui_val_hue(const char *v)
+{
+    uint32_t n = 0, h = 0, i, r, g, b, seg, f;
+    int num = 0;
+    if (!v[0] || (v[0] == '-' && !v[1]) || (v[0] == 'O' && v[1] == 'F' && v[2] == 'F' && !v[3]))
+        return T_MID;                            /* (- and OFF) */
+    for (i = 0; v[i] && i < 20u; i++) {
+        if (v[i] >= '0' && v[i] <= '9') {
+            n = n * 10u + (uint32_t)(v[i] - '0');
+            num = 1;
+        } else if (num)
+            break;
+        else if (v[i] != '+' && v[i] != '-' && v[i] != ' ')
+            break;
+    }
+    if (num)
+        h = (n * 2u) & 255u;
+    else
+        for (i = 0; v[i]; i++)
+            h = (h * 31u + (uint8_t)v[i]) & 255u;
+    seg = h * 6u / 256u;                         /* (the hue round six sides, as ui_style.c's us_hue) */
+    f = (h * 6u) % 256u;
+    switch (seg) {
+    case 0: r = 255; g = f; b = 0; break;
+    case 1: r = 255 - f; g = 255; b = 0; break;
+    case 2: r = 0; g = 255; b = f; break;
+    case 3: r = 0; g = 255 - f; b = 255; break;
+    case 4: r = f; g = 0; b = 255; break;
+    default: r = 255; g = 0; b = 255 - f; break;
+    }
+    r = (r * 3u + 255u) / 4u;                    /* (a quarter white: readable on the dark) */
+    g = (g * 3u + 255u) / 4u;
+    b = (b * 3u + 255u) / 4u;
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+
 /* a knob's cell: its label small, its value under it */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
@@ -1487,7 +1525,10 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     cv_at(X[c], Y[c]);
     cv_begin(112, AF_S.h + AF_M.h, T_BG);
     cv_text(0, 0, &AF_S, label, T_MID);
-    cv_text(0, AF_S.h, &AF_M, value, hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);
+    cv_text(0, AF_S.h, &AF_M, value, sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
+                                                                                         : ui_val_hue(value))
+                                   : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);   /* (PSYCHEDELIC: the value's
+                                                  * own colour; just turned: paler) */
     cv_blit(X[c], Y[c]);
     lcd_sync();
 }
