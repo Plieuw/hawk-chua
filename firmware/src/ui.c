@@ -61,7 +61,7 @@
 #define TRACE_DRAW 640u                  /* points drawn per frame (of chua_trace's TRACE_N) */
 #define PLOT_Y 24u                       /* the plot: 240 x 124 from here */
 #define PLOT_H 124
-enum { US_INITIAL, US_RAINBOW, US_GRADIENT, US_PSYCHE, US_CATS, US_JEZUS, US_SAIKO, US_COUNT };   /* the UI STYLEs (ui_style.c) */
+enum { US_INITIAL, US_PSYCHE, US_SAIKO, US_COUNT };   /* the UI STYLEs (ui_style.c) */
 #define UI_PALETTE 2u                    /* AMBER (build/gen/ui_palettes.h): an oscilloscope's colours */
 
 static const char *const NOTE_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -1252,8 +1252,9 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
-        if (s.snd >= 17u) {
-            sys.ui_style = (uint8_t)(s.ui_style % US_COUNT);
+        if (s.snd >= 17u) {                      /* (18: three styles; 17's seven: PSYCHEDELIC 3, SAIKO 6, the rest INITIAL) */
+            sys.ui_style = (uint8_t)(s.snd >= 18u ? s.ui_style % US_COUNT :
+                                     s.ui_style == 3u ? US_PSYCHE : s.ui_style == 6u ? US_SAIKO : US_INITIAL);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
             sys.ui_backdrop = (uint8_t)(s.ui_backdrop & 127u);
             sys.ui_react = (uint8_t)(s.ui_react & 127u);
@@ -1308,7 +1309,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 17;
+    s.snd = 18;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
     s.ui_style = sys.ui_style;
