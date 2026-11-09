@@ -10,8 +10,7 @@
  *   GRADIENT      the sky's colours drifting from one pair to the next (indigo into teal, dusk, deep sea, mint),
  *                 an aurora's curtains waving over it and soft bokeh rising; the curtains flare with the sound
  *   PSYCHEDELIC   a six-fold kaleidoscope spiralling out of the middle, and in it an eye that looks at you: its
- *                 iris turns through the hues, its pupil opens with the sound, it blinks; the curves and the accent
- *                 turn through the hues too
+ *                 iris turns through the hues, its pupil opens with the sound, it blinks; the blocks round it stay plain
  *   MAGIC CATS    a lilac night: a crescent moon, stars, a fish drawn in the stars, a cat, big in the middle, with
  *                 a ball of yarn: its tail swings, it blinks, its eyes follow the notes (low left, high right) and
  *                 glow while the sound rings, each note sends sparkles up from between its ears and makes it bat the
@@ -1250,7 +1249,7 @@ static void us_saiko(uint32_t h)
                 int32_t rr = 6 + j * 7 + (int32_t)((now / 40u) % 7u), m;
                 uint16_t wc = ux_mix(T_BG, US_RGB(255, 240, 255), (env - 50) * 2 - j * 20);
                 for (m = -10; m <= 10; m++)      /* (an arc over the head, opening upward) */
-                    cv_pset(mx + us_sin((uint32_t)(m * 0x02000000), rr), my - 4 * S - us_sin((uint32_t)(m * 0x02000000) + (1u << 30), rr) / 2, wc);
+                    cv_pset(mx + us_sin((uint32_t)m * (1u << 25), rr), my - 4 * S - us_sin((uint32_t)m * (1u << 25) + (1u << 30), rr) / 2, wc);
             }
         } else if (tongue)                       /* (the tongue hangs a little further) */
             cv_rect(x0 + 7 * S, y0 + 11 * S, S, S, US_RGB(255, 110, 150));
@@ -1298,8 +1297,8 @@ static uint16_t us_panel(int32_t x, int32_t y)
         return (y & 3) == 0 ? ux_mix(c, US_RGB(255, 60, 170), 8) : c;
     case US_GRADIENT:                            /* indigo into teal, top to bottom */
         return ux_mix(T_BG, ux_mix(US_RGB(76, 24, 128), US_RGB(0, 92, 110), yy * 100 / 239), 32);
-    case US_PSYCHE:                              /* faint stripes of colour, across */
-        return ux_mix(T_BG, us_hue((uint32_t)(x + y) * 2u, 255u), 13);
+    case US_PSYCHE:                              /* plain: the colour stays in the kaleidoscope */
+        return T_BG;
     case US_CATS:                                /* the lilac night, a star here and there */
         hs = us_hash((uint32_t)(y * 240 + x));
         c = ux_mix(T_BG, US_RGB(60, 34, 100), 25 + yy * 20 / 239);
@@ -1374,10 +1373,8 @@ static void style_frame(void)
     uint32_t st = sys.ui_style % US_COUNT, t = us_t();
     us_beat();
     us_signal();
-    if (st == US_PSYCHE || st == US_RAINBOW) {
+    if (st == US_RAINBOW) {                      /* (PSYCHEDELIC: its colour stays in the kaleidoscope, the blocks plain) */
         ux.theme = us_hue(t * 2u, 255u);
-        if (st == US_PSYCHE)
-            ux.accent = us_hue(t * 2u + 128u, 255u);
         ux.sel = ux_mix(ux.bg, ux.theme, UI_SEL_PCT);
         ux.tint = ux_mix(ux.bg, ux.theme, UI_TINT_PCT);
         ux.lane = ux_mix(ux.surf, ux.theme, 10);
