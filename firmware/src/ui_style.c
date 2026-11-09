@@ -215,9 +215,12 @@ static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv)
     us_eye(ex, ey, W, 1 + (H + 2) * lv / 255, 2 + lv / 40, hue0, us_gf(), lv);
 }
 
-/* the tunnel's figure, per oscillator: a curve that fits the algorithm (the circuit's double scroll a figure of eight,
- * ring and cross mod Lissajous figures of their ratios, clusters roses of their voices, FM clusters spirographs, the
- * glitches and walks cogs, the bit crushers polygons), KNOB 1 stepping its order, KNOB 2 its phase, KNOB 4 its depth */
+/* the tunnel's figure: a cymatic one, a ring of folds round the middle, as an oscillator's wave wrapped round a
+ * circle: its folds (KNOB 1: 2 .. 16, the oscillator's own count to start from), their shape (KNOB 2: sine, triangle,
+ * square, a pulse), the rings' density (KNOB 3: 4 .. 16 rings), its foldback (KNOB 4: the wave folded back on itself,
+ * up to 7 times, as a wavefolder does: inner lobes, sharp ridges). Per oscillator its own start: the circuit's double
+ * scroll, ring and cross mod two counts in a ratio beating against each other (a Lissajous ratio), clusters smooth
+ * petals, the glitches and walks square teeth, the crushers triangles */
 enum { UF_LISS, UF_ROSE, UF_HYPO, UF_EPI, UF_POLY, UF_COG };
 static const uint8_t US_FIG[33][3] = {             /* osc 0 (the circuit) .. 32: family, a, b */
     {UF_LISS, 1, 2},                                                       /* CHUA */
@@ -229,109 +232,93 @@ static const uint8_t US_FIG[33][3] = {             /* osc 0 (the circuit) .. 32:
     {UF_HYPO, 4, 0}, {UF_LISS, 5, 6}, {UF_EPI, 6, 0}, {UF_POLY, 3, 0}, {UF_COG, 7, 0},    /* EXIST. PAIN .. LFREE */
     {UF_EPI, 11, 0}, {UF_ROSE, 2, 0},                                      /* BIG BANG, PIANO */
 };
-/* a point of the figure at th (a full turn 2^32): x, y +-256 */
-static void us_fig(uint32_t fam, uint32_t a, uint32_t b, int32_t d, uint32_t th, uint32_t ph, int32_t *x, int32_t *y)
+static const uint8_t US_SHAPE0[6] = {0, 0, 40, 40, 100, 170};   /* (each family's shape to start from) */
+/* a wave of shape s (0 sine .. 85 triangle .. 170 square .. 255 a narrow pulse) at phase p (a turn 2^32): +-256 */
+static int32_t us_wave(uint32_t p, int32_t s)
 {
-    const uint32_t Q = 1u << 30;
-    int32_t r;
-    switch (fam) {
-    case UF_LISS:                                /* x: a turns, y: b turns, a phase between */
-        *x = us_sin(th * a + ph, 240);
-        *y = us_sin(th * b, 240);
-        return;
-    case UF_ROSE:                                /* a petals, as deep as d */
-        r = 256 - d + us_sin(th * a + ph + Q, d);
-        break;
-    case UF_HYPO:                                /* rolled inside: a cusps */
-        *x = us_sin(th + Q, 256 - d) + us_sin(ph - th * (a - 1u) + Q, d);
-        *y = us_sin(th, 256 - d) + us_sin(ph - th * (a - 1u), d);
-        return;
-    case UF_EPI:                                 /* rolled outside: a loops */
-        *x = us_sin(th + Q, 256 - d) + us_sin(ph + th * (a + 1u) + Q, d);
-        *y = us_sin(th, 256 - d) + us_sin(ph + th * (a + 1u), d);
-        return;
-    case UF_POLY: {                              /* a sides, straight */
-        uint32_t seg = 0xFFFFFFFFu / a + 1u, m = (th + ph) % seg;
-        int32_t c = us_sin((m - seg / 2u) + Q, 4096);
-        r = us_sin(seg / 2u + Q, 256) * 4096 / (c < 1024 ? 1024 : c);
-        break;
+    int32_t sn = us_sin(p, 256), f = (int32_t)(p >> 23), tr;   /* (f: 0 .. 511 a turn) */
+    tr = f < 128 ? f * 2 : f < 384 ? 512 - f * 2 : f * 2 - 1024;   /* (the triangle, in phase with the sine) */
+    if (s < 85)
+        return sn + (tr - sn) * s / 85;
+    if (s < 170) {
+        int32_t sq = sn >= 0 ? 256 : -256;
+        return tr + (sq - tr) * (s - 85) / 85;
     }
-    default:                                     /* a cog: a teeth, as long as d */
-        r = 256 - d / 2 + (us_sin(th * a + ph, 256) >= 0 ? d / 2 : -d / 2);
-        break;
+    {                                            /* (the square narrowing to a pulse: up only near the crest) */
+        int32_t w = 256 - (s - 170) * 2;        /* (the crest's width) */
+        return sn > 256 - w ? 256 : -256;
     }
-    *x = us_sin(th + Q, r);
-    *y = us_sin(th, r);
+}
+static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/64, folded back into +-256 */
+{
+    v = v * g / 64;
+    while (v > 256 || v < -256)
+        v = v > 256 ? 512 - v : -512 - v;
+    return v;
 }
 
-#define US_TR 14
-#define US_NP 48                                 /* (the points of a figure) */
+#define US_TR 16
+#define US_NP 96                                 /* (the points of a figure) */
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
-static int32_t us_mo_n, us_mo_k2, us_mo_k3, us_mo_k4;   /* (HOME's mash, as the tunnel's figure asks: its symmetry,
-                                                  * the knobs; us_mo_n 0: the FX pages' own) */
-static uint32_t us_mo_rot;
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
     uint32_t t = us_t(), var = us_var(), beat = us_beatms();
     int32_t frac = (int32_t)((fm1_ms % beat) * 256u / beat);   /* (the rings' advance through a beat) */
     int32_t vx = 120, vy = cy;                   /* (in balance: all round the middle, as sand on a plate) */
-    int32_t nr = 6 + (int32_t)(sys.sh_size & 127u) / 16;    /* (the depth: the reverb's SIZE, 6 .. 13 rings) */
-    int32_t k1 = us_kn(0), k2 = us_kn(1), k3 = us_kn(2), k4 = us_kn(3);   /* (the oscillator's KNOBs 1 .. 4: the figure's
-                                                  * order, its vibration, its size and light, its depth) */
+    int32_t k1 = us_kn(0), k2 = us_kn(1), k3 = us_kn(2), k4 = us_kn(3);   /* (the oscillator's KNOBs 1 .. 4) */
     const uint8_t *fg = US_FIG[sys.osc % 33u];
-    uint32_t fa = fg[0] == UF_POLY ? fg[1] + (uint32_t)k1 / 32u : fg[1] + (uint32_t)k1 / 26u;   /* (KNOB 1: up to 4
-                                                  * orders more) */
-    uint32_t fb = fg[2] + (uint32_t)k1 / 26u;
-    int32_t fd = (fg[0] == UF_HYPO ? 256 / (int32_t)(fa + 1u) : fg[0] == UF_EPI ? 256 / (int32_t)(fa + 2u) : 70) *
-                 (40 + k4 + (int32_t)(sys.fx_bright & 127u) / 4) / 104;   /* (KNOB 4: its depth; the FX's
-                                                  * BRIGHTNESS too) */
-    /* the standing wave: the figure's depth swinging deep and shallow (each ring against its neighbours), as
-     * fast as KNOB 2 (~3 s .. 0.3 s a swing), as wide as the envelope lets it */
-    uint32_t vib = (uint32_t)((uint64_t)fm1_ms * (uint32_t)(1400 + k2 * 120) * 1000u);
-    int32_t sw = us_sin(vib, 256) * (110 + ev / 7) / 256;
-    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 43 + k4 / 64;   /* (each ring's echoes: the reverb's DECAY, KNOB 4) */
+    int32_t folds = (fg[0] == UF_LISS ? 2 : (int32_t)fg[1] / 2) + k1 / 8;   /* KNOB 1: the folds, one more each 8 */
+    int32_t folds2, shape, gain, nr, depth;
+    folds = folds < 2 ? 2 : folds > 16 ? 16 : folds;
+    folds2 = fg[0] == UF_LISS ? folds * fg[2] / fg[1] : 0;   /* (a second count, beating: the ratio) */
+    folds2 = folds2 > 24 ? 24 : folds2;
+    shape = US_SHAPE0[fg[0]] + k2 * 2;           /* KNOB 2: the shape */
+    shape = shape > 255 ? 255 : shape;
+    gain = 64 + k4 * 3;                          /* KNOB 4: the foldback, x1 .. x7 */
+    nr = 4 + k3 * 12 / 127;                      /* KNOB 3: the density, 4 .. 16 rings */
+    depth = 70 + ev / 8 + (int32_t)(sys.fx_bright & 127u) / 4;   /* (the folds' depth: the envelope swells it) */
+    /* the standing wave: the folds swinging deep and shallow, each ring against its neighbours, a swing a beat */
+    int32_t sw = us_sin((uint32_t)((uint64_t)(fm1_ms % (beat * 2u)) * 0xFFFFFFFFu / (beat * 2u)), 256);
+    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 64;      /* (each ring's echo: the reverb's DECAY) */
     int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
-    int32_t lit = 25 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + k3 * 30 / 127;   /* (the brightness: FX MIX too) */
+    int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + k3 * 15 / 127;
     int16_t px[US_TR][US_NP], py[US_TR][US_NP];
-    int32_t gx[2][US_NP], gy[2][US_NP];
-    uint32_t hue0 = t * 3u + (uint32_t)k3 * 2u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
+    int32_t gm[2][US_NP];
+    uint32_t hue0 = t * 3u + (uint32_t)k1 * 3u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
-    uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j, sect = 0xFFFFFFFFu / (fg[0] == UF_LISS ? 2u : fa) + 1u;
-    uint32_t rot0 = (var & 1u ? 0u - t : t) * (uint32_t)(8 + k2 / 4) * 65536u;   /* (the whole turning, slowly) */
+    uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j, sect = 0xFFFFFFFFu / (uint32_t)folds + 1u;
+    uint32_t rot0 = (var & 1u ? 0u - t : t) * 12u * 65536u;   /* (the whole turning, slowly) */
     int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
-    for (j = 0; j < US_NP; j++) {                /* (the figure, twice: its wave up and down) */
-        us_fig(fg[0], fa, fb, fd * (fg[0] == UF_LISS ? 256 : 176 + sw * 5 / 8) / 256, j * step, 1u << 30, &gx[0][j], &gy[0][j]);
-        us_fig(fg[0], fa, fb, fd * (fg[0] == UF_LISS ? 256 : 176 - sw * 5 / 8) / 256, j * step, 1u << 30, &gx[1][j], &gy[1][j]);
-        if (fg[0] == UF_LISS || fg[0] == UF_POLY) {   /* (these breathe instead: a string's swing, a plate's) */
-            gy[0][j] = gy[0][j] * (160 + sw * 3 / 8) / 256;
-            gy[1][j] = gy[1][j] * (160 - sw * 3 / 8) / 256;
-        }
+    for (j = 0; j < US_NP; j++) {                /* (the figure's radius, twice: its wave up and down) */
+        uint32_t th = j * step;
+        int32_t v = us_wave(th * (uint32_t)folds + (1u << 30), shape);
+        if (folds2)
+            v = (v + us_wave(th * (uint32_t)folds2, shape)) / 2;
+        v = us_fold(v, gain);
+        gm[0][j] = 256 + v * depth * (160 + sw * 3 / 8) / 65536;
+        gm[1][j] = 256 + v * depth * (160 - sw * 3 / 8) / 65536;
     }
-    us_mo_n = (int32_t)(fa < 2u ? 2u : fa > 4u ? 4u : fa) * 2;   /* (HOME's mash in the figure's symmetry) */
-    us_mo_rot = rot0;
-    us_mo_k2 = k2;
-    us_mo_k3 = k3;
-    us_mo_k4 = k4;
     for (i = 0; i < nr; i++) {                   /* far (0) .. near */
         int32_t z = (nr - i) * 256 - frac;       /* (Q8 depth: 1 .. nr) */
-        int32_t R = (60 + ev / 2 + rc / 40) * (48 + k3) / 112 * 256 / (z < 64 ? 64 : z), e;   /* (KNOB 3: 0.4 .. 1.6) */
-        uint32_t rot = rot0 + (((uint32_t)(nr - i) & 1u) ? sect / 2u : 0u);   /* (every other ring half a sector on: a
+        int32_t R = (34 + ev / 4 + rc / 80) * 512 / (z < 128 ? 128 : z), e;
+        uint32_t rot = rot0 + (((uint32_t)(nr - i) & 1u) ? sect / 2u : 0u);   /* (every other ring half a fold on: a
                                                   * lattice, the pattern's nodes) */
-        int32_t ca = us_sin(rot + (1u << 30), 256), sa = us_sin(rot, 256), w = (nr - i) & 1;
-        int32_t fade = 15 + 85 * (nr * 256 - z) / (nr * 256);
+        int32_t w = (nr - i) & 1;
+        int32_t fade = 35 + 65 * (nr * 256 - z) / (nr * 256);
         uint16_t col = ux_mix(T_BG, us_hue(hue0 + (uint32_t)(i * 40), 255u), fade * lit / 100);
         R = R * f / 260;
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
         for (j = 0; j < US_NP; j++) {
-            int32_t rx = (gx[w][j] * ca - gy[w][j] * sa) / 256, ry = (gx[w][j] * sa + gy[w][j] * ca) / 256;
-            px[i][j] = (int16_t)(vx + rx * R / 256);
-            py[i][j] = (int16_t)(vy + ry * R / 256 * sq / 256);
+            int32_t r = R * gm[w][j] / 256;
+            uint32_t a = rot + j * step;
+            px[i][j] = (int16_t)(vx + us_sin(a + (1u << 30), r));
+            py[i][j] = (int16_t)(vy + us_sin(a, r) * sq / 256);
         }
-        for (e = echo; e >= 0; e--) {            /* (its echoes first, smaller and dimmer, then the ring) */
-            uint16_t ce = e ? ux_mix(T_BG, col, 55 - e * 12) : col;
+        for (e = echo; e >= 0; e--) {            /* (its echo first, smaller and dimmer, then the ring) */
+            uint16_t ce = e ? ux_mix(T_BG, col, 40) : col;
             for (j = 0; j < US_NP; j++) {
                 uint32_t n1 = (j + 1u) % US_NP;
                 int32_t x0 = vx + (px[i][j] - vx) * (8 - e) / 8, y0 = vy + (py[i][j] - vy) * (8 - e) / 8;
@@ -339,15 +326,29 @@ static void us_psyche(uint32_t h)
                 cv_line(x0, y0, x1, y1, ce);
             }
         }
-        if (i)                                   /* (along the tunnel, to the ring before) */
-            for (j = 0; j < US_NP; j += US_NP / 8u)
-                cv_line(px[i - 1][j], py[i - 1][j], px[i][j], py[i][j], ux_mix(T_BG, col, 20 + k4 / 2));
+        if (i)                                   /* (along the tunnel, to the ring before: one spoke a fold) */
+            for (j = 0; j < (uint32_t)folds; j++) {
+                uint32_t q = (j * US_NP / (uint32_t)folds) % US_NP;
+                cv_line(px[i - 1][q], py[i - 1][q], px[i][q], py[i][q], ux_mix(T_BG, col, 30));
+            }
     }
     if (us_splash)
         return;
-    if (sys.page == 0u)                          /* (HOME: the oscillator's own vectors shining through, in the
-                                                  * figure's symmetry, the knobs' as the figure's) */
-        us_mash(h, 28, vx, vy);
+    if (sys.page == 0u) {                        /* (HOME: sand on the plate, the oscillator's own signal scattered
+                                                  * over the figure: as many grains as KNOB 3's density, as far
+                                                  * thrown as KNOB 4's foldback; they settle on the figure's lines) */
+        uint32_t w = chua_trace.w, ng = 48u + (uint32_t)k3 * 2u, g;
+        int32_t sc = 2 + k4 / 12;
+        for (g = 0; g < ng; g++) {
+            uint32_t at = (w - g * 5u) & (TRACE_N - 1u);
+            uint32_t hs = ((uint32_t)(uint16_t)chua_trace.x[at] * 2654435761u) ^ ((uint32_t)(uint16_t)chua_trace.y[at] * 40503u) ^
+                          (g * 2246822519u);
+            int32_t gi = (int32_t)(hs % (uint32_t)nr), gj = (int32_t)((hs >> 8) % US_NP);
+            int32_t gx = px[gi][gj] + (int32_t)((hs >> 16) & 15u) * sc / 8 - sc;
+            int32_t gy = py[gi][gj] + (int32_t)((hs >> 20) & 15u) * sc / 8 - sc;
+            cv_rect(gx, gy, 2, 1, ux_mix(T_BG, us_hue(hue0 + (hs >> 24), 255u), 45 + (int32_t)((hs >> 12) & 63u)));
+        }
+    }
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
@@ -378,14 +379,6 @@ static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey)   /* dim: h
     int32_t k = us_k(), cy = (int32_t)h / 2, gf = us_gf(), ev = us_env(0);
     int32_t S = 34 + (int32_t)((verb ? sys.sh_size : sys.fx_bright) & 127u) * 40 / 127 + ev / 5 + us_react() / 60;
     uint32_t rot0 = t << 21;
-    if (us_mo_n && sys.page == 0u) {             /* (HOME: the oscillator's knobs: KNOB 2 its turn, 3 its size, 4 its
-                                                  * trail; the figure's symmetry) */
-        copies = (uint32_t)us_mo_n;
-        spin = (uint32_t)us_mo_k2;
-        tl = (uint32_t)us_mo_k4 / 2u;
-        S = 24 + us_mo_k3 * 56 / 127 + ev / 5 + us_react() / 60;
-        rot0 = us_mo_rot;
-    }
     int32_t f = wave_open() + 4, ox = ex + (120 - ex) * f / 260, oy = ey + (cy - ey) * f / 260;
     S = S * f / 260;                             /* (the silent collapse, ui.c: folded into (ex, ey)) */
     int32_t lit = (25 + k * 35 / 100 + (int32_t)((verb ? sys.sh_mix : sys.fx_mix) & 127u) * 20 / 127) * dim / 100;   /* (under the FX's own) */
