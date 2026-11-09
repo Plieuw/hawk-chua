@@ -1619,7 +1619,6 @@ static void draw_plot(void)
             px = u;
             py = v;
         }
-        cv_rect(px - 1, py - 1, 3, 3, T_ACCENT);            /* where the circuit is now */
     }
     cv_blit(0, PLOT_Y);                                      /* (DMA: runs on while the next frame is prepared) */
 }
