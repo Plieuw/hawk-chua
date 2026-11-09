@@ -182,6 +182,23 @@ static void us_signal(void)                      /* (once a frame) */
     us_se += (te - us_se) / 4;
 }
 
+/* the envelope (the ENV's ADSR, the loudest voice's), 0 .. 100, and whether a voice is in its attack: the scenes
+ * play with it (the cat's laser eyes, Saiko's howl, the kart's boost, the light's swell) */
+static int32_t us_env(int *attack)
+{
+    uint32_t i, m = 0;
+    int at = 0;
+    for (i = 0; i < NVOICE; i++)
+        if (voice[i].stage != ST_OFF) {
+            if (voice[i].env > m)
+                m = voice[i].env;
+            at |= voice[i].stage == ST_ATTACK;
+        }
+    if (attack)
+        *attack = at;
+    return (int32_t)(m >> 23) * 100 / 128;      /* (ENV_MAX = 2^30: 128 in 2^23s) */
+}
+
 #define US_NN 8
 static uint32_t us_nt[US_NN], us_nw;             /* the notes rising: the beats they were born at */
 static void us_beat(void)                        /* (once a frame) */
@@ -498,7 +515,8 @@ static void us_rainbow_road(uint32_t h)
         };
         int32_t KS = 3, yb = (int32_t)h - 8, d = yb - hz + 1, hw = 3 + d * 160 / span, far = span - d;
         int32_t cxn = 120 + curve * far * far / (span * span), kx = cxn + us_sx * hw / 150 - 8 * KS;
-        int32_t ky = yb - 12 * KS - us_hop(5) - (int32_t)((fm1_ms / 70u) & 1u), r2, c2, lean = us_sx / 40;
+        int at, env = us_env(&at);               /* (the envelope: the boost; a wheelie in the attack) */
+        int32_t ky = yb - 12 * KS - us_hop(5) - (int32_t)((fm1_ms / 70u) & 1u) - (at ? 4 : 0), r2, c2, lean = us_sx / 40;
         int32_t flap = (int32_t)((fm1_ms / 90u) % 3u), wild = us_kn(3);
         for (r2 = 0; r2 < 12; r2++)
             for (c2 = 0; c2 < 16; c2++) {
@@ -519,7 +537,7 @@ static void us_rainbow_road(uint32_t h)
                 cv_rect(kx + (c2 + xo) * KS, ky + r2 * KS, KS, KS, col);
             }
         {   /* the exhaust: flames out of the pipes with the sound and the beat */
-            int32_t fl = 2 + rc / 150 + us_gf() / 40, j;
+            int32_t fl = 2 + rc / 150 + us_gf() / 40 + env / 7, j;
             for (j = 0; j < fl; j++) {
                 uint16_t fc = ux_mix(T_BG, j < 2 ? US_RGB(255, 240, 120) : US_RGB(255, 120, 40), 80 - j * 8);
                 cv_rect(kx + 3 * KS + us_sin((fm1_ms * 7u + (uint32_t)j * 50u) << 22, 1), ky + 12 * KS + j, 2 * KS, 1, fc);
@@ -559,7 +577,7 @@ static void us_aurora(uint32_t h)
             int32_t yc = (int32_t)h * (28 + r * 18) / 100 + us_sy / 5 +
                          us_sin((x * 3u + t * (3u + (uint32_t)us_kn(1) / 16u + (uint32_t)r * 3u)) << 22, 3 + us_kn(0) / 8) +
                          us_sin((x * 7u - t * 4u + (uint32_t)r * 90u) << 21, 5);
-            int32_t len = 12 + us_sin((x * 5u + t * 6u) << 21, 5) + rc / 60, yy;
+            int32_t len = 10 + us_sin((x * 5u + t * 6u) << 21, 5) + rc / 60 + us_env(0) / 6, yy;
             uint16_t c = us_hue(96u + ah + (uint32_t)us_kn(2) * 2u + (uint32_t)r * 70u + (x >> 2) + us_sin((x + t * 3u) << 23, 20), 255u);
             for (yy = 0; yy < len; yy++)
                 cv_rect((int32_t)x, yc + yy, 2, 1, ux_mix(US_SKY(yc + yy), c, (len - yy) * (75 + rc / 20) * k / (len * 100)));
@@ -580,10 +598,11 @@ static void us_psyche(uint32_t h)
     int32_t bx, by, k = us_k() * 55 / 100, rc = us_react(), cy = (int32_t)h / 2;
     uint32_t t = us_t(), var = us_var(), arms = 3u + var % 3u + (uint32_t)us_kn(0) / 21u, bs = var % 3u == 2u ? 8u : 4u;
     uint32_t tt = var & 1u ? 0u - t : t;         /* (some turn the other way) */
+    int32_t ev = us_env(0);                      /* (the envelope: the rings crowd in, a zoom) */
     for (by = 0; by < (int32_t)h; by += (int32_t)bs)   /* the kaleidoscope: mirrored arms (4 .. 8), spiralling */
         for (bx = 0; bx < 240; bx += (int32_t)bs) {
             int32_t dx = bx + (int32_t)bs / 2 - 120, dy = (by + (int32_t)bs / 2 - cy) * 2;
-            uint32_t r = (uint32_t)us_isqrt((dx * dx + dy * dy) >> 4) * 4u, a = us_ang(dx, dy) * arms & 255u;
+            uint32_t r = (uint32_t)us_isqrt((dx * dx + dy * dy) >> 4) * (4u + (uint32_t)ev / 25u), a = us_ang(dx, dy) * arms & 255u;
             uint32_t fold = a > 127u ? 255u - a : a, hue = r * (1u + (uint32_t)us_kn(1) / 24u) + fold - tt * 3u + (uint32_t)rc / 8u +
                                                        var * 29u + (uint32_t)us_kn(2) * 2u + (us_groove() ? us_bn * 24u : 0u);
             uint32_t v = ((r + fold / 2u - tt * 2u) & 16u) ? 210u : 200u - (uint32_t)us_kn(3) * 3u / 4u;
@@ -696,8 +715,9 @@ static void us_cats(uint32_t h)
     int32_t flee = 0;                            /* (the yarn knocked away / the dot escaping: out, then slowly back) */
     if (ph >= 480u && ph < 3000u)
         flee = ph < 1000u ? (int32_t)(ph - 480u) * 40 / 520 : 40 - (int32_t)(ph - 1000u) * 40 / 2000;
+    int32_t lx = lx0 + (tgt ? (lx0 < 120 ? -2 : 2) * flee : 0), ly = ly0 - (tgt ? flee / 2 : 0);
     {   /* a laser dot, wandering where the oscillator's signal goes; the cat watches it (KNOB 3: its colour) */
-        int32_t lx = lx0 + (tgt ? (lx0 < 120 ? -2 : 2) * flee : 0), ly = ly0 - (tgt ? flee / 2 : 0), gr = 3 + us_gf() / 60;
+        int32_t gr = 3 + us_gf() / 60;
         uint16_t lc = us_hue((uint32_t)us_kn(2) * 2u, 255u);
         us_disc(lx, ly, gr + 2, ux_mix(T_BG, lc, 25 * k / 100));
         us_disc(lx, ly, gr, ux_mix(T_BG, lc, 60 + k / 3));
@@ -775,6 +795,27 @@ static void us_cats(uint32_t h)
                 col = fur;
             cv_rect(x0 + xs * S, y0 + ys * S, S, S, col);
         }
+    {   /* laser eyes: with the envelope up the cat fires a beam from each eye at the dot, as wide and bright as the
+         * envelope, flashing white in the attack; sparks where they hit */
+        int at, e = us_env(&at);
+        if (e > 12 && !blink) {
+            uint16_t lc = us_hue((uint32_t)us_kn(2) * 2u, 255u), core = at ? US_RGB(255, 255, 255) : ux_mix(lc, US_RGB(255, 255, 255), 60);
+            int32_t ey = y0 + 4 * S + S / 2, w = 1 + e / 30, eye, j;
+            for (eye = 0; eye < 2; eye++) {
+                int32_t ex = x0 + (eye ? 9 : 4) * S;
+                for (j = -w; j <= w; j++)        /* (the beam: a glow round a hot core) */
+                    us_line(ex, ey + j, lx, ly + j / 2, j == 0 ? core : ux_mix(T_BG, lc, 60 + e / 3 - us_abs(j) * 10));
+                us_disc(ex, ey, 2 + e / 25, ux_mix(T_BG, lc, 50 + e / 2));   /* (the eye blazing) */
+            }
+            for (j = 0; j < 4 + e / 15; j++) {   /* (sparks at the dot) */
+                uint32_t hs = us_hash((uint32_t)j * 7u + fm1_ms / 50u);
+                int32_t a2 = (int32_t)(hs % 360u), rr = 3 + (int32_t)((hs >> 9) % (uint32_t)(4 + e / 8));
+                cv_rect(lx + us_sin((uint32_t)a2 * 11930465u, rr), ly + us_sin((uint32_t)a2 * 11930465u + (1u << 30), rr), 2, 2,
+                        (hs >> 20) & 1u ? US_RGB(255, 255, 255) : lc);
+            }
+            us_disc(lx, ly, 3 + e / 20, ux_mix(T_BG, US_RGB(255, 255, 255), 50 + e / 2));
+        }
+    }
     us_holo(x0 + 5 * S, y0 - 2);
     if (asleep) {                                /* z z z, rising from its head */
         uint32_t i;
@@ -803,7 +844,8 @@ static void us_jezus(uint32_t h)
 {
     int32_t k = us_k(), i, cx = 120, cy = 20, lvl = us_react() * 4;
     uint32_t t = us_t();
-    int32_t shine = 30 + lvl * 50 / 4000 + us_gf() / 5;   /* (the light grows with the sound, flashes on the beat) */
+    int32_t shine = 30 + lvl * 50 / 4000 + us_gf() / 5 + us_env(0) / 3;   /* (the light grows with the sound and the
+                                                  * envelope, flashes on the beat) */
     static const uint16_t LIGHT[3] = {US_RGB(242, 193, 78), US_RGB(225, 232, 255), US_RGB(255, 160, 150)};   /* gold, silver, rose */
     uint32_t var = us_var(), sign = var & 3u;
     uint16_t gold = ux_mix(LIGHT[(var >> 2) % 3u], US_RGB(255, 255, 255), us_kn(2) / 3);   /* (KNOB 3: whiter) */
@@ -1163,8 +1205,9 @@ static void us_saiko(uint32_t h)
         cv_pset(fx + 3, fy - 2 - (int32_t)((fm1_ms / 50u) & 1u), US_RGB(200, 240, 255));
     }
     {   /* Saiko */
-        int perk = since < 350u, tongue = since < 1500u || rc > 80, blink = (now % 3700u) < 130u;
-        int32_t wag = us_sin(now * (4u + (uint32_t)rc / 40u) << 20, 3);
+        int at, env = us_env(&at);               /* (the envelope: the wag's width, the ears up in the attack, a howl) */
+        int perk = since < 350u || at, tongue = since < 1500u || rc > 80, blink = (now % 3700u) < 130u, howl = env > 70;
+        int32_t wag = us_sin(now * (4u + (uint32_t)rc / 40u) << 20, 2 + env / 30);
         uint16_t grey = ux_mix(T_BG, US_RGB(120, 128, 150), 45 + k * 55 / 100);
         uint16_t white = ux_mix(T_BG, US_RGB(250, 250, 255), 45 + k * 55 / 100);
         static const uint16_t FL[4] = {US_RGB(255, 120, 190), US_RGB(255, 230, 90), US_RGB(140, 210, 255), US_RGB(255, 255, 255)};
@@ -1193,14 +1236,23 @@ static void us_saiko(uint32_t h)
                 case 'F': col = look == 2u ? grey : ux_mix(T_BG, FL[(c + (int32_t)(t / 8u) + us_kn(2) / 32) & 3], 50 + k / 2); break;
                 case 'E': col = blink ? grey : ux_mix(US_RGB(70, 160, 255), US_RGB(190, 245, 255), rc / 10); break;
                 case 'K': col = r == 6 && blink ? grey : US_RGB(20, 20, 30); break;
-                case 'M': col = ux_mix(T_BG, US_RGB(60, 50, 70), 70); break;
+                case 'M': col = howl ? US_RGB(40, 20, 40) : ux_mix(T_BG, US_RGB(60, 50, 70), 70); break;
                 case 'L': col = tongue ? US_RGB(255, 110, 150) : white; break;
                 case 'T': xs = c + wag * (15 - r) / 3; col = r <= 11 ? white : grey; break;
                 default: col = white; break;
                 }
                 cv_rect(x0 + xs * S, y0 + ys * S, S, S, col);
             }
-        if (tongue)                              /* (the tongue hangs a little further) */
+        if (howl) {                              /* the howl: the mouth open, rings of sound rising from it (as loud as the envelope) */
+            int32_t j, mx = x0 + 7 * S + S / 2, my = y0 + 9 * S;
+            cv_rect(x0 + 6 * S, y0 + 9 * S, 3 * S, 2 * S, US_RGB(40, 20, 40));
+            for (j = 0; j < 3; j++) {
+                int32_t rr = 6 + j * 7 + (int32_t)((now / 40u) % 7u), m;
+                uint16_t wc = ux_mix(T_BG, US_RGB(255, 240, 255), (env - 50) * 2 - j * 20);
+                for (m = -10; m <= 10; m++)      /* (an arc over the head, opening upward) */
+                    cv_pset(mx + us_sin((uint32_t)(m * 0x02000000), rr), my - 4 * S - us_sin((uint32_t)(m * 0x02000000) + (1u << 30), rr) / 2, wc);
+            }
+        } else if (tongue)                       /* (the tongue hangs a little further) */
             cv_rect(x0 + 7 * S, y0 + 11 * S, S, S, US_RGB(255, 110, 150));
         if (look == 1u) {                        /* shades: two dark lenses on a bar, a glint */
             cv_rect(x0 + 2 * S, y0 + 6 * S - 1, 11 * S, 2, US_RGB(20, 20, 30));
