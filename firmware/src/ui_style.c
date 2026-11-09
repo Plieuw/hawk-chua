@@ -299,26 +299,30 @@ static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 /* where the sound is in the stereo field: the voices sounding, each at its seat (SCL's BASIS: MONO all in the
- * middle), weighted by its envelope; the eye glides there (~0.3 s), never jumps; with nothing sounding it stays */
+ * middle), weighted by its envelope; the eye moves out there from the middle and back to it when nothing sounds,
+ * on a spring (critically damped, ~0.7 s to settle): no jumps, no jitter as notes come and go */
 static int32_t us_pan_x(void)
 {
-    static int32_t x = 120 << 8;
+    static int64_t x = (int64_t)120 << 16, v;    /* (Q16 px, px/s) */
     static uint32_t last;
-    int64_t sum = 0, wt = 0;
+    int64_t sum = 0, wt = 0, tg = (int64_t)120 << 16;
     uint32_t i, dt = fm1_ms - last;
     for (i = 0; i < NVOICE; i++)
-        if (voice[i].stage != ST_OFF) {
+        if (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN || voice[i].stage == ST_RELEASE) {
             int64_t e = (int64_t)(voice[i].env >> 16) + 1;
             sum += e * vpan[i];
             wt += e;
         }
+    if (wt)
+        tg = (int64_t)(120 + (int32_t)(sum / wt) * 80 / 32767) << 16;   /* (hard left .. right: 40 .. 200) */
     last = fm1_ms;
-    if (wt && dt) {
-        int32_t tg = (120 + (int32_t)(sum / wt) * 80 / 32767) << 8;   /* (hard left .. right: 40 .. 200) */
-        int32_t k = dt > 300u ? 256 : (int32_t)dt * 256 / 300;
-        x += (int32_t)((int64_t)(tg - x) * k / 256);
+    dt = dt > 100u ? 100u : dt;
+    for (; dt >= 4u; dt -= 4u) {                 /* (in 4 ms steps: w = 7 / s) */
+        v += ((tg - x) * 49 - v * 14) * 4 / 1000;
+        x += v * 4 / 1000;
     }
-    return x >> 8;
+    last -= dt;                                  /* (the rest, next time) */
+    return (int32_t)(x >> 16);
 }
 static void us_psyche(uint32_t h)
 {
