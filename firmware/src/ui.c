@@ -1636,8 +1636,6 @@ static void draw_plot(void)
     band[3] = T_THEME;
     plot_scale(AX, w, n);
     cv_begin(240, PLOT_H, T_BG);
-    cv_rect(cx - sx, cy, 2 * sx, 1, T_LINE);                 /* faint axes through the centre */
-    cv_rect(cx, cy - sy, 1, 2 * sy, T_LINE);
     if (view == V_3D) {
         uint32_t ang = (fm1_ms / 47u) & 255u;               /* one turn in ~12 s */
         ca = plot_sin(ang + 64u);
