@@ -215,68 +215,126 @@ static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv)
     us_eye(ex, ey, W, 1 + (H + 2) * lv / 255, 2 + lv / 40, hue0, us_gf(), lv);
 }
 
+/* the tunnel's figure, per oscillator: a curve that fits the algorithm (the circuit's double scroll a figure of eight,
+ * ring and cross mod Lissajous figures of their ratios, clusters roses of their voices, FM clusters spirographs, the
+ * glitches and walks cogs, the bit crushers polygons), KNOB 1 stepping its order, KNOB 2 its phase, KNOB 4 its depth */
+enum { UF_LISS, UF_ROSE, UF_HYPO, UF_EPI, UF_POLY, UF_COG };
+static const uint8_t US_FIG[33][3] = {             /* osc 0 (the circuit) .. 32: family, a, b */
+    {UF_LISS, 1, 2},                                                       /* CHUA */
+    {UF_COG, 6, 0}, {UF_EPI, 5, 0}, {UF_LISS, 3, 2}, {UF_LISS, 1, 3}, {UF_LISS, 3, 4},   /* RADIO .. CROSS MOD */
+    {UF_ROSE, 5, 0}, {UF_COG, 8, 0}, {UF_COG, 10, 0}, {UF_COG, 12, 0}, {UF_HYPO, 3, 0},   /* RESONOISE .. BASURILLA */
+    {UF_ROSE, 3, 0}, {UF_POLY, 4, 0}, {UF_ROSE, 4, 0}, {UF_EPI, 3, 0}, {UF_HYPO, 3, 0},   /* the clusters */
+    {UF_HYPO, 5, 0}, {UF_HYPO, 7, 0}, {UF_EPI, 8, 0}, {UF_ROSE, 6, 0}, {UF_LISS, 4, 5},   /* PRIME .. PHASING */
+    {UF_COG, 5, 0}, {UF_POLY, 4, 0}, {UF_ROSE, 9, 0}, {UF_COG, 9, 0}, {UF_POLY, 6, 0},    /* BASURA .. ARRAY ROCKS */
+    {UF_HYPO, 4, 0}, {UF_LISS, 5, 6}, {UF_EPI, 6, 0}, {UF_POLY, 3, 0}, {UF_COG, 7, 0},    /* EXIST. PAIN .. LFREE */
+    {UF_EPI, 11, 0}, {UF_ROSE, 2, 0},                                      /* BIG BANG, PIANO */
+};
+/* a point of the figure at th (a full turn 2^32): x, y +-256 */
+static void us_fig(uint32_t fam, uint32_t a, uint32_t b, int32_t d, uint32_t th, uint32_t ph, int32_t *x, int32_t *y)
+{
+    const uint32_t Q = 1u << 30;
+    int32_t r;
+    switch (fam) {
+    case UF_LISS:                                /* x: a turns, y: b turns, a phase between */
+        *x = us_sin(th * a + ph, 240);
+        *y = us_sin(th * b, 240);
+        return;
+    case UF_ROSE:                                /* a petals, as deep as d */
+        r = 256 - d + us_sin(th * a + ph + Q, d);
+        break;
+    case UF_HYPO:                                /* rolled inside: a cusps */
+        *x = us_sin(th + Q, 256 - d) + us_sin(ph - th * (a - 1u) + Q, d);
+        *y = us_sin(th, 256 - d) + us_sin(ph - th * (a - 1u), d);
+        return;
+    case UF_EPI:                                 /* rolled outside: a loops */
+        *x = us_sin(th + Q, 256 - d) + us_sin(ph + th * (a + 1u) + Q, d);
+        *y = us_sin(th, 256 - d) + us_sin(ph + th * (a + 1u), d);
+        return;
+    case UF_POLY: {                              /* a sides, straight */
+        uint32_t seg = 0xFFFFFFFFu / a + 1u, m = (th + ph) % seg;
+        int32_t c = us_sin((m - seg / 2u) + Q, 4096);
+        r = us_sin(seg / 2u + Q, 256) * 4096 / (c < 1024 ? 1024 : c);
+        break;
+    }
+    default:                                     /* a cog: a teeth, as long as d */
+        r = 256 - d / 2 + (us_sin(th * a + ph, 256) >= 0 ? d / 2 : -d / 2);
+        break;
+    }
+    *x = us_sin(th + Q, r);
+    *y = us_sin(th, r);
+}
+
 #define US_TR 14
+#define US_NP 48                                 /* (the points of a figure) */
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
-    uint32_t t = us_t(), var = us_var(), n = 3u + (var + (uint32_t)us_kn(0) / 14u) % 9u, beat = us_beatms();
+    uint32_t t = us_t(), var = us_var(), beat = us_beatms();
     uint32_t tt = var & 1u ? 0u - t : t;
     int32_t frac = (int32_t)((fm1_ms % beat) * 256u / beat);   /* (the rings' advance through a beat) */
     int32_t vx = 120 + us_sx * 50 / 100, vy = cy + us_sy * 22 / 100;   /* (the far end: where the signal is) */
     int32_t nr = 6 + (int32_t)(sys.sh_size & 127u) / 16;    /* (the depth: the reverb's SIZE, 6 .. 13 rings) */
-    int32_t k1 = us_kn(0), k2 = us_kn(1), k3 = us_kn(2), k4 = us_kn(3);   /* (the oscillator's KNOBs 1 .. 4: the scene's
-                                                  * warp, its spin, its size and light, its echoes) */
-    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 43 + k4 / 43;   /* (each ring's echoes: the reverb's DECAY and
-                                                  * KNOB 4, 0 .. 4) */
-    int32_t spike = (int32_t)(sys.fx_bright & 127u) * 45 / 127;   /* (a star: every other point drawn in, % ) */
-    int32_t sq = 120 + (int32_t)(sys.basis & 127u);          /* (the width: the stereo BASIS) */
+    int32_t k1 = us_kn(0), k2 = us_kn(1), k3 = us_kn(2), k4 = us_kn(3);   /* (the oscillator's KNOBs 1 .. 4: the figure's
+                                                  * order, its phase and spin, its size and light, its depth) */
+    const uint8_t *fg = US_FIG[sys.osc % 33u];
+    uint32_t fa = fg[0] == UF_POLY ? fg[1] + (uint32_t)k1 / 32u : fg[1] + (uint32_t)k1 / 26u;   /* (KNOB 1: up to 4
+                                                  * orders more) */
+    uint32_t fb = fg[2] + (uint32_t)k1 / 26u;
+    int32_t fd = (fg[0] == UF_HYPO ? 256 / (int32_t)(fa + 1u) : fg[0] == UF_EPI ? 256 / (int32_t)(fa + 2u) : 70) *
+                 (40 + k4 + (int32_t)(sys.fx_bright & 127u) / 4) / 104;   /* (KNOB 4: its depth; the FX's
+                                                  * BRIGHTNESS too) */
+    uint32_t ph = (uint32_t)k2 << 25;            /* (KNOB 2: its phase, a Lissajous figure turning slowly besides) */
+    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 43 + k4 / 64;   /* (each ring's echoes: the reverb's DECAY, KNOB 4) */
+    int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
     int32_t lit = 25 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + k3 * 30 / 127;   /* (the brightness: FX MIX too) */
     int32_t twist = k2 * 3 + (int32_t)(sys.fx_struct & 127u) / 2 + 8;
-    int32_t px[US_TR][24], py[US_TR][24];
-    uint32_t hue0 = t * 3u + (uint32_t)us_kn(2) * 2u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
+    int16_t px[US_TR][US_NP], py[US_TR][US_NP];
+    int32_t gx[US_NP], gy[US_NP];
+    uint32_t hue0 = t * 3u + (uint32_t)k3 * 2u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
-    uint32_t m2 = n * 2u, step = 0xFFFFFFFFu / m2 + 1u, j;
+    uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j;
     int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
+    if (fg[0] == UF_LISS)
+        ph += t << 22;
+    for (j = 0; j < US_NP; j++)                  /* (the figure, once: each ring a copy, scaled and turned) */
+        us_fig(fg[0], fa, fb, fd, j * step, ph, &gx[j], &gy[j]);
     for (i = 0; i < nr; i++) {                   /* far (0) .. near */
         int32_t z = (nr - i) * 256 - frac;       /* (Q8 depth: 1 .. nr) */
         int32_t R = (60 + ev / 2 + rc / 40) * (48 + k3) / 112 * 256 / (z < 64 ? 64 : z), e;   /* (KNOB 3: 0.4 .. 1.6) */
         int32_t ccx = 120 + (vx - 120) * z / (nr * 256), ccy = cy + (vy - cy) * z / (nr * 256);
+        uint32_t rot = tt * (uint32_t)(32 + k2) * 65536u + (uint32_t)z * (uint32_t)twist * 4096u;   /* (KNOB 2: faster) */
+        int32_t ca = us_sin(rot + (1u << 30), 256), sa = us_sin(rot, 256);
+        int32_t fade = 15 + 85 * (nr * 256 - z) / (nr * 256);
+        uint16_t col = ux_mix(T_BG, us_hue(hue0 + (uint32_t)(i * 40), 255u), fade * lit / 100);
         R = R * f / 260;
         ccx = vx + (ccx - vx) * f / 260;
         ccy = vy + (ccy - vy) * f / 260;
-        uint32_t rot = tt * (uint32_t)(32 + k2) * 65536u + (uint32_t)z * (uint32_t)twist * 4096u;   /* (KNOB 2: faster) */
-        int32_t fade = 15 + 85 * (nr * 256 - z) / (nr * 256);
-        uint16_t col = ux_mix(T_BG, us_hue(hue0 + (uint32_t)(i * 40), 255u), fade * lit / 100);
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
-        for (j = 0; j < m2; j++) {               /* (its points; every other one drawn in for a star) */
-            int32_t r = (j & 1u) ? R * (100 - spike) / 100 : R;
-            uint32_t a = rot + j * step;
-            if (!spike && (j & 1u))               /* (no star: the midpoint of the side) */
-                r = R * us_sin(step / 2u + (1u << 30), 256) / 256;
-            r = r * (256 + us_sin(a * 3u + (t << 23) + ((uint32_t)i << 28), k1 * 100 / 127)) / 256;   /* (KNOB 1: warped,
-                                                  * up to +-40 %, rippling along the tunnel) */
-            px[i][j] = ccx + us_sin(a + (1u << 30), r);
-            py[i][j] = ccy + us_sin(a, r) * sq / 256;
+        for (j = 0; j < US_NP; j++) {
+            int32_t rx = (gx[j] * ca - gy[j] * sa) / 256, ry = (gx[j] * sa + gy[j] * ca) / 256;
+            px[i][j] = (int16_t)(ccx + rx * R / 256);
+            py[i][j] = (int16_t)(ccy + ry * R / 256 * sq / 256);
         }
         for (e = echo; e >= 0; e--) {            /* (its echoes first, smaller and dimmer, then the ring) */
             uint16_t ce = e ? ux_mix(T_BG, col, 55 - e * 12) : col;
-            for (j = 0; j < m2; j++) {
+            for (j = 0; j < US_NP; j++) {
+                uint32_t n1 = (j + 1u) % US_NP;
                 int32_t x0 = ccx + (px[i][j] - ccx) * (8 - e) / 8, y0 = ccy + (py[i][j] - ccy) * (8 - e) / 8;
-                int32_t x1 = ccx + (px[i][(j + 1u) % m2] - ccx) * (8 - e) / 8, y1 = ccy + (py[i][(j + 1u) % m2] - ccy) * (8 - e) / 8;
+                int32_t x1 = ccx + (px[i][n1] - ccx) * (8 - e) / 8, y1 = ccy + (py[i][n1] - ccy) * (8 - e) / 8;
                 cv_line(x0, y0, x1, y1, ce);
             }
         }
         if (i)                                   /* (along the tunnel, to the ring before) */
-            for (j = 0; j < m2; j += 2u)
-                cv_line(px[i - 1][j], py[i - 1][j], px[i][j], py[i][j], ux_mix(T_BG, col, 20 + us_kn(3) / 2));
+            for (j = 0; j < US_NP; j += US_NP / 8u)
+                cv_line(px[i - 1][j], py[i - 1][j], px[i][j], py[i][j], ux_mix(T_BG, col, 20 + k4 / 2));
     }
     if (us_splash)
         return;
     if (sys.page == 0u)                          /* (HOME: the oscillator's own vectors shining through, softly) */
-        us_mash(h, 55, vx, vy);
+        us_mash(h, 30, vx, vy);
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
