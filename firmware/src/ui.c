@@ -1597,6 +1597,27 @@ static int16_t plot_sin(uint32_t a)                          /* a: 256 per turn,
     return (int16_t)(q & 128u ? -s : s);
 }
 
+/* the silent collapse: with no note sounding the waveform pictures fold in on themselves (graphics only; the sound
+ * is not touched), as an old screen's picture shrinks to a point: 256 open .. 0 a point; it opens in ~80 ms when a
+ * note starts and folds over ~700 ms once no note is held (its release, a tail: folding away) */
+static int32_t wave_open(void)
+{
+    static int32_t c = 256;
+    static uint32_t last;
+    uint32_t dt = fm1_ms - last;
+    int sounding = 0;
+    uint32_t i;
+    for (i = 0; i < NVOICE; i++)                 /* (a note played: a voice's gate open, in its attack or sustain) */
+        sounding |= voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN;
+    if (dt) {
+        last = fm1_ms;
+        dt = dt > 200u ? 200u : dt;
+        c += sounding ? (int32_t)dt * 256 / 80 : -(int32_t)dt * 256 / 700;
+        c = c < 0 ? 0 : c > 256 ? 256 : c;
+    }
+    return c * c / 256;                          /* (eased: slow at the end, as it folds to the point) */
+}
+
 static void draw_plot(void)
 {
     static const int16_t *const AX[3] = {chua_trace.x, chua_trace.y, chua_trace.z};
@@ -1604,8 +1625,11 @@ static void draw_plot(void)
     int32_t px = 0, py = 0, cx = 120, cy = PLOT_H / 2, sx = 112, sy = PLOT_H / 2 - 6;
     uint16_t band[4];
     int32_t ca = 0, sa = 0;
+    int32_t op = wave_open();
     if (n < 2u)
         return;
+    sx = sx * (op + 4) / 260;                    /* (the silent collapse: folded towards the middle) */
+    sy = sy * (op + 4) / 260;
     band[0] = ux_mix(T_BG, T_THEME, 22);
     band[1] = ux_mix(T_BG, T_THEME, 45);
     band[2] = ux_mix(T_BG, T_THEME, 72);
@@ -1656,6 +1680,8 @@ static void draw_plot(void)
             py = v;
         }
     }
+    if (op < 32)                                 /* (folded: a point left glowing, fading) */
+        cv_rect(cx - 1, cy - 1, 3, 3, ux_mix(T_BG, T_THEME, 40 + op * 2));
     cv_blit(0, PLOT_Y);                                      /* (DMA: runs on while the next frame is prepared) */
 }
 

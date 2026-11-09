@@ -292,6 +292,7 @@ static void us_mash(uint32_t h, int32_t dim)    /* dim: how bright, % */
     uint32_t spin = (uint32_t)((verb ? sys.sh_tone : sys.fx_struct) & 127u);
     int32_t k = us_k(), cy = (int32_t)h / 2, gf = us_gf(), ev = us_env(0);
     int32_t S = 34 + (int32_t)((verb ? sys.sh_size : sys.fx_bright) & 127u) * 40 / 127 + ev / 5 + us_react() / 60;
+    S = S * (wave_open() + 4) / 260;             /* (the silent collapse, ui.c) */
     int32_t lit = (25 + k * 35 / 100 + (int32_t)((verb ? sys.sh_mix : sys.fx_mix) & 127u) * 20 / 127) * dim / 100;   /* (under the FX's own) */
     uint32_t ang = (uint32_t)((uint64_t)fm1_ms * (20u + spin) / 160u) & 255u;   /* (the 3D turn) */
     int32_t ca = plot_sin(ang + 64u), sa = plot_sin(ang);
