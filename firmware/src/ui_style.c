@@ -12,6 +12,7 @@
  *                the DECAY lets them, its pupil opening with the envelope and the sound and narrowing to a slit
  *                with the RING (the resonance), it looks where the signal goes, blinks every 2 bars and wide on
  *                each note's ATTACK
+ * On the FX pages the oscillator's own picture instead, mashed up with the FX's vectors (us_mash).
  * KNOB 2 MOTION how fast it moves (0 still), KNOB 3 BACKDROP how strongly it shows, KNOB 4 REACT how much it answers
  * the sound. The rest of the screen stays plain. Saved with the settings. */
 
@@ -263,9 +264,60 @@ static void style_ground(void)
     lcd_fresh = 1;                               /* (painted over: the big canvas goes out whole again) */
 }
 
+/* on the FX pages: the oscillator's picture (its trace turning in 3D, as HOME's INITIAL shows it) mashed up with
+ * the FX's own vectors drawn over it: the trace copied round the middle in mirrored turns (2 .. 5: the FX's
+ * POSITION, the reverb's SHIMMER), each copy its own hue running along the trace (the FX model's colours), as
+ * big as the FX's BRIGHTNESS or the reverb's SIZE with the envelope's swell, as long as the DAMPING or the reverb's
+ * DECAY lets it trail, turning as fast as the STRUCTURE (the reverb: its TONE); it flashes on the beat */
+static void us_mash(uint32_t h)
+{
+    static const int16_t *const AX[3] = {chua_trace.x, chua_trace.y, chua_trace.z};
+    int verb = sys.page == 3u;
+    uint32_t w = chua_trace.w, n = w < TRACE_DRAW ? w : TRACE_DRAW, i, c, t = us_t();
+    uint32_t copies = 2u + (uint32_t)((verb ? sys.sh_shimmer : sys.fx_pos) & 127u) / 32u;
+    uint32_t fx = sys.fx_model % RZ_COUNT, hue0 = t * 3u + fx * 37u + (us_groove() ? us_bn * 24u : 0u);
+    uint32_t tl = (uint32_t)((verb ? sys.sh_decay : sys.fx_damp) & 127u);
+    uint32_t spin = (uint32_t)((verb ? sys.sh_tone : sys.fx_struct) & 127u);
+    int32_t k = us_k(), cy = (int32_t)h / 2, gf = us_gf(), ev = us_env(0);
+    int32_t S = 34 + (int32_t)((verb ? sys.sh_size : sys.fx_bright) & 127u) * 40 / 127 + ev / 5 + us_react() / 60;
+    int32_t lit = 25 + k * 35 / 100 + (int32_t)((verb ? sys.sh_mix : sys.fx_mix) & 127u) * 20 / 127;   /* (under the FX's own) */
+    uint32_t ang = (uint32_t)((uint64_t)fm1_ms * (20u + spin) / 160u) & 255u;   /* (the 3D turn) */
+    int32_t ca = plot_sin(ang + 64u), sa = plot_sin(ang);
+    if (n < 2u)
+        return;
+    plot_scale(AX, w, n);
+    n = n * (30u + tl * 70u / 127u) / 100u;      /* (the trail's length) */
+    if (n < 2u)
+        n = 2u;
+    for (c = 0; c < copies; c++) {
+        uint32_t a = c * (0xFFFFFFFFu / copies) + (t << 21);
+        int32_t cs = us_sin(a + (1u << 30), 256), sn = us_sin(a, 256), mir = (c & 1u) ? -1 : 1, px = 0, py = 0;
+        for (i = 0; i < n; i++) {
+            uint32_t at = (w - n + i) & (TRACE_N - 1u);
+            int32_t x = plot_norm(chua_trace.x[at], 0), y = plot_norm(chua_trace.y[at], 1), z = plot_norm(chua_trace.z[at], 2);
+            int32_t d = (-x * sa + z * ca) >> 15, u = (x * ca + z * sa) >> 15, v = (y * 29696 + d * 13848) >> 15;
+            int32_t ru = (u * cs - v * sn) / 256 * mir, rv = (u * sn + v * cs) / 256;
+            int32_t X = 120 + ru * S / 4096, Y = cy - rv * S / 4096;
+            if (i) {
+                uint16_t col = ux_mix(T_BG, us_hue(hue0 + c * 256u / copies + i * 96u / n, 255u),
+                                      (20 + 80 * (int32_t)i / (int32_t)n) * lit / 100);
+                if (gf && i + 8u > n)            /* (its head flashes on the beat) */
+                    col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
+                cv_line(px, py, X, Y, col);
+            }
+            px = X;
+            py = Y;
+        }
+    }
+}
+
 static void us_backdrop(uint32_t h)
 {
-    if (sys.ui_style % US_COUNT == US_PSYCHE)
+    if (sys.ui_style % US_COUNT != US_PSYCHE)
+        return;
+    if (sys.page == 2u || sys.page == 3u)        /* (the FX pages: the oscillator's vectors with the FX's) */
+        us_mash(h);
+    else
         us_psyche(h);
 }
 
