@@ -226,11 +226,14 @@ static void us_psyche(uint32_t h)
     int32_t frac = (int32_t)((fm1_ms % beat) * 256u / beat);   /* (the rings' advance through a beat) */
     int32_t vx = 120 + us_sx * 50 / 100, vy = cy + us_sy * 22 / 100;   /* (the far end: where the signal is) */
     int32_t nr = 6 + (int32_t)(sys.sh_size & 127u) / 16;    /* (the depth: the reverb's SIZE, 6 .. 13 rings) */
-    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 43;      /* (each ring's echoes: the reverb's DECAY, 0 .. 2) */
+    int32_t k1 = us_kn(0), k2 = us_kn(1), k3 = us_kn(2), k4 = us_kn(3);   /* (the oscillator's KNOBs 1 .. 4: the scene's
+                                                  * warp, its spin, its size and light, its echoes) */
+    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 43 + k4 / 43;   /* (each ring's echoes: the reverb's DECAY and
+                                                  * KNOB 4, 0 .. 4) */
     int32_t spike = (int32_t)(sys.fx_bright & 127u) * 45 / 127;   /* (a star: every other point drawn in, % ) */
     int32_t sq = 120 + (int32_t)(sys.basis & 127u);          /* (the width: the stereo BASIS) */
-    int32_t lit = 35 + k * 45 / 100 + (int32_t)(sys.fx_mix & 127u) * 20 / 127;   /* (the brightness: FX MIX too) */
-    int32_t twist = us_kn(1) + (int32_t)(sys.fx_struct & 127u) / 2 + 8;
+    int32_t lit = 25 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + k3 * 30 / 127;   /* (the brightness: FX MIX too) */
+    int32_t twist = k2 * 3 + (int32_t)(sys.fx_struct & 127u) / 2 + 8;
     int32_t px[US_TR][24], py[US_TR][24];
     uint32_t hue0 = t * 3u + (uint32_t)us_kn(2) * 2u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
@@ -238,12 +241,12 @@ static void us_psyche(uint32_t h)
     int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
     for (i = 0; i < nr; i++) {                   /* far (0) .. near */
         int32_t z = (nr - i) * 256 - frac;       /* (Q8 depth: 1 .. nr) */
-        int32_t R = (60 + ev / 2 + rc / 40) * 256 / (z < 64 ? 64 : z), e;
+        int32_t R = (60 + ev / 2 + rc / 40) * (48 + k3) / 112 * 256 / (z < 64 ? 64 : z), e;   /* (KNOB 3: 0.4 .. 1.6) */
         int32_t ccx = 120 + (vx - 120) * z / (nr * 256), ccy = cy + (vy - cy) * z / (nr * 256);
         R = R * f / 260;
         ccx = vx + (ccx - vx) * f / 260;
         ccy = vy + (ccy - vy) * f / 260;
-        uint32_t rot = (tt << 21) + (uint32_t)z * (uint32_t)twist * 4096u;
+        uint32_t rot = tt * (uint32_t)(32 + k2) * 65536u + (uint32_t)z * (uint32_t)twist * 4096u;   /* (KNOB 2: faster) */
         int32_t fade = 15 + 85 * (nr * 256 - z) / (nr * 256);
         uint16_t col = ux_mix(T_BG, us_hue(hue0 + (uint32_t)(i * 40), 255u), fade * lit / 100);
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
@@ -253,11 +256,13 @@ static void us_psyche(uint32_t h)
             uint32_t a = rot + j * step;
             if (!spike && (j & 1u))               /* (no star: the midpoint of the side) */
                 r = R * us_sin(step / 2u + (1u << 30), 256) / 256;
+            r = r * (256 + us_sin(a * 3u + (t << 23) + ((uint32_t)i << 28), k1 * 100 / 127)) / 256;   /* (KNOB 1: warped,
+                                                  * up to +-40 %, rippling along the tunnel) */
             px[i][j] = ccx + us_sin(a + (1u << 30), r);
             py[i][j] = ccy + us_sin(a, r) * sq / 256;
         }
         for (e = echo; e >= 0; e--) {            /* (its echoes first, smaller and dimmer, then the ring) */
-            uint16_t ce = e ? ux_mix(T_BG, col, 55 - e * 15) : col;
+            uint16_t ce = e ? ux_mix(T_BG, col, 55 - e * 12) : col;
             for (j = 0; j < m2; j++) {
                 int32_t x0 = ccx + (px[i][j] - ccx) * (8 - e) / 8, y0 = ccy + (py[i][j] - ccy) * (8 - e) / 8;
                 int32_t x1 = ccx + (px[i][(j + 1u) % m2] - ccx) * (8 - e) / 8, y1 = ccy + (py[i][(j + 1u) % m2] - ccy) * (8 - e) / 8;
@@ -275,7 +280,7 @@ static void us_psyche(uint32_t h)
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
-        W = W * f / 260;
+        W = W * (64 + k3) / 128 * f / 260;       /* (KNOB 3 too) */
         H = W / 2;
         if (W >= 4)
             us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, (3 + rc / 150 + ev / 25 + gf / 60) * f / 260, hue0, gf, 0);   /* (it blinks
