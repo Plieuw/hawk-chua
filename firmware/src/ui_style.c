@@ -216,6 +216,7 @@ static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv)
 }
 
 #define US_TR 14
+static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim);
 static void us_psyche(uint32_t h)
 {
@@ -263,6 +264,8 @@ static void us_psyche(uint32_t h)
             for (j = 0; j < m2; j += 2u)
                 cv_line(px[i - 1][j], py[i - 1][j], px[i][j], py[i][j], ux_mix(T_BG, col, 20 + us_kn(3) / 2));
     }
+    if (us_splash)
+        return;
     if (sys.page == 0u)                          /* (HOME: the oscillator's own vectors shining through, softly) */
         us_mash(h, 55);
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */

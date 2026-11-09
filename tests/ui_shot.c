@@ -367,6 +367,16 @@ int main(int argc, char **argv)
 
     draw_splash();
     bad |= shot(dir, "a_splash");
+    sys.ui_style = US_PSYCHE;            /* PSYCHEDELIC's splash: shut, opening, open */
+    style_apply();
+    draw_splash();
+    bad |= shot(dir, "a_splash_psy_0");
+    splash_psy(500);
+    bad |= shot(dir, "a_splash_psy_1");
+    splash_psy(900);
+    bad |= shot(dir, "a_splash_psy_2");
+    sys.ui_style = US_INITIAL;
+    style_apply();
 
     ui_force = 1;                        /* power-on: the ghost circuit, DOUBLE SCROLL, every view */
     run_ms(1500);

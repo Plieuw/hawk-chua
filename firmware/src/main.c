@@ -251,9 +251,14 @@ static void fm1_main(void)
     timer5_start();
     fm1_guard_lock_top();
     fm1_irq_enable_all();
-    for (ms = 0; ms < 600u; ms += 10u) {            /* the splash; MIDI IN already plays */
-        fm1_delay_ms(10);
-        master_poll();
+    {   /* the splash; MIDI IN already plays (PSYCHEDELIC: longer, moving: ui.c splash_psy) */
+        int psy = sys.ui_style % US_COUNT == US_PSYCHE;
+        for (ms = 0; ms < (psy ? SPLASH_PSY_MS : 600u); ms += 10u) {
+            fm1_delay_ms(10);
+            master_poll();
+            if (psy && ms % 40u == 0u)
+                splash_psy(ms);
+        }
     }
     kb_boot_hold = 0;
     ui_force = 1;

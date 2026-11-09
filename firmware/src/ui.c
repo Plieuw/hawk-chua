@@ -2951,10 +2951,39 @@ static void pix_text(const char *s, uint32_t y, int32_t c, int32_t gap)
     cv_blit(0, y);
 }
 
-/* the splash: HAWK, CHUA smaller, what it is, PLIEUWSKI, all in the 8-bit letters */
+/* PSYCHEDELIC's splash, a frame at ms into it (main.c: ~1.3 s): the tunnel rushing at you, an eye opening in it (shut,
+ * then wide, a blink near the end), HAWK and CHUA turning through the hues under it; the rest drawn once */
+#define SPLASH_PSY_MS 1300u
+static void splash_psy(uint32_t ms)
+{
+    uint16_t th = ux.theme, tx = ux.text;
+    int32_t W = 34, H = W / 2, open = ms < 250u ? 1 : ms < 750u ? 1 + (H + 2) * (int32_t)(ms - 250u) / 500 :
+                                   ms > 1050u && ms < 1150u ? 1 : H + 2;
+    us_splash = 1;
+    cv_begin(240, 96, T_BG);                     /* (the tunnel: the backdrop, ui_style.c) */
+    us_eye(120, 48, W, open, 2 + (int32_t)(ms / 200u), ms * 2u, ms > 900u ? 120 : 0, (int32_t)(ms * 255u / SPLASH_PSY_MS));
+    cv_blit(0, 0);
+    us_splash = 0;
+    ux.theme = us_hue(ms / 3u, 255u);            /* (the letters through the hues) */
+    ux.text = us_hue(ms / 3u + 96u, 120u);
+    pix_text("HAWK", 100, 6, 7);
+    ux.theme = us_hue(ms / 3u + 128u, 255u);
+    pix_text("CHUA", 148, 3, 4);
+    ux.theme = th;
+    ux.text = tx;
+}
+
+/* the splash: HAWK, CHUA smaller, what it is, PLIEUWSKI, all in the 8-bit letters (PSYCHEDELIC: its own, moving) */
 static void draw_splash(void)
 {
     lcd_fill(0, 0, 240, 240, T_BG);
+    if (sys.ui_style % US_COUNT == US_PSYCHE) {
+        draw_text_box(0, 176, 240, &AF_S, "MODELING SYNTHESIZER", T_MID, 1);
+        pix_text("PLIEUWSKI", 194, 2, 2);
+        draw_text_box(0, 216, 240, &AF_S, UI_VERSION, T_DIM, 1);
+        splash_psy(0);
+        return;
+    }
     pix_text("HAWK", 30, 7, 8);
     pix_text("CHUA", 96, 4, 5);
     draw_text_box(0, 138, 240, &AF_S, "MODELING SYNTHESIZER", T_MID, 1);
