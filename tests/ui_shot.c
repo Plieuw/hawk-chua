@@ -373,7 +373,7 @@ int main(int argc, char **argv)
     bad |= shot(dir, "a_splash_psy_0");
     splash_psy(500);
     bad |= shot(dir, "a_splash_psy_1");
-    splash_psy(900);
+    splash_psy(740);                     /* (docs/hawk-chua.png and card.png: this frame) */
     bad |= shot(dir, "a_splash_psy_2");
     sys.ui_style = US_INITIAL;
     style_apply();
