@@ -15,11 +15,12 @@
  *   MAGIC CATS    a lilac night: a crescent moon, stars, a fish drawn in the stars, a cat, big in the middle, with
  *                 a ball of yarn: its tail swings, it blinks, its eyes follow the notes (low left, high right) and
  *                 glow while the sound rings, each note sends sparkles up from between its ears and makes it bat the
- *                 ball; left alone a while it falls asleep (z z z)
+ *                 ball; every 4 bars it pounces, after the ball of yarn or the laser dot, and back; left alone a
+ *                 while it falls asleep (z z z)
  *   JEZUS         a cathedral's blue: golden rays from above, a haloed cross that shines with the sound, dust
  *                 drifting in the light, a dove gliding by now and then, candles flickering on the stained glass
- *   SAIKO         Saiko the husky in fairyland: a pastel dusk over rolling hills, a castle far off with twinkling
- *                 windows, glowing toadstools, fairies flitting about with trails of light; Saiko sits in a crown of
+ *   SAIKO         Saiko the husky in fairyland: a pastel dusk over rolling hills, a castle in the air on clouds
+ *                 (floating to and fro over 4 bars) with twinkling windows, glowing toadstools, fairies flitting about with trails of light; Saiko sits in a crown of
  *                 flowers, blue eyes glowing with the sound: tail wagging (faster as it gets louder), ears perking
  *                 up at each note, tongue out while you play, sparkles from the crown; a rainbow over it all, and it
  *                 rains ketamine: little K's and crystals drifting down, more of them as the sound gets louder
@@ -631,6 +632,25 @@ static const char *const US_CAT[US_CAT_H] = {
     ".BBBBBBBBBBBB...",
     "..BB.BB.BB.BB...",
 };
+/* the cat leaping (facing right; turned for the left): 18 x 9, the letters as US_CAT's */
+static const char *const US_LEAP[9] = {
+    "............B..B..",
+    "............BBBB..",
+    "TT.........BBEBBN.",
+    ".TT......BBBBBBW..",
+    "..TTBBBBBBBBBBB...",
+    "...BBBBBBBBBBBB...",
+    "...BBBBBBBBBBB.BB.",
+    "..BB........BB..BB",
+    ".BB...............",
+};
+static uint32_t us_bars4(uint32_t *cyc)          /* where in a run of 4 bars (16 beats of the tempo) we are, ms; which run */
+{
+    uint32_t bpm = arp_bpm_now(), beat = 60000u / (bpm < 20u ? 20u : bpm), per = 16u * beat;
+    if (cyc)
+        *cyc = fm1_ms / per;
+    return fm1_ms % per;
+}
 static void us_cats(uint32_t h)
 {
     static uint32_t ons_seen, spark_t = 0u - 100000u;
@@ -669,8 +689,15 @@ static void us_cats(uint32_t h)
         cv_pset(104, 16, st);                    /* (its eye) */
     }
     us_visitor(h, 30, (int32_t)h / 2);
+    /* every 4 bars the cat pounces: after the ball of yarn, the next time after the laser dot, and back (1 s) */
+    uint32_t cyc, ph = us_bars4(&cyc);
+    int pounce = ph < 1000u, tgt = (int)(cyc & 1u);   /* (0: the yarn, 1: the laser) */
+    int32_t lx0 = 100 + us_sx * 80 / 100, ly0 = (int32_t)h / 2 + us_sy * ((int32_t)h / 3) / 100;
+    int32_t flee = 0;                            /* (the yarn knocked away / the dot escaping: out, then slowly back) */
+    if (ph >= 480u && ph < 3000u)
+        flee = ph < 1000u ? (int32_t)(ph - 480u) * 40 / 520 : 40 - (int32_t)(ph - 1000u) * 40 / 2000;
     {   /* a laser dot, wandering where the oscillator's signal goes; the cat watches it (KNOB 3: its colour) */
-        int32_t lx = 100 + us_sx * 80 / 100, ly = (int32_t)h / 2 + us_sy * ((int32_t)h / 3) / 100, gr = 3 + us_gf() / 60;
+        int32_t lx = lx0 + (tgt ? (lx0 < 120 ? -2 : 2) * flee : 0), ly = ly0 - (tgt ? flee / 2 : 0), gr = 3 + us_gf() / 60;
         uint16_t lc = us_hue((uint32_t)us_kn(2) * 2u, 255u);
         us_disc(lx, ly, gr + 2, ux_mix(T_BG, lc, 25 * k / 100));
         us_disc(lx, ly, gr, ux_mix(T_BG, lc, 60 + k / 3));
@@ -683,13 +710,36 @@ static void us_cats(uint32_t h)
     {   /* the ball of yarn, its thread to the paw: knocked on a note, it rolls back */
         uint32_t a = now - spark_t;
         int32_t off = a < 900u ? us_sin((a * 3u) << 22, 14 - (int32_t)a * 14 / 900) : 0;
-        int32_t bxc = x0 - 22 - us_abs(off), byc = (int32_t)h - 9, i;
+        int32_t bxc = x0 - 22 - us_abs(off) - (tgt ? 0 : flee), byc = (int32_t)h - 9, i;
         uint16_t yarn = ux_mix(T_BG, US_RGB(255, 110, 170), 35 + k * 60 / 100);
         uint16_t dark = ux_mix(T_BG, US_RGB(170, 50, 110), 35 + k * 60 / 100);
         us_line(bxc + 5, byc + 2, x0 + 8, byc + 4, ux_mix(T_BG, US_RGB(255, 110, 170), 20 + k * 40 / 100));
         us_disc(bxc, byc, 8, yarn);
         for (i = -1; i <= 1; i++)                /* (its winds, turning as it rolls) */
             us_line(bxc - 6, byc + i * 3 + (off & 1), bxc + 6, byc - i * 3 - (off & 1), dark);
+    }
+    if (pounce) {   /* the leap: out along an arc to the yarn or the dot, then back, turned round */
+        int32_t L = 5, sx0 = 120, sy0 = y0 + 6 * S, tx = tgt ? lx0 : x0 - 22, ty = tgt ? ly0 : (int32_t)h - 9;
+        int32_t u = ph < 500u ? (int32_t)ph : 1000 - (int32_t)ph, dir = tx > sx0 ? 1 : -1, face = ph < 500u ? dir : -dir;
+        int32_t cx = sx0 + (tx - sx0) * u / 500, cy = sy0 + (ty - sy0) * u / 500 - u * (500 - u) * 60 / 62500;
+        int32_t lx1 = cx - 9 * L, ly1 = cy - 9 * L / 2, pass;
+        for (pass = 0; pass < 2; pass++)         /* (a rim of moonlight first, then the cat) */
+            for (r = 0; r < 9; r++)
+                for (c = 0; c < 18; c++) {
+                    char p = US_LEAP[r][face > 0 ? c : 17 - c];
+                    uint16_t col;
+                    if (p == '.')
+                        continue;
+                    if (!pass) {
+                        cv_rect(lx1 + c * L - 1, ly1 + r * L - 1, L + 2, L + 2, ux_mix(T_BG, US_RGB(255, 236, 255), 30 + k / 4));
+                        continue;
+                    }
+                    col = p == 'E' ? (glow ? T_ACCENT : ux_mix(T_BG, T_ACCENT, 80)) : p == 'N' ? T_THEME :
+                          p == 'W' ? ux_mix(T_BG, US_RGB(255, 255, 255), 30 + k * 65 / 100) : fur;
+                    cv_rect(lx1 + c * L, ly1 + r * L, L, L, col);
+                }
+        us_holo(cx, ly1 - 2);
+        return;
     }
     {   /* a rim of moonlight round it first (it stands out, whatever its fur) */
         uint16_t rim = ux_mix(T_BG, US_RGB(255, 236, 255), 30 + k / 4);
@@ -995,20 +1045,32 @@ static void us_saiko(uint32_t h)
             }
         }
     }
-    {   /* the castle, far off: towers with pointed roofs, windows that twinkle */
-        static const int8_t TX[5] = {18, 30, 42, 54, 66}, TH[5] = {18, 28, 36, 26, 16};
+    {   /* the castle in the air, on clouds: it floats to and fro over 4 bars (the tempo's), bobbing; towers with
+         * pointed roofs, windows that twinkle, the clouds puffing under it */
+        static const int8_t TX[5] = {4, 16, 28, 40, 52}, TH[5] = {18, 28, 36, 26, 16};
+        uint32_t ph4 = us_bars4(0), bpm = arp_bpm_now(), per = 16u * (60000u / (bpm < 20u ? 20u : bpm));
+        uint32_t turn = (uint32_t)((uint64_t)ph4 * 0xFFFFFFFFu / per);   /* (the 4 bars: one turn) */
+        int32_t ox = 12 + us_sin(turn, 12), base = hz - 20 + us_sin(turn * 2u, 4);
         uint16_t wall = ux_mix(T_BG, US_RGB(196, 150, 220), k * 80 / 100);
-        int32_t base = hz + 2;
-        cv_rect(14, base - 12, 58, 12, wall);
+        cv_rect(ox, base - 12, 58, 12, wall);
         for (i = 0; i < 5; i++) {
-            int32_t tx = TX[i], th = TH[i], y;
+            int32_t tx = ox + TX[i], th = TH[i], y;
             cv_rect(tx - 4, base - th, 9, th, wall);
             for (y = 0; y < 8; y++)              /* (its roof) */
                 cv_rect(tx - 4 + y / 2, base - th - 8 + y, 9 - y, 1, ux_mix(T_BG, US_RGB(230, 120, 190), k * 85 / 100));
             if ((us_hash((uint32_t)i * 5u + now / 700u) & 3u) != 0u)
                 cv_rect(tx - 1, base - th + 4, 2, 3, ux_mix(T_BG, US_RGB(255, 236, 140), 40 + k / 2));
         }
-        cv_rect(39, base - 7, 6, 7, ux_mix(T_BG, US_RGB(120, 70, 140), k));   /* (the gate) */
+        cv_rect(ox + 25, base - 7, 6, 7, ux_mix(T_BG, US_RGB(120, 70, 140), k));   /* (the gate) */
+        for (i = 0; i < 7; i++) {                /* the clouds: puffs under it, breathing, a pink shade below */
+            int32_t px = ox - 6 + i * 11, py = base + 2 + (i & 1) * 3, pr = 6 + (i % 3) * 2 + us_sin((turn * 4u) + (uint32_t)i * 0x24924924u, 2);
+            us_disc(px, py + 2, pr, ux_mix(T_BG, US_RGB(255, 190, 220), 40 + k / 2));
+            us_disc(px, py, pr, ux_mix(T_BG, US_RGB(255, 252, 255), 50 + k / 2));
+        }
+        for (i = 0; i < 3; i++) {                /* (a few wisps drifting off behind) */
+            int32_t wx = ox - 14 - i * 12 - (int32_t)((ph4 / 40u + (uint32_t)i * 30u) % 30u), wy = base + 6 + i * 2;
+            us_disc(wx, wy, 3 - i / 2, ux_mix(T_BG, US_RGB(255, 252, 255), 35 + k / 3 - i * 8));
+        }
     }
     {   /* two rolling hills, mint and deeper green */
         int32_t x;
