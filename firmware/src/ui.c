@@ -3425,11 +3425,25 @@ static void ui_input(void)
             }
             break;
         case B_ARP:                                     /* the ARP page, the GROOVE page, back HOME; PLAY starts it */
+            if (sys.k_on && !sys.arp_on && sys.page != 6u && sys.page != 18u) {   /* (KARMA playing: the ARP joins it
+                                                         * at once, no PLAY needed, as LOGIC's PLAY does) */
+                if (!sys.k_logic)
+                    sys.k_logic = 1;
+                sys.arp_on = 1;
+                ui_say("ARP + KARMA ON");
+            }
             sys.page = sys.page == 6u ? 18u : sys.page == 18u ? 0u : 6u;   /* (the ARP, its GROOVE, back) */
             play_last = 0;
             ui_force = 1;
             break;
         case B_SEQ:                                     /* the KARMA page, the LOGIC page, back HOME; PLAY starts it */
+            if (sys.arp_on && !sys.k_on && sys.page != 9u && sys.page != 17u) {   /* (the ARP playing: KARMA joins it
+                                                         * at once, no PLAY needed, as LOGIC's PLAY does) */
+                if (!sys.k_logic)
+                    sys.k_logic = 1;
+                sys.k_on = 1;
+                ui_say("ARP + KARMA ON");
+            }
             sys.page = sys.page == 9u ? 17u : sys.page == 17u ? 0u : 9u;   /* (KARMA, LOGIC, back) */
             play_last = 1;
             ui_force = 1;
