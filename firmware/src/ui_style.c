@@ -216,11 +216,14 @@ static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv)
 }
 
 /* the tunnel's figure: a cymatic one, a ring of folds round the middle, as an oscillator's wave wrapped round a
- * circle: its folds (KNOB 1: 2 .. 16, the oscillator's own count to start from), their shape (KNOB 2: sine, triangle,
- * square, a pulse), the rings' density (KNOB 3: 4 .. 16 rings), its foldback (KNOB 4: the wave folded back on itself,
- * up to 7 times, as a wavefolder does: inner lobes, sharp ridges). Per oscillator its own start: the circuit's double
- * scroll, ring and cross mod two counts in a ratio beating against each other (a Lissajous ratio), clusters smooth
- * petals, the glitches and walks square teeth, the crushers triangles */
+ * circle. Each oscillator its own figure to start from (US_FIG: the circuit's double scroll, ring and cross mod two
+ * counts beating in a ratio, clusters smooth petals, the glitches square teeth, the crushers triangles), and its four
+ * knobs each a modifier of the picture as near as can be to what the knob does to the sound (US_MOD): a ratio or a
+ * second oscillator the folds' count, a pulse width or a wave the folds' shape, a fold the foldback, FM the angle
+ * swung round, a spread or detune a second layer beating against the first, voices or strings the density, noise
+ * or entropy or a walk the jitter, a crusher or a sample and hold steps, a rate a spin, a grain the lines broken up,
+ * a depth the folds' depth, the level the size and light, the RING the folds multiplied by others, a reverb echoes,
+ * an expansion the rings spread apart */
 enum { UF_LISS, UF_ROSE, UF_HYPO, UF_EPI, UF_POLY, UF_COG };
 static const uint8_t US_FIG[33][3] = {             /* osc 0 (the circuit) .. 32: family, a, b */
     {UF_LISS, 1, 2},                                                       /* CHUA */
@@ -233,6 +236,43 @@ static const uint8_t US_FIG[33][3] = {             /* osc 0 (the circuit) .. 32:
     {UF_EPI, 11, 0}, {UF_ROSE, 2, 0},                                      /* BIG BANG, PIANO */
 };
 static const uint8_t US_SHAPE0[6] = {0, 0, 40, 40, 100, 170};   /* (each family's shape to start from) */
+enum { UV_NONE, UV_FOLDS, UV_SHAPE, UV_FOLDBACK, UV_FM, UV_DETUNE, UV_DENSITY, UV_JITTER, UV_CRUSH, UV_SPIN,
+       UV_GRAIN, UV_DEPTH, UV_LEVEL, UV_RING, UV_ECHO, UV_SPREAD };
+static const uint8_t US_MOD[33][4] = {             /* osc 0 .. 32: what KNOB 1 .. 4 do to the picture (their names) */
+    {UV_FOLDBACK, UV_SHAPE, UV_NONE, UV_RING},         /* CHUA: CHAOS, SHAPE, OUTPUT, RING */
+    {UV_FOLDS, UV_SHAPE, UV_LEVEL, UV_RING},           /* RADIO OH NO: OSC 2, PWM */
+    {UV_JITTER, UV_DETUNE, UV_LEVEL, UV_RING},         /* RWALK FLANGE: WALK RATE, FLANGE */
+    {UV_FOLDS, UV_FM, UV_LEVEL, UV_RING},              /* XMOD RING SQR: OSC 2, FM */
+    {UV_FOLDS, UV_FM, UV_LEVEL, UV_RING},              /* XMOD RING SINE: OSC 2, FM */
+    {UV_FOLDS, UV_FM, UV_LEVEL, UV_RING},              /* CROSS MOD RING: RATIOS, FM */
+    {UV_FOLDS, UV_FOLDBACK, UV_LEVEL, UV_RING},        /* RESONOISE: MOD RATIO, FOLD */
+    {UV_GRAIN, UV_FM, UV_LEVEL, UV_RING},              /* GRAIN GLITCH: GRAIN, FM */
+    {UV_GRAIN, UV_FM, UV_LEVEL, UV_RING},              /* GRAIN GLITCH 2 */
+    {UV_GRAIN, UV_FM, UV_LEVEL, UV_RING},              /* GRAIN GLITCH 3 */
+    {UV_SPIN, UV_SHAPE, UV_LEVEL, UV_RING},            /* BASURILLA: LFO RATE, WIDTH */
+    {UV_DETUNE, UV_DENSITY, UV_LEVEL, UV_RING},        /* CLUSTER SAW: SPREAD, VOICES */
+    {UV_DETUNE, UV_SHAPE, UV_LEVEL, UV_RING},          /* PW CLUSTER: DETUNE, PW */
+    {UV_DETUNE, UV_FM, UV_LEVEL, UV_RING},             /* CR CLUSTER: DETUNE, FM */
+    {UV_DETUNE, UV_FM, UV_LEVEL, UV_RING},             /* SINE FM CLUST: DETUNE, FM */
+    {UV_DETUNE, UV_FM, UV_LEVEL, UV_RING},             /* TRI FM CLUST: DETUNE, FM */
+    {UV_DETUNE, UV_FM, UV_LEVEL, UV_RING},             /* PRIME CLUSTER: SPREAD, FM */
+    {UV_DETUNE, UV_JITTER, UV_LEVEL, UV_RING},         /* PRIME C NOISE: SPREAD, NOISE FM */
+    {UV_DETUNE, UV_SHAPE, UV_LEVEL, UV_RING},          /* FIBONACCI: SPREAD, TONE */
+    {UV_DETUNE, UV_SHAPE, UV_LEVEL, UV_RING},          /* PARTIAL CLUST: SPREAD, TONE */
+    {UV_DETUNE, UV_SPIN, UV_LEVEL, UV_RING},           /* PHASING CLUST: SPREAD, DRIFT */
+    {UV_CRUSH, UV_ECHO, UV_LEVEL, UV_RING},            /* BASURA TOTAL: LFSR BEND, REVERB */
+    {UV_FOLDS, UV_FM, UV_LEVEL, UV_RING},              /* ATARI: OSC 2, FM */
+    {UV_SHAPE, UV_FM, UV_LEVEL, UV_RING},              /* WAKING FILOM.: BOX, FM */
+    {UV_CRUSH, UV_ECHO, UV_LEVEL, UV_RING},            /* P S H: RATE, REVERB */
+    {UV_FOLDS, UV_JITTER, UV_LEVEL, UV_RING},          /* ARRAY ROCKS: MOD RATIO, SCRAMBLE */
+    {UV_SPIN, UV_DEPTH, UV_LEVEL, UV_RING},            /* EXIST. PAIN: SWEEP RATE, DEPTH */
+    {UV_SPIN, UV_DEPTH, UV_LEVEL, UV_RING},            /* WHO KNOWS: SWEEP RATE, DEPTH */
+    {UV_FM, UV_CRUSH, UV_LEVEL, UV_RING},              /* SATAN WORKOUT: FM, CRUSH */
+    {UV_SHAPE, UV_ECHO, UV_LEVEL, UV_RING},            /* RWALK BITCRUSH: BOX, REVERB */
+    {UV_SHAPE, UV_ECHO, UV_LEVEL, UV_RING},            /* RWALK LFREE: BOX, REVERB */
+    {UV_SHAPE, UV_JITTER, UV_DEPTH, UV_SPREAD},        /* BIG BANG: WAVE, ENTROPY, BANG, EXPAND */
+    {UV_FOLDBACK, UV_DENSITY, UV_ECHO, UV_DETUNE},     /* PIANO: HAMMER, STRINGS, DECAY, STIFF */
+};
 /* a wave of shape s (0 sine .. 85 triangle .. 170 square .. 255 a narrow pulse) at phase p (a turn 2^32): +-256 */
 static int32_t us_wave(uint32_t p, int32_t s)
 {
@@ -244,10 +284,7 @@ static int32_t us_wave(uint32_t p, int32_t s)
         int32_t sq = sn >= 0 ? 256 : -256;
         return tr + (sq - tr) * (s - 85) / 85;
     }
-    {                                            /* (the square narrowing to a pulse: up only near the crest) */
-        int32_t w = 256 - (s - 170) * 2;        /* (the crest's width) */
-        return sn > 256 - w ? 256 : -256;
-    }
+    return sn > (s - 170) * 2 ? 256 : -256;      /* (the square narrowing to a pulse: up only near the crest) */
 }
 static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/64, folded back into +-256 */
 {
@@ -264,65 +301,107 @@ static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
-    uint32_t t = us_t(), var = us_var(), beat = us_beatms();
+    uint32_t t = us_t(), var = us_var(), beat = us_beatms(), osc = sys.osc % 33u;
     int32_t frac = (int32_t)((fm1_ms % beat) * 256u / beat);   /* (the rings' advance through a beat) */
     int32_t vx = 120, vy = cy;                   /* (in balance: all round the middle, as sand on a plate) */
-    int32_t k1 = us_kn(0), k2 = us_kn(1), k3 = us_kn(2), k4 = us_kn(3);   /* (the oscillator's KNOBs 1 .. 4) */
-    const uint8_t *fg = US_FIG[sys.osc % 33u];
-    int32_t folds = (fg[0] == UF_LISS ? 2 : (int32_t)fg[1] / 2) + k1 / 8;   /* KNOB 1: the folds, one more each 8 */
-    int32_t folds2, shape, gain, nr, depth;
+    const uint8_t *fg = US_FIG[osc];
+    /* the picture's modifiers, as they are with no knob on them; then each knob's, its value 0 .. 127 */
+    int32_t folds = fg[1] < 2u ? 2 : fg[1], shape = US_SHAPE0[fg[0]], gain = 64, fm = 0, det = 0, nr = 9, jit = 0;
+    int32_t crush = 0, spin = 12, grain = 0, depth = 70, size = 256, ring = 0, echo = 0, spread = 0, kv, n;
+    for (n = 0; n < 4; n++) {
+        kv = us_kn((uint32_t)n);
+        switch (US_MOD[osc][n]) {
+        case UV_FOLDS:    folds = (int32_t)fg[1] / 2 + kv / 8; break;   /* (one more each 8) */
+        case UV_SHAPE:    shape = kv * 2; break;
+        case UV_FOLDBACK: gain = 64 + kv * 3; break;                     /* (x1 .. x7) */
+        case UV_FM:       fm = kv * 2; break;
+        case UV_DETUNE:   det = kv * 2; break;
+        case UV_DENSITY:  nr = 4 + kv * 12 / 127; break;                 /* (4 .. 16 rings) */
+        case UV_JITTER:   jit = kv; break;
+        case UV_CRUSH:    crush = kv; break;
+        case UV_SPIN:     spin = 2 + kv; break;
+        case UV_GRAIN:    grain = kv; break;
+        case UV_DEPTH:    depth = 10 + kv * 3 / 2; break;
+        case UV_LEVEL:    size = 150 + kv * 2; break;                    /* (0.6 .. 1.6) */
+        case UV_RING:     ring = kv * 2; break;
+        case UV_ECHO:     echo = kv / 32; break;                         /* (0 .. 3) */
+        case UV_SPREAD:   spread = kv; break;
+        default: break;
+        }
+    }
     folds = folds < 2 ? 2 : folds > 16 ? 16 : folds;
-    folds2 = fg[0] == UF_LISS ? folds * fg[2] / fg[1] : 0;   /* (a second count, beating: the ratio) */
-    folds2 = folds2 > 24 ? 24 : folds2;
-    shape = US_SHAPE0[fg[0]] + k2 * 2;           /* KNOB 2: the shape */
     shape = shape > 255 ? 255 : shape;
-    gain = 64 + k4 * 3;                          /* KNOB 4: the foldback, x1 .. x7 */
-    nr = 4 + k3 * 12 / 127;                      /* KNOB 3: the density, 4 .. 16 rings */
-    depth = 70 + ev / 8 + (int32_t)(sys.fx_bright & 127u) / 4;   /* (the folds' depth: the envelope swells it) */
+    echo += (int32_t)(sys.sh_decay & 127u) / 64; /* (the reverb's DECAY too) */
+    echo = echo > 3 ? 3 : echo;
+    depth += ev / 8 + (int32_t)(sys.fx_bright & 127u) / 4;   /* (the envelope swells it, the FX's BRIGHTNESS) */
+    int32_t folds2 = fg[0] == UF_LISS ? folds * fg[2] / fg[1] : folds + 1;   /* (a second count: the ratio's, a
+                                                  * detune's one more) */
+    folds2 = folds2 > 24 ? 24 : folds2;
     /* the standing wave: the folds swinging deep and shallow, each ring against its neighbours, a swing a beat */
     int32_t sw = us_sin((uint32_t)((uint64_t)(fm1_ms % (beat * 2u)) * 0xFFFFFFFFu / (beat * 2u)), 256);
-    int32_t echo = (int32_t)(sys.sh_decay & 127u) / 64;      /* (each ring's echo: the reverb's DECAY) */
     int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
-    int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + k3 * 15 / 127;
+    int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + (size - 150) / 16;
     int16_t px[US_TR][US_NP], py[US_TR][US_NP];
     int32_t gm[2][US_NP];
-    uint32_t hue0 = t * 3u + (uint32_t)k1 * 3u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
+    uint32_t hue0 = t * 3u + (uint32_t)folds * 23u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
     uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j, sect = 0xFFFFFFFFu / (uint32_t)folds + 1u;
-    uint32_t rot0 = (var & 1u ? 0u - t : t) * 12u * 65536u;   /* (the whole turning, slowly) */
+    uint32_t rot0 = (var & 1u ? 0u - t : t) * (uint32_t)spin * 65536u;   /* (the whole turning: the spin) */
+    uint32_t drift = t << 24;                    /* (the detuned layer's drift against the first) */
+    uint32_t hold = 1u + (uint32_t)crush / 16u, seed = fm1_ms / 50u * 2654435761u;
     int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
+    if (fg[0] == UF_LISS && !det)                /* (the ratio's two counts beat as one figure) */
+        det = 128;
     for (j = 0; j < US_NP; j++) {                /* (the figure's radius, twice: its wave up and down) */
-        uint32_t th = j * step;
-        int32_t v = us_wave(th * (uint32_t)folds + (1u << 30), shape);
-        if (folds2)
-            v = (v + us_wave(th * (uint32_t)folds2, shape)) / 2;
+        uint32_t th = (j - j % hold) * step;     /* (a crusher: held in steps round the circle) */
+        uint32_t p = th * (uint32_t)folds + (1u << 30) + (uint32_t)(us_sin(th * 2u, fm) * 16777216);   /* (FM: the
+                                                  * angle swung, up to a turn) */
+        int32_t v = us_wave(p, shape);
+        if (det)                                 /* (a second layer, beating) */
+            v = (v * (256 - det / 2) + us_wave(th * (uint32_t)folds2 + drift, shape) * (det / 2)) / 256;
+        if (ring)                                /* (the RING: multiplied by folds twice as many) */
+            v = (v * (256 - ring / 2) + v * us_wave(th * (uint32_t)folds * 2u + drift, shape) / 256 * (ring / 2)) / 256;
         v = us_fold(v, gain);
+        if (crush)                               /* (and in steps of level) */
+            v = v / (1 + crush / 4) * (1 + crush / 4);
         gm[0][j] = 256 + v * depth * (160 + sw * 3 / 8) / 65536;
         gm[1][j] = 256 + v * depth * (160 - sw * 3 / 8) / 65536;
     }
     for (i = 0; i < nr; i++) {                   /* far (0) .. near */
         int32_t z = (nr - i) * 256 - frac;       /* (Q8 depth: 1 .. nr) */
-        int32_t R = (34 + ev / 4 + rc / 80) * 512 / (z < 128 ? 128 : z), e;
+        int32_t R = (34 + ev / 4 + rc / 80) * 512 / (z < 128 ? 128 : z) * size / 256, e;
         uint32_t rot = rot0 + (((uint32_t)(nr - i) & 1u) ? sect / 2u : 0u);   /* (every other ring half a fold on: a
                                                   * lattice, the pattern's nodes) */
         int32_t w = (nr - i) & 1;
         int32_t fade = 35 + 65 * (nr * 256 - z) / (nr * 256);
         uint16_t col = ux_mix(T_BG, us_hue(hue0 + (uint32_t)(i * 40), 255u), fade * lit / 100);
+        if (spread)                              /* (an expansion: the near rings flung out, the far drawn in) */
+            R = R * (256 + spread * (2 * i - nr) * 2 / nr) / 256;
         R = R * f / 260;
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
         for (j = 0; j < US_NP; j++) {
             int32_t r = R * gm[w][j] / 256;
             uint32_t a = rot + j * step;
+            if (jit) {                           /* (noise: each point thrown, new each 50 ms) */
+                seed = seed * 1664525u + 1013904223u;
+                r += (int32_t)(seed >> 24) % (1 + jit / 4) * R / 128 - jit / 8 * R / 128;
+            }
             px[i][j] = (int16_t)(vx + us_sin(a + (1u << 30), r));
             py[i][j] = (int16_t)(vy + us_sin(a, r) * sq / 256);
         }
-        for (e = echo; e >= 0; e--) {            /* (its echo first, smaller and dimmer, then the ring) */
-            uint16_t ce = e ? ux_mix(T_BG, col, 40) : col;
+        for (e = echo; e >= 0; e--) {            /* (its echoes first, smaller and dimmer, then the ring) */
+            uint16_t ce = e ? ux_mix(T_BG, col, 50 - e * 12) : col;
             for (j = 0; j < US_NP; j++) {
                 uint32_t n1 = (j + 1u) % US_NP;
-                int32_t x0 = vx + (px[i][j] - vx) * (8 - e) / 8, y0 = vy + (py[i][j] - vy) * (8 - e) / 8;
-                int32_t x1 = vx + (px[i][n1] - vx) * (8 - e) / 8, y1 = vy + (py[i][n1] - vy) * (8 - e) / 8;
+                int32_t x0, y0, x1, y1;
+                if (grain && (int32_t)((j * 7u + (uint32_t)i * 13u + t * 3u) % 16u) * 128 < grain * 14)   /* (grains:
+                                                  * the line broken up, more gaps as the GRAIN goes up) */
+                    continue;
+                x0 = vx + (px[i][j] - vx) * (6 - e) / 6;
+                y0 = vy + (py[i][j] - vy) * (6 - e) / 6;
+                x1 = vx + (px[i][n1] - vx) * (6 - e) / 6;
+                y1 = vy + (py[i][n1] - vy) * (6 - e) / 6;
                 cv_line(x0, y0, x1, y1, ce);
             }
         }
@@ -335,10 +414,9 @@ static void us_psyche(uint32_t h)
     if (us_splash)
         return;
     if (sys.page == 0u) {                        /* (HOME: sand on the plate, the oscillator's own signal scattered
-                                                  * over the figure: as many grains as KNOB 3's density, as far
-                                                  * thrown as KNOB 4's foldback; they settle on the figure's lines) */
-        uint32_t w = chua_trace.w, ng = 48u + (uint32_t)k3 * 2u, g;
-        int32_t sc = 2 + k4 / 12;
+                                                  * over the figure's lines, more the denser, thrown with its jitter) */
+        uint32_t w = chua_trace.w, ng = 40u + (uint32_t)nr * 12u, g;
+        int32_t sc = 2 + jit / 12 + (gain - 64) / 48;
         for (g = 0; g < ng; g++) {
             uint32_t at = (w - g * 5u) & (TRACE_N - 1u);
             uint32_t hs = ((uint32_t)(uint16_t)chua_trace.x[at] * 2654435761u) ^ ((uint32_t)(uint16_t)chua_trace.y[at] * 40503u) ^
@@ -346,13 +424,13 @@ static void us_psyche(uint32_t h)
             int32_t gi = (int32_t)(hs % (uint32_t)nr), gj = (int32_t)((hs >> 8) % US_NP);
             int32_t gx = px[gi][gj] + (int32_t)((hs >> 16) & 15u) * sc / 8 - sc;
             int32_t gy = py[gi][gj] + (int32_t)((hs >> 20) & 15u) * sc / 8 - sc;
-            cv_rect(gx, gy, 2, 1, ux_mix(T_BG, us_hue(hue0 + (hs >> 24), 255u), 45 + (int32_t)((hs >> 12) & 63u)));
+            cv_rect(gx, gy, 2, 2, ux_mix(T_BG, us_hue(hue0 + (hs >> 24), 255u), 55 + (int32_t)((hs >> 12) & 63u)));
         }
     }
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
-        W = W * (64 + k3) / 128 * f / 260;       /* (KNOB 3 too) */
+        W = W * size / 256 * f / 260;            /* (the level's too) */
         H = W / 2;
         if (W >= 4)
             us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, (3 + rc / 150 + ev / 25 + gf / 60) * f / 260, hue0, gf, 0);   /* (it blinks
