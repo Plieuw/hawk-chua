@@ -1703,6 +1703,7 @@ static uint16_t rgb565(int32_t r, int32_t g, int32_t b)
     r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
     return (uint16_t)(((uint32_t)r >> 3) << 11 | ((uint32_t)g >> 2) << 5 | (uint32_t)b >> 3);
 }
+static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv);   /* (ui_style.c: PSYCHEDELIC's lamp) */
 static void draw_env(void)
 {
     int32_t lv = sys.env_stage != 0u ? sys.env_view : 0;       /* 0..255 */
@@ -1712,6 +1713,9 @@ static void draw_env(void)
     int32_t tr = (T_THEME >> 11 & 31) * 255 / 31, tg = (T_THEME >> 5 & 63) * 255 / 63, tb = (T_THEME & 31) * 255 / 31;
     int32_t cr = tr * (64 + 192 * lv / 255) / 256, cg = tg * (64 + 192 * lv / 255) / 256, cb = tb * (64 + 192 * lv / 255) / 256;
     cv_begin(240, PLOT_H, T_BG);
+    if (sys.ui_style % US_COUNT == US_PSYCHE)    /* (PSYCHEDELIC: the lamp is the eye, opening with the gate) */
+        us_gate_eye(LAMP_X, LAMP_Y, lv);
+    else
     for (y = LAMP_Y - LAMP_G; y <= LAMP_Y + LAMP_G; y++)
         for (x = LAMP_X - LAMP_G; x <= LAMP_X + LAMP_G; x++) {
             int32_t dx = x - LAMP_X, dy = y - LAMP_Y, d2 = dx * dx + dy * dy, r, g, b;

@@ -170,6 +170,51 @@ static void us_poly(int32_t cx, int32_t cy, int32_t r, uint32_t n, uint32_t a, i
         y0 = y1;
     }
 }
+/* the eye, in lines, at (ex, ey), W wide: two lids open (open) px, an iris of rings turning through the hues
+ * (SHIMMER: how many; DECAY: how fast), a pupil (pr) narrowing to a slit with the RING, looking where the signal goes,
+ * a glint; a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
+static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, uint32_t hue0, int32_t gf, int32_t glow)
+{
+    uint32_t t = us_t();
+    int32_t H = W / 2, ek = 40 + us_k() * 55 / 100, m;
+    int32_t slit = 100 - (int32_t)(sys.ring & 127u) * 70 / 127;
+    uint16_t lid = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0, 255u), 25), ek);
+    int32_t lx = ex - W, ly = ey, tx = lx, ty = ly;
+    for (m = 0; glow && m < 6; m++)              /* (the lamp's glow: rings fading out from it) */
+        us_poly(ex, ey, W + 4 + m * 5, 24u, (uint32_t)m << 27, 160, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), glow * (6 - m) / 12));
+    if (gf)                                      /* (a glow round it on the beat) */
+        us_poly(ex, ey, W + 4 + gf / 25, 16u, 0, 128, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), gf / 3));
+    for (m = -W + 3; m <= W; m += 3) {            /* (the lids: two arcs) */
+        int32_t o = open * (W * W - m * m) / (W * W);
+        cv_line(tx, ty, ex + m, ey - o, lid);
+        cv_line(lx, ly, ex + m, ey + o, lid);
+        tx = ex + m; ty = ey - o; lx = ex + m; ly = ey + o;
+    }
+    if (open > 1) {
+        int32_t look = us_sx * W / 400, rings = 2 + (int32_t)(sys.sh_shimmer & 127u) / 32, ir = (open < H ? open : H) - 2, dy;
+        uint32_t spin = t * (2u + (uint32_t)(sys.decay & 127u) / 16u);   /* (the iris turns as fast as the DECAY) */
+        if (ir < 2)
+            ir = 2;
+        for (m = 0; m < rings; m++)              /* (the iris: rings turning through the hues) */
+            us_poly(ex + look, ey, ir - m * ir / (rings + 1), 12u, spin << 20, 256,
+                    ux_mix(T_BG, us_hue(t * 5u + (uint32_t)m * 50u + hue0, 255u), glow ? 40 + glow / 4 : ek));
+        pr = pr + 2 > ir ? ir - 2 : pr;
+        for (dy = -pr - 2; dy <= pr + 2; dy++) {   /* (the pupil: round, a slit with the RING) */
+            int32_t w = us_isqrt((pr + 2) * (pr + 2) - dy * dy) * slit / 100;
+            cv_rect(ex + look - w, ey + dy, 2 * w + 1, 1, US_RGB(0, 0, 0));
+        }
+        cv_rect(ex + look + pr / 2 + 2, ey - pr, 2, 2, lid);   /* (a glint) */
+    }
+}
+/* the ENV page's lamp, as the eye (ui.c draw_env): shut when nothing sounds, opening with the gate (the newest voice's,
+ * lv 0 .. 255, with the vactrol's lag), its pupil widening and its glow spreading as the lamp's did */
+static void us_gate_eye(int32_t ex, int32_t ey, int32_t lv)
+{
+    int32_t W = 40, H = W / 2;
+    uint32_t hue0 = us_t() * 3u + (uint32_t)us_kn(2) * 2u + (us_groove() ? us_bn * 24u : 0u);
+    us_eye(ex, ey, W, 1 + (H + 2) * lv / 255, 2 + lv / 40, hue0, us_gf(), lv);
+}
+
 #define US_TR 14
 static void us_mash(uint32_t h, int32_t dim);
 static void us_psyche(uint32_t h)
@@ -220,34 +265,11 @@ static void us_psyche(uint32_t h)
     }
     if (sys.page == 0u)                          /* (HOME: the oscillator's own vectors shining through, softly) */
         us_mash(h, 55);
-    {   /* the eye at the tunnel's end, in lines */
-        uint32_t bar2 = beat * 8u, bp = fm1_ms % bar2;
+    if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
+        uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
-        int32_t open = bp < 140u ? 1 : at ? H + 3 : H, m;                 /* (it blinks every 2 bars; wide in an attack) */
-        int32_t ex = vx, ey = vy, ek = 40 + us_k() * 55 / 100;
-        int32_t pr = 3 + rc / 150 + ev / 25 + gf / 60, slit = 100 - (int32_t)(sys.ring & 127u) * 70 / 127;
-        uint16_t lid = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0, 255u), 25), ek);
-        int32_t lx = ex - W, ly = ey, tx = lx, ty = ly;
-        if (gf)                                  /* (a glow round it on the beat) */
-            us_poly(ex, ey, W + 4 + gf / 25, 16u, 0, 128, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), gf / 3));
-        for (m = -W + 3; m <= W; m += 3) {        /* (the lids: two arcs) */
-            int32_t o = open * (W * W - m * m) / (W * W);
-            cv_line(tx, ty, ex + m, ey - o, lid);
-            cv_line(lx, ly, ex + m, ey + o, lid);
-            tx = ex + m; ty = ey - o; lx = ex + m; ly = ey + o;
-        }
-        if (open > 1) {
-            int32_t look = us_sx * W / 400, rings = 2 + (int32_t)(sys.sh_shimmer & 127u) / 32, ir = H - 2, dy;
-            uint32_t spin = t * (2u + (uint32_t)(sys.decay & 127u) / 16u);   /* (the iris turns as fast as the DECAY) */
-            for (m = 0; m < rings; m++)          /* (the iris: rings turning through the hues) */
-                us_poly(ex + look, ey, ir - m * ir / (rings + 1), 12u, spin << 20, 256,
-                        ux_mix(T_BG, us_hue(t * 5u + (uint32_t)m * 50u + hue0, 255u), ek));
-            for (dy = -pr - 2; dy <= pr + 2; dy++) {   /* (the pupil: round, a slit with the RING) */
-                int32_t w = us_isqrt((pr + 2) * (pr + 2) - dy * dy) * slit / 100;
-                cv_rect(ex + look - w, ey + dy, 2 * w + 1, 1, US_RGB(0, 0, 0));
-            }
-            cv_rect(ex + look + pr / 2 + 2, ey - pr, 2, 2, lid);   /* (a glint) */
-        }
+        us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, 3 + rc / 150 + ev / 25 + gf / 60, hue0, gf, 0);   /* (it blinks
+                                                  * every 2 bars; wide in an attack) */
     }
 }
 
