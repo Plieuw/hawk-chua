@@ -20,15 +20,6 @@ static const struct {
     {1, 1, 1, 1, 1, 1, 1},
 };
 
-static uint32_t panel_btn_of(uint32_t matrix_id)        /* label of a matrix button, NB if none */
-{
-    uint32_t b;
-    for (b = 0; b < NB; b++)
-        if (panel.btn[b] == matrix_id)
-            return b;
-    return NB;
-}
-
 static uint32_t btn_bit(uint32_t label) { return 1u << panel.btn[label]; }   /* in fm1_in.buttons / the edges */
 
 static uint32_t rm_btn;                          /* remote.c: buttons pressed over USB (btn_bit), for ui_input */

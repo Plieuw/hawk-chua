@@ -353,55 +353,6 @@ static const uint32_t PX_MEMB_IDEAL[PX_NMEMB] = {65536, 104421, 139955, 150432, 
 static const uint32_t PX_MEMB_LOADED[PX_NMEMB] = {65536, 131072, 196608, 197263, 262144, 261489, 327680, 328991, 326369, 393216};
 static const uint8_t PX_MEMB_M[PX_NMEMB] = {0, 1, 2, 0, 3, 1, 4, 2, 0, 5};   /* (m, n): m nodal diameters */
 
-/* as px_modal_block (struck only); harm, pos: Q16 0..1, bend: semitones Q16 */
-static __attribute__((noinline)) void px_memb_block(px_modal_blk_t *B, px_modal_t *M, uint32_t f0, int32_t harm, int32_t brightness,
-                                                    int32_t damping, int32_t accent, int32_t pos, int32_t bend)
-{
-    int32_t b = brightness + px_m(accent >> 2, 65536 - brightness, 16);
-    int32_t d = damping + px_m(accent >> 2, 65536 - damping, 16);
-    int32_t ql, w[6], pm = pos + (pos >> 1), inv;
-    uint32_t i;
-    uint64_t q8, f = f0;
-    if (M->trig)
-        M->benv = 65536;
-    if (M->benv) {                                       /* the bend: f 2^(bend benv / 12), benv -> 0 in ~60 ms */
-        f = (f * px_exp2(px_m(bend, M->benv, 16) / 12)) >> 16;
-        M->benv = px_m(M->benv, 64220, 16);              /* 0.98 per block of 32 */
-        if (M->benv < 64)
-            M->benv = 0;
-    }
-    if (f > 0x40000000u)
-        f = 0x40000000u;
-    px_modal_exciter(B, M, (uint32_t)f, brightness, b, d, accent, 0);
-    q8 = px_modal_q(0, b, d, &ql);
-    w[0] = 65536 - px_m(pos, 39322, 16);                 /* m = 0: 1 at the centre, 0.4 at the rim */
-    w[1] = pm > 65536 ? 65536 : pm;                      /* m > 0: (1.5 pos)^m, at most 1 */
-    for (i = 2; i < 6u; i++)
-        w[i] = px_m(w[i - 1], w[1], 16);
-    for (i = 0; i < PX_NMEMB; i++) {
-        uint32_t r = PX_MEMB_IDEAL[i] + (uint32_t)px_m((int32_t)(PX_MEMB_LOADED[i] - PX_MEMB_IDEAL[i]), harm, 16);
-        uint64_t mf = (f * r) >> 16;
-        px_svf_t c;
-        if (mf >= 2143260078u)
-            break;
-        px_svf_coef(&c, (uint32_t)mf, (uint32_t)(256u + ((mf * q8) >> 32)));
-        B->m[i].g = c.g;
-        B->m[i].rpg = c.rpg;
-        B->m[i].gh = c.gh;
-        inv = (int32_t)(((uint64_t)1 << 32) / r);
-        B->m[i].a = px_m(px_m(w[PX_MEMB_M[i]] << 14, 65536 - (int32_t)(mf >> 15), 18),   /* w (1 - 2 f) / ratio^2, */
-                         px_m(inv, inv, 16), 16);        /* Q28: a mode's level from the strike rises as ratio^2 */
-        q8 = (q8 * (uint32_t)ql) >> 16;
-    }
-    B->n = i;
-    for (; i < PX_NMODE; i++)
-        M->s[i][0] = M->s[i][1] = 0;
-    for (i = 0; i < B->n; i++) {
-        M->s[i][0] = px_clamp(M->s[i][0], -(1 << 28), 1 << 28);
-        M->s[i][1] = px_clamp(M->s[i][1], -(1 << 28), 1 << 28);
-    }
-}
-
 /* n (<= 32) samples: out[i] = the resonator (Q20), aux[i] = the exciter (Q20). The exciter first (skipped
  * once a strike has rung out), then the modes */
 static void px_modal_run(const px_modal_blk_t *B, px_modal_t *M, const int32_t *in, int32_t *out, int32_t *aux, uint32_t n)
@@ -600,41 +551,6 @@ static inline int32_t px_hermite(const int32_t *l, uint32_t wp, uint32_t delay) 
     int64_t y = ((a * f) >> 16) - bn;
     y = ((y * f) >> 16) + c;
     return (int32_t)((y * f) >> 16) + x0;
-}
-
-/* the exciter of n samples into aux (Q20): Dust, or the burst through the Svf low-pass */
-static void px_string_excite(const px_string_blk_t *B, px_string_t *S, int32_t *aux, uint32_t n)
-{
-    uint32_t i, bk = S->bk, bend = S->bn + S->bd;
-    px_csvf_st_t ex = S->ex;
-    for (i = 0; i < n; i++) {
-        int32_t in = 0, x = 0;
-        if (B->dust_thr) {
-            uint32_t u = px_rand(&S->rng);
-            if (u < B->dust_thr)
-                x = (int32_t)(((((uint64_t)u * B->dust_inv) >> 32) * (uint32_t)B->dust_gain) >> 11);   /* Q20 */
-        } else if (bk < bend) {                          /* rand in -1..1; with a pluck position, the */
-            if (bk < S->bn)                              /* half of it minus its half pos / 2 periods */
-                x = (int32_t)(px_rand(&S->nz_a) >> (S->bd ? 12 : 11)) - (S->bd ? 1 << 19 : 1 << 20);   /* later */
-            if (S->bd && bk >= S->bd)
-                x -= (int32_t)(px_rand(&S->nz_b) >> 12) - (1 << 19);
-            bk++;
-        }
-        if (x || ex.low || ex.band) {
-            int32_t l0;
-            px_csvf_pass(&S->exc, &ex, x);
-            l0 = ex.low;
-            px_csvf_pass(&S->exc, &ex, x);
-            in = (l0 + ex.low) >> 1;
-            ex.band = px_clamp(ex.band, -(5 << 20), 5 << 20);   /* stays far below (DaisySP's +-1 burst: */
-            ex.low = px_clamp(ex.low, -(16 << 20), 16 << 20);   /* ~1.3); bounded all the same */
-            if (!x && ex.low > -16 && ex.low < 16 && ex.band > -16 && ex.band < 16)
-                ex.low = ex.band = 0;                    /* rung out */
-        }
-        aux[i] = in - (B->dust_thr ? B->dust_dc : 0);   /* (the string has its own DC blocker) */
-    }
-    S->bk = bk;
-    S->ex = ex;
 }
 
 /* the string over n samples, excited by in[] (Q20): out[] */

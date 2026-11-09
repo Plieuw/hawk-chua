@@ -90,7 +90,6 @@ static void art_ln(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c, u
         }
     }
 }
-static void art_l(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c) { art_ln(Q8(x0), Q8(y0), Q8(x1), Q8(y1), c, 0); }
 
 /* a Catmull-Rom curve through n points (Q8), 8 steps a segment; keep: the points drawn collected (for art_hatch) */
 #define ART_MAXP 160
@@ -136,13 +135,6 @@ static void art_ring(int32_t cx, int32_t cy, int32_t r, uint16_t c)   /* a circl
         px = x;
         py = y;
     }
-}
-/* log2(hz / 40) Q8 (40 Hz .. 12 kHz: 0 .. 2106): x on a log-frequency axis */
-static uint32_t art_oct(uint32_t hz)
-{
-    uint32_t t = hz * 256u / 40u, l2 = 0;
-    while (t >= 512u) { t >>= 1; l2 += 256u; }
-    return l2 + t - 256u;
 }
 
 /* ---------------------------------------------------------------- 3D view --- */
@@ -1033,18 +1025,6 @@ static void art_shimmer(const uint8_t *hist, uint32_t nh)
  * two rollers past the head; on the tape at the head its four tracks, each as bright as it sounds, the armed one
  * dashed (and REC lit while it records) */
 static uint32_t art_reel[2];
-static void a3_circle(int32_t cx, int32_t cy, int32_t z, int32_t r, uint32_t nseg, uint16_t c, int32_t zref)
-{
-    uint32_t k;
-    v3_t prev = {0, 0, 0};
-    for (k = 0; k <= nseg; k++) {
-        uint32_t th = k * (0xFFFFFFFFu / nseg);
-        v3_t p = a3_rot(cx + (art_cos(th) >> 7) * (r >> 8), cy + (art_sin(th) >> 7) * (r >> 8), z);
-        if (k)
-            a3_seg(prev, p, zref, c);
-        prev = p;
-    }
-}
 static void a3_l(int32_t x0, int32_t y0, int32_t z0, int32_t x1, int32_t y1, int32_t z1, uint16_t c, uint32_t dash)
 {
     int32_t a, b, e, f;

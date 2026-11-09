@@ -145,7 +145,6 @@ static void fm1_wdt_arm(uint8_t t)
     fm1_p33_or(FM1_P3_WDT_CON, 0x10);                        /* enable */
 }
 static void fm1_wdt_feed(void) { fm1_p33_or(FM1_P3_WDT_CON, 0x40); }
-static void fm1_wdt_stop(void) { fm1_p33_write(FM1_P3_WDT_CON, 0); }
 
 /* ---------------------------------------------------- reset and reboot --- */
 static struct {
@@ -222,10 +221,4 @@ FM1_INLINE void fm1_mailbox_clear(void)   /* before fm1_guard_enable (it write-p
         *s = 0;
 }
 
-/* RAM and the XIP window only: SFR reads can have side effects */
-static int fm1_mem_readable(uint32_t a, uint32_t n)
-{
-    return (a >= 0x01C00000u && a + n <= 0x01C80000u && a + n >= a) ||
-           (a >= 0x02000000u && a + n <= 0x02100000u && a + n >= a);
-}
 FM1_INLINE uint8_t fm1_peek8(uint32_t a) { return *(const volatile uint8_t *)a; }

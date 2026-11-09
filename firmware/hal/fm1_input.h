@@ -17,8 +17,6 @@
  *            reads fm1_in.notes / buttons and takes edges/steps with
  *            fm1_input_edges() / fm1_enc_take(), which are IRQ-safe.
  *
- * fm1_input_scan() runs one full frame (11 columns, ~0.6 ms) and calls
- * FM1_INPUT_IDLE() while it waits.
  * Keys/buttons: asymmetric debounce. A press counts after FM1_DEB_PRESS frames closed in a row
  * (1.1-2.2 ms from the contact with the TIMER5 scan): the matrix has diodes and no ghosting, so a closed sample is a
  * closed key; two in a row keep one stray sample from playing a note. A release needs
@@ -95,9 +93,6 @@
 #include "fm1_gpio.h"
 #include "fm1_led_anim.h"
 
-#ifndef FM1_INPUT_IDLE
-#define FM1_INPUT_IDLE() ((void)0)
-#endif
 #ifndef FM1_INPUT_NOW
 #define FM1_INPUT_NOW() fm1_ticks()   /* the press stats' clock (input_test.c: simulated) */
 #endif
@@ -107,7 +102,6 @@
 #define FM1_DEB_PRESS 2u          /* frames closed in a row: a press (a frame = 11 ticks, ~1.1 ms) */
 #define FM1_DEB_RELEASE 8u        /* frames open in a row: a release (~9 ms) */
 #define FM1_INPUT_LAT 1           /* the press latency stats below (seq.c, console `inp`) */
-#define FM1_SETTLE_US 10u
 #ifndef FM1_LED_DIM_NS
 #define FM1_LED_DIM_NS 3200u      /* a dim LED's pulse per frame (ns; a lit one ~95 us): ~1/30 the brightness */
 #endif
@@ -145,7 +139,6 @@
 #define FM1_NKEY 41u              /* ids: 0..13 buttons, 14..40 note keys */
 #define FM1_NENC 7u
 
-
 /* key id at (physical column, packed row bit), -1 = none */
 static const int8_t FM1_KEYMAP[6][FM1_NCOL] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},          /* PA0: encoders */
@@ -160,7 +153,6 @@ static const uint8_t FM1_ENC[FM1_NENC][4] = {
     {0, 0, 1, 0}, {2, 0, 3, 0}, {8, 1, 9, 1}, {8, 0, 9, 0}, {6, 0, 7, 0}, {4, 0, 5, 0}, {0, 5, 1, 5},
 };
 enum { FM1_BTN_OCT_DOWN = 0, FM1_BTN_OCT_UP = 1 };
-
 
 static volatile struct {
     uint32_t notes;              /* debounced: bit n = note key n (0 = F3 .. 26 = G5) */
@@ -241,13 +233,6 @@ static uint32_t fm1__rows(void)
     return (~((a & 1u) | ((a >> 4) & 0x1Eu) | ((b >> 2) & 0x20u))) & 0x3Fu;
 }
 
-static void fm1__wait(uint32_t us)
-{
-    uint32_t t0 = fm1_ticks(), span = us * FM1_TICKS_PER_US;
-    while ((uint32_t)(fm1_ticks() - t0) < span)
-        FM1_INPUT_IDLE();
-}
-
 static void fm1_input_init(void)
 {
     static const uint8_t LEDP[4][2] = {{FM1_PH, 6}, {FM1_PH, 9}, {FM1_PA, 9}, {FM1_PA, 10}};
@@ -322,22 +307,6 @@ static void fm1__keys(uint32_t p)                  /* the keys of column p, just
 }
 
 static void fm1__frame(void);
-
-static void fm1_input_scan(void)
-{
-    uint32_t p;
-    for (p = 0; p < FM1_NCOL; p++) {
-        fm1__led_lines(0);
-        fm1__sr_word(0xFFFFu ^ (1u << p) ^ (p < 2u ? 1u << (11u + p) : 0u));
-        fm1__wait(FM1_SETTLE_US);
-        fm1_in.raw[p] = (uint8_t)fm1__rows();
-        fm1__keys(p);
-        fm1__led_lines(fm1_led[p]);
-        fm1__wait(FM1_LED_US);
-    }
-    fm1__led_lines(0);
-    fm1__frame();
-}
 
 static void fm1__frame(void)
 {
@@ -625,25 +594,3 @@ static uint32_t fm1_input_edges(uint32_t *released)
     return p;
 }
 
-static uint32_t fm1_input_note_edges(void)
-{
-    uint32_t k = fm1__lock();
-    uint32_t p = fm1_in.notes_pressed;
-    fm1_in.notes_pressed = 0;
-    fm1__unlock(k);
-    return p;
-}
-
-/* LED of key id (button 0..13 or note key 14..40) */
-static void fm1_led_key(uint32_t id, int on)
-{
-    uint32_t p, r;
-    for (p = 0; p < FM1_NCOL; p++)
-        for (r = 1; r < 5u; r++)
-            if (FM1_KEYMAP[r][p] == (int8_t)id) {
-                if (on)
-                    fm1_led[p] |= (uint8_t)(1u << r);
-                else
-                    fm1_led[p] &= (uint8_t)~(1u << r);
-            }
-}

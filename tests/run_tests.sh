@@ -19,7 +19,6 @@ cd "$(dirname "$0")/.."
 if [ ! -f build/gen/ui_fonts.h ]; then         # the generated font / palette headers (as ./build.sh makes them)
     mkdir -p build/gen
     python3 tools/gen_aa_font.py build/gen/ui_fonts.h --preset inter-tight >/dev/null
-    python3 tools/gen_aa_keycaps.py build/gen/ui_keycaps.h >/dev/null
     python3 tools/gen_ui_palettes.py build/gen/ui_palettes.h >/dev/null
 fi
 OUT=build/host

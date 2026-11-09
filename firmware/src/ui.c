@@ -1452,7 +1452,6 @@ static void ui_head(const char *name, const char *note)
 {
     if (!ui_changed(T_HEAD, name, note))
         return;
-    cv_at(0, 2);
     cv_begin(240, AF_M.h, T_BG);
     cv_text(8, 0, &AF_M, name, T_TEXT);
     cv_text_r(232, 0, &AF_M, note, T_THEME, T_BG);
@@ -1522,7 +1521,6 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
     if (!ui_changed(i, label, v))
         return;
-    cv_at(X[c], Y[c]);
     cv_begin(112, AF_S.h + AF_M.h, T_BG);
     cv_text(0, 0, &AF_S, label, T_MID);
     cv_text(0, AF_S.h, &AF_M, value, sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
@@ -1546,13 +1544,10 @@ static void ui_status(const char *s)
     if (!ui_changed(T_STATUS, s, sig))
         return;
     if (!nb) {
-        cv_at(0, 223);
         draw_text_line(0, 223, 240, &AF_S, s, T_MID, T_BG, 1);
         return;
     }
-    cv_at(0, 223);
     draw_text_line(0, 223, 240u - w, &AF_S, s, T_MID, T_BG, 1);
-    cv_at((int32_t)(240u - w), 223);
     cv_begin(w, AF_S.h, T_BG);
     {
         uint32_t i, y = (AF_S.h - 7u) / 2u;
@@ -2334,7 +2329,7 @@ static void ui_draw(void)
         }
     }
     if (ui_force)
-        style_ground();
+        lcd_fill(0, 0, 240, 240, T_BG);
     str_cpy(a, PRESETS[sys.preset % NPRESETS].name, sizeof a);
     if (preset_edited())
         ui_cat(a, sizeof a, " *");

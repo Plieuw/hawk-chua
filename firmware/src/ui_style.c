@@ -276,23 +276,6 @@ static void us_psyche(uint32_t h)
     }
 }
 
-/* the whole screen's ground (a page drawn anew): the panel, in strips; plain where the style is off */
-static void style_ground(void)
-{
-    uint32_t y;
-    if (!cv_panel || cv_style_off) {
-        lcd_fill(0, 0, 240, 240, T_BG);
-        return;
-    }
-    for (y = 0; y < 240u; y += 40u) {            /* (strips under 64 rows: not the big canvas, no backdrop) */
-        cv_at(0, (int32_t)y);
-        cv_begin(240, 40, T_BG);
-        cv_blit(0, y);
-    }
-    lcd_sync();
-    lcd_fresh = 1;                               /* (painted over: the big canvas goes out whole again) */
-}
-
 /* on the FX pages: the oscillator's picture (its trace turning in 3D, as HOME's INITIAL shows it) mashed up with
  * the FX's own vectors drawn over it: the trace copied round the middle in mirrored turns (2 .. 5: the FX's
  * POSITION, the reverb's SHIMMER), each copy its own hue running along the trace (the FX model's colours), as
@@ -437,7 +420,6 @@ static void style_apply(void)
         palette_set(NPALETTES);
         cv_backdrop = us_backdrop;
     }
-    cv_panel = 0;                                /* (the rest of the screen: plain) */
     ui_force = 1;
 }
 
