@@ -1252,9 +1252,8 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
-        if (s.snd >= 17u) {                      /* (19: two styles; 18's three: PSYCHEDELIC 1; 17's seven: PSYCHEDELIC 3) */
-            sys.ui_style = (uint8_t)(s.snd >= 19u ? s.ui_style % US_COUNT :
-                                     s.ui_style == (s.snd >= 18u ? 1u : 3u) ? US_PSYCHE : US_INITIAL);
+        if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
+            sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
             sys.ui_backdrop = (uint8_t)(s.ui_backdrop & 127u);
             sys.ui_react = (uint8_t)(s.ui_react & 127u);
@@ -1309,7 +1308,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 19;
+    s.snd = 20;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
     s.ui_style = sys.ui_style;

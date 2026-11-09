@@ -127,7 +127,7 @@ EXPORT(emu_store) void emu_store(uint32_t obj, uint32_t len)   /* before emu_ini
 EXPORT(emu_init) void emu_init(void)          /* main.c's fm1_main, up to the main loop */
 {
     settings_boot();
-    palette_set(UI_PALETTE);
+    style_apply();                               /* (the UI STYLE: its palette and backdrop; INITIAL: AMBER) */
     keys_init();
     tape_init();
     sys.master_q12 = 2048;
