@@ -350,6 +350,23 @@ static void us_psyche(uint32_t h)
     uint32_t drift = t << 24;                    /* (the detuned layer's drift against the first) */
     uint32_t hold = 1u + (uint32_t)crush / 16u, seed = fm1_ms / 50u * 2654435761u;
     int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
+    /* and the reverse: a note out of the silence and the figure comes out of the eye, ring by ring from the middle
+     * out (~0.5 s); every note sends a copy of it out of the eye, flying out past the edge */
+    static uint8_t vst[NVOICE];
+    static uint32_t bt0 = 0x80000000u, et0 = 0x80000000u;
+    static int32_t lastop;
+    uint32_t bl, el;
+    for (j = 0; j < NVOICE; j++) {
+        if (voice[j].stage == ST_ATTACK && vst[j] != ST_ATTACK) {
+            et0 = fm1_ms;
+            if (lastop < 96)
+                bt0 = fm1_ms;
+        }
+        vst[j] = (uint8_t)voice[j].stage;
+    }
+    lastop = op;
+    bl = us_splash ? 512u : fm1_ms - bt0 > 600u ? 512u : (fm1_ms - bt0) * 512u / 600u;   /* (the bloom, 0 .. 512) */
+    el = fm1_ms - et0;                           /* (the note's copy flying out, ms) */
     if (fg[0] == UF_LISS && !det)                /* (the ratio's two counts beat as one figure) */
         det = 128;
     for (j = 0; j < US_NP; j++) {                /* (the figure's radius, twice: its wave up and down) */
@@ -378,6 +395,11 @@ static void us_psyche(uint32_t h)
         if (spread)                              /* (an expansion: the near rings flung out, the far drawn in) */
             R = R * (256 + spread * (2 * i - nr) * 2 / nr) / 256;
         R = R * f / 260;
+        if (bl < 512u) {                         /* (blooming: the inner rings first) */
+            int32_t b = (int32_t)bl - 256 * i / (nr > 1 ? nr - 1 : 1);
+            b = b < 0 ? 0 : b > 256 ? 256 : b;
+            R = R * b * (512 - b) / 65536;       /* (eased out) */
+        }
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
         for (j = 0; j < US_NP; j++) {
@@ -413,6 +435,18 @@ static void us_psyche(uint32_t h)
     }
     if (us_splash)
         return;
+    if (el < 700u) {                   /* (the note's copy: out of the eye, past the edge, fading) */
+        int32_t Re = 4 + (int32_t)el * 150 / 700, a0 = 0, b0 = 0;
+        uint16_t ce = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0 + 128u, 255u), 60), 90 - (int32_t)el * 90 / 700);
+        for (j = 0; j <= US_NP; j++) {
+            uint32_t q = j % US_NP, a = rot0 + q * step;
+            int32_t r = Re * gm[0][q] / 256, x = vx + us_sin(a + (1u << 30), r), y = vy + us_sin(a, r) * sq / 256;
+            if (j)
+                cv_line(a0, b0, x, y, ce);
+            a0 = x;
+            b0 = y;
+        }
+    }
     if (sys.page == 0u) {                        /* (HOME: sand on the plate, the oscillator's own signal scattered
                                                   * over the figure's lines, more the denser, thrown with its jitter) */
         uint32_t w = chua_trace.w, ng = 40u + (uint32_t)nr * 12u, g;
@@ -431,6 +465,8 @@ static void us_psyche(uint32_t h)
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
         W = W * size / 256 * f / 260;            /* (the level's too) */
+        if (bl < 256u)                           /* (blooming: the eye opens first) */
+            W = W * (int32_t)(bl + 64u) / 320;
         H = W / 2;
         if (W >= 4)
             us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, (3 + rc / 150 + ev / 25 + gf / 60) * f / 260, hue0, gf, 0);   /* (it blinks
