@@ -495,7 +495,9 @@ static void arp_midi_rt(uint32_t status)
     }
 }
 
-static int arp_ext(void) { return !sys.clk_int && arp.ext_age < ARP_EXT_TIMEOUT; }   /* (CLOCK INTERNAL: never) */
+static int arp_ext(void) { return !sys.clk_int; }   /* CLOCK EXTERNAL (GLO's SELECT): MIDI clock only, nothing
+                                                  * without it (no falling back on the BPM); INTERNAL: the BPM */
+static int arp_ext_alive(void) { return arp.ext_age < ARP_EXT_TIMEOUT; }   /* (a clock coming in now) */
 
 /* LOGIC (the ARP and KARMA on at once, the LOGIC page): both play the notes held, on one clock (KARMA's: its phrase
  * started, its clocks counted), and at each clock their hits meet: OR both sound, AND each only where the other hits
@@ -614,7 +616,7 @@ static void arp_lstep(int pass)                  /* (a step due at this clock: t
 /* the clock, once a block: steps at the note value (swung: every second step later by SWING, the AN1x's 50 % none
  * .. 83 % most: its pair split 50:50 .. 83:17), the notes off at the gate */
 /* CLOCK INTERNAL (GLO's SELECT) with USB OUT: the BPM out as MIDI clock (CLOCK PPQ a quarter: 24 MIDI's), START when the ARP or KARMA
- * starts, STOP when both stop: another instrument on USB follows the FM-1's tempo */
+ * starts, the clocks while they play, STOP when both stop: another instrument on USB follows the FM-1's tempo */
 static const uint8_t CLK_PPQ[4] = {1, 2, 24, 48};   /* (the SOUND page's CLOCK PPQ: pulses a quarter note) */
 static void clk_out(uint32_t n)
 {
@@ -631,6 +633,8 @@ static void clk_out(uint32_t n)
         run = on;
         acc = tl;                                /* (on START: its first clock now) */
     }
+    if (!on)                                     /* (clocks only while they play: START .. STOP) */
+        return;
     acc += n * 256u;
     while (acc >= tl) {
         acc -= tl;
@@ -738,5 +742,5 @@ static uint32_t arp_bpm_now(void)
 {
     if (!arp_ext())
         return sys.arp_bpm;
-    return arp.tick_len ? (2646000u / 24u + arp.tick_len / 2u) / arp.tick_len : 0u;
+    return arp.tick_len && arp_ext_alive() ? (2646000u / 24u + arp.tick_len / 2u) / arp.tick_len : 0u;
 }

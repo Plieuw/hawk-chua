@@ -913,6 +913,7 @@ int main(int argc, char **argv)
         run_ms(20);
         /* MIDI clock: 1 BAR = 96 clocks; recorded under it, it stops after 96 */
         sys.feg_len = 9; sys.feg_val = 30;
+        sys.clk_int = 0;                                     /* (CLOCK EXTERNAL) */
         midi_in(0xFA, 0, 0);
         midi_in(0xF8, 0, 0);
         run_ms(20);
@@ -927,6 +928,7 @@ int main(int argc, char **argv)
         check("FREE EG: a bar recorded and looped, DEPTH, off, NOTE from each note, under MIDI clock", okk);
         sys.feg_has = 0; sys.chaos = 85;
         run_ms(700);                                         /* (the clock gone) */
+        sys.clk_int = 1;
     }
 
     /* the MIDI page (GLO): TRS in off ignores the jack, USB in off ignores USB; RX channel filters (OMNI: all);
@@ -978,35 +980,47 @@ int main(int argc, char **argv)
         run_ms(500);
         check("MIDI page: TRS / USB in on and off, RX channel, TX channel, USB out off", okk);
     }
-    {   /* CLOCK INTERNAL (GLO's SELECT): incoming clock ignored; with USB out the BPM goes out as MIDI clock */
-        uint32_t clocks = 0, starts = 0, j, bpm0 = sys.arp_bpm;
+    {   /* CLOCK INTERNAL (GLO's SELECT): with USB out the BPM goes out as MIDI clock while the ARP or KARMA plays (START,
+         * the clocks, STOP); stopped, or CLOCK EXTERNAL: none */
+        uint32_t clocks = 0, starts = 0, stops = 0, j, bpm0 = sys.arp_bpm;
+        static const uint32_t want[4] = {2, 4, 48, 96};              /* (120 BPM, a second: CLOCK PPQ 1, 2, 24, 48) */
+        int okp = 1;
+        uint32_t q;
         sys.clk_int = 1; sys.arp_bpm = 120;
         out_n = 0;
+        run_ms(200);
+        okp &= out_n == 0;                                           /* (nothing playing: no clock) */
+        sys.arp_on = 1;
         run_ms(1000);                                                /* (120 BPM: 48 clocks a second) */
+        sys.arp_on = 0;
+        run_ms(20);
         for (j = 0; j < out_n; j++)
-            clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u, starts += ((out_log[j] >> 8) & 0xFFu) == 0xFAu;
-        sys.clk_int = 0; sys.arp_bpm = bpm0;
-        check("CLOCK INTERNAL: the BPM out on USB as MIDI clock (120 BPM: 48 a second)", clocks >= 47u && clocks <= 49u);
+            clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u, starts += ((out_log[j] >> 8) & 0xFFu) == 0xFAu,
+            stops += ((out_log[j] >> 8) & 0xFFu) == 0xFCu;
+        check("CLOCK INTERNAL: START, the BPM out on USB as MIDI clock while the ARP plays (48 a second), STOP",
+              okp && starts == 1u && stops == 1u && clocks >= 47u && clocks <= 50u);
+        sys.clk_int = 0;
+        sys.arp_on = 1;
         out_n = 0;
         run_ms(100);
-        check("CLOCK MIDI SYNC: no clock out", out_n == 0);
-        {
-            static const uint32_t want[4] = {2, 4, 48, 96};          /* (120 BPM, a second: CLOCK PPQ 1, 2, 24, 48) */
-            int okp = 1;
-            uint32_t q;
-            sys.clk_int = 1; sys.arp_bpm = 120;
-            for (q = 0; q < 4u; q++) {
-                sys.clk_ppq = (uint8_t)q;
-                run_ms(50);
-                out_n = 0;
-                run_ms(1000);
-                for (clocks = 0, j = 0; j < out_n; j++)
-                    clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u;
-                okp &= clocks + 1u >= want[q] && clocks <= want[q] + 1u;
-            }
-            sys.clk_int = 0; sys.arp_bpm = bpm0; sys.clk_ppq = 2;
-            check("CLOCK PPQ: 1, 2, 24, 48 clocks a quarter out", okp);
+        sys.arp_on = 0;
+        run_ms(10);
+        check("CLOCK EXTERNAL: no clock out", out_n == 0);
+        sys.clk_int = 1;
+        sys.arp_on = 1;
+        for (q = 0; q < 4u; q++) {
+            sys.clk_ppq = (uint8_t)q;
+            run_ms(50);
+            out_n = 0;
+            run_ms(1000);
+            for (clocks = 0, j = 0; j < out_n; j++)
+                clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u;
+            okp &= clocks + 1u >= want[q] && clocks <= want[q] + 1u;
         }
+        sys.arp_on = 0; sys.arp_bpm = bpm0; sys.clk_ppq = 2;
+        run_ms(20);
+        out_n = 0;
+        check("CLOCK PPQ: 1, 2, 24, 48 clocks a quarter out", okp);
     }
     {   /* the mod wheel (CC 1) moves the EDIT page's parameter and gives it back; program change asks for a preset */
         int okk = 1;
@@ -1656,6 +1670,7 @@ int main(int argc, char **argv)
         okk &= ons <= 1u;                                    /* (one note at a time) */
         /* MIDI clock at 150 BPM: 24 a quarter -> 1/16 every 6 clocks; 2 s: 20 steps */
         w0 = arp_view.w;
+        sys.clk_int = 0;                                     /* (CLOCK EXTERNAL) */
         for (b = 0; b < 48u * 2u; b++) {                     /* 48 clocks a second at 120 .. 60 at 150 */
             midi_in(0xF8, 0, 0);
             run_ms(1000 / 60);                               /* (16.6 ms: ~150 BPM) */
@@ -1663,7 +1678,10 @@ int main(int argc, char **argv)
         printf("   (ARP under MIDI clock: %u steps for 96 clocks, %u BPM seen)\n", arp_view.w - w0, arp_bpm_now());
         okk &= arp_view.w - w0 >= 15u && arp_view.w - w0 <= 17u && arp_ext();
         okk &= arp_bpm_now() >= 140u && arp_bpm_now() <= 160u;
-        run_ms(700);                                         /* no clock: its own again */
+        w0 = arp_view.w;
+        run_ms(700);                                         /* no clock (EXTERNAL): it waits, no tempo of its own */
+        okk &= arp_ext() && arp_bpm_now() == 0u && arp_view.w - w0 <= 1u;
+        sys.clk_int = 1;                                     /* (INTERNAL: its own BPM) */
         okk &= !arp_ext();
         sys.arp_on = 0;                                      /* off: the chord held sounds */
         run_ms(20);
@@ -1933,6 +1951,7 @@ int main(int argc, char **argv)
         run_ms(500);
         /* MIDI clock: 96 clocks = 16 sixteenths; START: the phrase from its top */
         midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x90, 67, 100);
+        sys.clk_int = 0;                                     /* (CLOCK EXTERNAL) */
         midi_in(0xFA, 0, 0);
         run_ms(5);
         w0 = kar_view.w; n0 = kar.triggers;
@@ -1952,7 +1971,9 @@ int main(int argc, char **argv)
         run_ms(10);
         KOK(sounding() == 3u);
         sys.k_on = 1;
-        run_ms(700);                                         /* (the clock gone: its own again) */
+        run_ms(700);                                         /* (the clock gone) */
+        sys.clk_int = 1;                                     /* (INTERNAL: its own again) */
+        run_ms(20);
         /* USB MIDI out: KARMA's notes on the TX channel, the keys' own not */
         out_n = 0; sys.midi_tx = 4;
         fm1_in.notes = 1u << key_of(72);
@@ -2007,6 +2028,7 @@ int main(int argc, char **argv)
                     synth_kill(); keys_all_off(); run_ms(300);
                     sys.arp_type = 0; sys.arp_div = d == 2u ? 6 : d ? 4 : 7; sys.arp_swing = 0; sys.arp_gate = 60; sys.arp_hold = 0;
                     sys.k_ge = 0; sys.k_latch = 0; sys.k_m[0] = sys.k_m[1] = sys.k_m[2] = sys.k_m[3] = 64;
+                    sys.clk_int = (uint8_t)!ext;
                     sys.arp_bpm = 120; sys.k_logic = (uint8_t)(m == 7u ? 1u : m); sys.k_inv = (uint8_t)(m == 7u); sys.k_on = 1; sys.arp_on = 1;
                     run_ms(20);
                     if (ext) midi_in(0xFA, 0, 0);
@@ -2042,6 +2064,7 @@ int main(int argc, char **argv)
                     midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
                     run_ms(300);
                 }
+        sys.clk_int = 1;                         /* (INTERNAL again) */
         {   /* NOTE QUANT: C major held: C# to C, F# to F (the lower of two), in SCALE; D to C, F to E in CHORD; A minor:
              * G# to G; off: as it is; the note made ends as the one it sounded as */
             synth_kill(); keys_all_off(); run_ms(50);

@@ -1254,7 +1254,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
-        sys.clk_int = (uint8_t)(s.snd >= 21u && s.clk_int);
+        sys.clk_int = (uint8_t)(s.snd < 23u || s.clk_int);   /* (23: EXTERNAL strict now: INTERNAL, once) */
         sys.clk_ppq = (uint8_t)(s.snd >= 22u ? s.clk_ppq & 3u : 2u);
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
@@ -1312,7 +1312,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 22;
+    s.snd = 23;
     s.clk_int = sys.clk_int;
     s.clk_ppq = sys.clk_ppq;
     s.k_inv = sys.k_inv;
@@ -2136,7 +2136,7 @@ static void draw_midi(void)
     ui_cat(a, sizeof a, v);
     cv_text(48, y, &AF_S, a, T_MID);
     y += 24;
-    cv_text(8, y, &AF_S, sys.clk_int ? "CLOCK  INTERNAL (SELECT)" : arp_ext() ? "CLOCK  MIDI IN" : "CLOCK  EXTERNAL: NONE, INTERNAL", T_DIM);
+    cv_text(8, y, &AF_S, sys.clk_int ? "CLOCK  INTERNAL (SELECT)" : arp_ext_alive() ? "CLOCK  EXTERNAL: MIDI IN" : "CLOCK  EXTERNAL: WAITING", T_DIM);
 #if FELUCCA_CPU2
     {   /* the second core: how much of its stack it ever used, its longest job (a diagnostic) */
         str_cpy(a, "2ND CORE  STACK ", sizeof a);
@@ -2558,10 +2558,13 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 TX CHANNEL", v);
     } else if (sys.page == 6u) {
         uint32_t bpm = arp_bpm_now();
-        if (arp_ext()) {
-            str_cpy(b, "EXT ", sizeof b);
-            fmt_int(v, (int32_t)bpm);
-            ui_cat(b, sizeof b, bpm ? v : "?");
+        if (arp_ext()) {                         /* (CLOCK EXTERNAL: the knob does nothing; the tempo coming in) */
+            str_cpy(b, "EXT", sizeof b);
+            if (bpm) {
+                fmt_int(v, (int32_t)bpm);
+                ui_cat(b, sizeof b, " ");
+                ui_cat(b, sizeof b, v);
+            }
         } else {
             fmt_int(v, sys.arp_bpm);
             str_cpy(b, v, sizeof b);
@@ -3505,7 +3508,10 @@ static void ui_input(void)
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K1)) != 0) {
-            sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
+            if (arp_ext())
+                ui_say("CLOCK EXTERNAL: GLO");
+            else
+                sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K2)) != 0) {
@@ -3671,7 +3677,10 @@ static void ui_input(void)
         }
     } else if (sys.page == 6u) {
         if ((s = ui_enc(EN_K1)) != 0) {
-            sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
+            if (arp_ext())                       /* (CLOCK EXTERNAL: the tempo is the MIDI clock's) */
+                ui_say("CLOCK EXTERNAL: GLO");
+            else
+                sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K2)) != 0) {
@@ -3864,11 +3873,15 @@ static void ui_input(void)
     }
     if ((s = ui_enc(EN_PRESET)) != 0 && (sys.page == 6u || sys.page == 18u || sys.page == 9u || sys.page == 17u ||
                                          sys.page == 12u || sys.page == 13u)) {   /* ARP, GROOVE, KARMA, LOGIC, TAPE: PRESETS is the BPM */
-        sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
-        str_cpy(t, arp_ext() ? "MIDI CLOCK: BPM " : "BPM ", sizeof t);
-        fmt_int(v, sys.arp_bpm);
-        ui_cat(t, sizeof t, v);
-        ui_say(t);
+        if (arp_ext())                           /* (CLOCK EXTERNAL: the tempo is the MIDI clock's) */
+            ui_say("CLOCK EXTERNAL: GLO");
+        else {
+            sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
+            str_cpy(t, "BPM ", sizeof t);
+            fmt_int(v, sys.arp_bpm);
+            ui_cat(t, sizeof t, v);
+            ui_say(t);
+        }
     } else if (s && sys.page == 2u) {                   /* FX: PRESETS goes through the FX presets */
         const fx_preset_t *f;
         fx_pre = (uint8_t)(((int32_t)fx_pre + (int32_t)NFX_PRESETS * 8 + s) % (int32_t)NFX_PRESETS);

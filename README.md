@@ -68,9 +68,9 @@ other.
   together straight away, without pressing PLAY.
 - **FREE EG and TAPE in the same tempo.** FREE EG can run exactly one KARMA phrase long, so a DENSITY sweep builds
   over the phrase. **TAPE** is a looper in the tempo, so you can loop what the patterns play and play over it.
-- **One tempo, in or out.** The patterns follow incoming MIDI clock (USB or TRS) when the clock is set to EXTERNAL.
-  Set to INTERNAL, they run on their own BPM and send it out over USB as MIDI clock, at 1, 2, 24 or 48 PPQ, with
-  START and STOP, so other gear follows the FM-1. What the ARP and KARMA play goes out over USB-MIDI too.
+- **One tempo, in or out.** Set to INTERNAL, the patterns run on their own BPM and send it out over USB as MIDI
+  clock while they play, at 1, 2, 24 or 48 PPQ, with START and STOP, so other gear follows the FM-1. Set to EXTERNAL,
+  they follow incoming MIDI clock (USB or TRS) only. What the ARP and KARMA play goes out over USB-MIDI too.
 
 ## And further
 
