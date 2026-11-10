@@ -515,20 +515,32 @@ static void us_psyche(uint32_t h)
             cv_aline(x0, y0, vx * 16, vy * 16, ux_mix(T_BG, rc_[0], 20));
         }
     }
-    if (us_splash)
-        return;
-    if (el < 700u) {                   /* (the note's copy: out of the eye, past the edge, fading) */
-        int32_t Re = 4 + (int32_t)el * 150 / 700, a0 = 0, b0 = 0;
-        uint16_t ce = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0 + 128u, 255u), 60), 90 - (int32_t)el * 90 / 700);
-        for (j = 0; j <= US_NP; j++) {
-            uint32_t q = j % US_NP, a = rot0 + q * step;
-            int32_t r = Re * gm[0][q] / 16, x = vx * 16 + us_sin(a + (1u << 30), r), y = vy * 16 + us_sin(a, r) * sq / 256;
-            if (j)
-                cv_aline(a0, b0, x, y, ce);
-            a0 = x;
-            b0 = y;
+    {   /* the note's copy: out of the eye, past the edge, fading (the splash: one every 450 ms, two in the air) */
+        uint32_t els[2], ne = 0, c2;
+        if (us_splash) {
+            if (us_splash_ms >= 250u) {
+                els[ne++] = (us_splash_ms - 250u) % 450u * 700u / 450u;
+                if (us_splash_ms >= 475u)
+                    els[ne++] = (us_splash_ms - 475u) % 450u * 700u / 450u;
+            }
+        } else if (el < 700u)
+            els[ne++] = el;
+        for (c2 = 0; c2 < ne; c2++) {
+            int32_t Re = 4 + (int32_t)els[c2] * 150 / 700, a0 = 0, b0 = 0;
+            uint16_t ce = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0 + 128u + c2 * 64u, 255u), 60),
+                                 90 - (int32_t)els[c2] * 90 / 700);
+            for (j = 0; j <= US_NP; j++) {
+                uint32_t q = j % US_NP, a = rot0 + q * step;
+                int32_t r = Re * gm[0][q] / 16, x = vx * 16 + us_sin(a + (1u << 30), r), y = vy * 16 + us_sin(a, r) * sq / 256;
+                if (j)
+                    cv_aline(a0, b0, x, y, ce);
+                a0 = x;
+                b0 = y;
+            }
         }
     }
+    if (us_splash)
+        return;
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */

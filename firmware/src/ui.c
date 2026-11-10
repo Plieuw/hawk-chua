@@ -3015,8 +3015,7 @@ static void draw_splash(void)
     lcd_fill(0, 0, 240, 240, T_BG);
     if (sys.ui_style % US_COUNT == US_PSYCHE) {
         draw_text_box(0, 190, 240, &AF_S, "MODELING SYNTHESIZER", T_MID, 1);
-        pix_text("PLIEUWSKI", 207, 2, 2);
-        draw_text_box(0, 224, 240, &AF_S, UI_VERSION, T_DIM, 1);
+        pix_text("PLIEUWSKI", 210, 2, 2);
         splash_psy(0);
         return;
     }
