@@ -310,7 +310,8 @@ static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/
 }
 
 #define US_TR 16
-#define US_NP 64                                 /* (the points of a figure) */
+#define US_NP 64                                 /* (the points of a figure: 64, the tunnel's lines find theirs by
+                                                  * a shift) */
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 /* where the sound is in the stereo field: the voices sounding, each at its seat (SCL's BASIS: MONO all in the
@@ -388,14 +389,14 @@ static void us_psyche(uint32_t h)
     int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
     int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + (size - 150) / 16;
     int16_t px[US_TR][US_NP], py[US_TR][US_NP];
-    int32_t gm[2][US_NP], rr[US_TR];
+    int32_t gm[2][US_NP];
     uint16_t rc_[US_TR];
     uint32_t hue0 = t * 3u + (uint32_t)folds * 23u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
     uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j, sect = 0xFFFFFFFFu / (uint32_t)folds + 1u;
     /* an oscillator knob just turned (HOME): what it moves lit up in its cell's value colour, fading over 0.8 s:
      * the figure's knobs its nearest rings, the density / spread / echo all of them, the folds and the spin the
-     * rails too, the level the eye's glow */
+     * tunnel's lines too, the level the eye's glow */
     int32_t hl = sys.page == 0u && ui_hot < 4u && fm1_ms - ui_hot_ms < 800u ? 85 - (int32_t)(fm1_ms - ui_hot_ms) * 85 / 800 : 0;
     uint32_t hm = hl ? US_MOD[osc][ui_hot] : UV_NONE;
     int32_t hall = hm == UV_DENSITY || hm == UV_SPREAD || hm == UV_ECHO || hm == UV_LEVEL;
@@ -487,20 +488,29 @@ static void us_psyche(uint32_t h)
                 cv_line(x0, y0, x1, y1, ce);
             }
         }
-        rr[i] = R;
         rc_[i] = col;
     }
-    for (j = 0; j < (uint32_t)folds; j++) {      /* the tunnel's rails: one a fold, straight from the edge into the
-                                                  * eye's middle, ring by ring, fading as they go in */
-        uint32_t a = rot0 + j * sect;
-        int32_t ca = us_sin(a + (1u << 30), 4096), sa = us_sin(a, 4096) * sq / 256, r0 = 220;
-        for (i = nr - 1; i >= 0; i--) {
-            int32_t r1 = rr[i];
-            cv_aline(vx * 16 + ca * r0 / 256, vy * 16 + sa * r0 / 256, vx * 16 + ca * r1 / 256, vy * 16 + sa * r1 / 256,
-                     hrail ? ux_mix(ux_mix(T_BG, rc_[i], 40), ui_hot_col, hl) : ux_mix(T_BG, rc_[i], 40));
-            r0 = r1;
+    {   /* the tunnel's lines (the first design's, along the tunnel from ring to ring): as many as the tempo asks, a
+         * line each 8 BPM (5 .. 32), each through the figure's own points, from the edge into the eye's middle,
+         * fading as they go in */
+        uint32_t nl = 60000u / beat / 8u, L;
+        nl = nl < 5u ? 5u : nl > 32u ? 32u : nl;
+        for (L = 0; L < nl; L++) {
+            uint32_t a = rot0 + L * (0xFFFFFFFFu / nl + 1u);
+            int32_t ca = us_sin(a + (1u << 30), 4096), sa = us_sin(a, 4096) * sq / 256;
+            int32_t x0 = vx * 16 + ca * 220 / 256, y0 = vy * 16 + sa * 220 / 256;
+            for (i = nr - 1; i >= 0; i--) {
+                uint32_t rot = rot0 + (((uint32_t)(nr - i) & 1u) ? sect / 2u : 0u), q = (a - rot) >> 26;   /* (its point
+                                                  * at this angle: US_NP 64, a point each 2^26) */
+                uint16_t c = ux_mix(T_BG, rc_[i], 60);
+                if (hrail)
+                    c = ux_mix(c, ui_hot_col, hl);
+                cv_aline(x0, y0, px[i][q], py[i][q], c);
+                x0 = px[i][q];
+                y0 = py[i][q];
+            }
+            cv_aline(x0, y0, vx * 16, vy * 16, ux_mix(T_BG, rc_[0], 20));
         }
-        cv_aline(vx * 16 + ca * r0 / 256, vy * 16 + sa * r0 / 256, vx * 16, vy * 16, ux_mix(T_BG, rc_[0], 20));
     }
     if (us_splash)
         return;
