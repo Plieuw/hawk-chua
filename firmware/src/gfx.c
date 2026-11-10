@@ -281,6 +281,49 @@ static void cv_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
     }
 }
 
+/* an antialiased line (Wu's), the ends in 1/16 px: blended into what is there, smooth as a vector */
+static inline void cv_pblend(int32_t x, int32_t y, uint16_t c, uint32_t a)   /* a 0 .. 256 */
+{
+    y += cv_oy;
+    if ((uint32_t)x < cv_w && (uint32_t)y < cv_h && a) {
+        uint16_t *p = &cv_px[(uint32_t)y * cv_w + (uint32_t)x];
+        uint32_t o = swap16(*p);
+        int32_t r = (int32_t)(o >> 11), g = (int32_t)(o >> 5 & 63u), b = (int32_t)(o & 31u);
+        r += ((int32_t)(c >> 11) - r) * (int32_t)a / 256;
+        g += ((int32_t)(c >> 5 & 63u) - g) * (int32_t)a / 256;
+        b += ((int32_t)(c & 31u) - b) * (int32_t)a / 256;
+        *p = swap16((uint16_t)(r << 11 | g << 5 | b));
+    }
+}
+static void cv_aline(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)   /* (Q4 coordinates) */
+{
+    int32_t steep = (y1 > y0 ? y1 - y0 : y0 - y1) > (x1 > x0 ? x1 - x0 : x0 - x1), t, dx, g, xp, xe;
+    if (steep) {
+        t = x0; x0 = y0; y0 = t;
+        t = x1; x1 = y1; y1 = t;
+    }
+    if (x0 > x1) {
+        t = x0; x0 = x1; x1 = t;
+        t = y0; y0 = y1; y1 = t;
+    }
+    dx = x1 - x0;
+    g = dx ? (y1 - y0) * 256 / dx : 0;           /* (the slope, Q8) */
+    xe = (x1 + 8) >> 4;
+    if (xe - ((x0 + 8) >> 4) > 600)              /* (bounded) */
+        return;
+    for (xp = (x0 + 8) >> 4; xp <= xe; xp++) {
+        int32_t yq = y0 + g * ((xp << 4) - x0) / 256, yi = yq >> 4, f = yq & 15;   /* (Q4: n * 16 the middle of pixel n) */
+        uint32_t a0 = (uint32_t)(16 - f) * 16u, a1 = (uint32_t)f * 16u;
+        if (steep) {
+            cv_pblend(yi, xp, c, a0);
+            cv_pblend(yi + 1, xp, c, a1);
+        } else {
+            cv_pblend(xp, yi, c, a0);
+            cv_pblend(xp, yi + 1, c, a1);
+        }
+    }
+}
+
 /* a line `thick` px tall (the scope's trace: 2) */
 static void cv_line_t(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c, int32_t thick)
 {

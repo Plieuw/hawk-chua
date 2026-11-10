@@ -162,39 +162,47 @@ static int32_t us_env(int *attack)
 static void us_poly(int32_t cx, int32_t cy, int32_t r, uint32_t n, uint32_t a, int32_t sq, uint16_t c)
 {
     uint32_t j, step = 0xFFFFFFFFu / n + 1u;
-    int32_t x0 = cx + us_sin(a + (1u << 30), r), y0 = cy + us_sin(a, r) * sq / 256;
+    int32_t x0 = cx * 16 + us_sin(a + (1u << 30), r * 16), y0 = cy * 16 + us_sin(a, r * 16) * sq / 256;   /* (Q4) */
     for (j = 1; j <= n; j++) {
-        int32_t x1 = cx + us_sin(a + j * step + (1u << 30), r), y1 = cy + us_sin(a + j * step, r) * sq / 256;
-        cv_line(x0, y0, x1, y1, c);
+        int32_t x1 = cx * 16 + us_sin(a + j * step + (1u << 30), r * 16), y1 = cy * 16 + us_sin(a + j * step, r * 16) * sq / 256;
+        cv_aline(x0, y0, x1, y1, c);
         x0 = x1;
         y0 = y1;
     }
 }
 /* the eye, in lines, at (ex, ey), W wide: two lids open (open) px, an iris of rings turning through the hues
  * (SHIMMER: how many; DECAY: how fast), a pupil (pr) narrowing to a slit with the RING, looking where the signal goes,
- * a glint; a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
+ * its iris filled (nothing else); a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
 static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, uint32_t hue0, int32_t gf, int32_t glow)
 {
     uint32_t t = us_t();
     int32_t H = W / 2, ek = 40 + us_k() * 55 / 100, m;
     int32_t slit = 100 - (int32_t)(sys.ring & 127u) * 70 / 127;
     uint16_t lid = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0, 255u), 25), ek);
-    int32_t lx = ex - W, ly = ey, tx = lx, ty = ly;
+    int32_t lx = (ex - W) * 16, ly = ey * 16, tx = lx, ty = ly;   /* (Q4) */
     for (m = 0; glow && m < 6; m++)              /* (the lamp's glow: rings fading out from it) */
         us_poly(ex, ey, W + 4 + m * 5, 24u, (uint32_t)m << 27, 160, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), glow * (6 - m) / 12));
     if (gf)                                      /* (a glow round it on the beat) */
         us_poly(ex, ey, W + 4 + gf / 25, 16u, 0, 128, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), gf / 3));
-    for (m = -W + 3; m <= W; m += 3) {            /* (the lids: two arcs) */
-        int32_t o = open * (W * W - m * m) / (W * W);
-        cv_line(tx, ty, ex + m, ey - o, lid);
-        cv_line(lx, ly, ex + m, ey + o, lid);
-        tx = ex + m; ty = ey - o; lx = ex + m; ly = ey + o;
+    for (m = -W + 2; m <= W; m += 2) {            /* (the lids: two arcs, smooth) */
+        int32_t o = open * 16 * (W * W - m * m) / (W * W);
+        cv_aline(tx, ty, (ex + m) * 16, ey * 16 - o, lid);
+        cv_aline(lx, ly, (ex + m) * 16, ey * 16 + o, lid);
+        tx = (ex + m) * 16; ty = ey * 16 - o; lx = tx; ly = ey * 16 + o;
     }
     if (open > 1) {
         int32_t look = us_sx * W / 400, rings = 2 + (int32_t)(sys.sh_shimmer & 127u) / 32, ir = (open < H ? open : H) - 2, dy;
         uint32_t spin = t * (2u + (uint32_t)(sys.decay & 127u) / 16u);   /* (the iris turns as fast as the DECAY) */
         if (ir < 2)
             ir = 2;
+        {                                        /* (the iris filled, the only fill in the eye: its hue, dim) */
+            int32_t dy2;
+            uint16_t ic = ux_mix(T_BG, us_hue(t * 5u + hue0 + 64u, 255u), (glow ? 40 + glow / 4 : ek) * 2 / 3);
+            for (dy2 = -ir; dy2 <= ir; dy2++) {
+                int32_t w2 = us_isqrt(ir * ir - dy2 * dy2);
+                cv_rect(ex + look - w2, ey + dy2, 2 * w2 + 1, 1, ic);
+            }
+        }
         for (m = 0; m < rings; m++)              /* (the iris: rings turning through the hues) */
             us_poly(ex + look, ey, ir - m * ir / (rings + 1), 12u, spin << 20, 256,
                     ux_mix(T_BG, us_hue(t * 5u + (uint32_t)m * 50u + hue0, 255u), glow ? 40 + glow / 4 : ek));
@@ -203,7 +211,6 @@ static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, 
             int32_t w = us_isqrt((pr + 2) * (pr + 2) - dy * dy) * slit / 100;
             cv_rect(ex + look - w, ey + dy, 2 * w + 1, 1, US_RGB(0, 0, 0));
         }
-        cv_rect(ex + look + pr / 2 + 2, ey - pr, 2, 2, lid);   /* (a glint) */
     }
 }
 /* the ENV page's lamp, as the eye (ui.c draw_env): shut when nothing sounds, opening with the gate (the newest voice's,
@@ -434,14 +441,14 @@ static void us_psyche(uint32_t h)
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
         for (j = 0; j < US_NP; j++) {
-            int32_t r = R * gm[w][j] / 256;
+            int32_t r = R * gm[w][j] / 16;       /* (Q4: the lines drawn smooth, to 1/16 px) */
             uint32_t a = rot + j * step;
             if (jit) {                           /* (noise: each point thrown, new each 50 ms) */
                 seed = seed * 1664525u + 1013904223u;
-                r += (int32_t)(seed >> 24) % (1 + jit / 4) * R / 128 - jit / 8 * R / 128;
+                r += ((int32_t)(seed >> 24) % (1 + jit / 4) * R / 128 - jit / 8 * R / 128) * 16;
             }
-            px[i][j] = (int16_t)(vx + us_sin(a + (1u << 30), r));
-            py[i][j] = (int16_t)(vy + us_sin(a, r) * sq / 256);
+            px[i][j] = (int16_t)(vx * 16 + us_sin(a + (1u << 30), r));
+            py[i][j] = (int16_t)(vy * 16 + us_sin(a, r) * sq / 256);
         }
         for (e = echo; e >= 0; e--) {            /* (its echoes first, smaller and dimmer, then the ring) */
             uint16_t ce = e ? ux_mix(T_BG, col, 50 - e * 12) : col;
@@ -451,17 +458,17 @@ static void us_psyche(uint32_t h)
                 if (grain && (int32_t)((j * 7u + (uint32_t)i * 13u + t * 3u) % 16u) * 128 < grain * 14)   /* (grains:
                                                   * the line broken up, more gaps as the GRAIN goes up) */
                     continue;
-                x0 = vx + (px[i][j] - vx) * (6 - e) / 6;
-                y0 = vy + (py[i][j] - vy) * (6 - e) / 6;
-                x1 = vx + (px[i][n1] - vx) * (6 - e) / 6;
-                y1 = vy + (py[i][n1] - vy) * (6 - e) / 6;
-                cv_line(x0, y0, x1, y1, ce);
+                x0 = vx * 16 + (px[i][j] - vx * 16) * (6 - e) / 6;
+                y0 = vy * 16 + (py[i][j] - vy * 16) * (6 - e) / 6;
+                x1 = vx * 16 + (px[i][n1] - vx * 16) * (6 - e) / 6;
+                y1 = vy * 16 + (py[i][n1] - vy * 16) * (6 - e) / 6;
+                cv_aline(x0, y0, x1, y1, ce);
             }
         }
         if (i)                                   /* (along the tunnel, to the ring before: one spoke a fold) */
             for (j = 0; j < (uint32_t)folds; j++) {
                 uint32_t q = (j * US_NP / (uint32_t)folds) % US_NP;
-                cv_line(px[i - 1][q], py[i - 1][q], px[i][q], py[i][q], ux_mix(T_BG, col, 30));
+                cv_aline(px[i - 1][q], py[i - 1][q], px[i][q], py[i][q], ux_mix(T_BG, col, 30));
             }
     }
     if (us_splash)
@@ -471,9 +478,9 @@ static void us_psyche(uint32_t h)
         uint16_t ce = ux_mix(T_BG, ux_mix(US_RGB(255, 255, 255), us_hue(hue0 + 128u, 255u), 60), 90 - (int32_t)el * 90 / 700);
         for (j = 0; j <= US_NP; j++) {
             uint32_t q = j % US_NP, a = rot0 + q * step;
-            int32_t r = Re * gm[0][q] / 256, x = vx + us_sin(a + (1u << 30), r), y = vy + us_sin(a, r) * sq / 256;
+            int32_t r = Re * gm[0][q] / 16, x = vx * 16 + us_sin(a + (1u << 30), r), y = vy * 16 + us_sin(a, r) * sq / 256;
             if (j)
-                cv_line(a0, b0, x, y, ce);
+                cv_aline(a0, b0, x, y, ce);
             a0 = x;
             b0 = y;
         }
@@ -535,7 +542,7 @@ static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey)   /* dim: h
                                       (20 + 80 * (int32_t)i / (int32_t)n) * lit / 100);
                 if (gf && i + 8u > n)            /* (its head flashes on the beat) */
                     col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
-                cv_line(px, py, X, Y, col);
+                cv_aline(px * 16, py * 16, X * 16, Y * 16, col);
             }
             px = X;
             py = Y;
@@ -571,7 +578,7 @@ static void us_icon(const int8_t *p, int32_t cx, int32_t cy, int32_t sc, uint16_
             for (i = 0; i < n; i++, p += 2) {
                 int32_t x = cx + (p[0] - 24) * sc / 256, y = cy + (p[1] - 24) * sc / 256;
                 if (i)
-                    cv_line(x0, y0, x, y, c);
+                    cv_aline(x0 * 16, y0 * 16, x * 16, y * 16, c);
                 x0 = x;
                 y0 = y;
             }
