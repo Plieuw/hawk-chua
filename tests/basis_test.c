@@ -856,6 +856,7 @@ int main(int argc, char **argv)
      * under MIDI clock the cycle follows the clocks */
     {
         uint32_t okk = 1, b, L = 2u * FS, t;
+        uint8_t hold0, latch0, logic0;
         int32_t c0, c1, c2;
         synth_kill(); keys_all_off(); run_ms(20);
         sys.arp_on = 0; sys.arp_bpm = 120; sys.chaos = 85;
@@ -913,7 +914,9 @@ int main(int argc, char **argv)
         run_ms(20);
         /* MIDI clock: 1 BAR = 96 clocks; recorded under it, it stops after 96 */
         sys.feg_len = 9; sys.feg_val = 30;
+        hold0 = sys.arp_hold; latch0 = sys.k_latch; logic0 = sys.k_logic;
         sys.clk_int = 0;                                     /* (CLOCK EXTERNAL) */
+        sys.arp_on = 1;                                      /* (one on, no notes: START only restarts the grid) */
         midi_in(0xFA, 0, 0);
         midi_in(0xF8, 0, 0);
         run_ms(20);
@@ -928,7 +931,11 @@ int main(int argc, char **argv)
         check("FREE EG: a bar recorded and looped, DEPTH, off, NOTE from each note, under MIDI clock", okk);
         sys.feg_has = 0; sys.chaos = 85;
         run_ms(700);                                         /* (the clock gone) */
+        sys.arp_on = 0;
         sys.clk_int = 1;
+        sys.arp_hold = hold0; sys.k_latch = latch0; sys.k_logic = logic0;
+        keys_all_off(); arp_reset(); karma_reset(); synth_kill();
+        run_ms(20);
     }
 
     /* the MIDI page (GLO): TRS in off ignores the jack, USB in off ignores USB; RX channel filters (OMNI: all);
@@ -2738,6 +2745,33 @@ int main(int argc, char **argv)
     sys.master_q12 = 4096;
 
     /* a render to listen to: per preset of ui.c, an arpeggio then a held chord */
+    {   /* CLOCK EXTERNAL: MIDI START with nothing on: the ARP and KARMA on together, no notes chosen: C major, latched;
+         * the clock drives them; STOP: both off */
+        int okk = 1;
+        uint32_t b, w0;
+        uint8_t hold0 = sys.arp_hold, latch0 = sys.k_latch, logic0 = sys.k_logic;
+        synth_kill(); keys_all_off(); arp_reset(); karma_reset();
+        sys.arp_on = 0; sys.k_on = 0; sys.k_logic = 0; sys.clk_int = 0;
+        run_ms(50);
+        midi_in(0xFA, 0, 0);
+        run_ms(10);
+        okk &= sys.arp_on && sys.k_on && sys.k_logic == 1u;
+        okk &= arp.n == 3u && arp.note[0] == 60u && arp.note[1] == 64u && arp.note[2] == 67u && kar.n == 3u;
+        w0 = arp_view.w;
+        for (b = 0; b < 96u; b++) {
+            midi_in(0xF8, 0, 0);
+            run_ms(20);
+        }
+        okk &= arp_view.w - w0 >= 4u;                        /* (it plays on the clock) */
+        midi_in(0xFC, 0, 0);
+        run_ms(10);
+        okk &= !sys.arp_on && !sys.k_on;
+        check("CLOCK EXTERNAL: MIDI START plays the ARP and KARMA (C major when no notes), STOP stops them", okk);
+        run_ms(700);
+        sys.clk_int = 1; sys.arp_hold = hold0; sys.k_latch = latch0; sys.k_logic = logic0;
+        synth_kill(); keys_all_off(); arp_reset(); karma_reset();
+        run_ms(20);
+    }
     if (argc > 1 && (wav = fopen(argv[1], "wb")) != 0) {
         static const uint8_t ARP[] = {48, 55, 60, 63, 67, 72, 67, 63};
         static const struct {

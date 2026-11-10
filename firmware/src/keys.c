@@ -39,6 +39,7 @@ static uint8_t sost_on;                          /* SOSTENUTO (CC 66) down */
 
 enum { OWN_SYNTH, OWN_ARP, OWN_KARMA, OWN_BOTH };   /* who the notes held go to (BOTH: LOGIC) */
 static uint8_t own_was, arp_was_hold, k_was_latch, k_was_on, arp_was_on;
+static volatile uint8_t rt_auto;                 /* MIDI START / CONTINUE (1) or STOP (2) under CLOCK EXTERNAL: keys_block */
 static uint32_t owner(void) { return logic_on() ? OWN_BOTH : sys.k_on ? OWN_KARMA : sys.arp_on ? OWN_ARP : OWN_SYNTH; }
 
 static void note_start(uint32_t note, uint32_t vel)
@@ -332,8 +333,14 @@ static void midi_in_block(void)
             uint32_t bk = bank_lsb ? bank_lsb : bank_msb;
             keys_prog_req = (uint16_t)((bk < 4u ? bk : 0u) * 128u + d1 + 1u);
         }
-        else if (((pkt >> 8) & 0xFFu) >= 0xF8u)   /* realtime: the clock for the arpeggiator */
-            arp_midi_rt((pkt >> 8) & 0xFFu);
+        else if (((pkt >> 8) & 0xFFu) >= 0xF8u) {   /* realtime: the clock for the arpeggiator */
+            uint32_t rt = (pkt >> 8) & 0xFFu;
+            if (!sys.clk_int && (rt == 0xFAu || rt == 0xFBu))   /* (CLOCK EXTERNAL: PLAY over there plays here) */
+                rt_auto = 1;
+            else if (!sys.clk_int && rt == 0xFCu)
+                rt_auto = 2;
+            arp_midi_rt(rt);
+        }
         else if (st == 0xE0u)                    /* pitch bend */
             keys_bend(0, d1, d2);
     }
@@ -403,7 +410,34 @@ static void keys_block(void)
         keys_all_off();
         synth_kill();
     }
+    if (rt_auto == 1u && (sys.arp_on || sys.k_on))   /* (one playing already: START only restarts it, arp.c) */
+        rt_auto = 0;
+    if (rt_auto == 1u) {                         /* MIDI START (CLOCK EXTERNAL), nothing on: the ARP and KARMA on,
+                                                  * together (LOGIC OR if it was off) */
+        if (!sys.k_logic)
+            sys.k_logic = 1;
+        sys.arp_on = 1;
+        sys.k_on = 1;
+        rt_auto = 3;                             /* (the notes after arp_follow has moved what is held over) */
+    } else if (rt_auto == 2u) {                  /* MIDI STOP: both off */
+        sys.arp_on = 0;
+        sys.k_on = 0;
+        rt_auto = 0;
+    }
     arp_follow();
+    if (rt_auto == 3u) {                         /* (no notes chosen yet: C major, latched, till a chord replaces it) */
+        rt_auto = 0;
+        if (!arp.n && !kar.n) {
+            static const uint8_t CMAJ[3] = {60, 64, 67};
+            uint32_t i;
+            sys.arp_hold = 1;
+            sys.k_latch = 1;
+            for (i = 0; i < 3u; i++)
+                note_start(CMAJ[i], KEY_VEL);
+            for (i = 0; i < 3u; i++)
+                note_end(CMAJ[i]);
+        }
+    }
     keyboard_block();
     midi_in_block();
     arp_block(CTL);

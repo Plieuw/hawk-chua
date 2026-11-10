@@ -126,7 +126,9 @@ De klok kies je met SELECT op de MIDI-pagina (GLO). CLOCK INTERNAL (standaard): 
 negeert binnenkomende clock; staat USB OUT aan, dan gaat die BPM als MIDI clock over USB naar buiten zolang ARP of
 KARMA speelt (START, de clocks, STOP), zodat ander gear meeloopt. CLOCK EXTERNAL: hij loopt alleen op MIDI clock (USB
 of TRS, 24 per kwartnoot; START begint het patroon opnieuw); KNOB 1 toont EXT (met het gemeten tempo zolang er clock
-komt) en doet niets, en zonder clock wacht hij. Naar de arpeggiators van de Yamaha AN1x en DJX.
+komt) en doet niets, en zonder clock wacht hij. Druk je op het andere apparaat op PLAY (MIDI START of CONTINUE) terwijl hier niets
+speelt, dan gaan de ARP en KARMA samen aan (LOGIC OR als LOGIC uit stond); heb je nog geen noten gekozen, dan spelen
+ze C majeur (C E G, gelatcht) tot je een akkoord speelt. STOP daar zet ze allebei uit. Naar de arpeggiators van de Yamaha AN1x en DJX.
 Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) staan alleen tegelijk aan met LOGIC (zie onder).
 
 | Bediening | Functie |
