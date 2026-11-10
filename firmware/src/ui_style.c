@@ -310,11 +310,15 @@ static int32_t us_pan_x(void)
     for (i = 0; i < NVOICE; i++)
         if (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN || voice[i].stage == ST_RELEASE) {
             int64_t e = (int64_t)(voice[i].env >> 16) + 1;
+            e *= e;                              /* (the loudest by far the most: the new note over the fading) */
             sum += e * vpan[i];
             wt += e;
         }
-    if (wt)
-        tg = (int64_t)(120 + (int32_t)(sum / wt) * 80 / 32767) << 16;   /* (hard left .. right: 40 .. 200) */
+    if (wt) {                                    /* (hard left .. right: 20 .. 220, the middle stretched out (a square
+                                                  * root): a little off the middle already a good way off) */
+        int32_t pn = (int32_t)(sum / wt), m = us_isqrt((pn < 0 ? -pn : pn) * 32767);
+        tg = (int64_t)(120 + (pn < 0 ? -m : m) * 100 / 32767) << 16;
+    }
     last = fm1_ms;
     dt = dt > 100u ? 100u : dt;
     for (; dt >= 4u; dt -= 4u) {                 /* (in 4 ms steps: w = 7 / s) */
@@ -472,20 +476,6 @@ static void us_psyche(uint32_t h)
                 cv_line(a0, b0, x, y, ce);
             a0 = x;
             b0 = y;
-        }
-    }
-    if (sys.page == 0u) {                        /* (HOME: sand on the plate, the oscillator's own signal scattered
-                                                  * over the figure's lines, more the denser, thrown with its jitter) */
-        uint32_t w = chua_trace.w, ng = 40u + (uint32_t)nr * 12u, g;
-        int32_t sc = 2 + jit / 12 + (gain - 64) / 48;
-        for (g = 0; g < ng; g++) {
-            uint32_t at = (w - g * 5u) & (TRACE_N - 1u);
-            uint32_t hs = ((uint32_t)(uint16_t)chua_trace.x[at] * 2654435761u) ^ ((uint32_t)(uint16_t)chua_trace.y[at] * 40503u) ^
-                          (g * 2246822519u);
-            int32_t gi = (int32_t)(hs % (uint32_t)nr), gj = (int32_t)((hs >> 8) % US_NP);
-            int32_t gx = px[gi][gj] + (int32_t)((hs >> 16) & 15u) * sc / 8 - sc;
-            int32_t gy = py[gi][gj] + (int32_t)((hs >> 20) & 15u) * sc / 8 - sc;
-            cv_rect(gx, gy, 2, 2, ux_mix(T_BG, us_hue(hue0 + (hs >> 24), 255u), 55 + (int32_t)((hs >> 12) & 63u)));
         }
     }
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
