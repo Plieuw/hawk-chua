@@ -491,21 +491,22 @@ static void us_psyche(uint32_t h)
         rc_[i] = col;
     }
     {   /* the tunnel's lines (the first design's, along the tunnel from ring to ring): as many as the tempo asks, a
-         * line each 8 BPM (5 .. 32), each through the figure's own points, from the edge into the eye's middle,
-         * fading as they go in */
+         * line each 8 BPM (5 .. 32), each through the figure's own points, from its nearest ring into the eye's
+         * middle, fading as they go in */
         uint32_t nl = 60000u / beat / 8u, L;
         nl = nl < 5u ? 5u : nl > 32u ? 32u : nl;
         for (L = 0; L < nl; L++) {
             uint32_t a = rot0 + L * (0xFFFFFFFFu / nl + 1u);
-            int32_t ca = us_sin(a + (1u << 30), 4096), sa = us_sin(a, 4096) * sq / 256;
-            int32_t x0 = vx * 16 + ca * 220 / 256, y0 = vy * 16 + sa * 220 / 256;
+            int32_t x0 = 0, y0 = 0;
             for (i = nr - 1; i >= 0; i--) {
                 uint32_t rot = rot0 + (((uint32_t)(nr - i) & 1u) ? sect / 2u : 0u), q = (a - rot) >> 26;   /* (its point
                                                   * at this angle: US_NP 64, a point each 2^26) */
                 uint16_t c = ux_mix(T_BG, rc_[i], 60);
                 if (hrail)
                     c = ux_mix(c, ui_hot_col, hl);
-                cv_aline(x0, y0, px[i][q], py[i][q], c);
+                if (i < nr - 1)                  /* (from the nearest ring in: never past the figure, so they
+                                                  * fold and open with it) */
+                    cv_aline(x0, y0, px[i][q], py[i][q], c);
                 x0 = px[i][q];
                 y0 = py[i][q];
             }
