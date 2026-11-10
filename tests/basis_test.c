@@ -1671,6 +1671,17 @@ int main(int argc, char **argv)
         printf("   (ARP under MIDI clock: %u steps for 96 clocks, %u BPM seen)\n", arp_view.w - w0, arp_bpm_now());
         okk &= arp_view.w - w0 >= 15u && arp_view.w - w0 <= 17u && arp_ext();
         okk &= arp_bpm_now() >= 140u && arp_bpm_now() <= 160u;
+        {   /* a wavering clock (each clock 2 .. 30 ms apart, ~16.6 on average: ~150 BPM): the tempo seen steady */
+            uint32_t lo = 999, hi = 0, bb, seen;
+            for (bb = 0; bb < 24u * 6u; bb++) {
+                midi_in(0xF8, 0, 0);
+                run_ms(bb & 1u ? 9 : 24);                    /* (16.5 ms on average) */
+                seen = arp_bpm_now();
+                if (bb >= 48u) { lo = seen < lo ? seen : lo; hi = seen > hi ? seen : hi; }
+            }
+            printf("   (a wavering clock: %u .. %u BPM seen)\n", lo, hi);
+            okk &= hi - lo <= 3u && lo >= 140u && hi <= 160u;
+        }
         w0 = arp_view.w;
         run_ms(700);                                         /* no clock (EXTERNAL): it waits, no tempo of its own */
         okk &= arp_ext() && arp_bpm_now() == 0u && arp_view.w - w0 <= 1u;

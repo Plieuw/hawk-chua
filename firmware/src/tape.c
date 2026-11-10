@@ -184,6 +184,8 @@ static uint32_t tape_fit(void)
 static uint32_t tape_spb_now(void)
 {
     uint32_t bpm = sys.arp_bpm < 40u ? 40u : sys.arp_bpm > 250u ? 250u : sys.arp_bpm;
+    if (arp_ext() && arp.qlen)                   /* (MIDI clock: over a quarter, steady) */
+        return arp.qlen;
     if (arp_ext() && arp.tick_len)
         return arp.tick_len * 24u;
     return 2646000u / bpm;

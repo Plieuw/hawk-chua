@@ -283,9 +283,21 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
                                                   * the tempo, the TIME, the pattern or the FILTER changed, not
                                                   * every block: no 64-bit divisions in the interrupt then) */
     static int32_t ff[10];
+    static uint32_t held = 120u;                 /* (the tempo the taps follow: MIDI clock's wavers by a BPM or so,
+                                                  * block to block; they move only for 2 BPM or more, or a held 1 BPM
+                                                  * after a second; no clock (0): as they were) */
+    static uint32_t off_n;
     uint32_t i, k, bpm = arp_bpm_now(), spt, peak = 0, kn;
     int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, q, open = (sys.sh_shimmer & 127u) >= 127u;
-    bpm = bpm < 20u ? 20u : bpm > 300u ? 300u : bpm;
+    if (bpm) {
+        uint32_t d = bpm > held ? bpm - held : held - bpm;
+        off_n = d ? off_n + n : 0u;
+        if (d >= 2u || off_n > 44100u) {
+            held = bpm;
+            off_n = 0;
+        }
+    }
+    bpm = held < 20u ? 20u : held > 300u ? 300u : held;
     kn = bpm | sh_dtime() << 9 | (sp - SS_DELAY) << 12 | (sys.sh_interval % SI_COUNT) << 16 | (sys.sh_shimmer & 127u) << 24;
     if (kn != key) {
         key = kn;

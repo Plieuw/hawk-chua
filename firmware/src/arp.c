@@ -190,6 +190,8 @@ static struct {
     uint32_t ext_age, ticks, tick_len;           /* since the last MIDI clock; clocks in this step; their spacing */
     uint32_t clk, starts;                        /* MIDI clocks since START, STARTs seen (feg.c follows them) */
     uint32_t tick_t;
+    uint32_t qt, qn, qlen;                       /* (the tempo measured over a quarter: 24 clocks' samples; clocks are
+                                                  * seen once a block, so one clock's spacing jumps by a block) */
     uint32_t rng;
     uint8_t running;                             /* a step is due at the next block (the first note at once) */
     uint32_t swing_wait;                         /* a swung step: samples into the step it is due at (0: none) */
@@ -482,6 +484,14 @@ static void arp_midi_rt(uint32_t status)
     if (status == 0xF8u) {
         if (arp.ext_age != 0xFFFFFFFFu && arp.ext_age < ARP_EXT_TIMEOUT)
             arp.tick_len = arp.tick_len ? (arp.tick_len * 3u + arp.tick_t) / 4u : arp.tick_t;   /* (smoothed) */
+        if (arp.ext_age != 0xFFFFFFFFu && arp.ext_age < ARP_EXT_TIMEOUT) {
+            arp.qt += arp.tick_t;
+            if (++arp.qn >= 24u) {               /* (a quarter's worth: the tempo, halfway to the new) */
+                arp.qlen = arp.qlen ? (arp.qlen + arp.qt) / 2u : arp.qt;
+                arp.qt = arp.qn = 0;
+            }
+        } else
+            arp.qt = arp.qn = arp.qlen = 0;
         arp.ext_age = 0;
         arp.tick_t = 0;
         arp.ticks++;
@@ -741,5 +751,9 @@ static uint32_t arp_bpm_now(void)
 {
     if (!arp_ext())
         return sys.arp_bpm;
-    return arp.tick_len && arp_ext_alive() ? (2646000u / 24u + arp.tick_len / 2u) / arp.tick_len : 0u;
+    if (!arp_ext_alive())
+        return 0u;
+    if (arp.qlen)                                /* (over a quarter: steady to a BPM) */
+        return (2646000u + arp.qlen / 2u) / arp.qlen;
+    return arp.tick_len ? (2646000u / 24u + arp.tick_len / 2u) / arp.tick_len : 0u;
 }
