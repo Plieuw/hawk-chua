@@ -998,7 +998,7 @@ static void synth_render(int32_t *out, uint32_t n)
         else
             own |= 1u << k;
     }
-    if (!C1_ON() || !mask || sys.cpu2 == 3u || !C1_RUN(c1_voices, mask | n << 8)) {   /* (2ND CORE FX: here) */
+    if (!C1_ON() || !mask || !C1_RUN(c1_voices, mask | n << 8)) {
         own |= mask;
         mask = 0;
     }

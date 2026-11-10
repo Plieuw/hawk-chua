@@ -450,7 +450,7 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
         else
             mine |= 1u << r;
     }
-    if (!C1_ON() || !run || sys.cpu2 == 2u || !C1_RUN(c1_resonators, run | n << 8)) {   /* (2ND CORE VOICES: here) */
+    if (!C1_ON() || !run || !C1_RUN(c1_resonators, run | n << 8)) {
         mine |= run;
         run = 0;
     }

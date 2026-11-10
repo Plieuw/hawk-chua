@@ -43,7 +43,7 @@ static volatile struct {
     int32_t batt_raw;            /* battery ADC, smoothed (main loop) */
     uint8_t view;                /* ui.c: the screen's view */
     uint16_t preset;             /* ui.c: the last preset loaded: bank x 128 + program (0 .. 511) */
-    uint8_t cpu2;                /* 2ND CORE: 0 off, 1 all, 2 voices only, 3 FX only (main.c starts it at power-on; GLO) */
+    uint8_t cpu2;                /* 2ND CORE: 1 all (always; main.c starts it at power-on), 0 when it stopped answering */
     uint8_t page;                /* ui.c: 0 the oscillator (HOME), 1 ENV, 2 FX: resonator, 3 FX: shimmer, 4 MOD (HOME 2x), 5 MOD ENV (ENV 2x), 6 ARP, 7 MIDI (GLO), 8 FREE EG (REC), 9 KARMA (SEQ),
                                   * 10 PAN, 11 EDIT, 12 / 13 TAPE, 14 BANK (HOME on HOME) */
     uint8_t fx_model, fx_struct, fx_bright, fx_damp, fx_pos, fx_mix;   /* resonator.c: the FX resonator, 0..127 */

@@ -228,7 +228,7 @@ static void fm1_main(void)
     if (sys.cpu2 && !bootguard.failed) {
         /* the second core (hal/fm1_cpu1.h; synth.c renders half the voices on it), at power-on, before the audio and
          * the timers (started later it never reaches its entry). It starts in the chip's ROM: the PC limits open
-         * meanwhile. 2ND CORE OFF (GLO), a failed boot just before, or no answer: one core */
+         * meanwhile. A failed boot just before, or no answer: one core */
         fm1_guard_pc_open();
         fm1_cpu1_start();
         fm1_guard_enable(FM1_GUARD_PC);
@@ -281,10 +281,7 @@ static void fm1_main(void)
 #if FELUCCA_CPU2
         if (*(volatile uint8_t *)&fm1_c1_gave_up && !c1_told) {   /* (the audio ISR's) */
             c1_told = 1;                                /* core 1 misread or stopped answering on this FM-1: one core */
-            if (sys.cpu2) {                             /* from now on (GLO switches it on again for the next boot) */
-                sys.cpu2 = 0;
-                settings_save();
-            }
+            sys.cpu2 = 0;                               /* (till the next power-on: it tries again then) */
             ui_say("2ND CORE STOPPED: OFF");
         }
 #endif

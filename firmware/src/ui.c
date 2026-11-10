@@ -49,8 +49,7 @@
  *   LFO      the FREE EG page (again: back HOME); REC records there
  *   OCT- / OCT+  octave -3..+3               SAVE       the settings into flash (restored at power-on)
  *   GLO      the MIDI page (again: back HOME): KNOB 1 TRS IN on / off, KNOB 2 USB (OFF, IN, OUT, IN+OUT), KNOB 3 the
- *            RX channel (OMNI, 1..16), KNOB 4 the TX channel; SELECT 2ND CORE on / off (saved at once; from the next
- *            power-on: the core starts only at boot)
+ *            RX channel (OMNI, 1..16), KNOB 4 the TX channel (the 2ND CORE always on: ALL)
  *   MASTER pot   volume
  *
  * The picture: synth.c keeps a ring of the circuit's state (chua_trace: the newest voice, or the ghost circuit when
@@ -1187,7 +1186,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.ring = (uint8_t)(s.ring & 127u);
         sys.view = V_3D;                         /* (the turning 3D picture: SELECT on HOME is the octave) */
         sys.preset = (uint16_t)((s.preset & 127u) + 128u * (s.bank % NBANKS));
-        sys.cpu2 = (uint8_t)(s.cpu2 & 3u);
+        sys.cpu2 = 1u;                           /* (2ND CORE: always ALL, not to be changed; the saved one ignored) */
         sys.fx_model = (uint8_t)(s.fx_model % RZ_COUNT);
         sys.fx_struct = (uint8_t)(s.fx_struct & 127u);
         sys.fx_bright = (uint8_t)(s.fx_bright & 127u);
@@ -2798,10 +2797,6 @@ static void ui_draw(void)
         } else if (sys.page == 8u) {             /* FREE EG: recording, playing, or what to do */
             str_cpy(a, feg.rec ? "FREE EG   RECORDING: TURN KNOB 1" : !sys.feg_has ? "FREE EG   REC: RECORD" :
                     sys.feg_on ? "FREE EG   PLAYING" : "FREE EG   SELECT: PLAY", sizeof a);
-        } else if (sys.page == 7u) {             /* MIDI: the second core (SELECT) */
-            static const char *const C2[4] = {"MIDI   2ND CORE OFF", "MIDI   2ND CORE ALL", "MIDI   2ND CORE VOICES",
-                                              "MIDI   2ND CORE FX"};
-            str_cpy(a, C2[sys.cpu2 & 3u], sizeof a);
         } else if (sys.page == 12u || sys.page == 13u) {   /* TAPE: the transport, the LENGTH, the speed */
             static const char *const LN[5] = {"1 BEAT", "2 BEATS", "1 BAR", "2 BARS", "4 BARS"};
             uint32_t sp = (tape.speed * 100u + 2048u) / 4096u;
@@ -3772,14 +3767,6 @@ static void ui_input(void)
     } else if (s && sys.page == 8u) {           /* FREE EG: PLAY (right on, left off) */
         sys.feg_on = (uint8_t)(s > 0);
         ui_say(sys.feg_on ? (sys.feg_has ? "PLAY ON" : "NOTHING RECORDED") : "PLAY OFF");
-    } else if (s && sys.page == 7u) {           /* MIDI: 2ND CORE: OFF, ALL, VOICES only, FX only (saved at once) */
-        static const char *const C2[4] = {"2ND CORE OFF", "2ND CORE ALL", "2ND CORE VOICES", "2ND CORE FX"};
-        uint8_t was = sys.cpu2;
-        sys.cpu2 = (uint8_t)clamp((int32_t)sys.cpu2 + (s > 0 ? 1 : -1), 0, 3);
-        if (sys.cpu2 != was)
-            settings_save();
-        str_cpy(t, C2[sys.cpu2 & 3u], sizeof t);
-        ui_say(!was != !sys.cpu2 ? (sys.cpu2 ? "2ND CORE ON: RESTART" : "2ND CORE OFF: RESTART") : t);
     } else if (s && sys.page == 5u) {           /* MOD ENV: on what (the pitch, an oscillator's or an FX's parameter) */
         uint8_t tl[20];
         const char *nm[20];
