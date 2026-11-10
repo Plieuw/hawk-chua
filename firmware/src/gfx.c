@@ -289,9 +289,9 @@ static inline void cv_pblend(int32_t x, int32_t y, uint16_t c, uint32_t a)   /* 
         uint16_t *p = &cv_px[(uint32_t)y * cv_w + (uint32_t)x];
         uint32_t o = swap16(*p);
         int32_t r = (int32_t)(o >> 11), g = (int32_t)(o >> 5 & 63u), b = (int32_t)(o & 31u);
-        r += ((int32_t)(c >> 11) - r) * (int32_t)a / 256;
-        g += ((int32_t)(c >> 5 & 63u) - g) * (int32_t)a / 256;
-        b += ((int32_t)(c & 31u) - b) * (int32_t)a / 256;
+        r += ((int32_t)(c >> 11) - r) * (int32_t)a >> 8;   /* (shifts: no division per pixel) */
+        g += ((int32_t)(c >> 5 & 63u) - g) * (int32_t)a >> 8;
+        b += ((int32_t)(c & 31u) - b) * (int32_t)a >> 8;
         *p = swap16((uint16_t)(r << 11 | g << 5 | b));
     }
 }
@@ -312,7 +312,7 @@ static void cv_aline(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
     if (xe - ((x0 + 8) >> 4) > 600)              /* (bounded) */
         return;
     for (xp = (x0 + 8) >> 4; xp <= xe; xp++) {
-        int32_t yq = y0 + g * ((xp << 4) - x0) / 256, yi = yq >> 4, f = yq & 15;   /* (Q4: n * 16 the middle of pixel n) */
+        int32_t yq = y0 + (g * ((xp << 4) - x0) >> 8), yi = yq >> 4, f = yq & 15;   /* (Q4: n * 16 the middle of pixel n) */
         uint32_t a0 = (uint32_t)(16 - f) * 16u, a1 = (uint32_t)f * 16u;
         if (steep) {
             cv_pblend(yi, xp, c, a0);

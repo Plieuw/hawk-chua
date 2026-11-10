@@ -990,9 +990,7 @@ int main(int argc, char **argv)
     {   /* CLOCK INTERNAL (GLO's SELECT): with USB out the BPM goes out as MIDI clock while the ARP or KARMA plays (START,
          * the clocks, STOP); stopped, or CLOCK EXTERNAL: none */
         uint32_t clocks = 0, starts = 0, stops = 0, j, bpm0 = sys.arp_bpm;
-        static const uint32_t want[4] = {2, 4, 48, 96};              /* (120 BPM, a second: CLOCK PPQ 1, 2, 24, 48) */
         int okp = 1;
-        uint32_t q;
         sys.clk_int = 1; sys.arp_bpm = 120;
         out_n = 0;
         run_ms(200);
@@ -1013,21 +1011,9 @@ int main(int argc, char **argv)
         sys.arp_on = 0;
         run_ms(10);
         check("CLOCK EXTERNAL: no clock out", out_n == 0);
-        sys.clk_int = 1;
-        sys.arp_on = 1;
-        for (q = 0; q < 4u; q++) {
-            sys.clk_ppq = (uint8_t)q;
-            run_ms(50);
-            out_n = 0;
-            run_ms(1000);
-            for (clocks = 0, j = 0; j < out_n; j++)
-                clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u;
-            okp &= clocks + 1u >= want[q] && clocks <= want[q] + 1u;
-        }
-        sys.arp_on = 0; sys.arp_bpm = bpm0; sys.clk_ppq = 2;
+        sys.clk_int = 1; sys.arp_bpm = bpm0;
         run_ms(20);
         out_n = 0;
-        check("CLOCK PPQ: 1, 2, 24, 48 clocks a quarter out", okp);
     }
     {   /* the mod wheel (CC 1) moves the EDIT page's parameter and gives it back; program change asks for a preset */
         int okk = 1;

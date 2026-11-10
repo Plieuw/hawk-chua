@@ -69,7 +69,10 @@ static int32_t us_isqrt(int32_t v)              /* floor(sqrt(v)), bit by bit (v
     }
     return (int32_t)r;
 }
-static int32_t us_sin(uint32_t a, int32_t amp) { return (int32_t)(((int64_t)np_sin(a) * amp) >> 15); }   /* a: Q32 turn */
+static int32_t us_sin(uint32_t a, int32_t amp)   /* a: Q32 turn; 32-bit for |amp| < 2^16 (all but a few) */
+{
+    return amp < 65536 && amp > -65536 ? (np_sin(a) * amp) >> 15 : (int32_t)(((int64_t)np_sin(a) * amp) >> 15);
+}
 /* the beat: each note started (the ARP's, the SEQ's, the TAPE's steps too): when, how many */
 static uint32_t us_bt = 0u - 100000u, us_bn, us_bseen;
 static int32_t us_bf(void) { uint32_t a = fm1_ms - us_bt; return a < 200u ? 200 - (int32_t)a : 0; }   /* a note's flash, 200 .. 0 */
@@ -302,7 +305,7 @@ static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/
 }
 
 #define US_TR 16
-#define US_NP 96                                 /* (the points of a figure) */
+#define US_NP 64                                 /* (the points of a figure) */
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 /* where the sound is in the stereo field: the voices sounding, each at its seat (SCL's BASIS: MONO all in the
@@ -458,11 +461,15 @@ static void us_psyche(uint32_t h)
                 if (grain && (int32_t)((j * 7u + (uint32_t)i * 13u + t * 3u) % 16u) * 128 < grain * 14)   /* (grains:
                                                   * the line broken up, more gaps as the GRAIN goes up) */
                     continue;
-                x0 = vx * 16 + (px[i][j] - vx * 16) * (6 - e) / 6;
-                y0 = vy * 16 + (py[i][j] - vy * 16) * (6 - e) / 6;
-                x1 = vx * 16 + (px[i][n1] - vx * 16) * (6 - e) / 6;
-                y1 = vy * 16 + (py[i][n1] - vy * 16) * (6 - e) / 6;
-                cv_aline(x0, y0, x1, y1, ce);
+                if (!e) {                        /* (the ring smooth; its echoes plain: dim, they need not be) */
+                    cv_aline(px[i][j], py[i][j], px[i][n1], py[i][n1], ce);
+                    continue;
+                }
+                x0 = vx + (px[i][j] - vx * 16) * (6 - e) / 96;
+                y0 = vy + (py[i][j] - vy * 16) * (6 - e) / 96;
+                x1 = vx + (px[i][n1] - vx * 16) * (6 - e) / 96;
+                y1 = vy + (py[i][n1] - vy * 16) * (6 - e) / 96;
+                cv_line(x0, y0, x1, y1, ce);
             }
         }
         if (i)                                   /* (along the tunnel, to the ring before: one spoke a fold) */
