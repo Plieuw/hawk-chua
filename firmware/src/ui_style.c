@@ -175,7 +175,7 @@ static void us_poly(int32_t cx, int32_t cy, int32_t r, uint32_t n, uint32_t a, i
 }
 /* the eye, in lines, at (ex, ey), W wide: two lids open (open) px, an iris of rings turning through the hues
  * (SHIMMER: how many; DECAY: how fast), a pupil (pr) narrowing to a slit with the RING, looking where the signal goes,
- * its white and its iris filled; a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
+ * inside it the background (nothing behind shows), its iris filled; a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
 static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, uint32_t hue0, int32_t gf, int32_t glow)
 {
     uint32_t t = us_t();
@@ -187,13 +187,11 @@ static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, 
         us_poly(ex, ey, W + 4 + m * 5, 24u, (uint32_t)m << 27, 160, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), glow * (6 - m) / 12));
     if (gf)                                      /* (a glow round it on the beat) */
         us_poly(ex, ey, W + 4 + gf / 25, 16u, 0, 128, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), gf / 3));
-    if (open > 1) {                              /* (the white of the eye: solid, the lines behind it hidden) */
-        uint16_t wh = ux_mix(T_BG, ux_mix(US_RGB(235, 235, 245), us_hue(hue0, 255u), 15), ek * 3 / 4);
+    if (open > 1)                                /* (inside the lids: the background, solid, the lines behind hidden) */
         for (m = -W + 1; m < W; m++) {
             int32_t o = open * (W * W - m * m) / (W * W);
-            cv_rect(ex + m, ey - o, 1, 2 * o + 1, wh);
+            cv_rect(ex + m, ey - o, 1, 2 * o + 1, T_BG);
         }
-    }
     for (m = -W + 2; m <= W; m += 2) {            /* (the lids: two arcs, smooth) */
         int32_t o = open * 16 * (W * W - m * m) / (W * W);
         cv_aline(tx, ty, (ex + m) * 16, ey * 16 - o, lid);
