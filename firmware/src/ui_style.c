@@ -175,7 +175,7 @@ static void us_poly(int32_t cx, int32_t cy, int32_t r, uint32_t n, uint32_t a, i
 }
 /* the eye, in lines, at (ex, ey), W wide: two lids open (open) px, an iris of rings turning through the hues
  * (SHIMMER: how many; DECAY: how fast), a pupil (pr) narrowing to a slit with the RING, looking where the signal goes,
- * its iris filled (nothing else); a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
+ * its white and its iris filled; a glow round it on the beat (gf) and, as the gate's lamp, as bright as glow (0 .. 255) */
 static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, uint32_t hue0, int32_t gf, int32_t glow)
 {
     uint32_t t = us_t();
@@ -187,6 +187,13 @@ static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, 
         us_poly(ex, ey, W + 4 + m * 5, 24u, (uint32_t)m << 27, 160, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), glow * (6 - m) / 12));
     if (gf)                                      /* (a glow round it on the beat) */
         us_poly(ex, ey, W + 4 + gf / 25, 16u, 0, 128, ux_mix(T_BG, us_hue(hue0 + 128u, 255u), gf / 3));
+    if (open > 1) {                              /* (the white of the eye: solid, the lines behind it hidden) */
+        uint16_t wh = ux_mix(T_BG, ux_mix(US_RGB(235, 235, 245), us_hue(hue0, 255u), 15), ek * 3 / 4);
+        for (m = -W + 1; m < W; m++) {
+            int32_t o = open * (W * W - m * m) / (W * W);
+            cv_rect(ex + m, ey - o, 1, 2 * o + 1, wh);
+        }
+    }
     for (m = -W + 2; m <= W; m += 2) {            /* (the lids: two arcs, smooth) */
         int32_t o = open * 16 * (W * W - m * m) / (W * W);
         cv_aline(tx, ty, (ex + m) * 16, ey * 16 - o, lid);
@@ -198,7 +205,7 @@ static void us_eye(int32_t ex, int32_t ey, int32_t W, int32_t open, int32_t pr, 
         uint32_t spin = t * (2u + (uint32_t)(sys.decay & 127u) / 16u);   /* (the iris turns as fast as the DECAY) */
         if (ir < 2)
             ir = 2;
-        {                                        /* (the iris filled, the only fill in the eye: its hue, dim) */
+        {                                        /* (the iris filled: its hue, dim) */
             int32_t dy2;
             uint16_t ic = ux_mix(T_BG, us_hue(t * 5u + hue0 + 64u, 255u), (glow ? 40 + glow / 4 : ek) * 2 / 3);
             for (dy2 = -ir; dy2 <= ir; dy2++) {
@@ -383,7 +390,8 @@ static void us_psyche(uint32_t h)
     int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
     int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + (size - 150) / 16;
     int16_t px[US_TR][US_NP], py[US_TR][US_NP];
-    int32_t gm[2][US_NP];
+    int32_t gm[2][US_NP], rr[US_TR];
+    uint16_t rc_[US_TR];
     uint32_t hue0 = t * 3u + (uint32_t)folds * 23u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
     uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j, sect = 0xFFFFFFFFu / (uint32_t)folds + 1u;
@@ -472,11 +480,20 @@ static void us_psyche(uint32_t h)
                 cv_line(x0, y0, x1, y1, ce);
             }
         }
-        if (i)                                   /* (along the tunnel, to the ring before: one spoke a fold) */
-            for (j = 0; j < (uint32_t)folds; j++) {
-                uint32_t q = (j * US_NP / (uint32_t)folds) % US_NP;
-                cv_aline(px[i - 1][q], py[i - 1][q], px[i][q], py[i][q], ux_mix(T_BG, col, 30));
-            }
+        rr[i] = R;
+        rc_[i] = col;
+    }
+    for (j = 0; j < (uint32_t)folds; j++) {      /* the tunnel's rails: one a fold, straight from the edge into the
+                                                  * eye's middle, ring by ring, fading as they go in */
+        uint32_t a = rot0 + j * sect;
+        int32_t ca = us_sin(a + (1u << 30), 4096), sa = us_sin(a, 4096) * sq / 256, r0 = 220;
+        for (i = nr - 1; i >= 0; i--) {
+            int32_t r1 = rr[i];
+            cv_aline(vx * 16 + ca * r0 / 256, vy * 16 + sa * r0 / 256, vx * 16 + ca * r1 / 256, vy * 16 + sa * r1 / 256,
+                     ux_mix(T_BG, rc_[i], 40));
+            r0 = r1;
+        }
+        cv_aline(vx * 16 + ca * r0 / 256, vy * 16 + sa * r0 / 256, vx * 16, vy * 16, ux_mix(T_BG, rc_[0], 20));
     }
     if (us_splash)
         return;
