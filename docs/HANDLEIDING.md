@@ -45,7 +45,7 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | KNOB 2 — SHAPE | β 10..34: lage waarden trage, ronde spiralen; hoge waarden snelle, strakke |
 | KNOB 3 — OUTPUT | welke spanning je hoort: X (het scrollen, diep), X+Y, Y (de spiraal, helder), Y+Z, Z (rond) |
 | KNOB 4 — RING | resonantie van de low pass gate: 0 geen, 127 Q 6 (een korte, houtachtige ring) |
-| (de vier knoppen) | glijden als een potmeter: elke stap loopt in ~12 ms vloeiend over (ook X, Y en LEVEL van de noise-programma's en EXPAND van BIG BANG), dus geen zipper-ruis als je draait; een presetwissel springt meteen |
+| (de vier knoppen) | glijden als een potmeter: elke stap loopt in ~12 ms vloeiend over (ook X, Y en LEVEL van de noise-programma's en EXPAND van BIG BANG), dus geen zipper-ruis als je draait; een presetwissel springt meteen. Op HOME licht bij het draaien even op wat de knop in het beeld verandert |
 | HOME | (op HOME nog een keer: het BANK-menu, zie PRESETS) de oscillator: het circuit (CHAOS, SHAPE, OUTPUT, RING en de attractor) of een noise-programma (X, Y, LEVEL, RING; BIG BANG: WAVE, ENTROPY, BANG, EXPAND; PIANO: HAMMER, STRINGS, DECAY, STIFF) |
 | ENV | (het lampje brandt zolang de envelope open staat én zolang het geluid uitklinkt, ook de staart van een FX of reverb) 1× de ENV-pagina, 2× de MOD ENV (een AD-envelope op de toonhoogte, of met **SELECT** op een parameter van de oscillator of de FX: de lijst volgt wat de oscillator en het FX-model nu hebben, met hun eigen namen (bij CHUA: CHAOS, SHAPE, OUTPUT; bij een noise-programma zijn X en Y; RING; de vier FX-knoppen en POSITION, FX MIX; SHIMMER (bij MOUTH de klinker, bij een delay het filter) en SPACE MIX). HEIGHT is dan hoe ver hij de parameter boven of onder de knopstand duwt, bij elke noot opnieuw; een preset begint op de toonhoogte), 3× terug naar HOME. ENV-pagina: KNOB 1–4 = ATTACK, DECAY, SUSTAIN, RELEASE (0,5 ms .. 10 s), met de envelope getekend. **PRESETS kiest hier presets voor alleen die pagina**: op ENV de envelope (PLUCK, PIANO, ORGAN, PAD, STRINGS, BRASS, PERC, STAB, ACID, SWELL, BELL, GATE, REVERSE, LONG TAIL), op MOD ENV de toonhoogte-envelope (OFF, DIVE UP, ZAP, KICK DROP, BLIP, OCTAVE CHIRP, RISE, SLOW SWEEP, FALL, SCOOP); net zo op de SCL-pagina (MONO, NARROW, WIDE, FULL, SUBTLE DRIFT, DRIFT, SWIRL, SPACE) en de LFO-pagina, FREE EG (OFF, RING SWEEP, WOBBLE 1/8, SQUARE TRILL, BAR RISE, AUTO PAN, ORBIT DRIFT, S&H CHAOS, BRIGHT LFO, NOISE SCAN, GATE PUMP, SHIMMER SWELL, SCREAM RISE: een curve met lengte en doel, meteen aan) |
 | FX | de FX-pagina's: 1× de resonatoren van Mutable Instruments Rings en de waveguides (VOICE, FLUTE, SYRINX, HAWK, BRASS, BOW, REED, DRUM, PIANO), 2× de shimmer reverb, 3× terug naar HOME |
@@ -56,7 +56,7 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | ARP | de ARP-pagina; nog een keer: terug naar HOME (het lampje brandt zolang de arpeggiator speelt) |
 | REC | de TAPE-pagina (bandrecorder); daar: opnemen. Op de FREE EG-pagina neemt REC FREE EG op (bij NOTE nog een keer om te stoppen) |
 | SCL | de PAN-pagina (nog een keer: terug naar HOME): KNOB 1 BASIS (stereo-spreiding per noot), KNOB 2 ORBIT (de stemmen bewegen mee met hun plaatje); de stemmen staan getekend waar ze in het stereobeeld klinken |
-| SEQ | de KARMA-pagina (de frasegenerator); nog een keer: de LOGIC-pagina (ARP en KARMA samen); nog een keer: terug naar HOME (het lampje brandt zolang KARMA speelt) |
+| SEQ | de KARMA-pagina (de frasegenerator); nog een keer: de LOGIC-pagina (ARP en KARMA samen); nog een keer: terug naar HOME (het lampje brandt zolang KARMA speelt). Speelt de ARP al, dan zet SEQ KARMA er meteen bij (samen, LOGIC OR), en andersom zet ARP de arpeggiator erbij als KARMA speelt: geen PLAY nodig |
 | PLAY | start en stopt de ARP of KARMA: op de ARP-pagina de ARP, op de SEQ-pagina KARMA, op andere pagina's de laatste van de twee die je opende. Knippert groen in het tempo zolang er een speelt, rood op de ARP- en SEQ-pagina's als er niets speelt. ARP en SEQ zelf: wat je als volgende kunt starten knippert in het tempo: eerst SEQ; speelt KARMA, dan ARP (met LOGIC samen); speelt de ARP, dan SEQ; spelen ze allebei, dan branden ze allebei. Staat de ARP of KARMA aan maar zijn er geen noten, dan flitsen de toetsen op elke tel: kies noten. Spelen ze samen (LOGIC), dan starten ze bij een nieuw akkoord allebei opnieuw vanaf dat akkoord, tegelijk |
 | OCT- / OCT+ | octaaf −3..+3 |
 | SAVE | (knippert altijd, één keer per maat op de eerste tel; alle knipperende LEDs volgen de BPM) alle instellingen in flash (terug na herstart; dat gebeurt ook vanzelf: 3 s na een wijziging, zodra er niets speelt, zodat uitzetten niets kost; bij het opstarten gelden de vaste regels nog steeds, zoals PLAY uit), én de klank zoals hij nu is over de preset die speelt (de naam blijft); PRESETS en program change laden daarna die opgeslagen versie. Via USB: `python3 tools/fm1_remote.py presets presets.txt` of de knop *Presets → C* op de Remote-pagina geeft alle 512 als regels voor de tabel in `firmware/src/ui.c` (de opgeslagen gemarkeerd `SAVED`); `reset-presets` of *Opgeslagen presets wissen* zet de ingebouwde terug |
@@ -126,14 +126,19 @@ De klok kies je met SELECT op de MIDI-pagina (GLO). CLOCK INTERNAL (standaard): 
 negeert binnenkomende clock; staat USB OUT aan, dan gaat die BPM als MIDI clock over USB naar buiten zolang ARP of
 KARMA speelt (START, de clocks, STOP), zodat ander gear meeloopt. CLOCK EXTERNAL: hij loopt alleen op MIDI clock (USB
 of TRS, 24 per kwartnoot; START begint het patroon opnieuw); KNOB 1 toont EXT (met het gemeten tempo zolang er clock
-komt) en doet niets, en zonder clock wacht hij. Met AUTOPLAY aan (PRESETS op de MIDI-pagina): druk je op het andere apparaat op PLAY (MIDI START of CONTINUE) terwijl
+komt; gemeten over een hele kwartnoot, zodat een wiebelende clock een vast tempo geeft) en doet niets, en zonder
+clock wacht hij. Met AUTOPLAY aan (PRESETS op de MIDI-pagina): druk je op het andere apparaat op PLAY (MIDI START of CONTINUE) terwijl
 hier niets speelt, dan gaan de ARP en KARMA samen aan (LOGIC OR als LOGIC uit stond); heb je nog geen noten gekozen, dan spelen
 ze C majeur (C E G, gelatcht) tot je een akkoord speelt. STOP daar zet ze allebei uit. Naar de arpeggiators van de Yamaha AN1x en DJX.
-Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) staan alleen tegelijk aan met LOGIC (zie onder).
+Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) spelen samen met LOGIC (zie
+onder); speelt de een al, dan zet de knop van de ander hem er meteen bij.
+
+*Twee FM-1's (of andere USB-apparaten) synchroniseren* gaat via TRS, of via een computer of USB-MIDI-hostbox ertussen:
+USB-C naar USB-C tussen twee apparaten werkt niet, want USB heeft altijd een host nodig.
 
 | Bediening | Functie |
 | --- | --- |
-| KNOB 1 BPM | 40..250 (onder MIDI clock staat er EXT en het gemeten tempo); de PRESETS-knop doet hier ook de BPM, net als op de SEQ- en TAPE-pagina's |
+| KNOB 1 BPM | 40..250 (bij CLOCK EXTERNAL staat er EXT, met het gemeten tempo, en draaien doet niets); de PRESETS-knop doet hier ook de BPM, net als op de SEQ- en TAPE-pagina's |
 | KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 (standaard 1/8) |
 | KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap (GATE FIT: zolang de ARP of KARMA speelt is de attack van elk geluid hoogstens een kwart van de gate, zodat ook trage pads op korte stappen meteen spreken; op de toetsen hun eigen attack) |
 | KNOB 4 SWING | 50 % (geen) .. 83 % (de meeste), zoals de AN1x: elke tweede stap later |
@@ -255,7 +260,8 @@ als een rol; onderin de klok en de lengte ("20 x 1/16").
 
 **KARMA, de ARP en FREE EG samen.**
 - *Eén tegelijk* (LOGIC OFF). KARMA en de ARP pakken allebei de noten die je vasthoudt; zet je de een aan, dan gaat de
-  ander uit en de vastgehouden noten gaan mee over. Zet je hem uit, dan klinkt het akkoord gewoon.
+  ander uit en de vastgehouden noten gaan mee over (met PLAY). Zet je hem uit, dan klinkt het akkoord gewoon. Druk je
+  op de knop van de ander (ARP of SEQ) terwijl de een speelt, dan komt hij er juist bij: LOGIC gaat op OR.
 - *Samen: LOGIC* (SEQ twee keer). KNOB 1 LOGIC: OFF (één tegelijk, zoals hierboven), OR (standaard: allebei spelen alles), AND
   (een noot van de een klinkt alleen waar de ander op dezelfde tel ook speelt), XOR (alleen waar de ander niet speelt:
   ze vullen elkaars gaten), NOR (alleen in de gaten van allebei: de ARP speelt daar zijn laatste noot), ALT (om de
@@ -267,8 +273,8 @@ als een rol; onderin de klok en de lengte ("20 x 1/16").
   DORIAN, PHRYGIAN, LYDIAN, MIXOLYDIAN, LOCRIAN, HARM MINOR, MEL MINOR, PENTA MAJOR, PENTA MINOR, BLUES, WHOLE TONE,
   HIRAJOSHI, DOUBLE HARM; of OFF. KNOB 3 ROOT: de grondtoon, AUTO (de laagste vastgehouden noot) of C .. B. PLAY op deze pagina zet ze samen aan en uit. De pagina laat de laatste tellen
   zien: wat de ARP speelt, wat KARMA speelt en wat erdoor komt.
-- *Eén tempo.* KARMA loopt op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de frase
-  opnieuw), en neemt de SWING van de ARP-pagina over voor zijn zestienden (of achtsten). Een nieuwe frase begint op
+- *Eén tempo.* KARMA loopt op de BPM van de ARP-pagina (CLOCK INTERNAL), of op MIDI clock (CLOCK EXTERNAL; START
+  begint de frase opnieuw; met AUTOPLAY start PLAY op je sequencer of drumcomputer de ARP en KARMA samen), en neemt de SWING van de ARP-pagina over voor zijn zestienden (of achtsten). Een nieuwe frase begint op
   de volgende zestiende (KARMA's *Quantize Trigger*); vanuit stilte meteen.
 - *FREE EG.* LENGTH PHRASE loopt precies met de frase van KARMA mee (opnemen begint aan het begin van de frase) en de
   TARGETs KARMA K1..K4 zijn de vier Realtime Controls. Zo neem je bijvoorbeeld een DENSITY-beweging op die over de
@@ -426,7 +432,8 @@ buitenkant blijft, MIX hoe fel het geheel is. Het ornament beweegt op de BPM (of
 
 **De DELAYS (SHIMMER, de laatste drie SPACEs).** In plaats van een galm een delay in het tempo (de BPM, of de MIDI
 clock), in het geheugen van de galm (op een kwart van de samplerate, 11 kHz: tot ~2,5 s, donker en zacht als een
-tape-echo). Elke delay is een patroon van taps op één lijn: elke tap een tijd na de noot, een plek van links naar
+tape-echo). Onder MIDI clock volgt hij het tempo over een hele kwartnoot gemeten, en pas bij 2 BPM verschil (of 1 BPM
+een seconde lang): een wiebelende clock laat de echo's niet verspringen. Elke delay is een patroon van taps op één lijn: elke tap een tijd na de noot, een plek van links naar
 rechts, een niveau en een eigen filter (een resonerend laagdoorlaatfilter: de echo's om en om donkerder, helderder); het
 eind van het patroon wordt teruggevoerd, zodat het patroon zachter terugkomt. Met ALGORITHM kies je de delay en zijn
 patroon:
@@ -455,6 +462,20 @@ SCATTER DELAY.
 Het scherm toont de toestand (x, y, z) van de nieuwste stem; speelt er niets, dan een "spookcircuit" dat op de huidige
 instellingen meedraait. Dat spookcircuit levert ook de beginstand van nieuwe stemmen (al op de attractor, met een kleine
 afwijking per stem zodat akkoorden niet in de pas lopen).
+
+## Met een sequencer, drumcomputer of DAW
+
+- **Tempo.** GLO → MIDI-pagina, SELECT: CLOCK EXTERNAL laat ARP, KARMA, de delays en de TAPE op de MIDI clock van je
+  sequencer lopen (USB of TRS); de BPM-knop toont dan EXT. CLOCK INTERNAL (standaard) houdt de eigen BPM en stuurt die
+  als MIDI clock over USB naar buiten zolang ARP of KARMA speelt.
+- **Start en stop.** Met AUTOPLAY aan (PRESETS op de MIDI-pagina) start PLAY op je sequencer de ARP en KARMA samen (C
+  majeur als je nog niets koos) en STOP zet ze uit.
+- **Noten en klanken.** Note on/off op het RX-kanaal (of OMNI), program change en bank select (CC 0/32) kiezen de
+  preset; met MULTI speelt een tweede klank op een eigen kanaal. Wat ARP en KARMA maken gaat op het TX-kanaal over USB
+  naar buiten.
+- **MIDI CC.** 71..74 = de vier knoppen van HOME (CHAOS, SHAPE, OUTPUT, RING, of X, Y, LEVEL, RING), 1 het mod wheel
+  (de parameter van EDIT), 7 volume, 10 pan, 11 expression, 64 hold, 66 sostenuto, 67 soft, 91 SHIMMER MIX, 93 FX MIX,
+  94 SHIMMER; aftertouch is adem op de waveguides. Zo automatiseer je de chaos vanuit je sequencer.
 
 ## Waar begin je
 

@@ -2978,24 +2978,33 @@ static void pix_text(const char *s, uint32_t y, int32_t c, int32_t gap)
     cv_blit(0, y);
 }
 
-/* PSYCHEDELIC's splash, a frame at ms into it (main.c: ~1.3 s): the tunnel rushing at you, an eye opening in it (shut,
- * then wide, a blink near the end), HAWK and CHUA turning through the hues under it; the rest drawn once */
+/* PSYCHEDELIC's splash, a frame at ms into it (main.c: ~1.3 s): from a point in the dark the figure of the oscillator
+ * the preset plays blooms out of an eye, ring by ring, its tunnel's lines with it (ui_style.c, as a note out of silence
+ * does); the eye opens, blinks near the end; HAWK and CHUA turn through the hues under it; the rest drawn once */
 #define SPLASH_PSY_MS 1300u
 static void splash_psy(uint32_t ms)
 {
     uint16_t th = ux.theme, tx = ux.text;
-    int32_t W = 34, H = W / 2, open = ms < 250u ? 1 : ms < 750u ? 1 + (H + 2) * (int32_t)(ms - 250u) / 500 :
+    int32_t W = 30, H = W / 2, open = ms < 300u ? 1 : ms < 800u ? 1 + (H + 2) * (int32_t)(ms - 300u) / 500 :
                                    ms > 1050u && ms < 1150u ? 1 : H + 2;
+    uint8_t pg = sys.page;
     us_splash = 1;
-    cv_begin(240, 96, T_BG);                     /* (the tunnel: the backdrop, ui_style.c) */
-    us_eye(120, 48, W, open, 2 + (int32_t)(ms / 200u), ms * 2u, ms > 900u ? 120 : 0, (int32_t)(ms * 255u / SPLASH_PSY_MS));
+    us_splash_ms = ms;
+    sys.page = 0;                                /* (HOME's backdrop, whatever page was saved) */
+    cv_begin(240, 124, T_BG);                    /* (the figure and its tunnel: the backdrop, ui_style.c) */
+    sys.page = pg;
+    if (ms < 300u)                               /* (the point it comes from) */
+        cv_rect(119, 61, 3, 3, us_hue(ms * 2u, 255u));
+    else
+        us_eye(120, 62, W * (int32_t)(ms < 800u ? ms : 800u) / 800, open, 2 + (int32_t)(ms / 250u), ms * 2u,
+               ms > 900u ? 120 : 0, 0);
     cv_blit(0, 0);
     us_splash = 0;
     ux.theme = us_hue(ms / 3u, 255u);            /* (the letters through the hues) */
     ux.text = us_hue(ms / 3u + 96u, 120u);
-    pix_text("HAWK", 100, 6, 7);
+    pix_text("HAWK", 128, 5, 5);
     ux.theme = us_hue(ms / 3u + 128u, 255u);
-    pix_text("CHUA", 148, 3, 4);
+    pix_text("CHUA", 167, 3, 3);
     ux.theme = th;
     ux.text = tx;
 }
@@ -3005,9 +3014,9 @@ static void draw_splash(void)
 {
     lcd_fill(0, 0, 240, 240, T_BG);
     if (sys.ui_style % US_COUNT == US_PSYCHE) {
-        draw_text_box(0, 176, 240, &AF_S, "MODELING SYNTHESIZER", T_MID, 1);
-        pix_text("PLIEUWSKI", 194, 2, 2);
-        draw_text_box(0, 216, 240, &AF_S, UI_VERSION, T_DIM, 1);
+        draw_text_box(0, 190, 240, &AF_S, "MODELING SYNTHESIZER", T_MID, 1);
+        pix_text("PLIEUWSKI", 207, 2, 2);
+        draw_text_box(0, 224, 240, &AF_S, UI_VERSION, T_DIM, 1);
         splash_psy(0);
         return;
     }

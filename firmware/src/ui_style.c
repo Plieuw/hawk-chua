@@ -313,6 +313,7 @@ static int32_t us_fold(int32_t v, int32_t g)     /* foldback: v (+-256) times g/
 #define US_NP 64                                 /* (the points of a figure: 64, the tunnel's lines find theirs by
                                                   * a shift) */
 static uint8_t us_splash;                        /* (the boot splash draws the tunnel alone: its own eye over it) */
+static uint32_t us_splash_ms;                    /* (how far into it: the figure out of the eye, ui.c splash_psy) */
 static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 /* where the sound is in the stereo field: the voices sounding, each at its seat (SCL's BASIS: MONO all in the
  * middle), weighted by its envelope; the eye moves out there from the middle and back to it when nothing sounds,
@@ -404,7 +405,8 @@ static void us_psyche(uint32_t h)
     uint32_t rot0 = (var & 1u ? 0u - t : t) * (uint32_t)spin * 65536u;   /* (the whole turning: the spin) */
     uint32_t drift = t << 24;                    /* (the detuned layer's drift against the first) */
     uint32_t hold = 1u + (uint32_t)crush / 16u, seed = fm1_ms / 50u * 2654435761u;
-    int32_t op = us_splash ? 256 : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye) */
+    int32_t op = us_splash ? (us_splash_ms < 150u ? 0 : us_splash_ms > 650u ? 256 : (int32_t)(us_splash_ms - 150u) * 256 / 500)
+                           : wave_open(), f = op + 4;   /* (the silent collapse, as INITIAL's: all into the eye; the splash: out of it) */
     /* and the reverse: a note out of the silence and the figure comes out of the eye, ring by ring from the middle
      * out (~0.5 s); every note sends a copy of it out of the eye, flying out past the edge */
     static uint8_t vst[NVOICE];
@@ -420,7 +422,7 @@ static void us_psyche(uint32_t h)
         vst[j] = (uint8_t)voice[j].stage;
     }
     lastop = op;
-    bl = us_splash ? 512u : fm1_ms - bt0 > 600u ? 512u : (fm1_ms - bt0) * 512u / 600u;   /* (the bloom, 0 .. 512) */
+    bl = us_splash ? (us_splash_ms > 1000u ? 512u : us_splash_ms * 512u / 1000u) : fm1_ms - bt0 > 600u ? 512u : (fm1_ms - bt0) * 512u / 600u;   /* (the bloom, 0 .. 512) */
     el = fm1_ms - et0;                           /* (the note's copy flying out, ms) */
     if (fg[0] == UF_LISS && !det)                /* (the ratio's two counts beat as one figure) */
         det = 128;
