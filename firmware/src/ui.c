@@ -1519,6 +1519,7 @@ static uint16_t ui_val_hue(const char *v)
 /* a knob's cell: its label small, its value under it */
 static uint16_t ui_hot_col;                      /* (the turned knob's value colour: PSYCHEDELIC lights up what it moves
                                                   * in it, ui_style.c) */
+static char ui_hot_txt[28];                      /* (its name and value, "FOLD 87": round the eye, ui_style.c) */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
     static const uint8_t X[4] = {8, 124, 8, 124}, Y[4] = {152, 152, 186, 186};
@@ -1526,8 +1527,12 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     char hot[2] = {(char)('0' + (ui_hot == c && fm1_ms - ui_hot_ms < 1000u)), 0};
     char v[24];
     str_cpy(v, value, sizeof v);
-    if (hot[0] == '1')
+    if (hot[0] == '1') {
         ui_hot_col = ui_val_hue(value);
+        str_cpy(ui_hot_txt, label[0] && label[1] == ' ' ? label + 2 : label, sizeof ui_hot_txt);
+        ui_cat(ui_hot_txt, sizeof ui_hot_txt, " ");
+        ui_cat(ui_hot_txt, sizeof ui_hot_txt, value);
+    }
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
     if (!ui_changed(i, label, v))
         return;
@@ -3050,6 +3055,11 @@ static void ui_leds(void)
         int wait = (sys.arp_on || sys.k_on) && !((sys.arp_on && arp.n) || (sys.k_on && kar.n));
         if (wait && fm1_ms % beat < beat / 6u)
             notes = 0xFFFFFFFFu;
+    }
+    if (sys.page == 0u && ui_hot < 4u && fm1_ms - ui_hot_ms < 800u) {   /* an oscillator knob turned: the keys a bar of
+                                                  * its value, low to high */
+        uint32_t nk = 1u + (uint32_t)us_kn(ui_hot) * (NKEYS - 1u) / 127u;
+        notes |= nk >= 32u ? 0xFFFFFFFFu : (1u << nk) - 1u;
     }
     for (i = 0; i < NKEYS; i++)
         if ((notes >> i) & 1u)

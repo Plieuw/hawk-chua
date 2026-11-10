@@ -390,7 +390,8 @@ static void us_psyche(uint32_t h)
     int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
     int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + (size - 150) / 16;
     int16_t px[US_TR][US_NP], py[US_TR][US_NP];
-    int32_t gm[2][US_NP];
+    int32_t gm[2][US_NP], rnear = 0;
+    static int16_t ghost[US_NP];                 /* (the figure before the knob was turned: a shadow while it turns) */
     uint16_t rc_[US_TR];
     uint32_t hue0 = t * 3u + (uint32_t)folds * 23u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
@@ -430,6 +431,8 @@ static void us_psyche(uint32_t h)
         uint32_t th = (j - j % hold) * step;     /* (a crusher: held in steps round the circle) */
         uint32_t p = th * (uint32_t)folds + (1u << 30) + (uint32_t)(us_sin(th * 2u, fm) * 16777216);   /* (FM: the
                                                   * angle swung, up to a turn) */
+        if (hm == UV_FM)                         /* (FM turned: the lines ripple a moment) */
+            p += (uint32_t)(us_sin(th * 3u + (fm1_ms << 22), hl) * 4194304);
         int32_t v = us_wave(p, shape);
         if (det)                                 /* (a second layer, beating) */
             v = (v * (256 - det / 2) + us_wave(th * (uint32_t)folds2 + drift, shape) * (det / 2)) / 256;
@@ -459,6 +462,8 @@ static void us_psyche(uint32_t h)
         }
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
+        if (hm == UV_FOLDBACK)                   /* (FOLD turned: the figure bounces back) */
+            R = R * (256 + hl * us_sin(fm1_ms << 23, 256) / 340) / 256;
         if (hl)                                  /* (the knob's highlight) */
             col = ux_mix(col, ui_hot_col, hall || i >= nr - 3 ? hl : hl / 3);
         for (j = 0; j < US_NP; j++) {
@@ -491,6 +496,7 @@ static void us_psyche(uint32_t h)
             }
         }
         rc_[i] = col;
+        rnear = R;
     }
     {   /* the tunnel's lines (the first design's, along the tunnel from ring to ring): as many as the tempo asks, a
          * line each 8 BPM (5 .. 32), each through the figure's own points, from its nearest ring into the eye's
@@ -541,6 +547,21 @@ static void us_psyche(uint32_t h)
     }
     if (us_splash)
         return;
+    if (hl) {                                    /* (the figure as it was before this turn, a grey shadow at the
+                                                  * nearest ring: before and after side by side) */
+        int32_t a0 = 0, b0 = 0;
+        uint16_t cg = ux_mix(T_BG, US_RGB(200, 200, 210), hl / 2);
+        for (j = 0; j <= US_NP; j++) {
+            uint32_t q = j % US_NP, a = rot0 + q * step;
+            int32_t rq = rnear * ghost[q] / 16, x = vx * 16 + us_sin(a + (1u << 30), rq), y = vy * 16 + us_sin(a, rq) * sq / 256;
+            if (j)
+                cv_aline(a0, b0, x, y, cg);
+            a0 = x;
+            b0 = y;
+        }
+    } else
+        for (j = 0; j < US_NP; j++)              /* (not turning: the shape kept, for the next turn) */
+            ghost[j] = (int16_t)gm[0][j];
     if (sys.page != 1u) {                        /* the eye at the tunnel's end (ENV: the gate's own eye instead, ui.c) */
         uint32_t bp = fm1_ms % (beat * 8u);
         int32_t W = 18 + (int32_t)(sys.sustain & 127u) / 6, H = W / 2;   /* (its size: the SUSTAIN) */
@@ -555,6 +576,38 @@ static void us_psyche(uint32_t h)
     }
     if (op < 32)                                 /* (folded: a point left glowing in the eye, fading) */
         cv_rect(vx - 1, vy - 1, 3, 3, ux_mix(T_BG, us_hue(hue0, 255u), 40 + op * 2));
+    if (hl) {                                    /* the knob turned: its value as an arc round the eye (from the top,
+                                                  * clockwise, 0 .. 127 a full turn), its name and value under the
+                                                  * eye, and a little scope of the oscillator's wave in the corner */
+        int32_t ra = 46, a0 = 0, b0 = 0, kv = us_kn(ui_hot), n2 = 1 + kv * 47 / 127, tw;
+        uint16_t ca = ux_mix(T_BG, ui_hot_col, hl * 3 / 2 > 100 ? 100 : hl * 3 / 2);
+        for (j = 0; j <= (uint32_t)n2; j++) {
+            uint32_t a = j * (0xFFFFFFFFu / 48u) - (1u << 30);
+            int32_t x = vx * 16 + us_sin(a + (1u << 30), ra * 16), y = vy * 16 + us_sin(a, ra * 16) * sq / 256;
+            if (j) {                             /* (3 px thick) */
+                cv_aline(a0, b0 - 16, x, y - 16, ca);
+                cv_aline(a0, b0, x, y, ca);
+                cv_aline(a0, b0 + 16, x, y + 16, ca);
+            }
+            a0 = x;
+            b0 = y;
+        }
+        tw = text_w(&AF_S, ui_hot_txt);
+        cv_text(vx - tw / 2, vy + 22, &AF_S, ui_hot_txt, ca);
+        {
+            uint32_t w = chua_trace.w, k2;
+            int32_t sx0 = 6, sy0 = (int32_t)h - 30, px0 = 0, py0 = 0;
+            cv_frame(sx0 - 2, sy0 - 2, 68, 28, ux_mix(T_BG, ca, 50));
+            for (k2 = 0; k2 < 64u; k2++) {
+                uint32_t at = (w - 64u + k2) & (TRACE_N - 1u);
+                int32_t x = sx0 + (int32_t)k2, y = sy0 + 12 - plot_norm(chua_trace.x[at], 0) * 11 / 4096;
+                if (k2)
+                    cv_aline(px0 * 16, py0 * 16, x * 16, y * 16, ca);
+                px0 = x;
+                py0 = y;
+            }
+        }
+    }
 }
 
 /* on the FX pages: the oscillator's picture (its trace turning in 3D, as HOME's INITIAL shows it) mashed up with
