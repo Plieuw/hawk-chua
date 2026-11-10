@@ -308,32 +308,32 @@ static void us_mash(uint32_t h, int32_t dim, int32_t ex, int32_t ey);
 /* where the sound is in the stereo field: the voices sounding, each at its seat (SCL's BASIS: MONO all in the
  * middle), weighted by its envelope; the eye moves out there from the middle and back to it when nothing sounds,
  * on a spring (critically damped, ~0.7 s to settle): no jumps, no jitter as notes come and go */
-static int32_t us_pan_x(void)
+static int32_t us_pan_x(void)                    /* (all 32-bit: the AC79 has no 64-bit division) */
 {
-    static int64_t x = (int64_t)120 << 16, v;    /* (Q16 px, px/s) */
+    static int32_t x = 120 << 12, v;             /* (Q12 px, px/s) */
     static uint32_t last;
-    int64_t sum = 0, wt = 0, tg = (int64_t)120 << 16;
+    int32_t sum = 0, wt = 0, tg = 120 << 12;
     uint32_t i, dt = fm1_ms - last;
     for (i = 0; i < NVOICE; i++)
         if (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN || voice[i].stage == ST_RELEASE) {
-            int64_t e = (int64_t)(voice[i].env >> 16) + 1;
+            int32_t e = (int32_t)(voice[i].env >> 24) + 1;   /* (1 .. 65) */
             e *= e;                              /* (the loudest by far the most: the new note over the fading) */
             sum += e * vpan[i];
             wt += e;
         }
     if (wt) {                                    /* (hard left .. right: 20 .. 220, the middle stretched out (a square
                                                   * root): a little off the middle already a good way off) */
-        int32_t pn = (int32_t)(sum / wt), m = us_isqrt((pn < 0 ? -pn : pn) * 32767);
-        tg = (int64_t)(120 + (pn < 0 ? -m : m) * 100 / 32767) << 16;
+        int32_t pn = sum / wt, m = us_isqrt((pn < 0 ? -pn : pn) * 32767);
+        tg = (120 + (pn < 0 ? -m : m) * 100 / 32767) << 12;
     }
     last = fm1_ms;
     dt = dt > 100u ? 100u : dt;
     for (; dt >= 4u; dt -= 4u) {                 /* (in 4 ms steps: w = 7 / s) */
-        v += ((tg - x) * 49 - v * 14) * 4 / 1000;
-        x += v * 4 / 1000;
+        v += ((tg - x) * 49 - v * 14) / 250;
+        x += v / 250;
     }
     last -= dt;                                  /* (the rest, next time) */
-    return (int32_t)(x >> 16);
+    return x >> 12;
 }
 static void us_psyche(uint32_t h)
 {
@@ -376,7 +376,7 @@ static void us_psyche(uint32_t h)
                                                   * detune's one more) */
     folds2 = folds2 > 24 ? 24 : folds2;
     /* the standing wave: the folds swinging deep and shallow, each ring against its neighbours, a swing a beat */
-    int32_t sw = us_sin((uint32_t)((uint64_t)(fm1_ms % (beat * 2u)) * 0xFFFFFFFFu / (beat * 2u)), 256);
+    int32_t sw = us_sin(((fm1_ms % (beat * 2u)) << 16) / (beat * 2u) << 16, 256);   /* (32-bit: beat < 32 s) */
     int32_t sq = 180 + (int32_t)(sys.basis & 127u) / 2;      /* (the width: the stereo BASIS) */
     int32_t lit = 30 + k * 40 / 100 + (int32_t)(sys.fx_mix & 127u) * 15 / 127 + (size - 150) / 16;
     int16_t px[US_TR][US_NP], py[US_TR][US_NP];
