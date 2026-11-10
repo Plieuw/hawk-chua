@@ -395,6 +395,13 @@ static void us_psyche(uint32_t h)
     uint32_t hue0 = t * 3u + (uint32_t)folds * 23u + (uint32_t)(sys.fx_model % RZ_COUNT) * 37u + var * 29u +
                     (us_groove() ? us_bn * 24u : 0u);
     uint32_t step = 0xFFFFFFFFu / US_NP + 1u, j, sect = 0xFFFFFFFFu / (uint32_t)folds + 1u;
+    /* an oscillator knob just turned (HOME): what it moves lit up in its cell's value colour, fading over 0.8 s:
+     * the figure's knobs its nearest rings, the density / spread / echo all of them, the folds and the spin the
+     * rails too, the level the eye's glow */
+    int32_t hl = sys.page == 0u && ui_hot < 4u && fm1_ms - ui_hot_ms < 800u ? 85 - (int32_t)(fm1_ms - ui_hot_ms) * 85 / 800 : 0;
+    uint32_t hm = hl ? US_MOD[osc][ui_hot] : UV_NONE;
+    int32_t hall = hm == UV_DENSITY || hm == UV_SPREAD || hm == UV_ECHO || hm == UV_LEVEL;
+    int32_t hrail = hm == UV_FOLDS || hm == UV_SPIN;
     uint32_t rot0 = (var & 1u ? 0u - t : t) * (uint32_t)spin * 65536u;   /* (the whole turning: the spin) */
     uint32_t drift = t << 24;                    /* (the detuned layer's drift against the first) */
     uint32_t hold = 1u + (uint32_t)crush / 16u, seed = fm1_ms / 50u * 2654435761u;
@@ -451,6 +458,8 @@ static void us_psyche(uint32_t h)
         }
         if (i == nr - 1 && gf)                   /* (the nearest flashes on the beat) */
             col = ux_mix(col, US_RGB(255, 255, 255), gf / 3);
+        if (hl)                                  /* (the knob's highlight) */
+            col = ux_mix(col, ui_hot_col, hall || i >= nr - 3 ? hl : hl / 3);
         for (j = 0; j < US_NP; j++) {
             int32_t r = R * gm[w][j] / 16;       /* (Q4: the lines drawn smooth, to 1/16 px) */
             uint32_t a = rot + j * step;
@@ -490,7 +499,7 @@ static void us_psyche(uint32_t h)
         for (i = nr - 1; i >= 0; i--) {
             int32_t r1 = rr[i];
             cv_aline(vx * 16 + ca * r0 / 256, vy * 16 + sa * r0 / 256, vx * 16 + ca * r1 / 256, vy * 16 + sa * r1 / 256,
-                     ux_mix(T_BG, rc_[i], 40));
+                     hrail ? ux_mix(ux_mix(T_BG, rc_[i], 40), ui_hot_col, hl) : ux_mix(T_BG, rc_[i], 40));
             r0 = r1;
         }
         cv_aline(vx * 16 + ca * r0 / 256, vy * 16 + sa * r0 / 256, vx * 16, vy * 16, ux_mix(T_BG, rc_[0], 20));
@@ -517,7 +526,8 @@ static void us_psyche(uint32_t h)
             W = W * (int32_t)(bl + 64u) / 320;
         H = W / 2;
         if (W >= 4)
-            us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, (3 + rc / 150 + ev / 25 + gf / 60) * f / 260, hue0, gf, 0);   /* (it blinks
+            us_eye(vx, vy, W, bp < 140u ? 1 : at ? H + 3 : H, (3 + rc / 150 + ev / 25 + gf / 60) * f / 260, hue0,
+                   hm == UV_LEVEL && hl * 3 > gf ? hl * 3 : gf, 0);   /* (it blinks
                                                   * every 2 bars; wide in an attack) */
     }
     if (op < 32)                                 /* (folded: a point left glowing in the eye, fading) */

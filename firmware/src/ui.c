@@ -1517,6 +1517,8 @@ static uint16_t ui_val_hue(const char *v)
 }
 
 /* a knob's cell: its label small, its value under it */
+static uint16_t ui_hot_col;                      /* (the turned knob's value colour: PSYCHEDELIC lights up what it moves
+                                                  * in it, ui_style.c) */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
     static const uint8_t X[4] = {8, 124, 8, 124}, Y[4] = {152, 152, 186, 186};
@@ -1524,6 +1526,8 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     char hot[2] = {(char)('0' + (ui_hot == c && fm1_ms - ui_hot_ms < 1000u)), 0};
     char v[24];
     str_cpy(v, value, sizeof v);
+    if (hot[0] == '1')
+        ui_hot_col = ui_val_hue(value);
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
     if (!ui_changed(i, label, v))
         return;
@@ -1643,6 +1647,12 @@ static void draw_plot(void)
     band[1] = ux_mix(T_BG, T_THEME, 45);
     band[2] = ux_mix(T_BG, T_THEME, 72);
     band[3] = T_THEME;
+    if (sys.page == 0u && ui_hot < 4u && fm1_ms - ui_hot_ms < 800u) {   /* (an oscillator knob just turned: the trace
+                                                  * lit up in the accent, fading over 0.8 s: what it changes, seen) */
+        int32_t hl = 80 - (int32_t)(fm1_ms - ui_hot_ms) / 10;
+        for (i = 0; i < 4u; i++)
+            band[i] = ux_mix(band[i], T_ACCENT, hl * (int32_t)(i + 1u) / 4);
+    }
     plot_scale(AX, w, n);
     cv_begin(240, PLOT_H, T_BG);
     if (view == V_3D) {
