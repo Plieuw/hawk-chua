@@ -978,6 +978,19 @@ int main(int argc, char **argv)
         run_ms(500);
         check("MIDI page: TRS / USB in on and off, RX channel, TX channel, USB out off", okk);
     }
+    {   /* CLOCK INTERNAL (GLO's SELECT): incoming clock ignored; with USB out the BPM goes out as MIDI clock */
+        uint32_t clocks = 0, starts = 0, j, bpm0 = sys.arp_bpm;
+        sys.clk_int = 1; sys.arp_bpm = 120;
+        out_n = 0;
+        run_ms(1000);                                                /* (120 BPM: 48 clocks a second) */
+        for (j = 0; j < out_n; j++)
+            clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u, starts += ((out_log[j] >> 8) & 0xFFu) == 0xFAu;
+        sys.clk_int = 0; sys.arp_bpm = bpm0;
+        check("CLOCK INTERNAL: the BPM out on USB as MIDI clock (120 BPM: 48 a second)", clocks >= 47u && clocks <= 49u);
+        out_n = 0;
+        run_ms(100);
+        check("CLOCK MIDI SYNC: no clock out", out_n == 0);
+    }
     {   /* the mod wheel (CC 1) moves the EDIT page's parameter and gives it back; program change asks for a preset */
         int okk = 1;
         uint8_t base;

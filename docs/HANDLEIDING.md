@@ -124,7 +124,8 @@ plaatsen van BASIS (de volgende noot krijgt de hoge streep) en de stemmen die kl
 hij aan staat). Aan: de noten die je vasthoudt (toetsen en MIDI in) klinken niet zelf, de arpeggiator speelt ze.
 Zolang er MIDI clock binnenkomt (USB of TRS, 24 per kwartnoot) loopt hij daarop mee (START begint het patroon
 opnieuw); komt er 0,5 s geen clock, dan loopt hij op zijn eigen BPM. Met CLOCK INTERNAL (SELECT op de MIDI-pagina, GLO)
-negeert hij binnenkomende clock en loopt altijd op zijn eigen BPM. Naar de arpeggiators van de Yamaha AN1x en DJX.
+negeert hij binnenkomende clock en loopt altijd op zijn eigen BPM; staat USB OUT aan, dan gaat die BPM als MIDI clock
+over USB naar buiten (START als ARP of KARMA begint, STOP als beide stoppen), zodat ander gear meeloopt. Naar de arpeggiators van de Yamaha AN1x en DJX.
 Wat hij speelt gaat over USB-MIDI naar buiten (als USB OUT aan staat). ARP en KARMA (SEQ) staan alleen tegelijk aan met LOGIC (zie onder).
 
 | Bediening | Functie |

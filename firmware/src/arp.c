@@ -613,8 +613,32 @@ static void arp_lstep(int pass)                  /* (a step due at this clock: t
 
 /* the clock, once a block: steps at the note value (swung: every second step later by SWING, the AN1x's 50 % none
  * .. 83 % most: its pair split 50:50 .. 83:17), the notes off at the gate */
+/* CLOCK INTERNAL (GLO's SELECT) with USB OUT: the BPM out as MIDI clock (24 a quarter), START when the ARP or KARMA
+ * starts, STOP when both stop: another instrument on USB follows the FM-1's tempo */
+static void clk_out(uint32_t n)
+{
+    static uint32_t acc, run;
+    uint32_t bpm = sys.arp_bpm < 40u ? 40u : sys.arp_bpm > 250u ? 250u : sys.arp_bpm;
+    uint32_t tl = 2646000u * 16u / bpm / 24u * 16u;   /* (samples a clock, Q8) */
+    uint32_t on = sys.arp_on || sys.k_on;
+    if (!sys.clk_int || !(sys.midi_usb & 2u)) {
+        run = 0;
+        return;
+    }
+    if (on != run) {
+        midi_out_event(0x0Fu | (on ? 0xFAu : 0xFCu) << 8);
+        run = on;
+        acc = tl;                                /* (on START: its first clock now) */
+    }
+    acc += n * 256u;
+    while (acc >= tl) {
+        acc -= tl;
+        midi_out_event(0x0Fu | 0xF8u << 8);
+    }
+}
 static void arp_block(uint32_t n)
 {
+    clk_out(n);
     uint32_t tps = ARP_TPS[sys.arp_div % ARP_NDIV], gate = 8u + (sys.arp_gate & 127u) * 92u / 127u;   /* 8..100 % */
     uint32_t sw = 50u + (sys.arp_swing & 127u) * 33u / 127u;                                            /* 50..83 % */
     int due = 0;
