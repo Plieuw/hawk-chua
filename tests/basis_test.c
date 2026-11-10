@@ -2768,6 +2768,11 @@ int main(int argc, char **argv)
         okk &= !sys.arp_on && !sys.k_on;
         check("CLOCK EXTERNAL: MIDI START plays the ARP and KARMA (C major when no notes), STOP stops them", okk);
         run_ms(700);
+        sys.autoplay = 0;                                    /* AUTOPLAY OFF: START plays nothing */
+        midi_in(0xFA, 0, 0);
+        run_ms(10);
+        check("AUTOPLAY OFF: MIDI START turns nothing on", !sys.arp_on && !sys.k_on);
+        sys.autoplay = 1;
         sys.clk_int = 1; sys.arp_hold = hold0; sys.k_latch = latch0; sys.k_logic = logic0;
         synth_kill(); keys_all_off(); arp_reset(); karma_reset();
         run_ms(20);

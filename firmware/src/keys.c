@@ -335,9 +335,10 @@ static void midi_in_block(void)
         }
         else if (((pkt >> 8) & 0xFFu) >= 0xF8u) {   /* realtime: the clock for the arpeggiator */
             uint32_t rt = (pkt >> 8) & 0xFFu;
-            if (!sys.clk_int && (rt == 0xFAu || rt == 0xFBu))   /* (CLOCK EXTERNAL: PLAY over there plays here) */
+            if (!sys.clk_int && sys.autoplay && (rt == 0xFAu || rt == 0xFBu))   /* (CLOCK EXTERNAL, AUTOPLAY: PLAY over
+                                                  * there plays here) */
                 rt_auto = 1;
-            else if (!sys.clk_int && rt == 0xFCu)
+            else if (!sys.clk_int && sys.autoplay && rt == 0xFCu)
                 rt_auto = 2;
             arp_midi_rt(rt);
         }

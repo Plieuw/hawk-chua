@@ -1129,6 +1129,7 @@ typedef struct {
     uint8_t ui_style, ui_motion, ui_backdrop, ui_react;   /* (17: saved; before: INITIAL, 64, 70, 80) */
     uint8_t clk_int;                             /* (21: saved; before: EXTERNAL) */
     uint8_t clk_ppq;                             /* (22: saved; before: 24) */
+    uint8_t autoplay;                            /* (24: saved; before: on, once after this install) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1256,6 +1257,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
         sys.clk_int = (uint8_t)(s.snd < 23u || s.clk_int);   /* (23: EXTERNAL strict now: INTERNAL, once) */
         sys.clk_ppq = (uint8_t)(s.snd >= 22u ? s.clk_ppq & 3u : 2u);
+        sys.autoplay = (uint8_t)(s.snd < 24u || s.autoplay);   /* (on after this install, once; then as saved) */
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
@@ -1312,7 +1314,8 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 23;
+    s.snd = 24;
+    s.autoplay = sys.autoplay;
     s.clk_int = sys.clk_int;
     s.clk_ppq = sys.clk_ppq;
     s.k_inv = sys.k_inv;
@@ -2137,19 +2140,7 @@ static void draw_midi(void)
     cv_text(48, y, &AF_S, a, T_MID);
     y += 24;
     cv_text(8, y, &AF_S, sys.clk_int ? "CLOCK  INTERNAL (SELECT)" : arp_ext_alive() ? "CLOCK  EXTERNAL: MIDI IN" : "CLOCK  EXTERNAL: WAITING", T_DIM);
-#if FELUCCA_CPU2
-    {   /* the second core: how much of its stack it ever used, its longest job (a diagnostic) */
-        str_cpy(a, "2ND CORE  STACK ", sizeof a);
-        fmt_int(v, (int32_t)fm1_cpu1_stack_used());
-        ui_cat(a, sizeof a, v);
-        ui_cat(a, sizeof a, " B  WAIT ");
-        fmt_int(v, (int32_t)(fm1_c1_wait_max / 24u));
-        ui_cat(a, sizeof a, v);
-        ui_cat(a, sizeof a, " us");
-        if (sys.cpu2)
-            cv_text(8, y + 17, &AF_S, a, T_DIM);
-    }
-#endif
+    cv_text(8, y + 17, &AF_S, sys.autoplay ? "AUTOPLAY  ON (PRESETS): START PLAYS" : "AUTOPLAY  OFF (PRESETS)", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 
@@ -2809,7 +2800,8 @@ static void ui_draw(void)
             str_cpy(a, feg.rec ? "FREE EG   RECORDING: TURN KNOB 1" : !sys.feg_has ? "FREE EG   REC: RECORD" :
                     sys.feg_on ? "FREE EG   PLAYING" : "FREE EG   SELECT: PLAY", sizeof a);
         } else if (sys.page == 7u) {             /* MIDI: the CLOCK (SELECT) */
-            str_cpy(a, sys.clk_int ? "CLOCK INTERNAL" : "CLOCK EXTERNAL", sizeof a);
+            str_cpy(a, sys.clk_int ? "CLOCK INT" : "CLOCK EXT", sizeof a);
+            ui_cat(a, sizeof a, sys.autoplay ? "  AUTOPLAY ON" : "  AUTOPLAY OFF");
         } else if (sys.page == 12u || sys.page == 13u) {   /* TAPE: the transport, the LENGTH, the speed */
             static const char *const LN[5] = {"1 BEAT", "2 BEATS", "1 BAR", "2 BARS", "4 BARS"};
             uint32_t sp = (tape.speed * 100u + 2048u) / 4096u;
@@ -3882,6 +3874,9 @@ static void ui_input(void)
             ui_cat(t, sizeof t, v);
             ui_say(t);
         }
+    } else if (s && sys.page == 7u) {                   /* MIDI: PRESETS turns AUTOPLAY on (right) or off (left) */
+        sys.autoplay = (uint8_t)(s > 0);
+        ui_say(sys.autoplay ? "AUTOPLAY ON" : "AUTOPLAY OFF");
     } else if (s && sys.page == 2u) {                   /* FX: PRESETS goes through the FX presets */
         const fx_preset_t *f;
         fx_pre = (uint8_t)(((int32_t)fx_pre + (int32_t)NFX_PRESETS * 8 + s) % (int32_t)NFX_PRESETS);
