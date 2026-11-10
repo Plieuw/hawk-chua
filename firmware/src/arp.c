@@ -477,6 +477,8 @@ static void arp_do_step(void)
 
 static void arp_midi_rt(uint32_t status)
 {
+    if (sys.clk_int)                             /* (CLOCK INTERNAL: the incoming clock, START ignored) */
+        return;
     if (status == 0xF8u) {
         if (arp.ext_age != 0xFFFFFFFFu && arp.ext_age < ARP_EXT_TIMEOUT)
             arp.tick_len = arp.tick_len ? (arp.tick_len * 3u + arp.tick_t) / 4u : arp.tick_t;   /* (smoothed) */
@@ -493,7 +495,7 @@ static void arp_midi_rt(uint32_t status)
     }
 }
 
-static int arp_ext(void) { return arp.ext_age < ARP_EXT_TIMEOUT; }
+static int arp_ext(void) { return !sys.clk_int && arp.ext_age < ARP_EXT_TIMEOUT; }   /* (CLOCK INTERNAL: never) */
 
 /* LOGIC (the ARP and KARMA on at once, the LOGIC page): both play the notes held, on one clock (KARMA's: its phrase
  * started, its clocks counted), and at each clock their hits meet: OR both sound, AND each only where the other hits

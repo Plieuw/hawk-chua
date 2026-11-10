@@ -49,7 +49,8 @@
  *   LFO      the FREE EG page (again: back HOME); REC records there
  *   OCT- / OCT+  octave -3..+3               SAVE       the settings into flash (restored at power-on)
  *   GLO      the MIDI page (again: back HOME): KNOB 1 TRS IN on / off, KNOB 2 USB (OFF, IN, OUT, IN+OUT), KNOB 3 the
- *            RX channel (OMNI, 1..16), KNOB 4 the TX channel (the 2ND CORE always on: ALL)
+ *            RX channel (OMNI, 1..16), KNOB 4 the TX channel; SELECT the CLOCK: right MIDI SYNC, left INTERNAL
+ *            (the 2ND CORE always on: ALL)
  *   MASTER pot   volume
  *
  * The picture: synth.c keeps a ring of the circuit's state (chua_trace: the newest voice, or the ghost circuit when
@@ -1126,6 +1127,7 @@ typedef struct {
     uint8_t k_lq;                                /* (4: saved; before: SCALE; 5: SUBDIVIDE's 1/8 turned to once; 6: LOGIC OR, SCALE once; 7: the ARP's LATCH on once) */
     uint8_t menv_target;                         /* (16: saved; before: the pitch) */
     uint8_t ui_style, ui_motion, ui_backdrop, ui_react;   /* (17: saved; before: INITIAL, 64, 70, 80) */
+    uint8_t clk_int;                             /* (21: saved; before: MIDI SYNC) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1251,6 +1253,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
+        sys.clk_int = (uint8_t)(s.snd >= 21u && s.clk_int);
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
@@ -1307,7 +1310,8 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 20;
+    s.snd = 21;
+    s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
     s.ui_style = sys.ui_style;
@@ -2129,7 +2133,7 @@ static void draw_midi(void)
     ui_cat(a, sizeof a, v);
     cv_text(48, y, &AF_S, a, T_MID);
     y += 24;
-    cv_text(8, y, &AF_S, arp_ext() ? "CLOCK  MIDI IN" : "CLOCK  INTERNAL", T_DIM);
+    cv_text(8, y, &AF_S, sys.clk_int ? "CLOCK  INTERNAL (SELECT)" : arp_ext() ? "CLOCK  MIDI IN" : "CLOCK  MIDI SYNC: NONE, INTERNAL", T_DIM);
 #if FELUCCA_CPU2
     {   /* the second core: how much of its stack it ever used, its longest job (a diagnostic) */
         str_cpy(a, "2ND CORE  STACK ", sizeof a);
@@ -2797,6 +2801,8 @@ static void ui_draw(void)
         } else if (sys.page == 8u) {             /* FREE EG: recording, playing, or what to do */
             str_cpy(a, feg.rec ? "FREE EG   RECORDING: TURN KNOB 1" : !sys.feg_has ? "FREE EG   REC: RECORD" :
                     sys.feg_on ? "FREE EG   PLAYING" : "FREE EG   SELECT: PLAY", sizeof a);
+        } else if (sys.page == 7u) {             /* MIDI: the CLOCK (SELECT) */
+            str_cpy(a, sys.clk_int ? "CLOCK INTERNAL" : "CLOCK MIDI SYNC", sizeof a);
         } else if (sys.page == 12u || sys.page == 13u) {   /* TAPE: the transport, the LENGTH, the speed */
             static const char *const LN[5] = {"1 BEAT", "2 BEATS", "1 BAR", "2 BARS", "4 BARS"};
             uint32_t sp = (tape.speed * 100u + 2048u) / 4096u;
@@ -3767,6 +3773,10 @@ static void ui_input(void)
     } else if (s && sys.page == 8u) {           /* FREE EG: PLAY (right on, left off) */
         sys.feg_on = (uint8_t)(s > 0);
         ui_say(sys.feg_on ? (sys.feg_has ? "PLAY ON" : "NOTHING RECORDED") : "PLAY OFF");
+    } else if (s && sys.page == 7u) {           /* MIDI: the CLOCK: MIDI SYNC (the tempo follows MIDI clock when it
+                                                 * comes) or INTERNAL (the BPM always) */
+        sys.clk_int = (uint8_t)(s < 0);
+        ui_say(sys.clk_int ? "CLOCK INTERNAL" : "CLOCK MIDI SYNC");
     } else if (s && sys.page == 5u) {           /* MOD ENV: on what (the pitch, an oscillator's or an FX's parameter) */
         uint8_t tl[20];
         const char *nm[20];

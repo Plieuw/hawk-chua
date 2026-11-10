@@ -59,6 +59,7 @@ static volatile struct {
     uint8_t orbit;               /* synth.c: how far each voice's picture moves it in the stereo field (ENV, ALGORITHM) */
     uint8_t arp_on, arp_type, arp_bpm, arp_div, arp_gate, arp_swing, arp_hold;   /* arp.c: the arpeggiator (ARP) */
     uint8_t multi, ch_b;         /* MULTI (GLO page): two sounds; part B's MIDI channel (1 .. 16; A: RX) */
+    uint8_t clk_int;             /* arp.c, GLO page (SELECT): 0 the tempo follows MIDI clock when it comes, 1 the internal BPM always */
     uint8_t midi_trs, midi_usb, midi_rx, midi_tx;   /* keys.c, GLO page: TRS in on; USB 0 off 1 in 2 out 3 both; rx 0 omni
                                                   * 1..16; tx channel 0..15 */
     uint8_t feg_val, feg_len, feg_depth, feg_target, feg_on, feg_has, feg_npts;   /* feg.c: FREE EG (REC) */
