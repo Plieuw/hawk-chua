@@ -279,22 +279,30 @@ static uint32_t sh_dtime(void) { return (sys.sh_size & 127u) * SH_DTIMES / 128u;
 static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint32_t sp, int32_t dry, int32_t wet)
 {
     const sh_dpat_t *P = &SH_DPAT[sp - SS_DELAY][sys.sh_interval % SI_COUNT];
-    uint32_t i, k, bpm = arp_bpm_now(), spt, loop, tap[10], peak = 0;
-    int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, ff[10], q, open = (sys.sh_shimmer & 127u) >= 127u;
+    static uint32_t key = 0xFFFFFFFFu, loop, tap[10];   /* (the taps and their filters: worked out again only when
+                                                  * the tempo, the TIME, the pattern or the FILTER changed, not
+                                                  * every block: no 64-bit divisions in the interrupt then) */
+    static int32_t ff[10];
+    uint32_t i, k, bpm = arp_bpm_now(), spt, peak = 0, kn;
+    int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, q, open = (sys.sh_shimmer & 127u) >= 127u;
     bpm = bpm < 20u ? 20u : bpm > 300u ? 300u : bpm;
-    /* samples (11025 Hz) a tick, Q16: 60 / BPM s a quarter, clocks / 24 of it a step, a 24th of that a tick */
-    spt = (uint32_t)(((uint64_t)11025u * 60u * 65536u / bpm) * SH_DCLK[sh_dtime()] / 576u);
-    while ((uint32_t)(((uint64_t)P->loop * spt) >> 16) > SH_DLEN - 4u)   /* (too long for the line: halved) */
-        spt >>= 1;
-    loop = (uint32_t)(((uint64_t)P->loop * spt) >> 16);
-    for (k = 0; k < P->n; k++) {
-        tap[k] = (uint32_t)(((uint64_t)P->tap[k].t * spt) >> 16);
-        tap[k] = tap[k] < 1u ? 1u : tap[k];
-        {   /* its filter: 150 Hz x 2^(FILTER 0 .. 4.1 oct + its offset), f = 2 sin(pi fc / 11025), Q15 */
-            int32_t oc = (int32_t)(sys.sh_shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
-            uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2(oc < 0 ? 0 : oc)) >> 16);
-            fc = fc > 2600u ? 2600u : fc < 60u ? 60u : fc;
-            ff[k] = px_sin((uint32_t)(((uint64_t)fc << 32) / 22050u)) >> 14;   /* (Q30 -> 2 x Q15) */
+    kn = bpm | sh_dtime() << 9 | (sp - SS_DELAY) << 12 | (sys.sh_interval % SI_COUNT) << 16 | (sys.sh_shimmer & 127u) << 24;
+    if (kn != key) {
+        key = kn;
+        /* samples (11025 Hz) a tick, Q16: 60 / BPM s a quarter, clocks / 24 of it a step, a 24th of that a tick */
+        spt = (uint32_t)(((uint64_t)11025u * 60u * 65536u / bpm) * SH_DCLK[sh_dtime()] / 576u);
+        while ((uint32_t)(((uint64_t)P->loop * spt) >> 16) > SH_DLEN - 4u)   /* (too long for the line: halved) */
+            spt >>= 1;
+        loop = (uint32_t)(((uint64_t)P->loop * spt) >> 16);
+        for (k = 0; k < P->n; k++) {
+            tap[k] = (uint32_t)(((uint64_t)P->tap[k].t * spt) >> 16);
+            tap[k] = tap[k] < 1u ? 1u : tap[k];
+            {   /* its filter: 150 Hz x 2^(FILTER 0 .. 4.1 oct + its offset), f = 2 sin(pi fc / 11025), Q15 */
+                int32_t oc = (int32_t)(sys.sh_shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
+                uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2(oc < 0 ? 0 : oc)) >> 16);
+                fc = fc > 2600u ? 2600u : fc < 60u ? 60u : fc;
+                ff[k] = px_sin((uint32_t)(((uint64_t)fc << 32) / 22050u)) >> 14;   /* (Q30 -> 2 x Q15) */
+            }
         }
     }
     q = 32768 - (int32_t)(sys.sh_tone & 127u) * 210;   /* 1 / Q: 1 .. ~0.19 */
@@ -305,13 +313,13 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
             uint32_t w = sh.dw;
             sh.dsub = 0;
             sh.dacc = 0;
-            f = sh.dl[(w + SH_DLEN - loop) % SH_DLEN];   /* the loop's end, back in: darker, no rumble */
+            f = sh.dl[w >= loop ? w - loop : w + SH_DLEN - loop];   /* the loop's end, back in: darker, no rumble */
             sh.dfb[0] += ((f - sh.dfb[0]) * 13000) >> 15;    /* (~2.6 kHz) */
             sh.dhp += ((sh.dfb[0] - sh.dhp) * 2200) >> 15;   /* (~120 Hz) */
             f = (int32_t)(((int64_t)(sh.dfb[0] - sh.dhp) * fb) >> 15);
             sh.dl[w] = sh_sat(x + f);
             for (k = 0; k < P->n; k++) {
-                int32_t v = sh.dl[(w + SH_DLEN - tap[k]) % SH_DLEN], gl, gr, p = P->tap[k].pan;
+                int32_t v = sh.dl[w >= tap[k] ? w - tap[k] : w + SH_DLEN - tap[k]], gl, gr, p = P->tap[k].pan;
                 if (!open) {                     /* the tap's filter: a state-variable low-pass */
                     int32_t *z = sh.dtap[k], hi;
                     z[0] += (int32_t)(((int64_t)ff[k] * z[1]) >> 15);
