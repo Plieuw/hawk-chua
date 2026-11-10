@@ -990,6 +990,23 @@ int main(int argc, char **argv)
         out_n = 0;
         run_ms(100);
         check("CLOCK MIDI SYNC: no clock out", out_n == 0);
+        {
+            static const uint32_t want[4] = {2, 4, 48, 96};          /* (120 BPM, a second: CLOCK PPQ 1, 2, 24, 48) */
+            int okp = 1;
+            uint32_t q;
+            sys.clk_int = 1; sys.arp_bpm = 120;
+            for (q = 0; q < 4u; q++) {
+                sys.clk_ppq = (uint8_t)q;
+                run_ms(50);
+                out_n = 0;
+                run_ms(1000);
+                for (clocks = 0, j = 0; j < out_n; j++)
+                    clocks += ((out_log[j] >> 8) & 0xFFu) == 0xF8u;
+                okp &= clocks + 1u >= want[q] && clocks <= want[q] + 1u;
+            }
+            sys.clk_int = 0; sys.arp_bpm = bpm0; sys.clk_ppq = 2;
+            check("CLOCK PPQ: 1, 2, 24, 48 clocks a quarter out", okp);
+        }
     }
     {   /* the mod wheel (CC 1) moves the EDIT page's parameter and gives it back; program change asks for a preset */
         int okk = 1;

@@ -60,6 +60,7 @@ static volatile struct {
     uint8_t arp_on, arp_type, arp_bpm, arp_div, arp_gate, arp_swing, arp_hold;   /* arp.c: the arpeggiator (ARP) */
     uint8_t multi, ch_b;         /* MULTI (GLO page): two sounds; part B's MIDI channel (1 .. 16; A: RX) */
     uint8_t clk_int;             /* arp.c, GLO page (SELECT): 0 the tempo follows MIDI clock when it comes, 1 the internal BPM always */
+    uint8_t clk_ppq;             /* arp.c, SOUND page KNOB 4: the clock out's pulses a quarter: 0 1, 1 2, 2 24 (MIDI's), 3 48 */
     uint8_t midi_trs, midi_usb, midi_rx, midi_tx;   /* keys.c, GLO page: TRS in on; USB 0 off 1 in 2 out 3 both; rx 0 omni
                                                   * 1..16; tx channel 0..15 */
     uint8_t feg_val, feg_len, feg_depth, feg_target, feg_on, feg_has, feg_npts;   /* feg.c: FREE EG (REC) */
@@ -93,7 +94,7 @@ static volatile struct {
          
          .menv_len = 80, .menv_skew = 10, .menv_height = 0, .menv_bend = 64, .ui_style = 1 /* PSYCHEDELIC first */, .ui_motion = 64, .ui_backdrop = 70, .ui_react = 80, .basis = 0, .orbit = 0,
          .arp_on = 0, .arp_type = 0, .arp_bpm = 128, .arp_div = 4, .arp_gate = 80, .arp_swing = 0, .arp_hold = 1,
-         .multi = 0, .ch_b = 2, .midi_trs = 1, .midi_usb = 3, .midi_rx = 0, .midi_tx = 0,
+         .multi = 0, .ch_b = 2, .midi_trs = 1, .midi_usb = 3, .midi_rx = 0, .midi_tx = 0, .clk_ppq = 2,
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
          .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,

@@ -1128,6 +1128,7 @@ typedef struct {
     uint8_t menv_target;                         /* (16: saved; before: the pitch) */
     uint8_t ui_style, ui_motion, ui_backdrop, ui_react;   /* (17: saved; before: INITIAL, 64, 70, 80) */
     uint8_t clk_int;                             /* (21: saved; before: MIDI SYNC) */
+    uint8_t clk_ppq;                             /* (22: saved; before: 24) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1254,6 +1255,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
         sys.clk_int = (uint8_t)(s.snd >= 21u && s.clk_int);
+        sys.clk_ppq = (uint8_t)(s.snd >= 22u ? s.clk_ppq & 3u : 2u);
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
@@ -1310,8 +1312,9 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 21;
+    s.snd = 22;
     s.clk_int = sys.clk_int;
+    s.clk_ppq = sys.clk_ppq;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
     s.ui_style = sys.ui_style;
@@ -2510,7 +2513,7 @@ static void ui_draw(void)
         ui_cell(T_C2, "2 NOTE QUANT", logic_q_name(sys.k_lq));
         ui_cell(T_C3, "3 ROOT", sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO");
         ui_cell(T_C4, "4 INVERSE", sys.k_inv ? "ON" : "OFF");
-    } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH */
+    } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH, BEND RANGE, CLOCK PPQ */
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
         ui_cell(T_C1, "1 SPEAKER BASS", sys.spk_bass & 127u ? v : "OFF");
         ui_cell(T_C2, "2 LEVEL MATCH", sys.lvl_match ? "ON" : "OFF");
@@ -2519,7 +2522,8 @@ static void ui_draw(void)
         if (sys.bend_range)
             ui_cat(b, sizeof b, v);
         ui_cell(T_C3, "3 BEND RANGE", b);
-        ui_cell(T_C4, "4", "");
+        fmt_int(v, CLK_PPQ[sys.clk_ppq & 3u]);
+        ui_cell(T_C4, "4 CLOCK PPQ", v);
     } else if (sys.page == 19u) {                /* UI STYLE: the look, its motion, its backdrop */
         ui_cell(T_C1, "1 STYLE", US_NAME[sys.ui_style % US_COUNT]);
         fmt_int(v, (int32_t)(sys.ui_motion & 127u));
@@ -3620,6 +3624,10 @@ static void ui_input(void)
         if ((s = ui_enc(EN_K3)) != 0) {
             sys.bend_range = (uint8_t)clamp((int32_t)sys.bend_range + s, 0, 12);
             ui_hot = 2; ui_hot_ms = fm1_ms;
+        }
+        if ((s = ui_enc(EN_K4)) != 0) {         /* the clock out's pulses a quarter (CLOCK INTERNAL, USB OUT) */
+            sys.clk_ppq = (uint8_t)clamp((int32_t)sys.clk_ppq + (s > 0 ? 1 : -1), 0, 3);
+            ui_hot = 3; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 15u) {               /* MULTI */
         if ((s = ui_enc(EN_K1)) != 0) {
