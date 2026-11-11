@@ -27,7 +27,7 @@ static const int16_t cm_hilbert[CM_HN] = {
 typedef struct {
     int32_t x[CM_HN], m[CM_HN];
     int32_t m_dc_x, m_dc_y;
-    uint8_t w, ready;
+    uint8_t w;
 } fx_chuamod_t;
 
 static fx_chuamod_t cm_state;
@@ -45,7 +45,7 @@ static int32_t cm_rectify(int32_t x, uint32_t mode)
     if (mode == 2u)
         return x < 0 ? 0 : x;
     if (mode == 3u)
-        return x > 0 ? 0 : -x;
+        return x > 0 ? 0 : x;
     return x;
 }
 
