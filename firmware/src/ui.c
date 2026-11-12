@@ -2655,9 +2655,16 @@ static void ui_draw(void)
     }
     if (ui_force)
         lcd_fill(0, 0, 240, 240, T_BG);
-    str_cpy(a, PRESETS[sys.preset % NPRESETS].name, sizeof a);
-    if (preset_edited())
-        ui_cat(a, sizeof a, " *");
+    if (sys.page == 0u || sys.page == 14u || sys.page > 20u) {   /* HOME (and its BANK): the preset; elsewhere the page */
+        str_cpy(a, PRESETS[sys.preset % NPRESETS].name, sizeof a);
+        if (preset_edited())
+            ui_cat(a, sizeof a, " *");
+    } else {
+        static const char *const TITLE[21] = {"", "LPG", "RESONATORS", "REVERB", "", "PITCH MOD", "ARPEGGIATOR", "MIDI",
+                                              "LFO FREE EG", "SEQUENCER", "PANNING", "EDIT", "TAPE", "TAPE SPEED", "",
+                                              "MULTI", "SOUND", "SEQ LOGIC", "ARP GROOVE", "UI STYLE", "MOD FX"};
+        str_cpy(a, sys.page == 3u && SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "DELAY" : TITLE[sys.page], sizeof a);
+    }
     if (note < 128u && sys.voices) {
         str_cpy(b, NOTE_NAME[note % 12u], sizeof b);
         fmt_int(v, (int32_t)note / 12 - 1);
