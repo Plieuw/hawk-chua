@@ -36,7 +36,7 @@
  *   SEQ      the KARMA page (karma.c; again: back HOME; PLAY starts it, its LED lit while on): ALGORITHM the GE (the phrase
  *            generator), KNOB 1..4 its four realtime controls (named per GE: DENSITY, RANGE, REPEAT ...), SELECT LATCH,
  *            PRESETS the tempo (the ARP page's BPM: one for all)
- *   EDIT     the EDIT page (again: back HOME): KNOB 1 the MOD WHEEL's parameter (MIDI CC 2; FREE EG's list), KNOB 2
+ *   EDIT     the EDIT page (again: back HOME): KNOB 1 the MOD WHEEL's parameter (MIDI CC 1; FREE EG's list), KNOB 2
  *            its DEPTH (FREE EG playing the same one: the wheel sets FREE EG's depth), KNOB 3 VELOCITY on the sound (OFF, BRIGHT, SWEEP, BOTH), KNOB 4 how much; MIDI program change
  *            loads the preset (program 1 the first)
  *   PRESETS  on the FX page: the FX presets (a resonator / waveguide with its knobs), on SHIMMER: the shimmer
@@ -2026,8 +2026,8 @@ static void mfx_psy(uint32_t mode, int on)
 
 static void draw_mfx(void)
 {
-    uint32_t mode = sys.mfx_mode % MF_COUNT;
-    int on = mode != MF_OFF && sys.mfx_mix, psy = sys.ui_style % US_COUNT == US_PSYCHE;
+    uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;   /* (the mod wheel's VIBRATO, RING, SHIFT: shown too) */
+    int on = mf.on != 0, psy = sys.ui_style % US_COUNT == US_PSYCHE;
     {
         int32_t l = mfx_lvl();
         uint32_t i;
@@ -2209,7 +2209,7 @@ static void draw_edit(void)
     int32_t mw = (int32_t)(sys.mw & 127u), vel = sys.last_vel;
     char a[40];
     cv_begin(240, PLOT_H, T_BG);
-    cv_text(x0, 6, &AF_S, "MOD WHEEL (CC 2)", T_DIM);
+    cv_text(x0, 6, &AF_S, "MOD WHEEL (CC 1)", T_DIM);
     cv_frame(x0, 24, w, h, T_LINE);
     if (mw)
         cv_rect(x0 + 1, 25, (w - 2) * mw / 127, h - 2, FEG_FM(sys.mw_target) ? T_FM : T_THEME);

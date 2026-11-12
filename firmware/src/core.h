@@ -61,6 +61,7 @@ static volatile struct {
     uint8_t multi, ch_b;         /* MULTI (GLO page): two sounds; part B's MIDI channel (1 .. 16; A: RX) */
     uint8_t clk_int;             /* arp.c, GLO page (SELECT): 0 the tempo follows MIDI clock when it comes, 1 the internal BPM always */
     uint8_t mfx_mode, mfx_rate, mfx_slew, mfx_rect, mfx_mix;   /* fx_mod.c, the MOD page (FX twice): MOD FX */
+    uint8_t mw_vib, mw_ringm, mw_shift;   /* fx_mod.c: VIBRATO, RING MOD, FREQ SHIFT as the mod wheel's (FREE EG's) targets: 0 off */
     uint8_t autoplay;            /* keys.c, GLO / MIDI page (PRESETS): CLOCK EXTERNAL's MIDI START plays the ARP and KARMA */
     uint8_t midi_trs, midi_usb, midi_rx, midi_tx;   /* keys.c, GLO page: TRS in on; USB 0 off 1 in 2 out 3 both; rx 0 omni
                                                   * 1..16; tx channel 0..15 */
@@ -73,7 +74,7 @@ static volatile struct {
                                   * NOR, ALT, S/R; KNOB 4 INVERSE: what it would let through held back, and the other way */
     uint8_t k_lq, k_root;        /* arp.c, the LOGIC page: their notes to a key: 0 off, 1 the chord, 2 AUTO, 3.. a scale;
                                   * its root: 0 AUTO (the lowest held), 1..12 C..B */
-    uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 2 (the mod wheel), the parameter it moves (feg.c's list), how far */
+    uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */
     uint8_t mw_seen;
     int8_t transpose;              /* synth.c: the sound's octave (-3 .. +3: every oscillator, the FX tuned with it;
                                   * the presets set it for their instrument's register; EDIT page SELECT) */

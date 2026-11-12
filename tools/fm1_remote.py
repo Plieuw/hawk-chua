@@ -9,7 +9,7 @@
                                                      REC OCT- OCT+)
     python3 tools/fm1_remote.py turn "KNOB 1" 5      turn an encoder (SELECT ALGORITHM PRESETS "KNOB 1".."KNOB 4")
     python3 tools/fm1_remote.py note 60 100 0.5      play a note (velocity, seconds)
-    python3 tools/fm1_remote.py cc 2 64              a control change (CC 2: the mod wheel)
+    python3 tools/fm1_remote.py cc 1 64              a control change (CC 1: the mod wheel)
     python3 tools/fm1_remote.py program 12           a program change (preset 13)
     python3 tools/fm1_remote.py watch 10 shots/      a screen every half second for 10 s
     python3 tools/fm1_remote.py presets presets.txt  all 512 presets (4 banks) as lines of ui.c's table (C; the ones SAVE

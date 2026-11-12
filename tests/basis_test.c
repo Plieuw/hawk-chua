@@ -1015,29 +1015,25 @@ int main(int argc, char **argv)
         run_ms(20);
         out_n = 0;
     }
-    {   /* the mod wheel (CC 2) moves the EDIT page's parameter and gives it back; CC 1 MOD FX's MIX; program change asks for a preset */
+    {   /* the mod wheel (CC 1) moves the EDIT page's parameter and gives it back; program change asks for a preset */
         int okk = 1;
         uint8_t base;
         sys.mw_target = 8; sys.mw_depth = 127; sys.fx_struct = 20;
         base = sys.fx_struct;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 127);
         run_ms(10);
         okk &= sys.fx_struct == 127;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 64);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 64);
         run_ms(10);
         okk &= sys.fx_struct > base && sys.fx_struct < 127;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
         run_ms(10);
         okk &= sys.fx_struct == base;
         sys.mw_depth = 0;                                            /* depth 0: the wheel does nothing */
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 127);
         run_ms(10);
         okk &= sys.fx_struct == base;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 99);           /* CC 1: MOD FX's MIX, the wheel's parameter left */
-        run_ms(10);
-        okk &= sys.mfx_mix == 99 && sys.fx_struct == base;
-        sys.mfx_mix = 64;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
         sys.mw_depth = 127;
         midi_in_source[mi_w % MQ] = 1; midi_in(0xC0, 3, 0);
         run_ms(10);
@@ -1052,16 +1048,16 @@ int main(int argc, char **argv)
             feg.curve[k] = 120;
         sys.fx_struct = base; sys.feg_target = 8; sys.feg_depth = 127; sys.feg_len = 9;
         sys.feg_has = 1; sys.feg_on = 1; sys.mw_target = 8; sys.mw_depth = 127;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
         run_ms(20);
         okk &= feg.playing && sys.fx_struct == base;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 127);
         run_ms(20);
         okk &= sys.fx_struct == 120;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 64);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 64);
         run_ms(20);
         okk &= sys.fx_struct > base + 30 && sys.fx_struct < 90;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
         sys.feg_on = 0;
         run_ms(20);
         okk &= !feg.playing && sys.fx_struct == base;
@@ -2791,6 +2787,24 @@ int main(int argc, char **argv)
             mf_reset();
         }
         check("MOD FX: the shift's sidebands (up, down), every mode bounded and audible", okk);
+    }
+    {   /* the mod wheel on VIBRATO, RING MOD, FREQ SHIFT: MOD FX on with that one (the page OFF), off with the wheel down */
+        uint8_t t0 = sys.mw_target, d0 = sys.mw_depth, m0 = sys.mfx_mode;
+        int okk = 1;
+        static const uint8_t WM[3] = {MF_VIBRATO, MF_RING, MF_UP};
+        uint32_t k2;
+        sys.mfx_mode = MF_OFF; sys.mw_depth = 127;
+        for (k2 = 0; k2 < 3u; k2++) {
+            sys.mw_target = (uint8_t)(28u + k2);
+            midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 100);
+            run_ms(20);
+            okk &= mf.on && mf.mode == WM[k2];
+            midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
+            run_ms(20);
+            okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm && !sys.mw_shift;
+        }
+        sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
+        check("mod wheel on VIBRATO, RING MOD, FREQ SHIFT: MOD FX with it", okk);
     }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};

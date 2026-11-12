@@ -36,11 +36,11 @@ static uint32_t feg_ticks(uint32_t len)          /* MIDI clocks a cycle (24 a qu
 }
 
 /* the parameters it can drive (all 0..127) */
-#define FEG_NT 28
+#define FEG_NT 31
 static const char *const FEG_T_NAME[FEG_NT] = {
     "CHAOS", "SHAPE", "OUTPUT", "RING", "NOISE X", "NOISE Y", "NOISE LEVEL", "MOD ENV HEIGHT", "FX STRUCTURE",
     "FX BRIGHTNESS", "FX DAMPING", "FX POSITION", "FX MIX", "SHIMMER SIZE", "SHIMMER DECAY", "SHIMMER", "SHIMMER MIX", "SHIMMER TONE", "BASIS", "ORBIT", "ARP GATE", "ARP SWING", "ENV DECAY",
-    "KARMA K1", "KARMA K2", "KARMA K3", "KARMA K4", "SCREAM",
+    "KARMA K1", "KARMA K2", "KARMA K3", "KARMA K4", "SCREAM", "VIBRATO", "RING MOD", "FREQ SHIFT",
 };
 static volatile uint8_t *feg_field(uint32_t t)
 {
@@ -72,6 +72,9 @@ static volatile uint8_t *feg_field(uint32_t t)
     case 25: return &sys.k_m[2];
     case 26: return &sys.k_m[3];
     case 27: return &sys.scream;
+    case 28: return &sys.mw_vib;                 /* MOD FX's three (fx_mod.c): how much of each, on its own */
+    case 29: return &sys.mw_ringm;
+    case 30: return &sys.mw_shift;
     default: return &sys.decay;
     }
 }
@@ -258,7 +261,7 @@ static void feg_block(uint32_t n, uint32_t note_ons)
     }
 }
 
-/* the mod wheel (MIDI CC 2, the EDIT page): it moves a parameter of FREE EG's list up from where it is, DEPTH how far
+/* the mod wheel (MIDI CC 1, the EDIT page): it moves a parameter of FREE EG's list up from where it is, DEPTH how far
  * (127: the wheel up takes it to 127); the parameter given back when the wheel is down. FREE EG playing the same one: the wheel sets FREE EG's depth instead (feg_block) */
 static struct { uint8_t on, target, base; } mwd;
 static void mw_block(void)

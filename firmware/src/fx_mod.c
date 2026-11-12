@@ -84,7 +84,7 @@ static void mf_reset(void)
 /* this block's step of the circuit (Q24 time units a sample, split in ns substeps): the RATE as a frequency */
 static uint32_t mf_steps(int32_t *hs, int32_t *ahs, int32_t *bhs)
 {
-    uint32_t mode = sys.mfx_mode % MF_COUNT, r = sys.mfx_rate & 127u, inc, h, ns;
+    uint32_t mode = mf.mode, r = sys.mfx_rate & 127u, inc, h, ns;
     int slow = mode == MF_VIBRATO || mode == MF_TREMOLO;
     /* slow: 0.1 Hz x 2^(7 oct) = 12.8 Hz; fast: 8 Hz x 2^(8 oct) = 2 kHz: inc (Q32 a sample) = f / 44100 x 2^32 */
     uint32_t f16 = (uint32_t)(((uint64_t)(slow ? 6554u : 524288u) * px_exp2((int32_t)(r * (slow ? 458752u : 524288u) / 127u))) >> 16);   /* Hz, Q16 */
@@ -109,6 +109,14 @@ static int mf_gen(uint32_t n)
 {
     uint32_t mode = sys.mfx_mode % MF_COUNT, rect = (sys.mfx_rect & 127u) >> 5, i, ns, k;
     int32_t mix = (int32_t)(sys.mfx_mix & 127u) * 258, depth = 32767;   /* Q15 (the depth: full; MIX sets how much) */
+    {   /* the mod wheel's (or FREE EG's) targets VIBRATO, RING MOD, FREQ SHIFT: up, that one, as much as it is up (the
+         * page's RATE, SLEW, RECTIFY with it; FREQ SHIFT down if the page is on SHIFT DOWN) */
+        uint32_t wv = sys.mw_vib & 127u, wr = sys.mw_ringm & 127u, ws = sys.mw_shift & 127u;
+        if (wv | wr | ws) {
+            mode = wv >= wr && wv >= ws ? MF_VIBRATO : wr >= ws ? MF_RING : mode == MF_DOWN ? MF_DOWN : MF_UP;
+            mix = (int32_t)(wv >= wr && wv >= ws ? wv : wr >= ws ? wr : ws) * 258;
+        }
+    }
     uint32_t slew = sys.mfx_slew & 127u;
     int32_t sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
     int32_t hs, ahs, bhs;
