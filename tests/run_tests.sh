@@ -70,6 +70,12 @@ san_try() {
     return 1
 }
 
+$CC -o "$OUT/chua_mod_test" tests/chua_mod_test.c -lm
+run "Chua modulation DSP: upper/lower sideband and slow tremolo" "$OUT/chua_mod_test"
+${CC%% *} -O1 -g -w -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer \
+    -o "$OUT/chua_mod_test_san" tests/chua_mod_test.c -lm
+run "Chua modulation DSP under ASan / UBSan" san_try "$OUT/chua_mod_test_san"
+
 $CC -o "$OUT/basis_test" tests/basis_test.c -lm -pthread
 run "keyboard and CHUA synth: keys, octave, MIDI, voices, the circuit vs double precision, ranges, pitch" "$OUT/basis_test" "$OUT/basis.wav"
 ${CC%% *} -O1 -g -w -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer \
