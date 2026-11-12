@@ -985,6 +985,7 @@ static void synth_render(int32_t *out, uint32_t n)
         memset(pdl, 0, sizeof pdl);
         memset(pdr, 0, sizeof pdr);
     }
+    int mfx = mf_gen(n);                                /* MOD FX: the block's modulator (osc -> MOD FX -> resonators) */
     for (pp = 0; pp < np2; pp++) {                      /* MULTI: part A, then B with its sound swapped in */
     if (sys.multi) {
         if (pp)
@@ -1038,6 +1039,14 @@ static void synth_render(int32_t *out, uint32_t n)
             rz_age[voice[k].rz % RZ_POLY] = voice[k].age;
             rz_epan[voice[k].rz % RZ_POLY] = vpan[k];
         }
+    if (mfx) {                                          /* MOD FX on the voices: each resonator's bus and BASIS's L, R (the
+                                                         * same moves on each: the dry, what rings and the pan as one) */
+        for (k = 0; k < RZ_POLY; k++)
+            if (rz_part_mask >> k & 1u)
+                mf_apply(k, rz_bus[k], n);
+        mf_apply(RZ_POLY + 2u * pp, dl, n);
+        mf_apply(RZ_POLY + 2u * pp + 1u, dr, n);
+    }
     for (i = 0; i < n; i++) {                           /* the dry: all of them (MULTI: the part's) */
         int32_t a = 0;
         for (k = 0; k < RZ_POLY; k++)
@@ -1045,6 +1054,8 @@ static void synth_render(int32_t *out, uint32_t n)
                 a += rz_bus[k][i];
         sum[i] = a;
     }
+    if (mfx && !pp)
+        mf_scope(sum, n);
     fx_resonator(sum, dl, dr, n);
     if (synth_pgain[pp] != 4096)                        /* (LEVEL MATCH: the part's preset at the common level) */
         for (i = 0; i < n; i++) {

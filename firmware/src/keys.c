@@ -193,8 +193,8 @@ static void midi_cc(uint32_t cc, uint32_t v)
     switch (cc) {
     case 0: bank_msb = (uint8_t)v; break;        /* BANK SELECT MSB, LSB: the bank for the next program change */
     case 32: bank_lsb = (uint8_t)v; break;
-    case 1:                                      /* MODULATION: MOD FX's DEPTH (fx_mod.c: the vibrato, ring, shift, tremolo) */
-        sys.mfx_depth = (uint8_t)v;
+    case 1:                                      /* MODULATION: MOD FX's MIX (fx_mod.c: the vibrato, ring, shift, tremolo) */
+        sys.mfx_mix = (uint8_t)v;
         break;
     case 2:                                      /* BREATH CONTROLLER: the mod wheel (feg.c mw_block, the EDIT page) */
         sys.mw = (uint8_t)v;

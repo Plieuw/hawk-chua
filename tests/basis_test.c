@@ -1015,7 +1015,7 @@ int main(int argc, char **argv)
         run_ms(20);
         out_n = 0;
     }
-    {   /* the mod wheel (CC 2) moves the EDIT page's parameter and gives it back; CC 1 MOD FX's DEPTH; program change asks for a preset */
+    {   /* the mod wheel (CC 2) moves the EDIT page's parameter and gives it back; CC 1 MOD FX's MIX; program change asks for a preset */
         int okk = 1;
         uint8_t base;
         sys.mw_target = 8; sys.mw_depth = 127; sys.fx_struct = 20;
@@ -1033,10 +1033,10 @@ int main(int argc, char **argv)
         midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
         run_ms(10);
         okk &= sys.fx_struct == base;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 99);           /* CC 1: MOD FX's DEPTH, the wheel's parameter left */
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 99);           /* CC 1: MOD FX's MIX, the wheel's parameter left */
         run_ms(10);
-        okk &= sys.mfx_depth == 99 && sys.fx_struct == base;
-        sys.mfx_depth = 64;
+        okk &= sys.mfx_mix == 99 && sys.fx_struct == base;
+        sys.mfx_mix = 64;
         midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
         sys.mw_depth = 127;
         midi_in_source[mi_w % MQ] = 1; midi_in(0xC0, 3, 0);
@@ -2747,7 +2747,7 @@ int main(int argc, char **argv)
 
     /* a render to listen to: per preset of ui.c, an arpeggio then a held chord */
     {   /* MOD FX: the Hilbert pair (two allpass chains) 90 degrees apart: a 3 kHz tone shifted by a 500 Hz one lands at
-         * 3.5 kHz (UP) or 2.5 kHz (DOWN), the other side 20 dB under; every mode bounded on the resonators' wet */
+         * 3.5 kHz (UP) or 2.5 kHz (DOWN), the other side 20 dB under; every mode bounded on the oscillators (before the resonators) */
         static int32_t wv[44100];
         uint32_t m2, i;
         int okk = 1;
@@ -2757,8 +2757,8 @@ int main(int argc, char **argv)
             for (i = 0; i < 44100u; i++) {
                 int32_t x = (int32_t)(16000.0 * sin(2 * M_PI * 3000.0 * i / 44100.0)), m = (int32_t)(30000.0 * sin(2 * M_PI * 500.0 * i / 44100.0));
                 int32_t xr, xi, mr, mi, y;
-                mf_hilbert(0, x, &xr, &xi);
-                mf_hilbert(1, m, &mr, &mi);
+                mf_hilbert(&mf_ch[0].h, x, &xr, &xi);
+                mf_hilbert(&mf.hm, m, &mr, &mi);
                 y = (int32_t)((m2 == 0u ? (int64_t)xr * mr - (int64_t)xi * mi : (int64_t)xr * mr + (int64_t)xi * mi) >> 15);
                 if (i >= 4410u) {
                     double a1 = 2 * M_PI * 3500.0 * i / 44100.0, a2 = 2 * M_PI * 2500.0 * i / 44100.0;
@@ -2770,11 +2770,11 @@ int main(int argc, char **argv)
             okk &= m2 == 0u ? up > 10 * dn : dn > 10 * up;
         }
         {   /* each mode on a tone: bounded, and moved off the dry */
-            uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_depth, sys.mfx_rect, sys.mfx_mix};
+            uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix};
             for (m2 = 1; m2 < MF_COUNT; m2++) {
                 int32_t pk = 0;
                 double diff = 0;
-                sys.mfx_mode = (uint8_t)m2; sys.mfx_rate = 70; sys.mfx_depth = 110; sys.mfx_rect = (uint8_t)(m2 * 32u & 127u); sys.mfx_mix = 127;
+                sys.mfx_mode = (uint8_t)m2; sys.mfx_rate = 70; sys.mfx_slew = 110; sys.mfx_rect = (uint8_t)(m2 * 32u & 127u); sys.mfx_mix = 127;
                 mf.on = 0;
                 for (i = 0; i < 44100u; i++)
                     wv[i] = (int32_t)(16000.0 * sin(2 * M_PI * 440.0 * i / 44100.0));
@@ -2787,10 +2787,24 @@ int main(int argc, char **argv)
                 }
                 if (pk > 40000 || diff < 1e9) { printf("   (MOD FX %s: peak %d, moved %.3g)\n", MF_NAME[m2], pk, diff); okk = 0; }
             }
-            sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_depth = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
+            sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
             mf_reset();
         }
         check("MOD FX: the shift's sidebands (up, down), every mode bounded and audible", okk);
+    }
+    {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
+        uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};
+        uint32_t x0, k2, act = 0;
+        synth_kill(); run_ms(20);
+        sys.mfx_mode = MF_RING; sys.mfx_mix = 127; sys.fx_mix = 0;
+        x0 = mf_view.xw;
+        synth_note_on(60, 110);
+        run_ms(40);
+        for (k2 = 0; k2 < RZ_POLY; k2++) act |= mf_ch[k2].act;
+        check("MOD FX moves the oscillators before the resonators (FX MIX 0 too)", mf.on && act && mf_view.xw != x0);
+        synth_note_off(60); synth_kill(); run_ms(20);
+        sys.mfx_mode = k0[0]; sys.mfx_mix = k0[1]; sys.fx_mix = k0[2];
+        run_ms(10);
     }
     {   /* CLOCK EXTERNAL: MIDI START with nothing on: the ARP and KARMA on together, no notes chosen: C major, latched;
          * the clock drives them; STOP: both off */

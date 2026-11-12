@@ -1130,7 +1130,7 @@ typedef struct {
     uint8_t clk_int;                             /* (21: saved; before: EXTERNAL) */
     uint8_t spare22;                             /* (22 .. 24: CLOCK PPQ, gone: MIDI clock is 24 a quarter) */
     uint8_t autoplay;                            /* (24: saved; before: on, once after this install) */
-    uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, depth, rectify, mix; before: off) */
+    uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, slew, rectify, mix; before: off) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1261,7 +1261,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         if (s.snd >= 25u) {
             sys.mfx_mode = (uint8_t)(s.mfx[0] % MF_COUNT);
             sys.mfx_rate = (uint8_t)(s.mfx[1] & 127u);
-            sys.mfx_depth = (uint8_t)(s.mfx[2] & 127u);
+            sys.mfx_slew = (uint8_t)(s.mfx[2] & 127u);
             sys.mfx_rect = (uint8_t)(s.mfx[3] & 127u);
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
@@ -1323,7 +1323,7 @@ static void settings_fill_now(settings_t *sp)
     s.tape4 = 1;
     s.snd = 25;
     s.autoplay = sys.autoplay;
-    s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_depth; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
+    s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
@@ -1821,33 +1821,243 @@ static void draw_env(void)
  * the tail's level over the last ~4 s (one value a UI frame) is what the wavefronts carry */
 static uint8_t sh_hist[200];
 static uint32_t sh_seen;
-/* MOD FX (FX twice): the circuit moving the resonators (above, the accent) and the wet it makes (below, the theme) */
+/* MOD FX (FX twice): a picture a mode, each style its own. The data: the circuit slowly (mf_view.m, ~0.37 s), the
+ * circuit and the sound it makes in step (mf_view.mf, .x, the last ~12 ms)
+ *   INITIAL (the oscilloscope)  VIBRATO the trace with its time bent and the graticule bent with it (a Doppler grid);
+ *                RING MOD the scope in XY (the sound against the circuit: the product's figure); SHIFT the analyser's
+ *                partials sliding up or down the spectrum, chevrons with them; TREMOLO the trace inside the envelope the
+ *                circuit cuts
+ *   PSYCHEDELIC  VIBRATO rings swaying, each later than the one inside it; RING MOD two rings linked, turning, the XY
+ *                figure in hues between them; SHIFT a spiral of three arms turning out (UP) or in (DOWN); TREMOLO
+ *                polygons breathing with the circuit, one after the other */
+static int32_t mfx_ms(uint32_t i) { return mf_view.m[(mf_view.w - 64u + i) & 63u]; }    /* (0 oldest .. 63 now) */
+static int32_t mfx_mf(uint32_t i) { return mf_view.mf[(mf_view.mw - 256u + i) & 255u]; }
+static int32_t mfx_x(uint32_t i) { return mf_view.x[(mf_view.xw - 256u + i) & 255u]; }
+static int32_t mfx_g = 256, mfx_mg = 256, mfx_mm, mfx_xm;   /* (gains, Q8: the sound and the circuit shown full; the circuit's middle) */
+static int32_t mfx_mfs(uint32_t i)
+{
+    int32_t v = (mfx_mf(i) - mfx_mm) * mfx_mg >> 8;
+    return v > 32767 ? 32767 : v < -32767 ? -32767 : v;
+}
+static int32_t mfx_xs(uint32_t i)
+{
+    int32_t v = (mfx_x(i) - mfx_xm) * mfx_g >> 8;
+    return v > 32767 ? 32767 : v < -32767 ? -32767 : v;
+}
+static int32_t mfx_lvl(void)                     /* the sound's level now, 0 .. 32767 */
+{
+    uint32_t i;
+    int32_t pk = 0;
+    for (i = 0; i < 256u; i += 4u) {
+        int32_t a = mfx_x(i) < 0 ? -mfx_x(i) : mfx_x(i);
+        pk = a > pk ? a : pk;
+    }
+    return pk;
+}
+
+static void mfx_scope(uint32_t mode, int on)
+{
+    uint32_t i, k;
+    int32_t cy = PLOT_H / 2, px = 0, py = 0;
+    uint16_t grid = ux_mix(T_BG, T_THEME, 22), sig = on ? T_THEME : ux_mix(T_BG, T_THEME, 40);
+    uint16_t mod = on ? T_ACCENT : ux_mix(T_BG, T_ACCENT, 35);
+    for (k = 0; k <= 4u; k++)                    /* the graticule's rows */
+        for (i = 8; i < 232u; i += 4u)
+            cv_pset((int32_t)i, 12 + (int32_t)k * (PLOT_H - 24) / 4, grid);
+    if (!on)
+        mode = MF_TREMOLO;                       /* (off: a plain trace) */
+    switch (mode) {
+    case MF_VIBRATO:                             /* time bent: the graticule's columns and the trace with them */
+        for (k = 0; k < 12u; k++) {
+            for (i = 0; i <= 24u; i++) {
+                int32_t y = 12 + (int32_t)i * (PLOT_H - 24) / 24;
+                int32_t x = 10 + (int32_t)k * 20 + mfx_ms(39u + i) * 18 / 20000;
+                if (i)
+                    cv_line(px, py, x, y, grid);
+                px = x;
+                py = y;
+            }
+        }
+        for (i = 0; i < 224u; i++) {
+            int32_t j = (int32_t)i + 16 + mfx_ms(i * 63u / 223u) * 16 / 20000;
+            int32_t x = 8 + (int32_t)i, y = cy - mfx_xs((uint32_t)(j < 0 ? 0 : j > 255 ? 255 : j)) * (PLOT_H / 3) / 32768;
+            if (i)
+                cv_line(px, py, x, y, sig);
+            px = x;
+            py = y;
+        }
+        for (i = 0; i < 64u; i++) {              /* (the circuit, small, along the top) */
+            int32_t x = 8 + (int32_t)i * 224 / 63, y = 10 - mfx_ms(i) * 7 / 32768;
+            if (i)
+                cv_line(px, py, x, y, mod);
+            px = x;
+            py = y;
+        }
+        break;
+    case MF_RING:                                /* XY: the sound across, the circuit up */
+        cv_line(120, 10, 120, PLOT_H - 10, grid);
+        cv_line(60, cy, 180, cy, grid);
+        for (i = 0; i < 256u; i++) {
+            int32_t x = 120 + mfx_xs(i) * 56 / 32768, y = cy - mfx_mfs(i) * (PLOT_H / 2 - 10) / 32768;
+            if (i)
+                cv_aline(px * 16, py * 16, x * 16, y * 16, sig);
+            px = x;
+            py = y;
+        }
+        for (k = 0; k < 16u; k++) {              /* (the multiplier's ring, in the corner) */
+            int32_t a0 = us_sin(k * 0x10000000u + (1u << 30), 9), b0 = us_sin(k * 0x10000000u, 9);
+            int32_t a1 = us_sin((k + 1u) * 0x10000000u + (1u << 30), 9), b1 = us_sin((k + 1u) * 0x10000000u, 9);
+            cv_line(220 + a0, 22 + b0, 220 + a1, 22 + b1, mod);
+        }
+        cv_line(214, 16, 226, 28, mod);
+        cv_line(226, 16, 214, 28, mod);
+        break;
+    case MF_UP:
+    case MF_DOWN: {                              /* the partials sliding: right up, left down */
+        int32_t lvl = mfx_lvl(), dir = mode == MF_UP ? 1 : -1;
+        int32_t sp = (int32_t)(((uint32_t)fm1_ms * (8u + (sys.mfx_rate & 127u)) / 64u) % 18u) * dir;
+        cv_line(8, PLOT_H - 12, 232, PLOT_H - 12, grid);
+        for (k = 0; k < 14u; k++) {
+            int32_t x = 12 + (int32_t)k * 16 + sp, h, w2;
+            if (x < 8) x += 224;
+            if (x > 230) x -= 224;
+            h = (PLOT_H - 30) * lvl / 32768 * (14 - (int32_t)k / 2) / 14;
+            h += mfx_mf(k * 16u) * 8 / 32768;
+            h = h < 2 ? 2 : h;
+            for (w2 = -1; w2 <= 1; w2++)
+                cv_line(x + w2, PLOT_H - 13, x + w2, PLOT_H - 13 - h, w2 ? ux_mix(T_BG, sig, 50) : sig);
+        }
+        for (k = 0; k < 3u; k++) {               /* the chevrons, the way it goes */
+            int32_t x = 96 + (int32_t)k * 16 + sp / 2;
+            cv_line(x, 6, x + 6 * dir, 11, mod);
+            cv_line(x + 6 * dir, 11, x, 16, mod);
+        }
+        break;
+    }
+    default: {                                   /* TREMOLO: the envelope the circuit cuts, the trace inside */
+        int32_t qx = 0, qy = 0;
+        for (i = 0; i < 64u; i++) {
+            int32_t x = 8 + (int32_t)i * 224 / 63, e = on ? 16384 + mfx_ms(i) / 2 : 32767;
+            int32_t y = cy - e * (PLOT_H / 2 - 12) / 32768, y2 = cy + e * (PLOT_H / 2 - 12) / 32768;
+            if (i) {
+                cv_line(px, py, x, y, mod);
+                cv_line(qx, qy, x, y2, mod);
+            }
+            px = x; py = y; qx = x; qy = y2;
+        }
+        for (i = 0; i < 224u; i++) {
+            int32_t x = 8 + (int32_t)i, y = cy - mfx_xs(i + 16u) * (PLOT_H / 2 - 12) / 32768;
+            if (i)
+                cv_line(px, py, x, y, sig);
+            px = x;
+            py = y;
+        }
+        break;
+    }
+    }
+}
+
+static void mfx_psy(uint32_t mode, int on)
+{
+    uint32_t i, k, t = us_t();
+    int32_t cy = PLOT_H / 2, gf = us_gf(), ev = us_env(0), lvl = mfx_lvl(), px = 0, py = 0;
+    uint32_t hue = t * 3u + mode * 51u + (us_groove() ? us_bn * 24u : 0u);
+    int32_t lit = on ? 85 : 35;
+    uint16_t glow = ux_mix(T_BG, us_hue(hue + 40u, 255u), (on ? 40 : 18) + gf / 6);
+    us_poly(120, cy, 50 + ev / 40, 32u, t << 21, 200, glow);   /* (the halo, as the eye's lids) */
+    switch (on ? mode : MF_OFF) {
+    case MF_VIBRATO:                             /* rings swaying, each later than the one inside it */
+        for (k = 0; k < 8u; k++) {
+            int32_t cx = 120 + mfx_ms(63u - k * 7u) * 34 / 32768, r = 6 + (int32_t)k * 6 + lvl / 3000;
+            uint16_t c = ux_mix(T_BG, us_hue(hue + k * 22u, 255u), lit - (int32_t)k * 5);
+            us_poly(cx, cy, r, 32u, t << 20, 230, c);
+            us_poly(cx + 1, cy, r, 32u, t << 20, 230, ux_mix(T_BG, c, 50));
+        }
+        break;
+    case MF_RING: {                              /* two rings linked, turning; the product's figure between */
+        uint32_t a = t << 22;
+        int32_t d = 16 + (mfx_ms(63) < 0 ? -mfx_ms(63) : mfx_ms(63)) * 10 / 32768;
+        int32_t dx = us_sin(a + (1u << 30), d), dy = us_sin(a, d) / 2;
+        for (k = 0; k < 2u; k++) {
+            int32_t sg = k ? -1 : 1;
+            uint16_t c = ux_mix(T_BG, us_hue(hue + k * 128u, 255u), lit);
+            us_poly(120 + sg * dx, cy + sg * dy, 30 + ev / 60, 40u, a * (k ? 1u : 3u), 256, c);
+            us_poly(121 + sg * dx, cy + sg * dy, 30 + ev / 60, 40u, a * (k ? 1u : 3u), 256, ux_mix(T_BG, c, 50));
+        }
+        for (i = 0; i < 256u; i += 2u) {
+            int32_t x = 120 + mfx_xs(i) * 40 / 32768, y = cy - mfx_mfs(i) * 40 / 32768;
+            if (i)
+                cv_aline(px * 16, py * 16, x * 16, y * 16, ux_mix(T_BG, us_hue(hue + i / 2u, 255u), lit - 20));
+            px = x;
+            py = y;
+        }
+        break;
+    }
+    case MF_UP:
+    case MF_DOWN: {                              /* a spiral of three arms turning out (UP) or in (DOWN) */
+        int dn = mode == MF_DOWN;
+        uint32_t spin = (uint32_t)fm1_ms * (16u + (sys.mfx_rate & 127u)) * 4000u;
+        for (k = 0; k < 3u; k++) {
+            for (i = 0; i < 48u; i++) {
+                uint32_t a = (dn ? 0u - spin : spin) + k * 0x55555555u + i * 0x04000000u * (dn ? 1u : 0xFFFFFFFFu);
+                int32_t r = 3 + (int32_t)i * (56 + lvl / 2000) / 48;
+                int32_t x = 120 + us_sin(a + (1u << 30), r), y = cy + us_sin(a, r) * 7 / 8;
+                if (i)
+                    cv_aline(px * 16, py * 16, x * 16, y * 16, ux_mix(T_BG, us_hue(hue + k * 85u + i * 3u, 255u), lit * (int32_t)(20 + i) / 68));
+                px = x;
+                py = y;
+            }
+        }
+        break;
+    }
+    case MF_TREMOLO:                             /* polygons breathing with the circuit, one after the other */
+        for (k = 0; k < 6u; k++) {
+            int32_t e = 16384 + mfx_ms(63u - k * 6u) / 2, r = (10 + (int32_t)k * 9) * (12288 + e) / 32768;
+            uint16_t c = ux_mix(T_BG, us_hue(hue + k * 30u, 255u), lit - (int32_t)k * 4);
+            us_poly(120, cy, r, 6u, (t << 20) + k * 0x0AAAAAAAu, 256, c);
+            us_poly(120, cy, r + 1, 6u, (t << 20) + k * 0x0AAAAAAAu, 256, ux_mix(T_BG, c, 45));
+        }
+        break;
+    default:                                     /* (off: the halo alone, a still ring) */
+        us_poly(120, cy, 26, 32u, 0, 256, ux_mix(T_BG, T_TEXT, 30));
+        break;
+    }
+}
+
 static void draw_mfx(void)
 {
-    uint32_t i, w = rz_view.w, mw = mf_view.w, on = sys.mfx_mode % MF_COUNT != MF_OFF && sys.mfx_mix;
-    int32_t px = 0, py = 0, cy = PLOT_H / 4, cy2 = PLOT_H * 2 / 3;
-    if (sys.ui_style % US_COUNT == US_PSYCHE) {  /* (PSYCHEDELIC: its scene) */
-        cv_begin(240, PLOT_H, T_BG);
-        cv_blit(0, PLOT_Y);
-        return;
+    uint32_t mode = sys.mfx_mode % MF_COUNT;
+    int on = mode != MF_OFF && sys.mfx_mix, psy = sys.ui_style % US_COUNT == US_PSYCHE;
+    {
+        int32_t l = mfx_lvl();
+        uint32_t i;
+        int32_t lo = 32767, hi = -32768;
+        int32_t xl = 32767, xh = -32768;
+        (void)l;
+        for (i = 0; i < 256u; i += 2u) {
+            int32_t v = mfx_x(i);
+            xl = v < xl ? v : xl;
+            xh = v > xh ? v : xh;
+        }
+        mfx_xm = (xl + xh) / 2;
+        mfx_g = 56000 * 256 / (xh - xl > 3500 ? xh - xl : 3500);
+        for (i = 0; i < 256u; i += 2u) {
+            int32_t v = mfx_mf(i);
+            lo = v < lo ? v : lo;
+            hi = v > hi ? v : hi;
+        }
+        mfx_mm = (lo + hi) / 2;
+        mfx_mg = 56000 * 256 / (hi - lo > 3500 ? hi - lo : 3500);
     }
-    cv_begin(240, PLOT_H, T_BG);
-    for (i = 0; i < 64u; i++) {                  /* the modulating circuit */
-        int32_t x = 8 + (int32_t)i * 224 / 63, y = cy - mf_view.m[(mw + i) & 63u] * (PLOT_H / 5) / 32768;
-        if (i)
-            cv_line(px, py, x, y, on ? T_ACCENT : ux_mix(T_BG, T_ACCENT, 35));
-        px = x;
-        py = y;
-    }
-    for (i = 0; i < 224u; i++) {                 /* the wet */
-        int32_t x = 8 + (int32_t)i, y = cy2 - rz_view.wave[(w - 224u + i) & (RZ_WAVE - 1u)] * (PLOT_H / 4) / 32768;
-        if (i)
-            cv_line(px, py, x, y, T_THEME);
-        px = x;
-        py = y;
-    }
+    cv_begin(240, PLOT_H, T_BG);                 /* (PSYCHEDELIC: the oscillator's mash behind, as on the FX pages) */
+    if (psy)
+        mfx_psy(mode, on);
+    else
+        mfx_scope(mode, on);
+    if (psy)
+        cv_text(8, 4, &AF_S, MF_NAME[mode], ux_mix(T_BG, us_hue(us_t() * 3u + mode * 51u, 255u), 80));
     if (!on)
-        cv_text(8, 2, &AF_S, sys.fx_mix ? "MOD FX OFF: ALGORITHM" : "FX MIX OFF", T_MID);
+        cv_text(psy ? 150 : 8, psy ? 4 : 2, &AF_S, mode == MF_OFF ? "OFF: ALGORITHM" : "MIX 0: KNOB 4", T_MID);
     cv_blit(0, PLOT_Y);
 }
 
@@ -2783,7 +2993,7 @@ static void ui_draw(void)
         } else
             str_cpy(b, "OFF", sizeof b);
         ui_cell(T_C4, "4 MIX", b);
-    } else if (sys.page == 20u) {                /* MOD FX: the rate (in Hz), how deep, the rectifier, the mix */
+    } else if (sys.page == 20u) {                /* MOD FX: the rate (in Hz), the slew, the rectifier, the mix */
         uint32_t mode = sys.mfx_mode % MF_COUNT, slow = mode == MF_VIBRATO || mode == MF_TREMOLO;
         uint32_t f16 = (uint32_t)(((uint64_t)(slow ? 6554u : 524288u) *
                                    px_exp2((int32_t)((sys.mfx_rate & 127u) * (slow ? 458752u : 524288u) / 127u))) >> 16);
@@ -2799,8 +3009,13 @@ static void ui_draw(void)
         }
         ui_cat(b, sizeof b, " HZ");
         ui_cell(T_C1, "1 RATE", b);
-        fmt_int(v, sys.mfx_depth);
-        ui_cell(T_C2, "2 DEPTH", v);
+        if (sys.mfx_slew) {                      /* (the slew's corner: 0.9 Hz .. full) */
+            fmt_int(v, (int32_t)(sys.mfx_slew * 100u / 127u));
+            str_cpy(b, v, sizeof b);
+            ui_cat(b, sizeof b, " %");
+        } else
+            str_cpy(b, "OFF", sizeof b);
+        ui_cell(T_C2, "2 SLEW", b);
         ui_cell(T_C3, "3 RECTIFY", MF_RECT[(sys.mfx_rect & 127u) >> 5]);
         fmt_int(v, (int32_t)(sys.mfx_mix * 100u / 127u));
         str_cpy(b, v, sizeof b);
@@ -3831,9 +4046,9 @@ static void ui_input(void)
         knob(&sys.sh_decay, EN_K2, 1);
         knob(&sys.sh_shimmer, EN_K3, 2);
         knob(&sys.sh_mix, EN_K4, 3);
-    } else if (sys.page == 20u) {               /* MOD FX: RATE, DEPTH, RECTIFY, MIX */
+    } else if (sys.page == 20u) {               /* MOD FX: RATE, SLEW, RECTIFY, MIX */
         knob(&sys.mfx_rate, EN_K1, 0);
-        knob(&sys.mfx_depth, EN_K2, 1);
+        knob(&sys.mfx_slew, EN_K2, 1);
         knob(&sys.mfx_rect, EN_K3, 2);
         knob(&sys.mfx_mix, EN_K4, 3);
     } else if (sys.page == 2u) {

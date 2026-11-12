@@ -735,7 +735,7 @@ static void us_backdrop(uint32_t h)
 {
     if (sys.ui_style % US_COUNT != US_PSYCHE)
         return;
-    if (sys.page == 2u || sys.page == 3u)        /* (the FX pages: the oscillator's vectors with the FX's) */
+    if (sys.page == 2u || sys.page == 3u || sys.page == 20u)   /* (the FX pages: the oscillator's vectors with the FX's) */
         us_mash(h, 40, 120, (int32_t)h / 2);                          /* (softly: the model's drawing over it stays plain) */
     else
         us_psyche(h);

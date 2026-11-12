@@ -28,7 +28,6 @@
  *                                that feed it, Q15), sum[] their total (the dry), the output into sum[]; dl / dr what
  *                                BASIS takes off the left / right (synth.c), each resonator panned as its note */
 #include "phys_dsp.c"
-#include "fx_mod.c"                              /* MOD FX: the wet moved by a Chua circuit (the MOD page) */
 #include "phys_symp.c"
 #include "waveguide.c"                           /* VOICE ... DRUM: this firmware's own models */
 
@@ -78,6 +77,7 @@ typedef struct {
 } rz_t;
 static rz_t rz[RZ_POLY] __attribute__((section(".pool")));   /* (zeroed at start: held 0) */
 static int32_t rz_bus[RZ_POLY][CTL];             /* each resonator's input this block, Q15 */
+#include "fx_mod.c"                              /* MOD FX: the oscillators moved by a Chua circuit, before the resonators */
 static int32_t rz_out[RZ_POLY][CTL];             /* each one's output, the model's units (Q20) */
 static uint32_t rz_clock, rz_view_r;             /* note-on count; the resonator the screen shows */
 
@@ -480,10 +480,8 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
             bag_drones(drn, n, held, (int32_t)(sys.fx_pos & 127u), (int32_t)(sys.fx_damp & 127u));
         } else
             bag_fill = 0;
-        int32_t wv[CTL], wlv[CTL], wrv[CTL];
-        int mod = sys.mfx_mode % MF_COUNT != MF_OFF && (rz_part_mask & 1u);   /* (MOD FX: on part A's pass) */
         for (i = 0; i < n; i++) {
-            int32_t y = drn[i], yl = 0, yr = 0;
+            int32_t y = drn[i], yl = 0, yr = 0, wet;
             for (r = 0; r < RZ_POLY; r++)
                 if (mine >> r & 1u) {
                     y += rz_out[r][i];
@@ -492,41 +490,12 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
                         yr += (int32_t)(((int64_t)rz_out[r][i] * pr[r]) >> 15);
                     }
                 }
-            wv[i] = rz_knee(px_m(y, g, 20));
-            if (basis) {                         /* (what the wet takes off L and R) */
-                wlv[i] = wv[i] - rz_knee(px_m(y - yl, g, 20));
-                wrv[i] = wv[i] - rz_knee(px_m(y - yr, g, 20));
-            }
-        }
-        if (mod || mf.on) {                      /* MOD FX on the wet; its pan as the block's share (the block before:
-                                                  * what the modulation moved has no place of its own) */
-            uint64_t sa = 0, sl = 0, sr = 0;
-            if (basis)
-                for (i = 0; i < n; i++) {
-                    sa += (uint32_t)(wv[i] < 0 ? -wv[i] : wv[i]);
-                    sl += (uint32_t)(wlv[i] < 0 ? -wlv[i] : wlv[i]);
-                    sr += (uint32_t)(wrv[i] < 0 ? -wrv[i] : wrv[i]);
-                }
-            mf_block(wv, n);
-            if (basis) {
-                for (i = 0; i < n; i++) {
-                    wlv[i] = (int32_t)(((int64_t)wv[i] * mf.pan_l) >> 15);
-                    wrv[i] = (int32_t)(((int64_t)wv[i] * mf.pan_r) >> 15);
-                }
-                while (sa >= 32768)                  /* (in 32 bits: the AC79 has no 64-bit division) */
-                    sa >>= 1, sl >>= 1, sr >>= 1;
-                sl = sl > 65535 ? 65535 : sl;
-                sr = sr > 65535 ? 65535 : sr;
-                mf.pan_l = sa ? (int32_t)((uint32_t)sl * 32768u / (uint32_t)sa) : 0;
-                mf.pan_r = sa ? (int32_t)((uint32_t)sr * 32768u / (uint32_t)sa) : 0;
-            }
-        }
-        for (i = 0; i < n; i++) {
-            int32_t wet = wv[i];
+            wet = rz_knee(px_m(y, g, 20));
             sum[i] = (sum[i] * (128 - mix) + wet * mix) >> 7;
             if (basis) {                         /* the dry's panning faded as the dry, the wet's added */
-                dl[i] = (dl[i] * (128 - mix) + wlv[i] * mix) >> 7;
-                dr[i] = (dr[i] * (128 - mix) + wrv[i] * mix) >> 7;
+                int32_t wl = wet - rz_knee(px_m(y - yl, g, 20)), wr = wet - rz_knee(px_m(y - yr, g, 20));
+                dl[i] = (dl[i] * (128 - mix) + wl * mix) >> 7;
+                dr[i] = (dr[i] * (128 - mix) + wr * mix) >> 7;
             }
             if (i & 1u)
                 rz_view.wave[rz_view.w++ & (RZ_WAVE - 1u)] = (int16_t)clamp(wet, -32767, 32767);
