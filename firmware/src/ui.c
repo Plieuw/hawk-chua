@@ -1670,8 +1670,8 @@ static void ui_status(const char *s)
 {
     /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
      * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
-    static const uint8_t LAYER[21] = {1, 1, 2, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2, 4, 1};
-    static const uint8_t COUNT[21] = {2, 2, 3, 3, 0, 2, 2, 4, 0, 2, 0, 0, 2, 2, 2, 4, 4, 2, 2, 4, 3};
+    static const uint8_t LAYER[21] = {1, 1, 2, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 1};
+    static const uint8_t COUNT[21] = {2, 2, 3, 3, 0, 2, 2, 3, 0, 2, 0, 0, 2, 2, 2, 4, 3, 2, 2, 3, 3};
     uint32_t pg = sys.page < 21u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
     char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
     if (!ui_changed(T_STATUS, s, sig))
@@ -2722,12 +2722,8 @@ static void ui_draw(void)
             ui_cat(b, sizeof b, v);
         }
         ui_cell(T_C2, "2 PART B", b);
-        fmt_int(v, (int32_t)(part_preset(1) >> 7) + 1);
-        str_cpy(b, v, sizeof b);
-        ui_cat(b, sizeof b, " ");
-        ui_cat(b, sizeof b, BANK_NAME[(part_preset(1) >> 7) % NBANKS]);
-        ui_cell(T_C3, "3 B BANK", b);
-        ui_cell(T_C4, "4 B PRESET", PRESETS[part_preset(1) % NPRESETS].name);
+        ui_cell(T_C3, "3 EDIT PART", sys.multi ? (part_edit ? "2" : "1") : "1 (MULTI OFF)");   /* (as HOME held + OP1, OP2) */
+        ui_cell(T_C4, "4 VOICES", part_mono[sys.multi ? part_edit : 0u] ? "MONO" : "POLY");   /* (+ MONO, POLY) */
     } else if (sys.page == 13u) {                       /* TAPE's SPEED: the BPM, the ratio, the tape's own tempo, the pitch */
         const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
         int32_t st = (int32_t)(sys.tape_spd % TAPE_NSPD) - 12, c = tape_cents(tape.speed);
@@ -3950,8 +3946,8 @@ static void ui_input(void)
             sys.page = sys.page == 10u ? 0u : 10u;
             ui_force = 1;
             break;
-        case B_GLO:                                     /* the MIDI page, the MULTI page, the SOUND page, back */
-            sys.page = sys.page == 7u ? 15u : sys.page == 15u ? 16u : sys.page == 16u ? 19u : sys.page == 19u ? 0u : 7u;
+        case B_GLO:                                     /* the MIDI page, the SOUND page, UI STYLE, back */
+            sys.page = sys.page == 7u ? 16u : sys.page == 16u ? 19u : sys.page == 19u ? 0u : 7u;   /* (MULTI: on BANK) */
             ui_force = 1;
             break;
         default:
@@ -4193,8 +4189,8 @@ static void ui_input(void)
         knob(&sys.sustain, EN_K3, 2);
         knob(&sys.release, EN_K4, 3);
     }
-    if (sys.page == 14u) {                       /* BANK: part B (MULTI) too: KNOB 2 off / OMNI / its channel, 3 its
-                                                  * bank, 4 its program (as on the MULTI page) */
+    if (sys.page == 14u) {                       /* BANK: part B (MULTI) too: KNOB 2 off / OMNI / its channel, 3 the part
+                                                  * edited, 4 MONO / POLY (as HOME held + OP1, OP2, MONO, POLY) */
         if ((s = ui_enc(EN_K2)) != 0) {
             int32_t m = sys.multi ? (sys.ch_b ? (int32_t)sys.ch_b + 1 : 1) : 0;
             m = clamp(m + (s > 0 ? 1 : -1), 0, 17);
@@ -4203,19 +4199,10 @@ static void ui_input(void)
             keys_panic_req = 1;
             ui_say(!m ? "PART B OFF" : m == 1 ? "PART B OMNI: LAYERED" : "PART B ON ITS CHANNEL");
         }
-        if ((s = ui_enc(EN_K3)) != 0) {
-            part_b_load((uint32_t)(((int32_t)(part_preset(1) >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
-                                   (int32_t)NBANKS) * 128u + (part_preset(1) & 127u));
-            str_cpy(t, "B: ", sizeof t);
-            ui_cat(t, sizeof t, PRESETS[part_preset(1) % NPRESETS].name);
-            ui_say(t);
-        }
-        if ((s = ui_enc(EN_K4)) != 0) {
-            part_b_load((part_preset(1) & ~127u) + (uint32_t)(((int32_t)(part_preset(1) & 127u) + 128 * 8 + s) % 128));
-            str_cpy(t, "B: ", sizeof t);
-            ui_cat(t, sizeof t, PRESETS[part_preset(1) % NPRESETS].name);
-            ui_say(t);
-        }
+        if ((s = ui_enc(EN_K3)) != 0)            /* the part the knobs edit (PRESETS then picks its preset) */
+            home_key_req = (uint8_t)((s > 0 ? KEY_OP2 : KEY_OP1) + 1u);
+        if ((s = ui_enc(EN_K4)) != 0)            /* its voices */
+            home_key_req = (uint8_t)((s > 0 ? KEY_MONO : KEY_POLY) + 1u);
     }
     if (sys.page == 14u) {                       /* BANK: SELECT and KNOB 1 turn it too (as PRESETS) */
         int32_t s2 = ui_enc(EN_SELECT) + ui_enc(EN_K1);

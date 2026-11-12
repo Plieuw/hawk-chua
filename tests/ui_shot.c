@@ -510,10 +510,11 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "e_edit");
     sys.mw = 0; sys.vel_to = 0;
-    sys.page = 7u;                       /* GLO twice: the MULTI page, on, part B a bass */
+    sys.page = 7u;                       /* GLO twice: the SOUND page (MULTI: on BANK now); MULTI on, part B a bass */
     edges = btn_bit(B_GLO);
     ui_input();
-    if (sys.page != 15u) { printf("GLO: no MULTI page\n"); bad = 1; }
+    if (sys.page != 16u) { printf("GLO: MIDI, then not the SOUND page\n"); bad = 1; }
+    sys.page = 14u;
     sys.multi = 1;
     part_b_load(256u + 16u);
     frames(2);
