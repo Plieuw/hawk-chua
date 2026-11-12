@@ -138,7 +138,8 @@ USB-C naar USB-C tussen twee apparaten werkt niet, want USB heeft altijd een hos
 
 | Bediening | Functie |
 | --- | --- |
-| KNOB 1 BPM | 40..250 (bij CLOCK EXTERNAL staat er EXT, met het gemeten tempo, en draaien doet niets); de PRESETS-knop doet hier ook de BPM, net als op de SEQ- en TAPE-pagina's |
+| KNOB 1 BPM | 40..250 (bij CLOCK EXTERNAL staat er EXT, met het gemeten tempo, en draaien doet niets); de BPM-knop van de TAPE-pagina's |
+| PRESETS | **ARP-presets** (ook op de GROOVE-pagina): CLASSIC UP, TRANCE 16THS, ACID BASS, HOUSE STABS, TECHNO DRIVE, SWING UPDOWN, HARP RUN, TRIPLET DREAM, RANDOM SPARKLE, WALKING BASS, REGGAE SKANK, STRUMMER, CLAVE, WALTZ, BOUNCING BALL, SLOW FALL: elk zet het patroon, de nootwaarde, GATE, SWING en de GROOVE (velocity- en gate-seq); de BPM blijft |
 | KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 (standaard 1/8) |
 | KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap (GATE FIT: zolang de ARP of KARMA speelt is de attack van elk geluid hoogstens een kwart van de gate, zodat ook trage pads op korte stappen meteen spreken; op de toetsen hun eigen attack) |
 | KNOB 4 SWING | 50 % (geen) .. 83 % (de meeste), zoals de AN1x: elke tweede stap later |
@@ -230,7 +231,7 @@ Een GE is, zoals bij KARMA, een paar kleine generatoren die samenwerken:
 | ALGORITHM | de GE (24, zie hieronder) |
 | KNOB 1..4 | de vier *Realtime Controls* van die GE; de cellen tonen wat ze doen. 64 is de GE zoals hij geschreven is |
 | SELECT | LATCH (standaard aan): rechtsom aan (de frase loopt door als je loslaat, een nieuw akkoord vervangt het oude), linksom uit |
-| PRESETS | het tempo (BPM 40..250, hetzelfde als KNOB 1 op de ARP-pagina); op deze pagina kies je dus geen preset |
+| PRESETS | **SEQ-presets** (ook op de LOGIC-pagina): PULSE ARP, ACID LINE, TRANCE GATE, GAMELAN, BOSSA NOVA, MONTUNO, FUNK CLAV, POLY 3 OVER 4, RAIN DROPS, CHAOS MACHINE, ECHO CANYON, DUB CHORDS, HOUSE PIANO, AFROBEAT, SWELL PAD, BIRD CALLS: elk kiest een GE en zet zijn vier realtime-knoppen (een TRANSPOSE-knop blijft staan); het tempo staat op KNOB 1 van de ARP-pagina |
 
 De Realtime Controls: DENSITY (0 niets, laag alleen de zware aanslagen, 64 het patroon, hoger ook de spooknoten en
 boven 96 noten in de rusten), RANGE (−3..+3 octaven), REPEAT (meer of minder echo's), ACCENT (dynamiek, boven 96 ook
@@ -363,7 +364,7 @@ hetzelfde aantal tellen. Lo-fi zoals tape: 11 kHz, 4-bit ADPCM (7,2 s per spoor)
 | KNOB 1..4 | een leeg spoor: draaien = dat spoor armen (ARMED); een opgenomen spoor: zijn volume (de fader) |
 | ALGORITHM | ook armen, voor een spoor dat al is opgenomen (om het opnieuw op te nemen) |
 | SELECT | wisselt tussen de twee menu's: TAPE (links) en SPEED (rechts) |
-| PRESETS | de BPM (dezelfde als ARP en KARMA): snelheid en toonhoogte van de band volgen |
+| PRESETS | de BPM (dezelfde als ARP en KARMA, KNOB 1 op de ARP-pagina): snelheid en toonhoogte van de band volgen |
 | PLAY | (knippert in het tempo zolang ARP of KARMA aan staat) de band starten (vanaf het begin van de lus) / stoppen |
 | REC | één ronde opnemen op het ARM-spoor (de band start als hij stilstaat); nog een keer: stoppen. Met PLAY ingedrukt: het ARM-spoor wissen |
 | OCT- + OCT+ | (ze knipperen op de TAPE-pagina's) beide kort indrukken = BOUNCE: alle sporen, elk op zijn fader, samen op spoor 1 (op 100); sporen 2..4 leeg voor nieuwe opnames, spoor 2 geARMd. (5 s vasthouden blijft UBOOT) |

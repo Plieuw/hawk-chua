@@ -3363,6 +3363,36 @@ static void page_preset(int32_t s)
     ui_say(t);
     ui_force = 1;
 }
+/* the ARP's presets (PRESETS on the ARP and GROOVE pages): a pattern, its note value, gate and swing, and its GROOVE
+ * (velocity and gate seqs); the BPM stays (KNOB 1) */
+typedef struct { const char *name; uint8_t type, div, gate, swing, vp, gp; } arp_preset_t;
+static const arp_preset_t ARP_PRE[] = {
+    {"CLASSIC UP", 1, 7, 70, 0, 0, 0},           {"TRANCE 16THS", 1, 7, 45, 0, 1, 0},
+    {"ACID BASS", 26, 7, 60, 10, 8, 1},          {"HOUSE STABS", 19, 7, 35, 15, 3, 10},
+    {"TECHNO DRIVE", 15, 7, 50, 0, 9, 0},        {"SWING UPDOWN", 7, 7, 65, 55, 13, 4},
+    {"HARP RUN", 45, 9, 90, 0, 4, 12},           {"TRIPLET DREAM", 8, 6, 80, 0, 2, 14},
+    {"RANDOM SPARKLE", 14, 7, 30, 0, 23, 13},    {"WALKING BASS", 35, 4, 75, 40, 0, 5},
+    {"REGGAE SKANK", 43, 7, 40, 20, 13, 10},     {"STRUMMER", 37, 7, 85, 10, 5, 0},
+    {"CLAVE", 40, 7, 55, 25, 17, 6},             {"WALTZ", 41, 4, 70, 0, 7, 14},
+    {"BOUNCING BALL", 47, 7, 60, 0, 5, 8},       {"SLOW FALL", 4, 1, 95, 0, 10, 11},
+};
+#define ARP_NPRE (sizeof ARP_PRE / sizeof ARP_PRE[0])
+/* KARMA's presets (PRESETS on the KARMA and LOGIC pages): a GE and its four realtime knobs (a TRANSPOSE knob stays
+ * put) */
+typedef struct { const char *name; uint8_t ge, m[4]; } seq_preset_t;
+static const seq_preset_t SEQ_PRE[] = {
+    {"PULSE ARP", 0, {64, 64, 64, 64}},          {"ACID LINE", 6, {90, 100, 40, 90}},
+    {"TRANCE GATE", 9, {100, 50, 64, 80}},       {"GAMELAN", 13, {70, 90, 50, 60}},
+    {"BOSSA NOVA", 36, {64, 50, 64, 50}},        {"MONTUNO", 39, {80, 64, 40, 70}},
+    {"FUNK CLAV", 15, {90, 40, 64, 90}},         {"POLY 3 OVER 4", 16, {64, 80, 64, 64}},
+    {"RAIN DROPS", 10, {40, 110, 30, 40}},       {"CHAOS MACHINE", 18, {110, 110, 90, 100}},
+    {"ECHO CANYON", 14, {50, 64, 110, 50}},      {"DUB CHORDS", 40, {50, 40, 90, 60}},
+    {"HOUSE PIANO", 34, {80, 50, 50, 80}},       {"AFROBEAT", 44, {90, 64, 64, 80}},
+    {"SWELL PAD", 17, {30, 64, 64, 20}},         {"BIRD CALLS", 21, {60, 120, 70, 60}},
+};
+#define SEQ_NPRE (sizeof SEQ_PRE / sizeof SEQ_PRE[0])
+static uint8_t arp_pre = 0xFF, seq_pre = 0xFF;   /* (none chosen yet: the first turn right is the first) */
+
 static void ui_input(void)
 {
     preset_keep();
@@ -3884,8 +3914,39 @@ static void ui_input(void)
             ui_cat(t, sizeof t, " CIRCUIT");
         ui_say(t);
     }
-    if ((s = ui_enc(EN_PRESET)) != 0 && (sys.page == 6u || sys.page == 18u || sys.page == 9u || sys.page == 17u ||
-                                         sys.page == 12u || sys.page == 13u)) {   /* ARP, GROOVE, KARMA, LOGIC, TAPE: PRESETS is the BPM */
+    if ((s = ui_enc(EN_PRESET)) != 0 && (sys.page == 6u || sys.page == 18u)) {   /* ARP, GROOVE: the ARP's presets */
+        const arp_preset_t *P;
+        arp_pre = (uint8_t)(arp_pre == 0xFFu ? (s > 0 ? 0 : (int32_t)ARP_NPRE - 1) :
+                            ((int32_t)arp_pre + (int32_t)ARP_NPRE * 8 + s) % (int32_t)ARP_NPRE);
+        P = &ARP_PRE[arp_pre];
+        sys.arp_type = (uint8_t)(P->type % ARP_NTYPE);
+        sys.arp_div = P->div;
+        sys.arp_gate = P->gate;
+        sys.arp_swing = P->swing;
+        sys.arp_vp = (uint8_t)(P->vp % ARP_NVP);
+        sys.arp_vd = 100;
+        sys.arp_slen = 0;
+        sys.arp_gp = (uint8_t)(P->gp % ARP_NGP);
+        sys.arp_glen = 0;
+        str_cpy(t, "ARP PRESET ", sizeof t);
+        ui_cat(t, sizeof t, P->name);
+        ui_say(t);
+        ui_force = 1;
+    } else if (s && (sys.page == 9u || sys.page == 17u)) {   /* KARMA, LOGIC: KARMA's presets */
+        const seq_preset_t *P;
+        uint32_t i;
+        seq_pre = (uint8_t)(seq_pre == 0xFFu ? (s > 0 ? 0 : (int32_t)SEQ_NPRE - 1) :
+                            ((int32_t)seq_pre + (int32_t)SEQ_NPRE * 8 + s) % (int32_t)SEQ_NPRE);
+        P = &SEQ_PRE[seq_pre];
+        sys.k_ge = (uint8_t)(P->ge % KGE_N);
+        for (i = 0; i < 4u; i++)
+            if (k_ge()->knob[i] != MC_TRANSPOSE)
+                sys.k_m[i] = P->m[i];
+        str_cpy(t, "SEQ PRESET ", sizeof t);
+        ui_cat(t, sizeof t, P->name);
+        ui_say(t);
+        ui_force = 1;
+    } else if (s && (sys.page == 12u || sys.page == 13u)) {   /* TAPE: PRESETS is the BPM */
         if (arp_ext())                           /* (CLOCK EXTERNAL: the tempo is the MIDI clock's) */
             ui_say("CLOCK EXTERNAL: GLO");
         else {
