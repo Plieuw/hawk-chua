@@ -3401,8 +3401,9 @@ static int32_t ui_enc(uint32_t role)            /* every knob and encoder: deten
     return s ? knob_accel(role, s) : 0;
 }
 
-/* a knob that picks among a few things (the VOICE's size, the ACCORDION's register, the BAGPIPE's key, the
- * CLUSTER's voices, KARMA's octave): which one a value means (-1: a range, not choices) */
+/* a knob that picks among a few things (the VOICE's size, SYMP's chord, the ACCORDION's register, the BAGPIPE's key,
+ * the CLUSTER's voices, KARMA's octave, a delay's TIME, MOUTH's vowel, MOD FX's note value, ratio and rectifier):
+ * which one a value means (-1: a range, not choices) */
 static int32_t knob_choice(volatile uint8_t *p, int32_t v)
 {
     uint32_t i;
@@ -3414,6 +3415,18 @@ static int32_t knob_choice(volatile uint8_t *p, int32_t v)
         return v * 12 / 128;
     if (p == &sys.np_y && sys.osc == 11u)        /* (CLUSTER SAW: noise.c's 2 + y x 14 / 32767 voices) */
         return v * 258 * 14 / 32767;
+    if (p == &sys.fx_struct && sys.fx_model == RZ_SYMP)   /* (SYMP STRING: the chord) */
+        return v >> 4;
+    if (p == &sys.sh_size && SS_IS_DELAY(sys.sh_space % SS_COUNT))   /* (a delay's TIME: a note value) */
+        return v * (int32_t)SH_DTIMES / 128;
+    if (p == &sys.sh_shimmer && sys.sh_space % SS_COUNT == SS_MOUTH) {   /* (MOUTH: the vowel along its path) */
+        uint32_t nv = SH_MPATH[sys.sh_interval % SI_COUNT][0];
+        return ((v * (int32_t)(nv - 1u)) + 63) / 127;
+    }
+    if (p == &sys.mfx_rate)                      /* (MOD FX: the note value, or RING's ratio) */
+        return (mf.on ? mf.mode : sys.mfx_mode % MF_COUNT) == MF_RING ? v * MF_NRATIO / 128 : v * MF_NDIV / 128;
+    if (p == &sys.mfx_rect)                      /* (MOD FX: the rectifier) */
+        return v >> 5;
     if (sys.page == 9u)
         for (i = 0; i < 4u; i++)
             if (p == &sys.k_m[i] && k_ge()->knob[i] == MC_TRANSPOSE)
