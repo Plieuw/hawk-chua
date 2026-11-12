@@ -2742,69 +2742,48 @@ int main(int argc, char **argv)
     sys.master_q12 = 4096;
 
     /* a render to listen to: per preset of ui.c, an arpeggio then a held chord */
-    {   /* MOD FX: the Hilbert pair (two allpass chains) 90 degrees apart: a 3 kHz tone shifted by a 500 Hz one lands at
-         * 3.5 kHz (UP) or 2.5 kHz (DOWN), the other side 20 dB under; every mode bounded on the oscillators (before the resonators) */
+    {   /* MOD FX: each mode on a tone: bounded, and moved off the dry */
         static int32_t wv[44100];
         uint32_t m2, i;
         int okk = 1;
-        for (m2 = 0; m2 < 2u; m2++) {
-            double up = 0, dn = 0, re1 = 0, im1 = 0, re2 = 0, im2 = 0;
-            mf_reset();
+        uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix};
+        for (m2 = 1; m2 < MF_COUNT; m2++) {
+            int32_t pk = 0;
+            double diff = 0;
+            sys.mfx_mode = (uint8_t)m2; sys.mfx_rate = 70; sys.mfx_slew = (uint8_t)(m2 * 30u); sys.mfx_rect = (uint8_t)(m2 * 32u & 127u); sys.mfx_mix = 127;
+            mf.on = 0;
+            for (i = 0; i < 44100u; i++)
+                wv[i] = (int32_t)(16000.0 * sin(2 * M_PI * 440.0 * i / 44100.0));
+            for (i = 0; i + CTL <= 44100u; i += CTL)
+                mf_block(wv + i, CTL);
             for (i = 0; i < 44100u; i++) {
-                int32_t x = (int32_t)(16000.0 * sin(2 * M_PI * 3000.0 * i / 44100.0)), m = (int32_t)(30000.0 * sin(2 * M_PI * 500.0 * i / 44100.0));
-                int32_t xr, xi, mr, mi, y;
-                mf_hilbert(&mf_ch[0].h, x, &xr, &xi);
-                mf_hilbert(&mf.hm, m, &mr, &mi);
-                y = (int32_t)((m2 == 0u ? (int64_t)xr * mr - (int64_t)xi * mi : (int64_t)xr * mr + (int64_t)xi * mi) >> 15);
-                if (i >= 4410u) {
-                    double a1 = 2 * M_PI * 3500.0 * i / 44100.0, a2 = 2 * M_PI * 2500.0 * i / 44100.0;
-                    re1 += y * cos(a1); im1 += y * sin(a1); re2 += y * cos(a2); im2 += y * sin(a2);
-                }
+                int32_t d = wv[i] - (int32_t)(16000.0 * sin(2 * M_PI * 440.0 * i / 44100.0));
+                pk = abs(wv[i]) > pk ? abs(wv[i]) : pk;
+                diff += (double)d * d;
             }
-            up = sqrt(re1 * re1 + im1 * im1); dn = sqrt(re2 * re2 + im2 * im2);
-            printf("   (MOD FX shift %s: 3.5 kHz %.3g, 2.5 kHz %.3g)\n", m2 ? "down" : "up", up, dn);
-            okk &= m2 == 0u ? up > 10 * dn : dn > 10 * up;
+            if (pk > 40000 || diff < 1e9) { printf("   (MOD FX %s: peak %d, moved %.3g)\n", MF_NAME[m2], pk, diff); okk = 0; }
         }
-        {   /* each mode on a tone: bounded, and moved off the dry */
-            uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix};
-            for (m2 = 1; m2 < MF_COUNT; m2++) {
-                int32_t pk = 0;
-                double diff = 0;
-                sys.mfx_mode = (uint8_t)m2; sys.mfx_rate = 70; sys.mfx_slew = 110; sys.mfx_rect = (uint8_t)(m2 * 32u & 127u); sys.mfx_mix = 127;
-                mf.on = 0;
-                for (i = 0; i < 44100u; i++)
-                    wv[i] = (int32_t)(16000.0 * sin(2 * M_PI * 440.0 * i / 44100.0));
-                for (i = 0; i + CTL <= 44100u; i += CTL)
-                    mf_block(wv + i, CTL);
-                for (i = 0; i < 44100u; i++) {
-                    int32_t d = wv[i] - (int32_t)(16000.0 * sin(2 * M_PI * 440.0 * i / 44100.0));
-                    pk = abs(wv[i]) > pk ? abs(wv[i]) : pk;
-                    diff += (double)d * d;
-                }
-                if (pk > 40000 || diff < 1e9) { printf("   (MOD FX %s: peak %d, moved %.3g)\n", MF_NAME[m2], pk, diff); okk = 0; }
-            }
-            sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
-            mf_reset();
-        }
-        check("MOD FX: the shift's sidebands (up, down), every mode bounded and audible", okk);
+        sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
+        mf_reset();
+        check("MOD FX: every mode bounded and audible", okk);
     }
-    {   /* the mod wheel on VIBRATO, RING MOD, FREQ SHIFT: MOD FX on with that one (the page OFF), off with the wheel down */
+    {   /* the mod wheel on VIBRATO, RING MOD: MOD FX on with that one (the page OFF), off with the wheel down */
         uint8_t t0 = sys.mw_target, d0 = sys.mw_depth, m0 = sys.mfx_mode;
         int okk = 1;
-        static const uint8_t WM[3] = {MF_VIBRATO, MF_RING, MF_UP};
+        static const uint8_t WM[2] = {MF_VIBRATO, MF_RING};
         uint32_t k2;
         sys.mfx_mode = MF_OFF; sys.mw_depth = 127;
-        for (k2 = 0; k2 < 3u; k2++) {
+        for (k2 = 0; k2 < 2u; k2++) {
             sys.mw_target = (uint8_t)(28u + k2);
             midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 100);
             run_ms(20);
             okk &= mf.on && mf.mode == WM[k2];
             midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
             run_ms(20);
-            okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm && !sys.mw_shift;
+            okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm;
         }
         sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
-        check("mod wheel on VIBRATO, RING MOD, FREQ SHIFT: MOD FX with it", okk);
+        check("mod wheel on VIBRATO, RING MOD: MOD FX with it", okk);
     }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};

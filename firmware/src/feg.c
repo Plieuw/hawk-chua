@@ -36,11 +36,11 @@ static uint32_t feg_ticks(uint32_t len)          /* MIDI clocks a cycle (24 a qu
 }
 
 /* the parameters it can drive (all 0..127) */
-#define FEG_NT 31
+#define FEG_NT 30
 static const char *const FEG_T_NAME[FEG_NT] = {
     "CHAOS", "SHAPE", "OUTPUT", "RING", "NOISE X", "NOISE Y", "NOISE LEVEL", "MOD ENV HEIGHT", "FX STRUCTURE",
     "FX BRIGHTNESS", "FX DAMPING", "FX POSITION", "FX MIX", "SHIMMER SIZE", "SHIMMER DECAY", "SHIMMER", "SHIMMER MIX", "SHIMMER TONE", "BASIS", "ORBIT", "ARP GATE", "ARP SWING", "ENV DECAY",
-    "KARMA K1", "KARMA K2", "KARMA K3", "KARMA K4", "SCREAM", "VIBRATO", "RING MOD", "FREQ SHIFT",
+    "KARMA K1", "KARMA K2", "KARMA K3", "KARMA K4", "SCREAM", "VIBRATO", "RING MOD",
 };
 static volatile uint8_t *feg_field(uint32_t t)
 {
@@ -74,7 +74,6 @@ static volatile uint8_t *feg_field(uint32_t t)
     case 27: return &sys.scream;
     case 28: return &sys.mw_vib;                 /* MOD FX's three (fx_mod.c): how much of each, on its own */
     case 29: return &sys.mw_ringm;
-    case 30: return &sys.mw_shift;
     default: return &sys.decay;
     }
 }

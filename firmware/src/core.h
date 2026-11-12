@@ -60,8 +60,8 @@ static volatile struct {
     uint8_t arp_on, arp_type, arp_bpm, arp_div, arp_gate, arp_swing, arp_hold;   /* arp.c: the arpeggiator (ARP) */
     uint8_t multi, ch_b;         /* MULTI (GLO page): two sounds; part B's MIDI channel (1 .. 16; A: RX) */
     uint8_t clk_int;             /* arp.c, GLO page (SELECT): 0 the tempo follows MIDI clock when it comes, 1 the internal BPM always */
-    uint8_t mfx_mode, mfx_rate, mfx_slew, mfx_rect, mfx_mix;   /* fx_mod.c, the MOD page (FX twice): MOD FX */
-    uint8_t mw_vib, mw_ringm, mw_shift;   /* fx_mod.c: VIBRATO, RING MOD, FREQ SHIFT as the mod wheel's (FREE EG's) targets: 0 off */
+    uint8_t mfx_mode, mfx_rate, mfx_slew, mfx_rect, mfx_mix;   /* fx_mod.c, the MOD page (FX once): MOD FX */
+    uint8_t mw_vib, mw_ringm;   /* fx_mod.c: VIBRATO, RING MOD as the mod wheel's (FREE EG's) targets: 0 off */
     uint8_t autoplay;            /* keys.c, GLO / MIDI page (PRESETS): CLOCK EXTERNAL's MIDI START plays the ARP and KARMA */
     uint8_t midi_trs, midi_usb, midi_rx, midi_tx;   /* keys.c, GLO page: TRS in on; USB 0 off 1 in 2 out 3 both; rx 0 omni
                                                   * 1..16; tx channel 0..15 */

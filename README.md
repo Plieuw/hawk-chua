@@ -50,7 +50,7 @@ time with your gear.
     quarter note. With **AUTOPLAY**, PLAY on your sequencer starts ARP and SEQ (in C major until you pick notes) and
     STOP stops them.
   - **INTERNAL**: the FM-1 sends its BPM out as MIDI clock over USB.
-- **MIDI CC**: 71–74 are the four oscillator knobs, so the chaos can be automated. 1 is the mod wheel (any parameter, the MOD FX's vibrato, ring mod and frequency shift too),
+- **MIDI CC**: 71–74 are the four oscillator knobs, so the chaos can be automated. 1 is the mod wheel (any parameter, the MOD FX's vibrato and ring mod too),
   91/93/94 are the space and FX mix, 7/10/11/64 work as usual, and aftertouch is breath.
 - **Notes and sounds**: program change and bank select pick from **512 presets** in four banks. **MULTI** puts a
   second sound on its own channel. What ARP and SEQ play goes out over USB-MIDI.

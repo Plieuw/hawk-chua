@@ -1561,7 +1561,7 @@ static void ui_status(const char *s)
 {
     /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
      * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
-    static const uint8_t LAYER[21] = {1, 1, 1, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2, 4, 2};
+    static const uint8_t LAYER[21] = {1, 1, 2, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2, 4, 1};
     static const uint8_t COUNT[21] = {2, 2, 3, 3, 0, 2, 2, 4, 0, 2, 0, 0, 2, 2, 2, 4, 4, 2, 2, 4, 3};
     uint32_t pg = sys.page < 21u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
     char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
@@ -1821,15 +1821,13 @@ static void draw_env(void)
  * the tail's level over the last ~4 s (one value a UI frame) is what the wavefronts carry */
 static uint8_t sh_hist[200];
 static uint32_t sh_seen;
-/* MOD FX (FX twice): a picture a mode, each style its own. The data: the circuit slowly (mf_view.m, ~0.37 s), the
+/* MOD FX (FX once: the first FX page): a picture a mode, each style its own. The data: the circuit slowly (mf_view.m, ~0.37 s), the
  * circuit and the sound it makes in step (mf_view.mf, .x, the last ~12 ms)
  *   INITIAL (the oscilloscope)  VIBRATO the trace with its time bent and the graticule bent with it (a Doppler grid);
- *                RING MOD the scope in XY (the sound against the circuit: the product's figure); SHIFT the analyser's
- *                partials sliding up or down the spectrum, chevrons with them; TREMOLO the trace inside the envelope the
- *                circuit cuts
+ *                RING MOD the scope in XY (the sound against the circuit: the product's figure); TREMOLO the trace
+ *                inside the envelope the circuit cuts
  *   PSYCHEDELIC  VIBRATO rings swaying, each later than the one inside it; RING MOD two rings linked, turning, the XY
- *                figure in hues between them; SHIFT a spiral of three arms turning out (UP) or in (DOWN); TREMOLO
- *                polygons breathing with the circuit, one after the other */
+ *                figure in hues between them; TREMOLO polygons breathing with the circuit, one after the other */
 static int32_t mfx_ms(uint32_t i) { return mf_view.m[(mf_view.w - 64u + i) & 63u]; }    /* (0 oldest .. 63 now) */
 static int32_t mfx_mf(uint32_t i) { return mf_view.mf[(mf_view.mw - 256u + i) & 255u]; }
 static int32_t mfx_x(uint32_t i) { return mf_view.x[(mf_view.xw - 256u + i) & 255u]; }
@@ -1912,28 +1910,6 @@ static void mfx_scope(uint32_t mode, int on)
         cv_line(214, 16, 226, 28, mod);
         cv_line(226, 16, 214, 28, mod);
         break;
-    case MF_UP:
-    case MF_DOWN: {                              /* the partials sliding: right up, left down */
-        int32_t lvl = mfx_lvl(), dir = mode == MF_UP ? 1 : -1;
-        int32_t sp = (int32_t)(((uint32_t)fm1_ms * (8u + (sys.mfx_rate & 127u)) / 64u) % 18u) * dir;
-        cv_line(8, PLOT_H - 12, 232, PLOT_H - 12, grid);
-        for (k = 0; k < 14u; k++) {
-            int32_t x = 12 + (int32_t)k * 16 + sp, h, w2;
-            if (x < 8) x += 224;
-            if (x > 230) x -= 224;
-            h = (PLOT_H - 30) * lvl / 32768 * (14 - (int32_t)k / 2) / 14;
-            h += mfx_mf(k * 16u) * 8 / 32768;
-            h = h < 2 ? 2 : h;
-            for (w2 = -1; w2 <= 1; w2++)
-                cv_line(x + w2, PLOT_H - 13, x + w2, PLOT_H - 13 - h, w2 ? ux_mix(T_BG, sig, 50) : sig);
-        }
-        for (k = 0; k < 3u; k++) {               /* the chevrons, the way it goes */
-            int32_t x = 96 + (int32_t)k * 16 + sp / 2;
-            cv_line(x, 6, x + 6 * dir, 11, mod);
-            cv_line(x + 6 * dir, 11, x, 16, mod);
-        }
-        break;
-    }
     default: {                                   /* TREMOLO: the envelope the circuit cuts, the trace inside */
         int32_t qx = 0, qy = 0;
         for (i = 0; i < 64u; i++) {
@@ -1993,23 +1969,6 @@ static void mfx_psy(uint32_t mode, int on)
         }
         break;
     }
-    case MF_UP:
-    case MF_DOWN: {                              /* a spiral of three arms turning out (UP) or in (DOWN) */
-        int dn = mode == MF_DOWN;
-        uint32_t spin = (uint32_t)fm1_ms * (16u + (sys.mfx_rate & 127u)) * 4000u;
-        for (k = 0; k < 3u; k++) {
-            for (i = 0; i < 48u; i++) {
-                uint32_t a = (dn ? 0u - spin : spin) + k * 0x55555555u + i * 0x04000000u * (dn ? 1u : 0xFFFFFFFFu);
-                int32_t r = 3 + (int32_t)i * (56 + lvl / 2000) / 48;
-                int32_t x = 120 + us_sin(a + (1u << 30), r), y = cy + us_sin(a, r) * 7 / 8;
-                if (i)
-                    cv_aline(px * 16, py * 16, x * 16, y * 16, ux_mix(T_BG, us_hue(hue + k * 85u + i * 3u, 255u), lit * (int32_t)(20 + i) / 68));
-                px = x;
-                py = y;
-            }
-        }
-        break;
-    }
     case MF_TREMOLO:                             /* polygons breathing with the circuit, one after the other */
         for (k = 0; k < 6u; k++) {
             int32_t e = 16384 + mfx_ms(63u - k * 6u) / 2, r = (10 + (int32_t)k * 9) * (12288 + e) / 32768;
@@ -2026,7 +1985,7 @@ static void mfx_psy(uint32_t mode, int on)
 
 static void draw_mfx(void)
 {
-    uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;   /* (the mod wheel's VIBRATO, RING, SHIFT: shown too) */
+    uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;   /* (the mod wheel's VIBRATO, RING: shown too) */
     int on = mf.on != 0, psy = sys.ui_style % US_COUNT == US_PSYCHE;
     {
         int32_t l = mfx_lvl();
@@ -2057,7 +2016,7 @@ static void draw_mfx(void)
     if (psy)
         cv_text(8, 4, &AF_S, MF_NAME[mode], ux_mix(T_BG, us_hue(us_t() * 3u + mode * 51u, 255u), 80));
     if (!on)
-        cv_text(psy ? 150 : 8, psy ? 4 : 2, &AF_S, mode == MF_OFF ? "OFF: ALGORITHM" : "MIX 0: KNOB 4", T_MID);
+        cv_text(8, psy ? 4 + AF_S.h : 2, &AF_S, mode == MF_OFF ? "ALGORITHM: A MODE" : "MIX 0: KNOB 4", T_MID);
     cv_blit(0, PLOT_Y);
 }
 
@@ -3742,8 +3701,9 @@ static void ui_input(void)
             sys.page = sys.page == 1u ? 5u : sys.page == 5u ? 0u : 1u;
             ui_force = 1;
             break;
-        case B_FX:                                      /* the resonator, the shimmer, back HOME */
-            sys.page = sys.page == 2u ? 20u : sys.page == 20u ? 3u : sys.page == 3u ? 0u : 2u;   /* (FX, MOD, SHIMMER) */
+        case B_FX:                                      /* MOD FX, the resonator, the shimmer, back HOME */
+            sys.page = sys.page == 20u ? 2u : sys.page == 2u ? 3u : sys.page == 3u ? 0u : 20u;   /* (MOD FX, FX, SHIMMER: the
+                                                                                   * signal's order) */
             ui_force = 1;
             break;
         case B_REC:                                     /* the TAPE page; there (and on FREE EG's): record */
@@ -4169,7 +4129,7 @@ static void ui_input(void)
         ui_cat(t, sizeof t, " ");
         ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
         ui_say(t);
-    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, SHIFT UP, DOWN, TREMOLO) */
+    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, TREMOLO) */
         sys.mfx_mode = (uint8_t)(((int32_t)sys.mfx_mode + MF_COUNT * 8 + s) % MF_COUNT);
         str_cpy(t, "MOD FX ", sizeof t);
         ui_cat(t, sizeof t, MF_NAME[sys.mfx_mode]);
