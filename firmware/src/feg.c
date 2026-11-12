@@ -258,7 +258,7 @@ static void feg_block(uint32_t n, uint32_t note_ons)
     }
 }
 
-/* the mod wheel (MIDI CC 1, the EDIT page): it moves a parameter of FREE EG's list up from where it is, DEPTH how far
+/* the mod wheel (MIDI CC 2, the EDIT page): it moves a parameter of FREE EG's list up from where it is, DEPTH how far
  * (127: the wheel up takes it to 127); the parameter given back when the wheel is down. FREE EG playing the same one: the wheel sets FREE EG's depth instead (feg_block) */
 static struct { uint8_t on, target, base; } mwd;
 static void mw_block(void)

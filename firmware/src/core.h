@@ -73,7 +73,7 @@ static volatile struct {
                                   * NOR, ALT, S/R; KNOB 4 INVERSE: what it would let through held back, and the other way */
     uint8_t k_lq, k_root;        /* arp.c, the LOGIC page: their notes to a key: 0 off, 1 the chord, 2 AUTO, 3.. a scale;
                                   * its root: 0 AUTO (the lowest held), 1..12 C..B */
-    uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 1 (the mod wheel), the parameter it moves (feg.c's list), how far */
+    uint8_t mw, mw_target, mw_depth;   /* keys.c: MIDI CC 2 (the mod wheel), the parameter it moves (feg.c's list), how far */
     uint8_t mw_seen;
     int8_t transpose;              /* synth.c: the sound's octave (-3 .. +3: every oscillator, the FX tuned with it;
                                   * the presets set it for their instrument's register; EDIT page SELECT) */

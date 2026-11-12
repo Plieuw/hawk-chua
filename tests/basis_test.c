@@ -1015,25 +1015,29 @@ int main(int argc, char **argv)
         run_ms(20);
         out_n = 0;
     }
-    {   /* the mod wheel (CC 1) moves the EDIT page's parameter and gives it back; program change asks for a preset */
+    {   /* the mod wheel (CC 2) moves the EDIT page's parameter and gives it back; CC 1 MOD FX's DEPTH; program change asks for a preset */
         int okk = 1;
         uint8_t base;
         sys.mw_target = 8; sys.mw_depth = 127; sys.fx_struct = 20;
         base = sys.fx_struct;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 127);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
         run_ms(10);
         okk &= sys.fx_struct == 127;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 64);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 64);
         run_ms(10);
         okk &= sys.fx_struct > base && sys.fx_struct < 127;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
         run_ms(10);
         okk &= sys.fx_struct == base;
         sys.mw_depth = 0;                                            /* depth 0: the wheel does nothing */
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 127);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
         run_ms(10);
         okk &= sys.fx_struct == base;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 99);           /* CC 1: MOD FX's DEPTH, the wheel's parameter left */
+        run_ms(10);
+        okk &= sys.mfx_depth == 99 && sys.fx_struct == base;
+        sys.mfx_depth = 64;
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
         sys.mw_depth = 127;
         midi_in_source[mi_w % MQ] = 1; midi_in(0xC0, 3, 0);
         run_ms(10);
@@ -1048,16 +1052,16 @@ int main(int argc, char **argv)
             feg.curve[k] = 120;
         sys.fx_struct = base; sys.feg_target = 8; sys.feg_depth = 127; sys.feg_len = 9;
         sys.feg_has = 1; sys.feg_on = 1; sys.mw_target = 8; sys.mw_depth = 127;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
         run_ms(20);
         okk &= feg.playing && sys.fx_struct == base;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 127);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 127);
         run_ms(20);
         okk &= sys.fx_struct == 120;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 64);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 64);
         run_ms(20);
         okk &= sys.fx_struct > base + 30 && sys.fx_struct < 90;
-        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
+        midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 2, 0);
         sys.feg_on = 0;
         run_ms(20);
         okk &= !feg.playing && sys.fx_struct == base;
