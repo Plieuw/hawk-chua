@@ -20,6 +20,8 @@ static const char *const MF_RECT[4] = {"ORIGINAL", "FULL-WAVE", "HALF +", "HALF 
 
 #define MF_VLEN 512u                             /* the vibrato's line (a power of two: ~11.6 ms; at most ~334 used) */
 #define MF_CH NVOICE                             /* the channels: the voices (a note each; before their gates) */
+#define MF_TINC 16777216u                        /* RING's reference circuit: 2^32 / 256 a sample (~172 Hz) */
+#define MF_TMAX 384u                             /* (a cycle at most: then it is closed anyway) */
 #define MF_NRATIO 16
 static const char *const MF_RATIO_NAME[MF_NRATIO] = {"1/4", "1/3", "1/2", "2/3", "3/4", "1", "4/3", "3/2", "5/3", "2",
                                                       "5/2", "3", "4", "5", "6", "8"};
@@ -27,7 +29,7 @@ static const uint32_t MF_RATIO[MF_NRATIO] = {16384, 21845, 32768, 43691, 49152, 
                                              163840, 196608, 262144, 327680, 393216, 524288};   /* Q16 */
 typedef struct {
     int16_t vl[MF_VLEN];
-    chua_t s;                                    /* RING: its own circuit, at its note x the ratio */
+    uint32_t ph;                                 /* RING: its carrier's phase (Q32: a cycle of the part's table) */
     int32_t sl, dc;                              /* (its slew, its rectifier's DC) */
     uint8_t act;                                 /* blocks it goes on after its input stopped (its tail) */
 } mf_ch_t;
@@ -38,6 +40,14 @@ typedef struct {                                 /* a part's MOD FX (MULTI: A's,
     uint32_t vw, vb;                             /* the vibrato's write position, this block's */
     uint32_t mode, n, rect;
     uint32_t ratio;                              /* (RING: the ratio's index) */
+    /* RING's carrier: one circuit a part at ~172 Hz (a cycle ~256 samples), each of its cycles (upward through its
+     * last cycle's middle) kept as a table, its DC off; the voices read the newest whole one at their note x the
+     * ratio: the circuit's own shape, harmonic by construction, at a table read a sample instead of a circuit each */
+    chua_t rs;
+    int16_t tab[2][MF_TMAX];
+    uint16_t tlen[2], tn;
+    uint8_t tcur;
+    int32_t tsum, tthr, tprev;
     int32_t mix, sk;
     uint8_t on;
 } mf_t;
@@ -59,6 +69,7 @@ static void mf_reset(mf_t *M, uint32_t pp)
     memset(M, 0, sizeof *M);
     memset(&mf_ch[MF_LO(pp)], 0, (MF_HI(pp) - MF_LO(pp)) * sizeof mf_ch[0]);
     M->s.x = C1 / 8;
+    M->rs.x = C1 / 8;
 }
 
 static uint32_t mf_ratio(void) { return (sys.mfx_rate & 127u) * MF_NRATIO / 128u; }   /* (RING: KNOB 1's ratio) */
@@ -90,6 +101,7 @@ static uint32_t mf_steps(uint32_t inc, int32_t *hs, int32_t *ahs, int32_t *bhs)
 static inline int32_t mf_clip(int32_t x) { return x > 32767 ? 32767 : x < -32768 ? -32768 : x; }
 
 /* a sample of a circuit: stepped, read, rectified (its DC off: dc, k its speed), slewed (sl, sk: Q16) */
+static inline int32_t mf_post(int32_t m, uint32_t rect, int32_t *dc, uint32_t k, int32_t *sl, int32_t sk);
 static inline int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs, int32_t bhs, uint32_t rect, int32_t *dc,
                          uint32_t k, int32_t *sl, int32_t sk)
 {
@@ -102,6 +114,11 @@ static inline int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs,
         S->y = S->z = 0;
     }
     m = mf_clip(S->x >> 6);                      /* (x: about +-2.5 on the double scroll: Q20 >> 6, +-0.6 of full) */
+    return mf_post(m, rect, dc, k, sl, sk);
+}
+/* a circuit's sample made a modulator: rectified (its DC off: dc, k its speed), slewed (sl, sk: Q16) */
+static inline int32_t mf_post(int32_t m, uint32_t rect, int32_t *dc, uint32_t k, int32_t *sl, int32_t sk)
+{
     if (rect || k > 8u) {                        /* the rectifier (and RING always): its DC off, the level made up (a
                                                   * circuit cycling round one scroll is off the middle: a carrier must
                                                   * swing both ways, or the dry comes through) */
@@ -155,11 +172,36 @@ static int mf_gen(uint32_t n, uint32_t pp)
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
         ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
     }
-    if (mode == MF_RING) {                       /* (RING: each voice its own circuit, mf_apply; the slow trace still) */
-        if (view)
-            for (i = 0; i < n; i++)
-                if (!(mf_view.c++ & 255u))
-                    mf_view.m[mf_view.w++ & 63u] = 0;
+    if (mode == MF_RING) {                       /* RING: the reference circuit, its cycles into the tables */
+        ns = mf_steps(MF_TINC, &hs, &ahs, &bhs);
+        for (i = 0; i < n; i++) {
+            uint32_t j;
+            int32_t x;
+            int16_t *t = M->tab[M->tcur ^ 1u];
+            for (j = 0; j < ns; j++)
+                chua_step(&M->rs, hs, ahs, bhs);
+            if (chua_out_of_range(&M->rs)) {
+                M->rs.x = C1 / 8;
+                M->rs.y = M->rs.z = 0;
+            }
+            x = mf_clip(M->rs.x >> 6);
+            if ((M->tn >= MF_TMAX / 3u && M->tprev < M->tthr && x >= M->tthr) || M->tn >= MF_TMAX) {
+                int32_t mean = M->tsum / (int32_t)M->tn;   /* (a cycle closed: its DC off, it is the newest) */
+                for (j = 0; j < M->tn; j++)
+                    t[j] = (int16_t)mf_clip(t[j] - mean);
+                M->tlen[M->tcur ^ 1u] = M->tn;
+                M->tcur ^= 1u;
+                M->tthr = mean;
+                M->tn = 0;
+                M->tsum = 0;
+                t = M->tab[M->tcur ^ 1u];
+            }
+            t[M->tn++] = (int16_t)x;
+            M->tsum += x;
+            M->tprev = x;
+            if (view && !(mf_view.c++ & 255u))
+                mf_view.m[mf_view.w++ & 63u] = 0;
+        }
     } else
         for (i = 0; i < n; i++) {
             int32_t m = mf_sample(&M->s, ns, hs, ahs, bhs, rect, &M->dcl, 12u, &M->sl, M->sk);
@@ -182,8 +224,8 @@ static int mf_gen(uint32_t n, uint32_t pp)
 static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_t inc, int view)
 {
     mf_ch_t *C = &mf_ch[ch];
-    uint32_t i, any = 0, mode = M->mode, ns = 1;
-    int32_t mix = M->mix, hs = 0, ahs = 0, bhs = 0;
+    uint32_t i, any = 0, mode = M->mode;
+    int32_t mix = M->mix;
     if (!M->on)
         return;
     n = n > M->n ? M->n : n;
@@ -197,18 +239,20 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
         memset(C, 0, sizeof *C);                 /* (its tail out: from silence next time) */
         return;
     }
-    if (mode == MF_RING) {                       /* its circuit: the note x the ratio (from the start at a new note) */
-        uint64_t f = ((uint64_t)inc * MF_RATIO[M->ratio % MF_NRATIO]) >> 16;
-        if (!C->s.x && !C->s.y && !C->s.z)
-            C->s.x = C1 / 8;
-        ns = mf_steps(f > 0x7FFFFFFFu ? 0x7FFFFFFFu : (uint32_t)f, &hs, &ahs, &bhs);
-    }
     /* (a loop a mode: nothing decided per sample) */
-    if (mode == MF_RING) {                       /* x times the circuit (x 2: its swing about full) */
-        uint32_t rect = M->rect;
+    if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
+                                                  * cycle of the circuit read at the note x the ratio */
+        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = (uint32_t)(((uint64_t)inc * MF_RATIO[M->ratio % MF_NRATIO]) >> 16);
+        const int16_t *t = M->tab[M->tcur];
         int32_t sk = M->sk;
         for (i = 0; i < n; i++) {
-            int32_t x = w[i], m = mf_sample(&C->s, ns, hs, ahs, bhs, rect, &C->dc, 10u, &C->sl, sk), wet;
+            int32_t x = w[i], m = 0, wet;
+            if (L) {
+                uint32_t pos = (uint32_t)(((uint64_t)C->ph * L) >> 16), i0 = pos >> 16, i1 = i0 + 1u >= L ? 0u : i0 + 1u;
+                m = t[i0] + (((t[i1] - t[i0]) * (int32_t)(pos >> 1 & 32767u)) >> 15);
+            }
+            C->ph += f;
+            m = mf_post(m, rect, &C->dc, 10u, &C->sl, sk);
             if (view && (i & 1u))
                 mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
             wet = (int32_t)(((int64_t)x * m) >> 14);

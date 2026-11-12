@@ -397,9 +397,10 @@ signaal ook (het werkt ook met FX MIX op 0; de panning beweegt mee). Het circuit
 instellen: geen sinus-LFO maar de chaos zelf. ALGORITHM kiest:
 VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (vermenigvuldigd met het circuit, dat de noot volgt: key follow), TREMOLO
 (het volume) of OFF. KNOB 1 SYNC bij VIBRATO en TREMOLO (een notenwaarde van het tempo, de BPM of de MIDI clock: 4 BARS, 2 BARS,
-1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8., 1/8, 1/8T, 1/16., 1/16, 1/16T, 1/32: één cyclus van het circuit), bij RING MOD de RATIO (elke noot zijn
-eigen circuit op de noot × 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 5/3, 2, 5/2, 3, 4, 5, 6 of 8, zodat de zijbanden
-harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger ruwer),
+1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8., 1/8, 1/8T, 1/16., 1/16, 1/16T, 1/32: één cyclus van het circuit), bij RING MOD de RATIO (de draaggolf is
+het circuit zelf: elke cyclus ervan wordt een golfvorm die elke noot speelt op de noot × 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3,
+3/2, 5/3, 2, 5/2, 3, 4, 5, 6 of 8, zodat de zijbanden harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger
+ruwer; licht voor de CPU, ook met twee parts),
 PRESETS 25 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
 SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP, EP TREMOLO, VIBES
 MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
