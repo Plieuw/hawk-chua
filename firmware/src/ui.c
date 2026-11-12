@@ -2461,10 +2461,8 @@ static void draw_midi(void)
         ui_cat(a, sizeof a, v);
     } else
         ui_cat(a, sizeof a, "OMNI");
-    ui_cat(a, sizeof a, "   B ");
-    if (!sys.multi)
-        ui_cat(a, sizeof a, "OFF");
-    else if (sys.ch_b) {
+    ui_cat(a, sizeof a, sys.multi ? "   B " : "   B (OFF) ");
+    if (sys.ch_b) {
         fmt_int(v, sys.ch_b);
         ui_cat(a, sizeof a, "CH ");
         ui_cat(a, sizeof a, v);
@@ -2891,7 +2889,7 @@ static void ui_draw(void)
             ui_cell(T_C1, "1 CHANNEL A", "OMNI");
         ui_cell(T_C2, "2 USB MIDI", USBN[sys.midi_usb & 3u]);
         fmt_int(v, sys.ch_b);
-        ui_cell(T_C3, "3 CHANNEL B", !sys.multi ? "OFF" : sys.ch_b ? v : "OMNI");
+        ui_cell(T_C3, "3 CHANNEL B", sys.ch_b ? v : "OMNI");
         fmt_int(v, (int32_t)(sys.midi_tx & 15u) + 1);
         ui_cell(T_C4, "4 TX CHANNEL", v);
     } else if (sys.page == 6u) {
@@ -4128,12 +4126,9 @@ static void ui_input(void)
             keys_panic_req = 1;
             ui_hot = 1; ui_hot_ms = fm1_ms;
         }
-        if ((s = ui_enc(EN_K3)) != 0) {          /* part B's: OFF (no MULTI), OMNI (layered on A), 1 .. 16 (as BANK's
-                                                  * PART B) */
-            int32_t m = sys.multi ? (sys.ch_b ? (int32_t)sys.ch_b + 1 : 1) : 0;
-            m = clamp(m + (s > 0 ? 1 : -1), 0, 17);
-            sys.multi = (uint8_t)(m != 0);
-            sys.ch_b = (uint8_t)(m > 1 ? m - 1 : 0);
+        if ((s = ui_enc(EN_K3)) != 0) {          /* part B's channel: OMNI (layered on A), 1 .. 16 (MULTI on or off:
+                                                  * BANK's PART B) */
+            sys.ch_b = (uint8_t)clamp((int32_t)sys.ch_b + s, 0, 16);
             keys_panic_req = 1;
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
