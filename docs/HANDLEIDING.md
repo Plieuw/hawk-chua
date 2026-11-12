@@ -390,8 +390,9 @@ tape, FX), `screen out.png` (het plaatje), `button REC`, `turn "KNOB 1" 5`, `not
 `watch 10 map/` (elke halve seconde een plaatje). Nodig: `pip3 install mido python-rtmidi Pillow`. De USB-audio-ingang
 kan daarnaast met de gewone systeemtools worden opgenomen (ffmpeg of sox).
 
-**MOD FX (FX, eerste scherm).** De oscillatoren bewogen door een eigen Chua-circuit, vóór de resonatoren: de keten is
-oscillator → MOD FX → resonatoren (FX) → shimmer. Wat de resonatoren laten klinken is dus al bewogen, en het droge
+**MOD FX (FX, eerste scherm).** De oscillatoren bewogen door een eigen Chua-circuit, per stem vóór de low pass gate: de
+keten is oscillator → MOD FX → LPG → resonatoren (FX) → shimmer. De gate sluit dus over het bewogen geluid (een ring mod
+dooft met de noot uit, zonder klik), wat de resonatoren laten klinken is al bewogen, en het droge
 signaal ook (het werkt ook met FX MIX op 0; de panning beweegt mee). Het circuit heeft de klank die CHAOS en SHAPE op HOME
 instellen: geen sinus-LFO maar de chaos zelf. ALGORITHM kiest:
 VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (vermenigvuldigd met het circuit, dat de noot volgt: key follow), TREMOLO

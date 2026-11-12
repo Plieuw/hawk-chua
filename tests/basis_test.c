@@ -2815,7 +2815,7 @@ int main(int argc, char **argv)
             for (b = 0; b < 44100u / CTL; b++) {
                 for (i = 0; i < CTL; i++) wv[i] = 16000;
                 if (mf_gen(CTL))
-                    mf_apply(0, wv, CTL, q ? 21426140u : 10713070u);   /* (A 220, A 110) */
+                    mf_apply(0, wv, CTL, q ? 21426140u : 10713070u, 1);   /* (A 220, A 110) */
                 for (i = 0; i < CTL; i++) {
                     if (b > 20u && ((wv[i] >= 0) != (prev >= 0))) zc[q]++;
                     prev = wv[i];

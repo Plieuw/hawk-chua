@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * MOD FX (FX pressed once: the first FX page): the oscillators moved by a Chua circuit of its own, before the resonators
- * (osc -> MOD FX -> resonators -> shimmer: the voices' buses, so the dry too, and what the resonators ring), the circuit the
+ * (osc -> MOD FX -> LPG -> resonators -> shimmer: each voice's oscillator before its gate, so the dry too, and
+ * what the resonators ring), the circuit the
  * oscillator's knobs set (CHAOS, SHAPE: its alpha and beta), run at the RATE. After the Chua modulation core of the
  * feature/chua-mod-fx branch (ring, tremolo, the rectifier), with a vibrato added.
  *
@@ -18,7 +19,7 @@ static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TRE
 static const char *const MF_RECT[4] = {"ORIGINAL", "FULL-WAVE", "HALF +", "HALF -"};
 
 #define MF_VLEN 512u                             /* the vibrato's line (a power of two: ~11.6 ms; at most ~334 used) */
-#define MF_CH RZ_POLY                            /* the channels: the resonators' buses (a note each) */
+#define MF_CH NVOICE                             /* the channels: the voices (a note each; before their gates) */
 #define MF_NRATIO 16
 static const char *const MF_RATIO_NAME[MF_NRATIO] = {"1/4", "1/3", "1/2", "2/3", "3/4", "1", "4/3", "3/2", "5/3", "2",
                                                       "5/2", "3", "4", "5", "6", "8"};
@@ -35,7 +36,7 @@ static struct {
     int32_t dcl, sl;                             /* the rectified modulator's DC, the slew's state (Q16) */
     int32_t m[CTL];                              /* this block's modulator */
     uint32_t vw, vb;                             /* the vibrato's write position, this block's */
-    uint32_t mode, n, rect, seen;
+    uint32_t mode, n, rect;
     int32_t mix, sk;
     uint8_t on;
 } mf;
@@ -160,17 +161,17 @@ static int mf_gen(uint32_t n)
         }
     mf.vb = mf.vw;
     mf.vw += n;
-    mf.seen = 0;
     return 1;
 }
 
-/* a channel (ch: a resonator's bus) moved, in place: VIBRATO, TREMOLO by the block's modulator, RING by its own circuit
- * at inc (its note's, Q32 a sample) x the RATIO */
-static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc)
+/* a channel (ch: a voice, its oscillator before the gate) moved, in place: VIBRATO, TREMOLO by the block's modulator,
+ * RING by its own circuit at inc (its note's, Q32 a sample) x the RATIO; view: the voice the screen traces (both cores
+ * render voices: only that one writes the MOD page's trace) */
+static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc, int view)
 {
     mf_ch_t *C = &mf_ch[ch];
     uint32_t i, any = 0, mode = mf.mode, ns = 1;
-    int32_t mix = mf.mix, hs = 0, ahs = 0, bhs = 0, view = 0;
+    int32_t mix = mf.mix, hs = 0, ahs = 0, bhs = 0;
     if (!mf.on)
         return;
     n = n > mf.n ? mf.n : n;
@@ -189,8 +190,6 @@ static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc)
         if (!C->s.x && !C->s.y && !C->s.z)
             C->s.x = C1 / 8;
         ns = mf_steps(f > 0x7FFFFFFFu ? 0x7FFFFFFFu : (uint32_t)f, &hs, &ahs, &bhs);
-        view = !mf.seen;                         /* (the first bus sounding: the MOD page's trace) */
-        mf.seen = 1;
     }
     /* (a loop a mode: nothing decided per sample) */
     if (mode == MF_RING) {                       /* x times the circuit (x 2: its swing about full) */
@@ -232,5 +231,5 @@ static void mf_scope(const int32_t *s, uint32_t n)   /* (what it made: the MOD p
 static void mf_block(int32_t *w, uint32_t n)     /* (one channel at A 440, the block's modulator with it: the tests) */
 {
     if (mf_gen(n))
-        mf_apply(0, w, n, 42852281u);
+        mf_apply(0, w, n, 42852281u, 1);
 }

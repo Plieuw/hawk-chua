@@ -633,8 +633,10 @@ static voice_t *render_tv;                       /* the voice the trace follows 
 /* one voice's block into sum[0..n-1] (mono); restarts: the counter of the core it runs on */
 static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restarts)
 {
-    int32_t hs = 0, ahs = 0, bhs = 0, src[CTL];
+    int32_t hs = 0, ahs = 0, bhs = 0, src[CTL], xb[CTL];
     uint32_t ns = 0, i, j, h_all = 0, osc = sys.osc, k = (uint32_t)(v - voice);
+    int pre = mf.on != 0;                               /* (MOD FX: the oscillator's block first, moved, then the gate)
+                                                         * (osc -> MOD FX -> LPG -> resonators -> shimmer) */
     int32_t hpk = (int32_t)(((uint64_t)v->inc * 144121u) >> 32);   /* 1.4 pi f_note / FS, Q16: poles at 0.7 x the note */
     const uint8_t *am = feg_am.on && !feg_am.fm ? feg_am.curve : 0;
     uint32_t amr = feg_am.r16, fmk[CTL], *fmp = 0;
@@ -692,7 +694,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     }
     for (i = 0; i < n; i++) {
         int32_t s;
-        int done = env_frame(v);
+        int done = pre ? 0 : env_frame(v);
         if (osc)
             s = src[i];
         else {
@@ -738,7 +740,10 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
             c0 += ((c1 - c0) * (int32_t)fr) >> 8;
             s = (int32_t)(((int64_t)s * ((127 - amd) * 127 + amd * c0) * 2) >> 15);
         }
-        sum[i] += lpg_frame(v, s) >> 1;
+        if (pre)
+            xb[i] = s;
+        else
+            sum[i] += lpg_frame(v, s) >> 1;
         if (v == render_tv) {
             if (osc) {                                  /* the noise: the output against itself 8 and 16 samples back */
                 np_t *S = &np_state[k];
@@ -762,6 +767,15 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
         }
         if (done)
             break;
+    }
+    if (pre) {                                          /* MOD FX on the oscillator, then the gate */
+        mf_apply(k, xb, n, v->inc, v == render_tv);
+        for (i = 0; i < n; i++) {
+            int done = env_frame(v);
+            sum[i] += lpg_frame(v, xb[i]) >> 1;
+            if (done)
+                break;
+        }
     }
 }
 
@@ -992,7 +1006,7 @@ static void synth_render(int32_t *out, uint32_t n)
         memset(pdl, 0, sizeof pdl);
         memset(pdr, 0, sizeof pdr);
     }
-    int mfx = mf_gen(n);                                /* MOD FX: the block's modulator (osc -> MOD FX -> resonators) */
+    int mfx = mf_gen(n);                                /* MOD FX: the block's modulator (render_voice: before the gate) */
     for (pp = 0; pp < np2; pp++) {                      /* MULTI: part A, then B with its sound swapped in */
     if (sys.multi) {
         if (pp)
@@ -1046,22 +1060,6 @@ static void synth_render(int32_t *out, uint32_t n)
             rz_age[voice[k].rz % RZ_POLY] = voice[k].age;
             rz_epan[voice[k].rz % RZ_POLY] = vpan[k];
         }
-    if (mfx) {                                          /* MOD FX on the voices: each resonator's bus (its note: RING's key
-                                                         * follow); what it changed panned as the bus is (BASIS's L, R) */
-        for (k = 0; k < RZ_POLY; k++)
-            if (rz_part_mask >> k & 1u) {
-                int32_t was[CTL], p = rz_epan[k], pl = p > 0 ? p : 0, pr = p < 0 ? -p : 0;
-                uint32_t nt = rz[k].note < 128u ? rz[k].note : 48u;
-                memcpy(was, rz_bus[k], n * sizeof was[0]);
-                mf_apply(k, rz_bus[k], n, (uint32_t)(((uint64_t)note_inc(nt) * synth_bend[sys.multi && k >= RZ_POLY / 2u]) >> 16));
-                if (p)
-                    for (i = 0; i < n; i++) {
-                        int32_t d = rz_bus[k][i] - was[i];
-                        dl[i] += (int32_t)(((int64_t)d * pl) >> 15);
-                        dr[i] += (int32_t)(((int64_t)d * pr) >> 15);
-                    }
-            }
-    }
     for (i = 0; i < n; i++) {                           /* the dry: all of them (MULTI: the part's) */
         int32_t a = 0;
         for (k = 0; k < RZ_POLY; k++)
