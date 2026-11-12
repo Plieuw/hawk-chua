@@ -1328,7 +1328,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.arp_gate = (uint8_t)(s.arp_gate & 127u);
         sys.arp_swing = (uint8_t)(s.arp_swing & 127u);
         sys.arp_hold = (uint8_t)(s.snd >= 7u ? s.arp_hold != 0 : 1u);   /* (LATCH on after this install, once) */
-        sys.midi_trs = (uint8_t)(s.midi_trs != 0);
+        sys.midi_trs = 1;                        /* (TRS MIDI IN: always on now) */
         sys.midi_usb = (uint8_t)(s.midi_usb & 3u);
         sys.midi_rx = (uint8_t)(s.midi_rx > 16u ? 0u : s.midi_rx);
         sys.midi_tx = (uint8_t)(s.midi_tx & 15u);
@@ -2451,16 +2451,25 @@ static void draw_midi(void)
     int32_t y = 6;
     cv_begin(240, PLOT_H, T_BG);
     cv_text(8, y, &AF_S, "IN", T_DIM);
-    str_cpy(a, sys.midi_trs ? "TRS JACK" : "TRS JACK (OFF)", sizeof a);
-    cv_text(48, y, &AF_S, a, sys.midi_trs ? T_TEXT : T_DIM);
+    cv_text(48, y, &AF_S, "TRS JACK", T_TEXT);
     cv_text(140, y, &AF_S, sys.midi_usb & 1u ? "USB" : "USB (OFF)", sys.midi_usb & 1u ? T_TEXT : T_DIM);
     y += 19;
-    str_cpy(a, "CHANNEL ", sizeof a);
+    str_cpy(a, "A ", sizeof a);
     if (sys.midi_rx) {
         fmt_int(v, sys.midi_rx);
+        ui_cat(a, sizeof a, "CH ");
         ui_cat(a, sizeof a, v);
     } else
-        ui_cat(a, sizeof a, "ANY (OMNI)");
+        ui_cat(a, sizeof a, "OMNI");
+    ui_cat(a, sizeof a, "   B ");
+    if (!sys.multi)
+        ui_cat(a, sizeof a, "OFF");
+    else if (sys.ch_b) {
+        fmt_int(v, sys.ch_b);
+        ui_cat(a, sizeof a, "CH ");
+        ui_cat(a, sizeof a, v);
+    } else
+        ui_cat(a, sizeof a, "OMNI");
     cv_text(48, y, &AF_S, a, T_MID);
     y += 24;
     cv_text(8, y, &AF_S, "OUT", T_DIM);
@@ -2875,13 +2884,14 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 B PROGRAM", v);
     } else if (sys.page == 7u) {
         static const char *const USBN[4] = {"OFF", "IN", "OUT", "IN + OUT"};
-        ui_cell(T_C1, "1 TRS MIDI IN", sys.midi_trs ? "ON" : "OFF");
-        ui_cell(T_C2, "2 USB MIDI", USBN[sys.midi_usb & 3u]);
         if (sys.midi_rx) {
             fmt_int(v, sys.midi_rx);
-            ui_cell(T_C3, "3 RX CHANNEL", v);
+            ui_cell(T_C1, "1 CHANNEL A", v);
         } else
-            ui_cell(T_C3, "3 RX CHANNEL", "OMNI");
+            ui_cell(T_C1, "1 CHANNEL A", "OMNI");
+        ui_cell(T_C2, "2 USB MIDI", USBN[sys.midi_usb & 3u]);
+        fmt_int(v, sys.ch_b);
+        ui_cell(T_C3, "3 CHANNEL B", !sys.multi ? "OFF" : sys.ch_b ? v : "OMNI");
         fmt_int(v, (int32_t)(sys.midi_tx & 15u) + 1);
         ui_cell(T_C4, "4 TX CHANNEL", v);
     } else if (sys.page == 6u) {
@@ -4108,8 +4118,8 @@ static void ui_input(void)
             ui_hot = 3; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 7u) {                /* MIDI: an input changed: what it held let go (no note hangs) */
-        if ((s = ui_enc(EN_K1)) != 0) {
-            sys.midi_trs = (uint8_t)(s > 0);
+        if ((s = ui_enc(EN_K1)) != 0) {          /* part A's channel (OMNI, 1 .. 16; TRS MIDI IN always on) */
+            sys.midi_rx = (uint8_t)clamp((int32_t)sys.midi_rx + s, 0, 16);
             keys_panic_req = 1;
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
@@ -4118,8 +4128,12 @@ static void ui_input(void)
             keys_panic_req = 1;
             ui_hot = 1; ui_hot_ms = fm1_ms;
         }
-        if ((s = ui_enc(EN_K3)) != 0) {
-            sys.midi_rx = (uint8_t)clamp((int32_t)sys.midi_rx + s, 0, 16);
+        if ((s = ui_enc(EN_K3)) != 0) {          /* part B's: OFF (no MULTI), OMNI (layered on A), 1 .. 16 (as BANK's
+                                                  * PART B) */
+            int32_t m = sys.multi ? (sys.ch_b ? (int32_t)sys.ch_b + 1 : 1) : 0;
+            m = clamp(m + (s > 0 ? 1 : -1), 0, 17);
+            sys.multi = (uint8_t)(m != 0);
+            sys.ch_b = (uint8_t)(m > 1 ? m - 1 : 0);
             keys_panic_req = 1;
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
