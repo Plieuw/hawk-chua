@@ -577,9 +577,9 @@ static void us_psyche(uint32_t h)
     if (op < 32)                                 /* (folded: a point left glowing in the eye, fading) */
         cv_rect(vx - 1, vy - 1, 3, 3, ux_mix(T_BG, us_hue(hue0, 255u), 40 + op * 2));
     if (hl) {                                    /* the knob turned: its value as an arc round the eye (from the top,
-                                                  * clockwise, 0 .. 127 a full turn), its name and value under the
-                                                  * eye, all in the colour its value shows under the knob */
-        int32_t ra = 46, a0 = 0, b0 = 0, kv = us_kn(ui_hot), n2 = 1 + kv * 47 / 127, tw;
+                                                  * clockwise, 0 .. 127 a full turn), in the colour its value shows
+                                                  * under the knob (no text: the cell says it) */
+        int32_t ra = 46, a0 = 0, b0 = 0, kv = us_kn(ui_hot), n2 = 1 + kv * 47 / 127;
         uint16_t ca = ux_mix(T_BG, ui_hot_col, hl * 3 / 2 > 100 ? 100 : hl * 3 / 2);
         for (j = 0; j <= (uint32_t)n2; j++) {
             uint32_t a = j * (0xFFFFFFFFu / 48u) - (1u << 30);
@@ -592,8 +592,6 @@ static void us_psyche(uint32_t h)
             a0 = x;
             b0 = y;
         }
-        tw = text_w(&AF_S, ui_hot_txt);
-        cv_text(vx - tw / 2, vy + 22, &AF_S, ui_hot_txt, ca);
     }
 }
 

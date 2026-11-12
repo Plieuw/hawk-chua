@@ -2795,6 +2795,36 @@ int main(int argc, char **argv)
         run_ms(40);
         for (k2 = 0; k2 < RZ_POLY; k2++) act |= mf_ch[k2].act;
         check("MOD FX moves the oscillators before the resonators (FX MIX 0 too)", mf.on && act && mf_view.xw != x0);
+    }
+    {   /* RING MOD's key follow: the carrier at the note x the RATIO (a steady input: out is the carrier; its zero
+         * crossings a second ~ 2 x note x ratio while the circuit cycles) */
+        uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, ch0 = sys.chaos;
+        static int32_t wv[CTL];
+        uint32_t zc[2], q, i, b;
+        int okk = 1;
+        sys.mfx_mode = MF_RING; sys.mfx_slew = 0; sys.mfx_rect = 0; sys.mfx_mix = 127;
+        sys.mfx_rate = 9u * 8u;                                  /* (x 2) */
+        sys.chaos = 20; chua_params();
+        for (q = 0; q < 2u; q++) {
+            int32_t prev = 0;
+            mf_reset();
+            zc[q] = 0;
+            for (b = 0; b < 44100u / CTL; b++) {
+                for (i = 0; i < CTL; i++) wv[i] = 16000;
+                if (mf_gen(CTL))
+                    mf_apply(0, wv, CTL, q ? 21426140u : 10713070u);   /* (A 220, A 110) */
+                for (i = 0; i < CTL; i++) {
+                    if (b > 20u && ((wv[i] >= 0) != (prev >= 0))) zc[q]++;
+                    prev = wv[i];
+                }
+            }
+        }
+        printf("   (RING key follow x 2: A 110 %u, A 220 %u zero crossings)\n", zc[0], zc[1]);
+        okk &= zc[0] > 200u && zc[1] > zc[0] * 3u / 2u && zc[1] < zc[0] * 5u / 2u;
+        sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
+        sys.chaos = ch0; chua_params();
+        mf_reset();
+        check("MOD FX RING: key follow, the carrier an octave up with the note", okk);
         synth_note_off(60); synth_kill(); run_ms(20);
         sys.mfx_mode = k0[0]; sys.mfx_mix = k0[1]; sys.fx_mix = k0[2];
         run_ms(10);

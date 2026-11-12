@@ -1528,7 +1528,6 @@ static uint16_t ui_val_hue(const char *v)
 /* a knob's cell: its label small, its value under it */
 static uint16_t ui_hot_col;                      /* (the turned knob's value colour: PSYCHEDELIC lights up what it moves
                                                   * in it, ui_style.c) */
-static char ui_hot_txt[28];                      /* (its name and value, "FOLD 87": round the eye, ui_style.c) */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
     static const uint8_t X[4] = {8, 124, 8, 124}, Y[4] = {152, 152, 186, 186};
@@ -1538,9 +1537,6 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     str_cpy(v, value, sizeof v);
     if (hot[0] == '1') {
         ui_hot_col = ux_mix(ui_val_hue(value), 0xFFFFu, 45);   /* (as its value shows it, just turned: one colour) */
-        str_cpy(ui_hot_txt, label[0] && label[1] == ' ' ? label + 2 : label, sizeof ui_hot_txt);
-        ui_cat(ui_hot_txt, sizeof ui_hot_txt, " ");
-        ui_cat(ui_hot_txt, sizeof ui_hot_txt, value);
     }
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
     if (!ui_changed(i, label, v))
@@ -1952,7 +1948,7 @@ static void mfx_psy(uint32_t mode, int on)
         break;
     case MF_RING: {                              /* two rings linked, turning; the product's figure between */
         uint32_t a = t << 22;
-        int32_t d = 16 + (mfx_ms(63) < 0 ? -mfx_ms(63) : mfx_ms(63)) * 10 / 32768;
+        int32_t d = 16 + (mfx_mf(255) < 0 ? -mfx_mf(255) : mfx_mf(255)) * 10 / 32768;
         int32_t dx = us_sin(a + (1u << 30), d), dy = us_sin(a, d) / 2;
         for (k = 0; k < 2u; k++) {
             int32_t sg = k ? -1 : 1;
@@ -2953,10 +2949,12 @@ static void ui_draw(void)
             str_cpy(b, "OFF", sizeof b);
         ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 20u) {                /* MOD FX: the rate (in Hz), the slew, the rectifier, the mix */
-        uint32_t mode = sys.mfx_mode % MF_COUNT, slow = mode == MF_VIBRATO || mode == MF_TREMOLO;
-        uint32_t f16 = (uint32_t)(((uint64_t)(slow ? 6554u : 524288u) *
-                                   px_exp2((int32_t)((sys.mfx_rate & 127u) * (slow ? 458752u : 524288u) / 127u))) >> 16);
-        if (slow && f16 < 655360u) {             /* (below 10 Hz: one decimal) */
+        uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;
+        uint32_t f16 = (uint32_t)(((uint64_t)6554u * px_exp2((int32_t)((sys.mfx_rate & 127u) * 458752u / 127u))) >> 16);
+        if (mode == MF_RING) {                   /* (RING: the ratio to the note) */
+            str_cpy(b, "NOTE X ", sizeof b);
+            ui_cat(b, sizeof b, MF_RATIO_NAME[mf_ratio()]);
+        } else if (f16 < 655360u) {              /* (below 10 Hz: one decimal) */
             fmt_int(v, (int32_t)(f16 >> 16));
             str_cpy(b, v, sizeof b);
             ui_cat(b, sizeof b, ".");
@@ -2966,8 +2964,9 @@ static void ui_draw(void)
             fmt_int(v, (int32_t)(f16 >> 16));
             str_cpy(b, v, sizeof b);
         }
-        ui_cat(b, sizeof b, " HZ");
-        ui_cell(T_C1, "1 RATE", b);
+        if (mode != MF_RING)
+            ui_cat(b, sizeof b, " HZ");
+        ui_cell(T_C1, mode == MF_RING ? "1 RATIO" : "1 RATE", b);
         if (sys.mfx_slew) {                      /* (the slew's corner: 0.9 Hz .. full) */
             fmt_int(v, (int32_t)(sys.mfx_slew * 100u / 127u));
             str_cpy(b, v, sizeof b);

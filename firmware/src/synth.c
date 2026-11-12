@@ -1039,13 +1039,21 @@ static void synth_render(int32_t *out, uint32_t n)
             rz_age[voice[k].rz % RZ_POLY] = voice[k].age;
             rz_epan[voice[k].rz % RZ_POLY] = vpan[k];
         }
-    if (mfx) {                                          /* MOD FX on the voices: each resonator's bus and BASIS's L, R (the
-                                                         * same moves on each: the dry, what rings and the pan as one) */
+    if (mfx) {                                          /* MOD FX on the voices: each resonator's bus (its note: RING's key
+                                                         * follow); what it changed panned as the bus is (BASIS's L, R) */
         for (k = 0; k < RZ_POLY; k++)
-            if (rz_part_mask >> k & 1u)
-                mf_apply(k, rz_bus[k], n);
-        mf_apply(RZ_POLY + 2u * pp, dl, n);
-        mf_apply(RZ_POLY + 2u * pp + 1u, dr, n);
+            if (rz_part_mask >> k & 1u) {
+                int32_t was[CTL], p = rz_epan[k], pl = p > 0 ? p : 0, pr = p < 0 ? -p : 0;
+                uint32_t nt = rz[k].note < 128u ? rz[k].note : 48u;
+                memcpy(was, rz_bus[k], n * sizeof was[0]);
+                mf_apply(k, rz_bus[k], n, (uint32_t)(((uint64_t)note_inc(nt) * synth_bend[sys.multi && k >= RZ_POLY / 2u]) >> 16));
+                if (p)
+                    for (i = 0; i < n; i++) {
+                        int32_t d = rz_bus[k][i] - was[i];
+                        dl[i] += (int32_t)(((int64_t)d * pl) >> 15);
+                        dr[i] += (int32_t)(((int64_t)d * pr) >> 15);
+                    }
+            }
     }
     for (i = 0; i < n; i++) {                           /* the dry: all of them (MULTI: the part's) */
         int32_t a = 0;

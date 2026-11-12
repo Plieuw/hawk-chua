@@ -394,8 +394,10 @@ kan daarnaast met de gewone systeemtools worden opgenomen (ffmpeg of sox).
 oscillator → MOD FX → resonatoren (FX) → shimmer. Wat de resonatoren laten klinken is dus al bewogen, en het droge
 signaal ook (het werkt ook met FX MIX op 0; de panning beweegt mee). Het circuit heeft de klank die CHAOS en SHAPE op HOME
 instellen: geen sinus-LFO maar de chaos zelf. ALGORITHM kiest:
-VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (vermenigvuldigd met het circuit), TREMOLO
-(het volume) of OFF. KNOB 1 RATE (VIBRATO/TREMOLO 0,1–13 Hz, RING 8 Hz–2 kHz), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
+VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (vermenigvuldigd met het circuit, dat de noot volgt: key follow), TREMOLO
+(het volume) of OFF. KNOB 1 RATE (VIBRATO/TREMOLO 0,1–13 Hz; bij RING MOD de RATIO: elke noot zijn
+eigen circuit op de noot × 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 5/3, 2, 5/2, 3, 4, 5, 6 of 8, zodat de zijbanden
+harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger ruwer), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
 glijden),
 KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF + of HALF −), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
