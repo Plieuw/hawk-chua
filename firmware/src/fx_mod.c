@@ -38,7 +38,7 @@ static struct {
     int32_t mix, depth;
     uint8_t on;
 } mf;
-static mf_ch_t mf_ch[MF_CH] __attribute__((section(".pool")));
+static mf_ch_t mf_ch[MF_CH];                     /* (~9 KB: in RAM, the pool is full) */
 static struct {                                  /* (the MOD page's pictures) */
     int16_t m[64];                               /* the modulator, slowly: every 256th sample (~0.37 s) */
     int16_t mf[256], x[256];                     /* the modulator and the sound it makes, every 2nd sample (in step) */
