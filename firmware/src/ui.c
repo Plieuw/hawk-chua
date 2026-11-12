@@ -2948,25 +2948,14 @@ static void ui_draw(void)
         } else
             str_cpy(b, "OFF", sizeof b);
         ui_cell(T_C4, "4 MIX", b);
-    } else if (sys.page == 20u) {                /* MOD FX: the rate (in Hz), the slew, the rectifier, the mix */
+    } else if (sys.page == 20u) {                /* MOD FX: the note value or ratio, the slew, the rectifier, the mix */
         uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;
-        uint32_t f16 = (uint32_t)(((uint64_t)6554u * px_exp2((int32_t)((sys.mfx_rate & 127u) * 458752u / 127u))) >> 16);
-        if (mode == MF_RING) {                   /* (RING: the ratio to the note) */
+        if (mode == MF_RING) {                   /* (RING: the ratio to the note; VIBRATO, TREMOLO: the tempo's note value) */
             str_cpy(b, "NOTE X ", sizeof b);
             ui_cat(b, sizeof b, MF_RATIO_NAME[mf_ratio()]);
-        } else if (f16 < 655360u) {              /* (below 10 Hz: one decimal) */
-            fmt_int(v, (int32_t)(f16 >> 16));
-            str_cpy(b, v, sizeof b);
-            ui_cat(b, sizeof b, ".");
-            fmt_int(v, (int32_t)((f16 & 65535u) * 10u >> 16));
-            ui_cat(b, sizeof b, v);
-        } else {
-            fmt_int(v, (int32_t)(f16 >> 16));
-            str_cpy(b, v, sizeof b);
-        }
-        if (mode != MF_RING)
-            ui_cat(b, sizeof b, " HZ");
-        ui_cell(T_C1, mode == MF_RING ? "1 RATIO" : "1 RATE", b);
+        } else
+            str_cpy(b, MF_DIV_NAME[mf_div()], sizeof b);
+        ui_cell(T_C1, mode == MF_RING ? "1 RATIO" : "1 SYNC", b);
         if (sys.mfx_slew) {                      /* (the slew's corner: 0.9 Hz .. full) */
             fmt_int(v, (int32_t)(sys.mfx_slew * 100u / 127u));
             str_cpy(b, v, sizeof b);
@@ -3632,7 +3621,21 @@ static const seq_preset_t SEQ_PRE[] = {
     {"SWELL PAD", 17, {30, 64, 64, 20}},         {"BIRD CALLS", 21, {60, 120, 70, 60}},
 };
 #define SEQ_NPRE (sizeof SEQ_PRE / sizeof SEQ_PRE[0])
-static uint8_t arp_pre = 0xFF, seq_pre = 0xFF;   /* (none chosen yet: the first turn right is the first) */
+/* MOD FX's presets (PRESETS on its page): a mode, KNOB 1's note value (VIBRATO, TREMOLO) or ratio (RING: the index
+ * into MF_RATIO), the slew, the rectifier (0 .. 3), the mix */
+typedef struct { const char *name; uint8_t mode, k1, slew, rect, mix; } mfx_preset_t;
+static const mfx_preset_t MFX_PRE[] = {
+    {"SLOW WOBBLE", MF_VIBRATO, 2, 60, 0, 55},   {"TAPE WARBLE", MF_VIBRATO, 5, 95, 0, 40},
+    {"SEASICK", MF_VIBRATO, 1, 30, 0, 90},       {"CHAOS VIBRATO", MF_VIBRATO, 8, 0, 0, 70},
+    {"TRIPLET SHIMMY", MF_VIBRATO, 9, 40, 1, 45}, {"OCTAVE RING", MF_RING, 9, 0, 0, 60},
+    {"FIFTH BELL", MF_RING, 7, 0, 0, 55},        {"SUB RING", MF_RING, 2, 0, 0, 65},
+    {"METAL BELL", MF_RING, 10, 0, 0, 75},       {"ROBOT VOICE", MF_RING, 5, 0, 1, 85},
+    {"GONG", MF_RING, 6, 25, 0, 70},             {"DIRTY RING", MF_RING, 11, 0, 2, 80},
+    {"HELICOPTER", MF_TREMOLO, 11, 0, 0, 100},   {"PULSE GATE", MF_TREMOLO, 8, 0, 2, 100},
+    {"SLOW SWELL", MF_TREMOLO, 2, 80, 0, 85},    {"TRIPLET CHOP", MF_TREMOLO, 9, 10, 0, 90},
+};
+#define MFX_NPRE (sizeof MFX_PRE / sizeof MFX_PRE[0])
+static uint8_t arp_pre = 0xFF, seq_pre = 0xFF, mfx_pre = 0xFF;   /* (none chosen yet: the first turn right is the first) */
 
 static void ui_input(void)
 {
@@ -4211,6 +4214,20 @@ static void ui_input(void)
     } else if (s && sys.page == 7u) {                   /* MIDI: PRESETS turns AUTOPLAY on (right) or off (left) */
         sys.autoplay = (uint8_t)(s > 0);
         ui_say(sys.autoplay ? "AUTOPLAY ON" : "AUTOPLAY OFF");
+    } else if (s && sys.page == 20u) {                  /* MOD FX: its presets */
+        const mfx_preset_t *P;
+        mfx_pre = (uint8_t)(mfx_pre == 0xFFu ? (s > 0 ? 0 : (int32_t)MFX_NPRE - 1) :
+                            ((int32_t)mfx_pre + (int32_t)MFX_NPRE * 8 + s) % (int32_t)MFX_NPRE);
+        P = &MFX_PRE[mfx_pre];
+        sys.mfx_mode = (uint8_t)(P->mode % MF_COUNT);
+        sys.mfx_rate = (uint8_t)(P->mode == MF_RING ? P->k1 * 128u / MF_NRATIO + 4u : P->k1 * 128u / MF_NDIV + 4u);
+        sys.mfx_slew = P->slew;
+        sys.mfx_rect = (uint8_t)((P->rect & 3u) * 32u + 16u);
+        sys.mfx_mix = P->mix;
+        str_cpy(t, "MOD FX ", sizeof t);
+        ui_cat(t, sizeof t, P->name);
+        ui_say(t);
+        ui_force = 1;
     } else if (s && sys.page == 2u) {                   /* FX: PRESETS goes through the FX presets */
         const fx_preset_t *f;
         fx_pre = (uint8_t)(((int32_t)fx_pre + (int32_t)NFX_PRESETS * 8 + s) % (int32_t)NFX_PRESETS);

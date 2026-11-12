@@ -2825,6 +2825,32 @@ int main(int argc, char **argv)
         sys.chaos = ch0; chua_params();
         mf_reset();
         check("MOD FX RING: key follow, the carrier an octave up with the note", okk);
+    }
+    {   /* VIBRATO, TREMOLO in step with the tempo: at 120 BPM a 1/4 cycles twice a second, a 1/16 eight times */
+        uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, ch0 = sys.chaos, bpm0 = sys.arp_bpm;
+        uint32_t zc[2], q, i, b;
+        int okk = 1;
+        sys.mfx_mode = MF_TREMOLO; sys.mfx_slew = 0; sys.mfx_rect = 0; sys.mfx_mix = 127; sys.arp_bpm = 120;
+        sys.chaos = 20; chua_params();
+        for (q = 0; q < 2u; q++) {
+            int32_t prev = 0;
+            sys.mfx_rate = (uint8_t)((q ? 11u : 5u) * 128u / MF_NDIV + 4u);
+            mf_reset();
+            zc[q] = 0;
+            for (b = 0; b < 4u * 44100u / CTL; b++) {
+                mf_gen(CTL);
+                for (i = 0; i < CTL; i++) {
+                    if (b > 200u && ((mf.m[i] >= 0) != (prev >= 0))) zc[q]++;
+                    prev = mf.m[i];
+                }
+            }
+        }
+        printf("   (TREMOLO at 120 BPM: 1/4 %u, 1/16 %u zero crossings in ~3.4 s)\n", zc[0], zc[1]);
+        okk &= zc[0] >= 10u && zc[0] <= 18u && zc[1] >= 44u && zc[1] <= 66u;
+        sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
+        sys.chaos = ch0; sys.arp_bpm = bpm0; chua_params();
+        mf_reset();
+        check("MOD FX VIBRATO, TREMOLO: in step with the BPM (1/4, 1/16)", okk);
         synth_note_off(60); synth_kill(); run_ms(20);
         sys.mfx_mode = k0[0]; sys.mfx_mix = k0[1]; sys.fx_mix = k0[2];
         run_ms(10);

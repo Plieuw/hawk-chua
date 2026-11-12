@@ -5,7 +5,8 @@
  * feature/chua-mod-fx branch (ring, tremolo, the rectifier), with a vibrato added.
  *
  *   mfx_mode   0 OFF, 1 VIBRATO, 2 RING, 3 TREMOLO (ALGORITHM)
- *   mfx_rate   KNOB 1: VIBRATO, TREMOLO 0.1 .. 13 Hz; RING the RATIO to the note (key follow: each resonator's bus
+ *   mfx_rate   KNOB 1: VIBRATO, TREMOLO a note value of the tempo (the BPM or MIDI clock: 4 BARS .. 1/32, dotted and
+ *              triplets: a cycle of the circuit each); RING the RATIO to the note (key follow: each resonator's bus
  *              its own circuit at its note x 1/4 .. 8, whole-number ratios, so the sidebands stay harmonic)
  *   mfx_slew   KNOB 2: the circuit slewed at audio rate (a lag: 0 off, up to a corner of ~0.9 Hz): its edges rounded,
  *              its jumps glided (the depth is the MIX's: the vibrato's sweep ~4 ms, the ring the full carrier)
@@ -54,6 +55,13 @@ static void mf_reset(void)
 }
 
 static uint32_t mf_ratio(void) { return (sys.mfx_rate & 127u) * MF_NRATIO / 128u; }   /* (RING: KNOB 1's ratio) */
+#define MF_NDIV 14
+static const char *const MF_DIV_NAME[MF_NDIV] = {"4 BARS", "2 BARS", "1 BAR", "1/2", "1/2T", "1/4", "1/4T", "1/8.",
+                                                  "1/8", "1/8T", "1/16.", "1/16", "1/16T", "1/32"};
+static const uint32_t MF_DIV_CPQ[MF_NDIV] = {4096, 8192, 16384, 32768, 49152, 65536, 98304, 87381, 131072, 196608,
+                                             174763, 262144, 393216, 524288};   /* cycles a quarter, Q16 */
+static uint32_t mf_div(void) { return (sys.mfx_rate & 127u) * MF_NDIV / 128u; }   /* (VIBRATO, TREMOLO: KNOB 1's) */
+static uint32_t arp_bpm_now(void);               /* (arp.c: the tempo, its own or MIDI clock's) */
 
 /* a circuit's step a sample (Q24 time units, split in ns substeps) at inc (Q32 a sample: as a voice's, so a note's inc
  * gives the note) */
@@ -133,10 +141,9 @@ static int mf_gen(uint32_t n)
     mf.rect = rect;
     mf.sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
     mf.n = n = n > CTL ? CTL : n;
-    if (mode != MF_RING) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the RATE */
-        /* 0.1 Hz x 2^(7 oct) = 12.8 Hz: inc (Q32 a sample) = f / 44100 x 2^32 */
-        uint32_t f16 = (uint32_t)(((uint64_t)6554u * px_exp2((int32_t)((sys.mfx_rate & 127u) * 458752u / 127u))) >> 16);
-        ns = mf_steps((uint32_t)(((uint64_t)f16 * 97391u) >> 16), &hs, &ahs, &bhs);   /* (2^32 / 44100 = 97391.5) */
+    if (mode != MF_RING) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
+        uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
+        ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
     }
     for (i = 0; i < n; i++) {
         int32_t m = 0;
