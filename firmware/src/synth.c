@@ -787,6 +787,13 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
 {
     int32_t t[CTL], *b = bus[v->rz % RZ_POLY], p = vpan[v - voice], orbit = (int32_t)(sys.orbit & 127u);
     uint32_t i;
+    /* Fast path: the common mono/centred case needs no temporary block.
+     * render_voice() adds into its destination, so this is sample-for-sample
+     * identical to rendering into a zeroed t[] and adding t[] to b below. */
+    if (!orbit && !p) {
+        render_voice(v, n, b, restarts);
+        return;
+    }
     memset(t, 0, sizeof t);
     render_voice(v, n, t, restarts);
     if (orbit) {   /* the picture's movement, per block (touches only this voice: either core) */
