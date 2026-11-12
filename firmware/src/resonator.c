@@ -500,12 +500,12 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
         }
         if (mod || mf.on) {                      /* MOD FX on the wet; its pan as the block's share (the block before:
                                                   * what the modulation moved has no place of its own) */
-            int64_t sa = 0, sl = 0, sr = 0;
+            uint64_t sa = 0, sl = 0, sr = 0;
             if (basis)
                 for (i = 0; i < n; i++) {
-                    sa += wv[i] < 0 ? -wv[i] : wv[i];
-                    sl += wlv[i] < 0 ? -wlv[i] : wlv[i];
-                    sr += wrv[i] < 0 ? -wrv[i] : wrv[i];
+                    sa += (uint32_t)(wv[i] < 0 ? -wv[i] : wv[i]);
+                    sl += (uint32_t)(wlv[i] < 0 ? -wlv[i] : wlv[i]);
+                    sr += (uint32_t)(wrv[i] < 0 ? -wrv[i] : wrv[i]);
                 }
             mf_block(wv, n);
             if (basis) {
@@ -513,8 +513,12 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
                     wlv[i] = (int32_t)(((int64_t)wv[i] * mf.pan_l) >> 15);
                     wrv[i] = (int32_t)(((int64_t)wv[i] * mf.pan_r) >> 15);
                 }
-                mf.pan_l = sa ? (int32_t)(sl * 32768 / sa) : 0;
-                mf.pan_r = sa ? (int32_t)(sr * 32768 / sa) : 0;
+                while (sa >= 32768)                  /* (in 32 bits: the AC79 has no 64-bit division) */
+                    sa >>= 1, sl >>= 1, sr >>= 1;
+                sl = sl > 65535 ? 65535 : sl;
+                sr = sr > 65535 ? 65535 : sr;
+                mf.pan_l = sa ? (int32_t)((uint32_t)sl * 32768u / (uint32_t)sa) : 0;
+                mf.pan_r = sa ? (int32_t)((uint32_t)sr * 32768u / (uint32_t)sa) : 0;
             }
         }
         for (i = 0; i < n; i++) {
