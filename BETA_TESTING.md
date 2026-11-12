@@ -4,9 +4,10 @@ This branch is a test build based on the current `main` branch. It is deliberate
 
 ## What this beta changes
 
-- Adds a bit-identical fast path to voice mixing when ORBIT is off and the voice is centred (BASIS/pan result is zero).
-- In that common case, the voice is rendered directly into its resonator bus. This avoids clearing and copying a temporary audio block.
-- Existing DSP, presets, MIDI mappings, UI controls, storage format and update path are not intentionally changed.
+- Retains the 2.1.3 bit-identical fast path: when ORBIT is off and the voice is centred, it renders directly into its resonator bus without clearing/copying a temporary audio block.
+- Adds a second bit-identical mixer optimization: for panned voices, the dry-bus addition and the one-sided pan addition are fused into one frame loop. This avoids a second pass over the temporary block.
+- The panning arithmetic, voice samples, ORBIT processing, resonator routing and all other DSP remain unchanged.
+- Existing presets, MIDI mappings, UI controls, storage format and update path are not intentionally changed.
 
 ## Validation
 
