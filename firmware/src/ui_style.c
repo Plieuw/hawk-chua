@@ -547,10 +547,10 @@ static void us_psyche(uint32_t h)
     }
     if (us_splash)
         return;
-    if (hl) {                                    /* (the figure as it was before this turn, a grey shadow at the
+    if (hl) {                                    /* (the figure as it was before this turn, a dim shadow at the
                                                   * nearest ring: before and after side by side) */
         int32_t a0 = 0, b0 = 0;
-        uint16_t cg = ux_mix(T_BG, US_RGB(200, 200, 210), hl / 2);
+        uint16_t cg = ux_mix(T_BG, ui_hot_col, hl / 3);   /* (in the knob's colour, dim) */
         for (j = 0; j <= US_NP; j++) {
             uint32_t q = j % US_NP, a = rot0 + q * step;
             int32_t rq = rnear * ghost[q] / 16, x = vx * 16 + us_sin(a + (1u << 30), rq), y = vy * 16 + us_sin(a, rq) * sq / 256;
@@ -578,7 +578,7 @@ static void us_psyche(uint32_t h)
         cv_rect(vx - 1, vy - 1, 3, 3, ux_mix(T_BG, us_hue(hue0, 255u), 40 + op * 2));
     if (hl) {                                    /* the knob turned: its value as an arc round the eye (from the top,
                                                   * clockwise, 0 .. 127 a full turn), its name and value under the
-                                                  * eye, and a little scope of the oscillator's wave in the corner */
+                                                  * eye, all in the colour its value shows under the knob */
         int32_t ra = 46, a0 = 0, b0 = 0, kv = us_kn(ui_hot), n2 = 1 + kv * 47 / 127, tw;
         uint16_t ca = ux_mix(T_BG, ui_hot_col, hl * 3 / 2 > 100 ? 100 : hl * 3 / 2);
         for (j = 0; j <= (uint32_t)n2; j++) {
@@ -594,19 +594,6 @@ static void us_psyche(uint32_t h)
         }
         tw = text_w(&AF_S, ui_hot_txt);
         cv_text(vx - tw / 2, vy + 22, &AF_S, ui_hot_txt, ca);
-        {
-            uint32_t w = chua_trace.w, k2;
-            int32_t sx0 = 6, sy0 = (int32_t)h - 30, px0 = 0, py0 = 0;
-            cv_frame(sx0 - 2, sy0 - 2, 68, 28, ux_mix(T_BG, ca, 50));
-            for (k2 = 0; k2 < 64u; k2++) {
-                uint32_t at = (w - 64u + k2) & (TRACE_N - 1u);
-                int32_t x = sx0 + (int32_t)k2, y = sy0 + 12 - plot_norm(chua_trace.x[at], 0) * 11 / 4096;
-                if (k2)
-                    cv_aline(px0 * 16, py0 * 16, x * 16, y * 16, ca);
-                px0 = x;
-                py0 = y;
-            }
-        }
     }
 }
 
