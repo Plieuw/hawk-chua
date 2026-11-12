@@ -787,6 +787,13 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
 {
     int32_t t[CTL], *b = bus[v->rz % RZ_POLY], p = vpan[v - voice], orbit = (int32_t)(sys.orbit & 127u);
     uint32_t i;
+    /* Fast path: the common mono/centred case needs no temporary block.
+     * render_voice() adds into its destination, so this is sample-for-sample
+     * identical to rendering into a zeroed t[] and adding t[] to b below. */
+    if (!orbit && !p) {
+        render_voice(v, n, b, restarts);
+        return;
+    }
     memset(t, 0, sizeof t);
     render_voice(v, n, t, restarts);
     if (orbit) {   /* the picture's movement, per block (touches only this voice: either core) */
@@ -834,14 +841,23 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
             }
         }
     }
-    for (i = 0; i < n; i++)
-        b[i] += t[i];
-    if (p > 0)                                          /* right: the left turned down */
-        for (i = 0; i < n; i++)
+    /* Fuse the dry-bus add and the one-sided pan add. They touch separate
+     * buffers, so doing both per frame preserves the exact integer results
+     * while avoiding a second pass over t[] for panned voices. */
+    if (p > 0) {                                        /* right: the left turned down */
+        for (i = 0; i < n; i++) {
+            b[i] += t[i];
             dl[i] += (t[i] * p) >> 15;
-    else if (p < 0)
-        for (i = 0; i < n; i++)
+        }
+    } else if (p < 0) {
+        for (i = 0; i < n; i++) {
+            b[i] += t[i];
             dr[i] += (t[i] * -p) >> 15;
+        }
+    } else {
+        for (i = 0; i < n; i++)
+            b[i] += t[i];
+    }
 }
 static uint32_t c1_restarts, c1_blocks;          /* (diagnostics) */
 static void c1_voices(uint32_t arg)              /* arg: the voices (bit k = voice k) | n << 8 */
