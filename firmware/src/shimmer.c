@@ -118,6 +118,28 @@ static struct {
     uint8_t on;                                  /* the tank holds something: cleared when MIX goes to 0 */
 } sh __attribute__((section(".pool")));
 
+/* clearing the memory (~56 KB) all at once in the audio interrupt made a glitch (a preset changing the space): the
+ * state is reset at once, the memory cleared 4096 samples a block from the bottom (~20 ms). A delay plays on at once:
+ * what is not cleared yet reads as silence (its writes start at the bottom, behind the clearing); a reverb stays dry
+ * till it is done */
+static uint32_t sh_cpos = SH_DLEN;               /* (the memory clean below this) */
+static void sh_reset(void)
+{
+    memset((char *)&sh + sizeof sh.dl, 0, sizeof sh - sizeof sh.dl);   /* (all but the memory: small) */
+    sh_cpos = 0;
+}
+static int sh_clearing(void)                     /* a block's share of the clearing; 1 while it lasts */
+{
+    uint32_t c;
+    if (sh_cpos >= SH_DLEN)
+        return 0;
+    c = SH_DLEN - sh_cpos < 4096u ? SH_DLEN - sh_cpos : 4096u;
+    memset(&sh.dl[sh_cpos], 0, c * sizeof sh.dl[0]);
+    sh_cpos += c;
+    return sh_cpos < SH_DLEN;
+}
+static inline int32_t sh_dread(uint32_t i) { return i < sh_cpos ? sh.dl[i] : 0; }   /* (not cleared yet: silence) */
+
 /* for the screen (ui.c): the wet level per block, a ring the main loop reads */
 #define SH_ENV 64u
 static struct { uint16_t env[SH_ENV]; volatile uint32_t w; } sh_view;
@@ -325,13 +347,13 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
             uint32_t w = sh.dw;
             sh.dsub = 0;
             sh.dacc = 0;
-            f = sh.dl[w >= loop ? w - loop : w + SH_DLEN - loop];   /* the loop's end, back in: darker, no rumble */
+            f = sh_dread(w >= loop ? w - loop : w + SH_DLEN - loop);   /* the loop's end, back in: darker, no rumble */
             sh.dfb[0] += ((f - sh.dfb[0]) * 13000) >> 15;    /* (~2.6 kHz) */
             sh.dhp += ((sh.dfb[0] - sh.dhp) * 2200) >> 15;   /* (~120 Hz) */
             f = (int32_t)(((int64_t)(sh.dfb[0] - sh.dhp) * fb) >> 15);
             sh.dl[w] = sh_sat(x + f);
             for (k = 0; k < P->n; k++) {
-                int32_t v = sh.dl[w >= tap[k] ? w - tap[k] : w + SH_DLEN - tap[k]], gl, gr, p = P->tap[k].pan;
+                int32_t v = sh_dread(w >= tap[k] ? w - tap[k] : w + SH_DLEN - tap[k]), gl, gr, p = P->tap[k].pan;
                 if (!open) {                     /* the tap's filter: a state-variable low-pass */
                     int32_t *z = sh.dtap[k], hi;
                     z[0] += (int32_t)(((int64_t)ff[k] * z[1]) >> 15);
@@ -370,6 +392,7 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
     sh_view.env[sh_view.w++ & (SH_ENV - 1u)] = (uint16_t)(peak > 65535u ? 65535u : peak);
 }
 
+
 static int32_t sh_dry = 32768;                   /* this block's dry level, Q15 (synth.c pans the dry with it) */
 static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
 {
@@ -379,16 +402,19 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
     uint32_t inc = SH_INC[iv], peak = 0;
     sh_dry = 32768;
     if (!mix) {
-        for (i = 0; i < n; i++)
-            l[i] = r[i] = in[i];
-        if (sh.on) {                             /* (off: the next use starts from silence) */
-            memset(&sh, 0, sizeof sh);
-        }
-        return;
-    }
-    if (sh.dmode != (SS_IS_DELAY(sp) ? 2u : 1u)) {   /* (the memory changing hands: from silence) */
-        memset(&sh, 0, sizeof sh);
+        if (sh.on)                               /* (off: the next use starts from silence) */
+            sh_reset();
+    } else if (sh.dmode != (SS_IS_DELAY(sp) ? 2u : 1u)) {   /* (the memory changing hands: from silence) */
+        sh_reset();
         sh.dmode = SS_IS_DELAY(sp) ? 2u : 1u;
+    }
+    {
+        int clearing = sh_clearing();
+        if (!mix || (clearing && !SS_IS_DELAY(sp))) {   /* (off, or a reverb's memory clearing: dry) */
+            for (i = 0; i < n; i++)
+                l[i] = r[i] = in[i];
+            return;
+        }
     }
     if (SS_IS_DELAY(sp)) {                       /* a delay: in the tempo (above) */
         int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = mix > 64 ? 32768 : mix * 32768 / 64;
