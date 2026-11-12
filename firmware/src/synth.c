@@ -221,7 +221,8 @@ static uint32_t note_inc(uint32_t note)      /* the note's frequency / FS, Q32 *
 {
     if (note > 127u)
         note = 127u;
-    return NOTE_INC_TOP[note % 12u] >> (10u - note / 12u);
+    uint32_t inc = NOTE_INC_TOP[note % 12u] >> (10u - note / 12u);
+    return sys.tune432 ? (uint32_t)(((uint64_t)inc * 64346u) >> 16) : inc;   /* (A 432: x 432 / 440) */
 }
 
 /* ---- the envelope and the low pass gate (lpg_tables.h: tools/gen_lpg_tables.py)

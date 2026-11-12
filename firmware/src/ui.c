@@ -1131,6 +1131,7 @@ typedef struct {
     uint8_t spare22;                             /* (22 .. 24: CLOCK PPQ, gone: MIDI clock is 24 a quarter) */
     uint8_t autoplay;                            /* (24: saved; before: on, once after this install) */
     uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, slew, rectify, mix; before: off) */
+    uint8_t tune432;                             /* (26: saved; before: A 440) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1265,6 +1266,7 @@ static void settings_boot(void)    /* power-on, before the audio */
             sys.mfx_rect = (uint8_t)(s.mfx[3] & 127u);
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
+        sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
@@ -1321,9 +1323,10 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 25;
+    s.snd = 26;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
+    s.tune432 = sys.tune432;
     s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
@@ -2328,6 +2331,8 @@ static void draw_style(void)
     cv_text(8, 26, &AF_M, US_NAME[st], T_THEME);
     cv_text(9, 59, &AF_S, US_WHAT[st], T_BG);
     cv_text(8, 58, &AF_S, US_WHAT[st], T_TEXT);
+    cv_text(9, 99, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_BG);
+    cv_text(8, 98, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_TEXT);
     cv_blit(0, PLOT_Y);
 }
 static void draw_midi(void)
@@ -4131,6 +4136,10 @@ static void ui_input(void)
         ui_cat(t, sizeof t, " ");
         ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
         ui_say(t);
+    } else if (s && sys.page == 19u) {          /* UI STYLE: the tuning, A 440 (left) or A 432 (right) */
+        sys.tune432 = (uint8_t)(s > 0);
+        ui_say(sys.tune432 ? "TUNING A = 432 HZ" : "TUNING A = 440 HZ");
+        ui_force = 1;
     } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, TREMOLO) */
         sys.mfx_mode = (uint8_t)(((int32_t)sys.mfx_mode + MF_COUNT * 8 + s) % MF_COUNT);
         str_cpy(t, "MOD FX ", sizeof t);

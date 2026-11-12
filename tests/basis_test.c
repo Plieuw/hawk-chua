@@ -2795,6 +2795,9 @@ int main(int argc, char **argv)
         run_ms(40);
         for (k2 = 0; k2 < RZ_POLY; k2++) act |= mf_ch[k2].act;
         check("MOD FX moves the oscillators before the resonators (FX MIX 0 too)", mf.on && act && mf_view.xw != x0);
+        synth_note_off(60); synth_kill(); run_ms(20);
+        sys.mfx_mode = k0[0]; sys.mfx_mix = k0[1]; sys.fx_mix = k0[2];
+        run_ms(10);
     }
     {   /* RING MOD's key follow: the carrier at the note x the RATIO (a steady input: out is the carrier; its zero
          * crossings a second ~ 2 x note x ratio while the circuit cycles) */
@@ -2851,9 +2854,13 @@ int main(int argc, char **argv)
         sys.chaos = ch0; sys.arp_bpm = bpm0; chua_params();
         mf_reset();
         check("MOD FX VIBRATO, TREMOLO: in step with the BPM (1/4, 1/16)", okk);
-        synth_note_off(60); synth_kill(); run_ms(20);
-        sys.mfx_mode = k0[0]; sys.mfx_mix = k0[1]; sys.fx_mix = k0[2];
-        run_ms(10);
+    }
+    {   /* the tuning: A 440, or A 432 (every note x 432 / 440) */
+        uint32_t a440 = note_inc(69), a432;
+        sys.tune432 = 1;
+        a432 = note_inc(69);
+        sys.tune432 = 0;
+        check("tuning: A 432 is 432 / 440 of A 440", a432 > a440 / 1000u * 981u && a432 < a440 / 1000u * 983u && note_inc(69) == a440);
     }
     {   /* CLOCK EXTERNAL: MIDI START with nothing on: the ARP and KARMA on together, no notes chosen: C major, latched;
          * the clock drives them; STOP: both off */
