@@ -31,28 +31,34 @@ typedef struct {
     int32_t sl, dc;                              /* (its slew, its rectifier's DC) */
     uint8_t act;                                 /* blocks it goes on after its input stopped (its tail) */
 } mf_ch_t;
-static struct {
+typedef struct {                                 /* a part's MOD FX (MULTI: A's, B's) */
     chua_t s;                                    /* the modulating circuit */
     int32_t dcl, sl;                             /* the rectified modulator's DC, the slew's state (Q16) */
     int32_t m[CTL];                              /* this block's modulator */
     uint32_t vw, vb;                             /* the vibrato's write position, this block's */
     uint32_t mode, n, rect;
+    uint32_t ratio;                              /* (RING: the ratio's index) */
     int32_t mix, sk;
     uint8_t on;
-} mf;
+} mf_t;
+static mf_t mfp[2];
+#define mf (mfp[0])                              /* (part A's: the MOD page, the tests) */
 static mf_ch_t mf_ch[MF_CH];                     /* (~8 KB: in RAM, the pool is full) */
 static struct {                                  /* (the MOD page's pictures) */
     int16_t m[64];                               /* the modulator, slowly: every 256th sample (~0.37 s) */
-    int16_t mf[256], x[256];                     /* the modulator and the sound it makes, every 2nd sample (in step) */
+    int16_t mm[256], x[256];                     /* the modulator and the sound it makes, every 2nd sample (in step) */
     volatile uint32_t w, xw, mw;
     uint32_t c;
 } mf_view;
 
-static void mf_reset(void)
+/* the voices of part pp (MULTI: each its half; else all) */
+#define MF_LO(pp) (sys.multi ? (pp) * (NVOICE / 2u) : 0u)
+#define MF_HI(pp) (sys.multi ? ((pp) + 1u) * (NVOICE / 2u) : NVOICE)
+static void mf_reset(mf_t *M, uint32_t pp)
 {
-    memset(&mf, 0, sizeof mf);
-    memset(mf_ch, 0, sizeof mf_ch);
-    mf.s.x = C1 / 8;
+    memset(M, 0, sizeof *M);
+    memset(&mf_ch[MF_LO(pp)], 0, (MF_HI(pp) - MF_LO(pp)) * sizeof mf_ch[0]);
+    M->s.x = C1 / 8;
 }
 
 static uint32_t mf_ratio(void) { return (sys.mfx_rate & 127u) * MF_NRATIO / 128u; }   /* (RING: KNOB 1's ratio) */
@@ -111,9 +117,11 @@ static inline int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs,
     return m;
 }
 
-/* the block's modulator (once a block, before the voices' buses are moved): 1 if MOD FX is on */
-static int mf_gen(uint32_t n)
+/* part pp's modulator for the block (once a block a part, its sound in sys, before its voices): 1 if MOD FX is on */
+static int mf_gen(uint32_t n, uint32_t pp)
 {
+    mf_t *M = &mfp[pp & 1u];
+    int view = !pp;                              /* (the MOD page shows A's) */
     uint32_t mode = sys.mfx_mode % MF_COUNT, rect = (sys.mfx_rect & 127u) >> 5, i;
     int32_t mix = (int32_t)(sys.mfx_mix & 127u) * 258;   /* Q15 (the depth is full: MIX sets how much) */
     {   /* the mod wheel's (or FREE EG's) targets VIBRATO, RING MOD: up, that one, as much as it is up (the page's
@@ -127,54 +135,58 @@ static int mf_gen(uint32_t n)
     uint32_t slew = sys.mfx_slew & 127u, ns = 1;
     int32_t hs = 0, ahs = 0, bhs = 0;
     if (mode == MF_OFF || !mix) {
-        if (mf.on)
-            mf_reset();
+        if (M->on)
+            mf_reset(M, pp);
         return 0;
     }
-    if (!mf.on) {
-        mf_reset();
-        mf.on = 1;
+    if (!M->on) {
+        mf_reset(M, pp);
+        M->on = 1;
     }
-    if (mode != mf.mode)
-        memset(mf_ch, 0, sizeof mf_ch);          /* (another mode: the channels from silence) */
-    mf.mode = mode;
-    mf.mix = mix;
-    mf.rect = rect;
-    mf.sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
-    mf.n = n = n > CTL ? CTL : n;
+    if (mode != M->mode)                         /* (another mode: the part's channels from silence) */
+        memset(&mf_ch[MF_LO(pp)], 0, (MF_HI(pp) - MF_LO(pp)) * sizeof mf_ch[0]);
+    M->ratio = mf_ratio();
+    M->mode = mode;
+    M->mix = mix;
+    M->rect = rect;
+    M->sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
+    M->n = n = n > CTL ? CTL : n;
     if (mode != MF_RING) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
         ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
     }
-    if (mode == MF_RING) {                       /* (RING: each bus its own circuit, mf_apply; the slow trace still) */
-        for (i = 0; i < n; i++)
-            if (!(mf_view.c++ & 255u))
-                mf_view.m[mf_view.w++ & 63u] = 0;
+    if (mode == MF_RING) {                       /* (RING: each voice its own circuit, mf_apply; the slow trace still) */
+        if (view)
+            for (i = 0; i < n; i++)
+                if (!(mf_view.c++ & 255u))
+                    mf_view.m[mf_view.w++ & 63u] = 0;
     } else
         for (i = 0; i < n; i++) {
-            int32_t m = mf_sample(&mf.s, ns, hs, ahs, bhs, rect, &mf.dcl, 12u, &mf.sl, mf.sk);
-            mf.m[i] = m;
+            int32_t m = mf_sample(&M->s, ns, hs, ahs, bhs, rect, &M->dcl, 12u, &M->sl, M->sk);
+            M->m[i] = m;
+            if (!view)
+                continue;
             if (!(mf_view.c++ & 255u))
                 mf_view.m[mf_view.w++ & 63u] = (int16_t)m;
             if (i & 1u)
-                mf_view.mf[mf_view.mw++ & 255u] = (int16_t)m;
+                mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
         }
-    mf.vb = mf.vw;
-    mf.vw += n;
+    M->vb = M->vw;
+    M->vw += n;
     return 1;
 }
 
 /* a channel (ch: a voice, its oscillator before the gate) moved, in place: VIBRATO, TREMOLO by the block's modulator,
  * RING by its own circuit at inc (its note's, Q32 a sample) x the RATIO; view: the voice the screen traces (both cores
  * render voices: only that one writes the MOD page's trace) */
-static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc, int view)
+static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_t inc, int view)
 {
     mf_ch_t *C = &mf_ch[ch];
-    uint32_t i, any = 0, mode = mf.mode, ns = 1;
-    int32_t mix = mf.mix, hs = 0, ahs = 0, bhs = 0;
-    if (!mf.on)
+    uint32_t i, any = 0, mode = M->mode, ns = 1;
+    int32_t mix = M->mix, hs = 0, ahs = 0, bhs = 0;
+    if (!M->on)
         return;
-    n = n > mf.n ? mf.n : n;
+    n = n > M->n ? M->n : n;
     for (i = 0; i < n && !any; i++)
         any = w[i] != 0;
     if (any)
@@ -186,28 +198,28 @@ static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc, int view
         return;
     }
     if (mode == MF_RING) {                       /* its circuit: the note x the ratio (from the start at a new note) */
-        uint64_t f = ((uint64_t)inc * MF_RATIO[mf_ratio()]) >> 16;
+        uint64_t f = ((uint64_t)inc * MF_RATIO[M->ratio % MF_NRATIO]) >> 16;
         if (!C->s.x && !C->s.y && !C->s.z)
             C->s.x = C1 / 8;
         ns = mf_steps(f > 0x7FFFFFFFu ? 0x7FFFFFFFu : (uint32_t)f, &hs, &ahs, &bhs);
     }
     /* (a loop a mode: nothing decided per sample) */
     if (mode == MF_RING) {                       /* x times the circuit (x 2: its swing about full) */
-        uint32_t rect = mf.rect;
-        int32_t sk = mf.sk;
+        uint32_t rect = M->rect;
+        int32_t sk = M->sk;
         for (i = 0; i < n; i++) {
             int32_t x = w[i], m = mf_sample(&C->s, ns, hs, ahs, bhs, rect, &C->dc, 10u, &C->sl, sk), wet;
             if (view && (i & 1u))
-                mf_view.mf[mf_view.mw++ & 255u] = (int16_t)m;
+                mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
             wet = (int32_t)(((int64_t)x * m) >> 14);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
         }
     } else if (mode == MF_VIBRATO) {             /* the line read late by 4 ms +- up to 3.6 ms (linear in between) */
-        uint32_t p = mf.vb;
+        uint32_t p = M->vb;
         int16_t *vl = C->vl;
         for (i = 0; i < n; i++, p++) {
             int32_t x = w[i], a0, a1, wet;
-            uint32_t d16 = (uint32_t)(176 * 65536 + mf.m[i] * 316), di = d16 >> 16, fr = d16 >> 1 & 32767u;
+            uint32_t d16 = (uint32_t)(176 * 65536 + M->m[i] * 316), di = d16 >> 16, fr = d16 >> 1 & 32767u;
             vl[p & (MF_VLEN - 1u)] = (int16_t)mf_clip(x);
             a0 = vl[(p - di) & (MF_VLEN - 1u)];
             a1 = vl[(p - di - 1u) & (MF_VLEN - 1u)];
@@ -216,7 +228,7 @@ static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc, int view
         }
     } else                                       /* TREMOLO: the level dipped by the slow circuit */
         for (i = 0; i < n; i++) {
-            int32_t x = w[i], wet = (int32_t)(((int64_t)x * (16384 + (mf.m[i] >> 1))) >> 15);
+            int32_t x = w[i], wet = (int32_t)(((int64_t)x * (16384 + (M->m[i] >> 1))) >> 15);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
         }
 }
@@ -230,6 +242,6 @@ static void mf_scope(const int32_t *s, uint32_t n)   /* (what it made: the MOD p
 
 static void mf_block(int32_t *w, uint32_t n)     /* (one channel at A 440, the block's modulator with it: the tests) */
 {
-    if (mf_gen(n))
-        mf_apply(0, w, n, 42852281u, 1);
+    if (mf_gen(n, 0))
+        mf_apply(&mfp[0], 0, w, n, 42852281u, 1);
 }

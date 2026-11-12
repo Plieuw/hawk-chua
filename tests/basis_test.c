@@ -2764,7 +2764,7 @@ int main(int argc, char **argv)
             if (pk > 40000 || diff < 1e9) { printf("   (MOD FX %s: peak %d, moved %.3g)\n", MF_NAME[m2], pk, diff); okk = 0; }
         }
         sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
-        mf_reset();
+        mf_reset(&mfp[0], 0);
         check("MOD FX: every mode bounded and audible", okk);
     }
     {   /* the mod wheel on VIBRATO, RING MOD: MOD FX on with that one (the page OFF), off with the wheel down */
@@ -2810,12 +2810,12 @@ int main(int argc, char **argv)
         sys.chaos = 20; chua_params();
         for (q = 0; q < 2u; q++) {
             int32_t prev = 0;
-            mf_reset();
+            mf_reset(&mfp[0], 0);
             zc[q] = 0;
             for (b = 0; b < 44100u / CTL; b++) {
                 for (i = 0; i < CTL; i++) wv[i] = 16000;
-                if (mf_gen(CTL))
-                    mf_apply(0, wv, CTL, q ? 21426140u : 10713070u, 1);   /* (A 220, A 110) */
+                if (mf_gen(CTL, 0))
+                    mf_apply(&mfp[0], 0, wv, CTL, q ? 21426140u : 10713070u, 1);   /* (A 220, A 110) */
                 for (i = 0; i < CTL; i++) {
                     if (b > 20u && ((wv[i] >= 0) != (prev >= 0))) zc[q]++;
                     prev = wv[i];
@@ -2826,7 +2826,7 @@ int main(int argc, char **argv)
         okk &= zc[0] > 200u && zc[1] > zc[0] * 3u / 2u && zc[1] < zc[0] * 5u / 2u;
         sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
         sys.chaos = ch0; chua_params();
-        mf_reset();
+        mf_reset(&mfp[0], 0);
         check("MOD FX RING: key follow, the carrier an octave up with the note", okk);
     }
     {   /* VIBRATO, TREMOLO in step with the tempo: at 120 BPM a 1/4 cycles twice a second, a 1/16 eight times */
@@ -2838,10 +2838,10 @@ int main(int argc, char **argv)
         for (q = 0; q < 2u; q++) {
             int32_t prev = 0;
             sys.mfx_rate = (uint8_t)((q ? 11u : 5u) * 128u / MF_NDIV + 4u);
-            mf_reset();
+            mf_reset(&mfp[0], 0);
             zc[q] = 0;
             for (b = 0; b < 4u * 44100u / CTL; b++) {
-                mf_gen(CTL);
+                mf_gen(CTL, 0);
                 for (i = 0; i < CTL; i++) {
                     if (b > 200u && ((mf.m[i] >= 0) != (prev >= 0))) zc[q]++;
                     prev = mf.m[i];
@@ -2852,8 +2852,18 @@ int main(int argc, char **argv)
         okk &= zc[0] >= 10u && zc[0] <= 18u && zc[1] >= 44u && zc[1] <= 66u;
         sys.mfx_mode = k0[0]; sys.mfx_rate = k0[1]; sys.mfx_slew = k0[2]; sys.mfx_rect = k0[3]; sys.mfx_mix = k0[4];
         sys.chaos = ch0; sys.arp_bpm = bpm0; chua_params();
-        mf_reset();
+        mf_reset(&mfp[0], 0);
         check("MOD FX VIBRATO, TREMOLO: in step with the BPM (1/4, 1/16)", okk);
+    }
+    {   /* MULTI: part B its own MOD FX (A's off, B's on: only B's modulator runs) */
+        uint8_t m0 = sys.multi, a0 = sys.mfx_mode, b0[5];
+        memcpy(b0, part_b_mfx, 5);
+        sys.multi = 1; sys.mfx_mode = MF_OFF;
+        part_b_mfx[0] = MF_TREMOLO; part_b_mfx[4] = 100;
+        run_ms(20);
+        check("MULTI: part B its own MOD FX", !mfp[0].on && mfp[1].on && mfp[1].mode == MF_TREMOLO && sys.mfx_mode == MF_OFF);
+        sys.multi = m0; sys.mfx_mode = a0; memcpy(part_b_mfx, b0, 5);
+        run_ms(20);
     }
     {   /* the tuning: A 440, or A 432 (every note x 432 / 440) */
         uint32_t a440 = note_inc(69), a432;

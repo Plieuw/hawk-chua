@@ -1081,12 +1081,14 @@ static void lvl_set(void)                        /* (each part at its preset's m
 }
 static void part_b_load(uint32_t i)
 {
-    uint8_t sa[PR_N], mw;
+    uint8_t sa[PR_N], sm[5], mw;
     int8_t tr;
     uint16_t pre;
     uint32_t k, irq = irq_save();
     for (k = 0; k < PR_N; k++)
         sa[k] = *PR_SYS[k];
+    for (k = 0; k < 5u; k++)
+        sm[k] = *PART_MFX[k];
     tr = sys.transpose;
     pre = sys.preset;
     mw = mwd.on;
@@ -1094,6 +1096,10 @@ static void part_b_load(uint32_t i)
     for (k = 0; k < PR_N; k++) {
         part_b[k] = *PR_SYS[k];
         *PR_SYS[k] = sa[k];
+    }
+    for (k = 0; k < 5u; k++) {                   /* (B's MOD FX: its preset's) */
+        part_b_mfx[k] = *PART_MFX[k];
+        *PART_MFX[k] = sm[k];
     }
     part_b_tr = sys.transpose;
     part_b_preset = (uint16_t)(i % NPRESETS);
@@ -1902,14 +1908,14 @@ static void draw_env(void)
 static uint8_t sh_hist[200];
 static uint32_t sh_seen;
 /* MOD FX (FX once: the first FX page): a picture a mode, each style its own. The data: the circuit slowly (mf_view.m, ~0.37 s), the
- * circuit and the sound it makes in step (mf_view.mf, .x, the last ~12 ms)
+ * circuit and the sound it makes in step (mf_view.mm, .x, the last ~12 ms)
  *   INITIAL (the oscilloscope)  VIBRATO the trace with its time bent and the graticule bent with it (a Doppler grid);
  *                RING MOD the scope in XY (the sound against the circuit: the product's figure); TREMOLO the trace
  *                inside the envelope the circuit cuts
  *   PSYCHEDELIC  VIBRATO rings swaying, each later than the one inside it; RING MOD two rings linked, turning, the XY
  *                figure in hues between them; TREMOLO polygons breathing with the circuit, one after the other */
 static int32_t mfx_ms(uint32_t i) { return mf_view.m[(mf_view.w - 64u + i) & 63u]; }    /* (0 oldest .. 63 now) */
-static int32_t mfx_mf(uint32_t i) { return mf_view.mf[(mf_view.mw - 256u + i) & 255u]; }
+static int32_t mfx_mf(uint32_t i) { return mf_view.mm[(mf_view.mw - 256u + i) & 255u]; }
 static int32_t mfx_x(uint32_t i) { return mf_view.x[(mf_view.xw - 256u + i) & 255u]; }
 static int32_t mfx_g = 256, mfx_mg = 256, mfx_mm, mfx_xm;   /* (gains, Q8: the sound and the circuit shown full; the circuit's middle) */
 static int32_t mfx_mfs(uint32_t i)

@@ -309,6 +309,8 @@ static volatile uint8_t *const PART_SYS[PART_N_SYS] = {
     &sys.sh_space, &sys.np_level, &sys.menv_bend,
 };
 static uint8_t part_b[PART_N_SYS];               /* part B's sound (ui.c part_b_load: a preset's values) */
+static uint8_t part_b_mfx[5];                    /* and its MOD FX (mode, rate, slew, rectify, mix) */
+static volatile uint8_t *const PART_MFX[5] = {&sys.mfx_mode, &sys.mfx_rate, &sys.mfx_slew, &sys.mfx_rect, &sys.mfx_mix};
 static int8_t part_b_tr;                         /* and its octave */
 static uint16_t part_b_preset;                   /* (which preset: the GLO page shows its name) */
 static void part_swap(void)                      /* B's sound into sys, A's out (again: back) */
@@ -319,6 +321,11 @@ static void part_swap(void)                      /* B's sound into sys, A's out 
         uint8_t a = *PART_SYS[k];
         *PART_SYS[k] = part_b[k];
         part_b[k] = a;
+    }
+    for (k = 0; k < 5u; k++) {
+        uint8_t a = *PART_MFX[k];
+        *PART_MFX[k] = part_b_mfx[k];
+        part_b_mfx[k] = a;
     }
     t = sys.transpose;
     sys.transpose = part_b_tr;
@@ -635,7 +642,8 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
 {
     int32_t hs = 0, ahs = 0, bhs = 0, src[CTL], xb[CTL];
     uint32_t ns = 0, i, j, h_all = 0, osc = sys.osc, k = (uint32_t)(v - voice);
-    int pre = mf.on != 0;                               /* (MOD FX: the oscillator's block first, moved, then the gate)
+    const mf_t *M = &mfp[sys.multi ? v->part & 1u : 0u];   /* (its part's MOD FX) */
+    int pre = M->on != 0;                               /* (MOD FX: the oscillator's block first, moved, then the gate)
                                                          * (osc -> MOD FX -> LPG -> resonators -> shimmer) */
     int32_t hpk = (int32_t)(((uint64_t)v->inc * 144121u) >> 32);   /* 1.4 pi f_note / FS, Q16: poles at 0.7 x the note */
     const uint8_t *am = feg_am.on && !feg_am.fm ? feg_am.curve : 0;
@@ -769,7 +777,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
             break;
     }
     if (pre) {                                          /* MOD FX on the oscillator, then the gate */
-        mf_apply(k, xb, n, v->inc, v == render_tv);
+        mf_apply(M, k, xb, n, v->inc, v == render_tv);
         for (i = 0; i < n; i++) {
             int done = env_frame(v);
             sum[i] += lpg_frame(v, xb[i]) >> 1;
@@ -1006,7 +1014,6 @@ static void synth_render(int32_t *out, uint32_t n)
         memset(pdl, 0, sizeof pdl);
         memset(pdr, 0, sizeof pdr);
     }
-    int mfx = mf_gen(n);                                /* MOD FX: the block's modulator (render_voice: before the gate) */
     for (pp = 0; pp < np2; pp++) {                      /* MULTI: part A, then B with its sound swapped in */
     if (sys.multi) {
         if (pp)
@@ -1022,6 +1029,8 @@ static void synth_render(int32_t *out, uint32_t n)
         }
         inner = chua_regime(cc.chaos) != REG_OUTER;
     }
+    mf_gen(n, pp);                                      /* MOD FX: the part's modulator (its sound in sys now; render_voice:
+                                                         * before the gate) */
     for (k = 0; k < NVOICE; k++) {
         voice_t *v = &voice[k];
         if (v->stage == ST_OFF || (sys.multi && v->part != pp))
@@ -1067,7 +1076,7 @@ static void synth_render(int32_t *out, uint32_t n)
                 a += rz_bus[k][i];
         sum[i] = a;
     }
-    if (mfx && !pp)
+    if (mfp[0].on && !pp)
         mf_scope(sum, n);
     fx_resonator(sum, dl, dr, n);
     if (synth_pgain[pp] != 4096)                        /* (LEVEL MATCH: the part's preset at the common level) */
