@@ -1130,6 +1130,7 @@ typedef struct {
     uint8_t clk_int;                             /* (21: saved; before: EXTERNAL) */
     uint8_t spare22;                             /* (22 .. 24: CLOCK PPQ, gone: MIDI clock is 24 a quarter) */
     uint8_t autoplay;                            /* (24: saved; before: on, once after this install) */
+    uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, depth, rectify, mix; before: off) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1257,6 +1258,13 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
         sys.clk_int = (uint8_t)(s.snd < 23u || s.clk_int);   /* (23: EXTERNAL strict now: INTERNAL, once) */
         sys.autoplay = (uint8_t)(s.snd < 24u || s.autoplay);   /* (on after this install, once; then as saved) */
+        if (s.snd >= 25u) {
+            sys.mfx_mode = (uint8_t)(s.mfx[0] % MF_COUNT);
+            sys.mfx_rate = (uint8_t)(s.mfx[1] & 127u);
+            sys.mfx_depth = (uint8_t)(s.mfx[2] & 127u);
+            sys.mfx_rect = (uint8_t)(s.mfx[3] & 127u);
+            sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
+        }
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
@@ -1313,8 +1321,9 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 24;
+    s.snd = 25;
     s.autoplay = sys.autoplay;
+    s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_depth; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
@@ -1552,9 +1561,9 @@ static void ui_status(const char *s)
 {
     /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
      * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
-    static const uint8_t LAYER[20] = {1, 1, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2, 4};
-    static const uint8_t COUNT[20] = {2, 2, 2, 2, 0, 2, 2, 4, 0, 2, 0, 0, 2, 2, 2, 4, 4, 2, 2, 4};
-    uint32_t pg = sys.page < 20u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
+    static const uint8_t LAYER[21] = {1, 1, 1, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 3, 2, 2, 4, 2};
+    static const uint8_t COUNT[21] = {2, 2, 3, 3, 0, 2, 2, 4, 0, 2, 0, 0, 2, 2, 2, 4, 4, 2, 2, 4, 3};
+    uint32_t pg = sys.page < 21u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
     char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
     if (!ui_changed(T_STATUS, s, sig))
         return;
@@ -1812,6 +1821,36 @@ static void draw_env(void)
  * the tail's level over the last ~4 s (one value a UI frame) is what the wavefronts carry */
 static uint8_t sh_hist[200];
 static uint32_t sh_seen;
+/* MOD FX (FX twice): the circuit moving the resonators (above, the accent) and the wet it makes (below, the theme) */
+static void draw_mfx(void)
+{
+    uint32_t i, w = rz_view.w, mw = mf_view.w, on = sys.mfx_mode % MF_COUNT != MF_OFF && sys.mfx_mix;
+    int32_t px = 0, py = 0, cy = PLOT_H / 4, cy2 = PLOT_H * 2 / 3;
+    if (sys.ui_style % US_COUNT == US_PSYCHE) {  /* (PSYCHEDELIC: its scene) */
+        cv_begin(240, PLOT_H, T_BG);
+        cv_blit(0, PLOT_Y);
+        return;
+    }
+    cv_begin(240, PLOT_H, T_BG);
+    for (i = 0; i < 64u; i++) {                  /* the modulating circuit */
+        int32_t x = 8 + (int32_t)i * 224 / 63, y = cy - mf_view.m[(mw + i) & 63u] * (PLOT_H / 5) / 32768;
+        if (i)
+            cv_line(px, py, x, y, on ? T_ACCENT : ux_mix(T_BG, T_ACCENT, 35));
+        px = x;
+        py = y;
+    }
+    for (i = 0; i < 224u; i++) {                 /* the wet */
+        int32_t x = 8 + (int32_t)i, y = cy2 - rz_view.wave[(w - 224u + i) & (RZ_WAVE - 1u)] * (PLOT_H / 4) / 32768;
+        if (i)
+            cv_line(px, py, x, y, T_THEME);
+        px = x;
+        py = y;
+    }
+    if (!on)
+        cv_text(8, 2, &AF_S, sys.fx_mix ? "MOD FX OFF: ALGORITHM" : "FX MIX OFF", T_MID);
+    cv_blit(0, PLOT_Y);
+}
+
 static void draw_sh(void)
 {
     uint32_t i, w = sh_view.w, pk = 0;
@@ -2744,6 +2783,29 @@ static void ui_draw(void)
         } else
             str_cpy(b, "OFF", sizeof b);
         ui_cell(T_C4, "4 MIX", b);
+    } else if (sys.page == 20u) {                /* MOD FX: the rate (in Hz), how deep, the rectifier, the mix */
+        uint32_t mode = sys.mfx_mode % MF_COUNT, slow = mode == MF_VIBRATO || mode == MF_TREMOLO;
+        uint32_t f16 = (uint32_t)(((uint64_t)(slow ? 6554u : 524288u) *
+                                   px_exp2((int32_t)((sys.mfx_rate & 127u) * (slow ? 458752u : 524288u) / 127u))) >> 16);
+        if (slow && f16 < 655360u) {             /* (below 10 Hz: one decimal) */
+            fmt_int(v, (int32_t)(f16 >> 16));
+            str_cpy(b, v, sizeof b);
+            ui_cat(b, sizeof b, ".");
+            fmt_int(v, (int32_t)((f16 & 65535u) * 10u >> 16));
+            ui_cat(b, sizeof b, v);
+        } else {
+            fmt_int(v, (int32_t)(f16 >> 16));
+            str_cpy(b, v, sizeof b);
+        }
+        ui_cat(b, sizeof b, " HZ");
+        ui_cell(T_C1, "1 RATE", b);
+        fmt_int(v, sys.mfx_depth);
+        ui_cell(T_C2, "2 DEPTH", v);
+        ui_cell(T_C3, "3 RECTIFY", MF_RECT[(sys.mfx_rect & 127u) >> 5]);
+        fmt_int(v, (int32_t)(sys.mfx_mix * 100u / 127u));
+        str_cpy(b, v, sizeof b);
+        ui_cat(b, sizeof b, " %");
+        ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
         static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
@@ -2792,6 +2854,10 @@ static void ui_draw(void)
             ui_cat(a, sizeof a, SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "  RESO " : "  TONE ");
             fmt_int(v, sys.sh_tone);
             ui_cat(a, sizeof a, v);
+        } else if (sys.page == 20u) {
+            str_cpy(a, "MOD FX ", sizeof a);
+            ui_cat(a, sizeof a, MF_NAME[sys.mfx_mode % MF_COUNT]);
+            ui_cat(a, sizeof a, " (ALGO)");
         } else if (sys.page == 2u) {
             str_cpy(a, RZ_NAME[sys.fx_model % RZ_COUNT], sizeof a);
             ui_cat(a, sizeof a, "   ");
@@ -2881,6 +2947,8 @@ static void ui_draw(void)
     }
     else if (sys.page == 3u)
         draw_sh();
+    else if (sys.page == 20u)
+        draw_mfx();
     else if (sys.page == 5u)
         draw_menv();
     else if (sys.page == 6u)
@@ -3127,7 +3195,7 @@ static void ui_leds(void)
             led_on(nl, panel.btn[B_OCTUP]);
         }
     }
-    if ((sys.page >= 2u && sys.page <= 3u) || sys.fx_mix || sys.sh_mix)   /* (FX lit: its pages, or FX on) */
+    if ((sys.page >= 2u && sys.page <= 3u) || sys.page == 20u || sys.fx_mix || sys.sh_mix)   /* (FX lit: its pages, or FX on) */
         led_on(nl, panel.btn[B_FX]);
     for (i = 0; i < FM1_NCOL; i++)
         fm1_led[i] = nl[i];
@@ -3460,7 +3528,7 @@ static void ui_input(void)
             ui_force = 1;
             break;
         case B_FX:                                      /* the resonator, the shimmer, back HOME */
-            sys.page = sys.page == 2u ? 3u : sys.page == 3u ? 0u : 2u;
+            sys.page = sys.page == 2u ? 20u : sys.page == 20u ? 3u : sys.page == 3u ? 0u : 2u;   /* (FX, MOD, SHIMMER) */
             ui_force = 1;
             break;
         case B_REC:                                     /* the TAPE page; there (and on FREE EG's): record */
@@ -3763,6 +3831,11 @@ static void ui_input(void)
         knob(&sys.sh_decay, EN_K2, 1);
         knob(&sys.sh_shimmer, EN_K3, 2);
         knob(&sys.sh_mix, EN_K4, 3);
+    } else if (sys.page == 20u) {               /* MOD FX: RATE, DEPTH, RECTIFY, MIX */
+        knob(&sys.mfx_rate, EN_K1, 0);
+        knob(&sys.mfx_depth, EN_K2, 1);
+        knob(&sys.mfx_rect, EN_K3, 2);
+        knob(&sys.mfx_mix, EN_K4, 3);
     } else if (sys.page == 2u) {
         knob(&sys.fx_struct, EN_K1, 0);
         knob(&sys.fx_bright, EN_K2, 1);
@@ -3880,6 +3953,11 @@ static void ui_input(void)
         str_cpy(t, SH_SPACE_NAME[sys.sh_space], sizeof t);
         ui_cat(t, sizeof t, " ");
         ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
+        ui_say(t);
+    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, SHIFT UP, DOWN, TREMOLO) */
+        sys.mfx_mode = (uint8_t)(((int32_t)sys.mfx_mode + MF_COUNT * 8 + s) % MF_COUNT);
+        str_cpy(t, "MOD FX ", sizeof t);
+        ui_cat(t, sizeof t, MF_NAME[sys.mfx_mode]);
         ui_say(t);
     } else if (s && sys.page == 2u) {
         duck_begin();
