@@ -104,7 +104,7 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
         const preset_t *p = &PRESETS[i];
         if (upre_has(i)) {
             for (k = 0; k < PR_N; k++)
-                a[k] = upre_v(i)[k];
+                a[k] = pr_v(upre_v(i), k);
             a[27] = (uint8_t)PR_SPACE(a[27]);            /* (the SPACE alone: the octave is written below) */
         }
         else {
@@ -141,6 +141,11 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
                 fmt_int(v, o);
                 ui_cat(t, sizeof t, v);
             }
+        }
+        if (!upre_has(i) && p->mfx) {            /* (its MOD FX: MFX_PRE's index + 1) */
+            ui_cat(t, sizeof t, ", .mfx = ");
+            fmt_int(v, p->mfx);
+            ui_cat(t, sizeof t, v);
         }
         ui_cat(t, sizeof t, upre_has(i) ? "},   /* SAVED */" : "},");
         rm_send(0x52, (const uint8_t *)t, str_len(t), 1);

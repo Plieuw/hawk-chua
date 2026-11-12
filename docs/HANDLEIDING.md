@@ -399,13 +399,17 @@ VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (verme
 1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8., 1/8, 1/8T, 1/16., 1/16, 1/16T, 1/32: één cyclus van het circuit), bij RING MOD de RATIO (elke noot zijn
 eigen circuit op de noot × 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 5/3, 2, 5/2, 3, 4, 5, 6 of 8, zodat de zijbanden
 harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger ruwer),
-PRESETS 16 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
-SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
+PRESETS 25 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
+SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP, EP TREMOLO, VIBES
+MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
 glijden),
 KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF + of HALF −), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
 parameter VIBRATO of RING MOD (ook in de lijst van FREE EG en MOD ENV). Wiel omhoog zet die stand aan, zo
-veel als het wiel op staat (met RATE, SLEW en RECTIFY van deze pagina), ook als MOD FX hier op OFF staat; wiel omlaag: weer zoals de pagina het zegt. Het scherm tekent per stand zijn eigen beeld. Wordt met SAVE bewaard (niet per preset).
+veel als het wiel op staat (met RATE, SLEW en RECTIFY van deze pagina), ook als MOD FX hier op OFF staat; wiel omlaag: weer zoals de pagina het zegt. Het scherm tekent per stand zijn eigen beeld. Het hoort bij de preset: zo'n 130 presets hebben een eigen MOD FX
+die bij hun klank past (de E.PIANO's en VIBRAPHONE een tremolo, de orgels, strijkers, fluiten en saxen een vibrato,
+klokken en sci-fi een ring mod met een harmonische ratio, pads een trage golf), de rest staat op OFF; SAVE bewaart het
+met de preset.
 
 **De shimmer reverb (FX, derde scherm).** Een stereo galm (4 vertragingslijnen met een Householder-matrix) met een
 toonhoogteverschuiver in de terugkoppeling. Elke ronde door de galm (60–110 ms) schuift een deel van de staart een
