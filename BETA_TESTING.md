@@ -6,6 +6,7 @@ This branch is a test build based on the current `main` branch. It is deliberate
 
 - Retains the 2.1.3 bit-identical fast path: when ORBIT is off and the voice is centred, it renders directly into its resonator bus without clearing/copying a temporary audio block.
 - Adds a second bit-identical mixer optimization: for panned voices, the dry-bus addition and the one-sided pan addition are fused into one frame loop. This avoids a second pass over the temporary block.
+- Adds a third bit-identical DSP optimization: the CHUA output mixer skips multiplications for components whose OUTPUT weight is zero. The output blend only ever contains one or two adjacent components; the fixed-point sum and final shift are unchanged.
 - The panning arithmetic, voice samples, ORBIT processing, resonator routing and all other DSP remain unchanged.
 - Existing presets, MIDI mappings, UI controls, storage format and update path are not intentionally changed.
 
@@ -28,4 +29,4 @@ Do not treat a beta artifact as a stable release. If anything behaves unexpected
 
 ## Compatibility promise
 
-The optimization is intended to be bit-identical. The existing host regression suite is the gate for merging it. No feature is intentionally removed, renamed or remapped.
+The optimization is intended to be bit-identical. The existing host regression suite is the gate for merging it. The basis test also compares the optimized CHUA output against the original three-component expression for all 128 OUTPUT knob values and multiple signed circuit states. No feature is intentionally removed, renamed or remapped.
