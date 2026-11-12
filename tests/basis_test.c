@@ -2865,6 +2865,42 @@ int main(int argc, char **argv)
         sys.multi = m0; sys.mfx_mode = a0; memcpy(part_b_mfx, b0, 5);
         run_ms(20);
     }
+    {   /* MONO: one voice, the newest key; let go: back to the one under; POLY again after */
+        int okk = 1;
+        uint32_t k2, n1 = 0;
+        synth_kill(); keys_all_off(); run_ms(10);
+        part_mono[0] = 1;
+        synth_note_on(60, 100); synth_note_on(64, 100); run_ms(10);
+        for (k2 = 0; k2 < NVOICE; k2++) n1 += voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN;
+        okk &= n1 == 1u;
+        for (k2 = 0; k2 < NVOICE; k2++) if (voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN) okk &= voice[k2].key == 64;
+        synth_note_off(64); run_ms(10);
+        n1 = 0;
+        for (k2 = 0; k2 < NVOICE; k2++) if (voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN) { n1++; okk &= voice[k2].key == 60; }
+        okk &= n1 == 1u;
+        synth_note_off(60); run_ms(10);
+        for (k2 = 0; k2 < NVOICE; k2++) okk &= voice[k2].stage != ST_ATTACK && voice[k2].stage != ST_SUSTAIN;
+        part_mono[0] = 0;
+        synth_note_on(60, 100); synth_note_on(64, 100); run_ms(10);
+        n1 = 0;
+        for (k2 = 0; k2 < NVOICE; k2++) n1 += voice[k2].stage == ST_ATTACK || voice[k2].stage == ST_SUSTAIN;
+        okk &= n1 == 2u;
+        synth_kill(); keys_all_off(); run_ms(10);
+        check("MONO: one voice, the newest key, back to the held one under; POLY: chords", okk);
+    }
+    {   /* MULTI: the knobs on part 2 (its sound in sys, A's out of the way; the audio as before), back on 1 */
+        uint8_t m0 = sys.multi, ca = sys.chaos, cb = part_b[0];
+        int okk = 1;
+        sys.multi = 1; sys.chaos = 10; part_b[0] = 100;
+        part_edit_to(1);
+        okk &= sys.chaos == 100 && part_b[0] == 10 && part_edit == 1;
+        run_ms(10);                                  /* (render: A swapped in and out again) */
+        okk &= sys.chaos == 100 && part_b[0] == 10;
+        part_edit_to(0);
+        okk &= sys.chaos == 10 && part_b[0] == 100 && !part_edit;
+        sys.multi = m0; sys.chaos = ca; part_b[0] = cb;
+        check("MULTI: the knobs edit part 2, then part 1 again", okk);
+    }
     {   /* the tuning: A 440, or A 432 (every note x 432 / 440) */
         uint32_t a440 = note_inc(69), a432;
         sys.tune432 = 1;

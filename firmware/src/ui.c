@@ -1074,12 +1074,27 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
 }
 /* MULTI: preset i as part B's sound (its values; A's put back, the audio held off a moment) */
 #include "preset_gain.h"                       /* LEVEL MATCH: each built-in preset's gain (tests/level_match.sh) */
+static void part_edit_set(uint32_t p)           /* the knobs on part p (B: only in MULTI), the audio held off */
+{
+    uint32_t irq = irq_save();
+    part_edit_to(p);
+    irq_restore(irq);
+}
 static void lvl_set(void)                        /* (each part at its preset's measured level, or as it is) */
 {
-    synth_pgain[0] = sys.lvl_match ? PRESET_GAIN[sys.preset % NPRESETS] : 4096;
-    synth_pgain[1] = sys.lvl_match ? PRESET_GAIN[part_b_preset % NPRESETS] : 4096;
+    synth_pgain[0] = sys.lvl_match ? PRESET_GAIN[part_preset(0) % NPRESETS] : 4096;
+    synth_pgain[1] = sys.lvl_match ? PRESET_GAIN[part_preset(1) % NPRESETS] : 4096;
 }
-static void part_b_load(uint32_t i)
+static void part_b_load_(uint32_t i);
+static void part_b_load(uint32_t i)              /* (B's preset: into B, edited or not) */
+{
+    uint32_t pe = part_edit;
+    part_edit_set(0);
+    part_b_load_(i);
+    part_edit_set(pe);
+    lvl_set();
+}
+static void part_b_load_(uint32_t i)
 {
     uint8_t sa[PR_N], sm[5], mw;
     int8_t tr;
@@ -1219,6 +1234,7 @@ typedef struct {
     uint8_t autoplay;                            /* (24: saved; before: on, once after this install) */
     uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, slew, rectify, mix; before: off) */
     uint8_t tune432;                             /* (26: saved; before: A 440) */
+    uint8_t mono;                                /* (27: saved, bit 0 A MONO, bit 1 B; before: POLY) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1354,6 +1370,8 @@ static void settings_boot(void)    /* power-on, before the audio */
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
         sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
+        part_mono[0] = (uint8_t)(s.snd >= 27u && (s.mono & 1u));
+        part_mono[1] = (uint8_t)(s.snd >= 27u && (s.mono & 2u));
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
             sys.ui_style = (uint8_t)(s.snd >= 20u ? s.ui_style % US_COUNT : US_PSYCHE);
             sys.ui_motion = (uint8_t)(s.ui_motion & 127u);
@@ -1382,9 +1400,12 @@ static void settings_boot(void)    /* power-on, before the audio */
 static settings_t set_saved;                     /* the state in flash (as last written, or found at boot) */
 static void settings_fill_now(settings_t *sp);
 static void settings_fill(settings_t *sp)        /* the state now, as saved: FREE EG's and the wheel's targets at the
-                                                  * values they give back (not where they move them) */
+                                                  * values they give back (not where they move them); A's sound as
+                                                  * A's while B is edited */
 {
-    uint32_t f = irq_save();
+    uint32_t pe = part_edit, f;
+    part_edit_set(0);
+    f = irq_save();
     volatile uint8_t *fe = feg.playing ? feg_field(feg.target) : 0, *mw = mwd.on ? feg_field(mwd.target) : 0;
     volatile uint8_t *me = menv_p.target && menv_p.moved ? feg_field(menv_p.target - 1u) : 0;
     uint8_t fv = fe ? *fe : 0, mv = mw ? *mw : 0, ev = me ? *me : 0;
@@ -1402,6 +1423,7 @@ static void settings_fill(settings_t *sp)        /* the state now, as saved: FRE
     if (me)
         *me = ev;
     irq_restore(f);
+    part_edit_set(pe);
 }
 static void settings_fill_now(settings_t *sp)
 {
@@ -1410,10 +1432,11 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 26;
+    s.snd = 27;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
+    s.mono = (uint8_t)(part_mono[0] | part_mono[1] << 1);
     s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
     s.menv_target = sys.menv_target;
@@ -1446,7 +1469,7 @@ static void settings_fill_now(settings_t *sp)
     s.bank = (uint8_t)(sys.preset >> 7);
     s.multi = sys.multi;
     s.ch_b = sys.ch_b;
-    s.preset_b = part_b_preset;
+    s.preset_b = part_preset(1);
     s.cpu2 = sys.cpu2;
     s.fx_model = sys.fx_model;
     s.fx_struct = sys.fx_struct;
@@ -2316,7 +2339,7 @@ static void draw_multi(void)
         } else
             ui_cat(a, sizeof a, "OMNI");
         cv_text(8, y, &AF_S, a, T_MID);
-        cv_text(96, y, &AF_S, PRESETS[(p ? part_b_preset : sys.preset) % NPRESETS].name, c);
+        cv_text(96, y, &AF_S, PRESETS[part_preset(p) % NPRESETS].name, c);
     }
     cv_text(8, 124, &AF_S, sys.multi ? "2 VOICES EACH, ONE SHIMMER" : "ALL 4 VOICES: A", T_DIM);
     cv_blit(0, PLOT_Y);
@@ -2662,9 +2685,12 @@ static void ui_draw(void)
     if (ui_force)
         lcd_fill(0, 0, 240, 240, T_BG);
     if (sys.page == 0u || sys.page == 14u || sys.page > 20u) {   /* HOME (and its BANK): the preset; elsewhere the page */
-        str_cpy(a, PRESETS[sys.preset % NPRESETS].name, sizeof a);
+        str_cpy(a, sys.multi ? (part_edit ? "2 " : "1 ") : "", sizeof a);   /* (MULTI: the part the knobs edit) */
+        ui_cat(a, sizeof a, PRESETS[sys.preset % NPRESETS].name);
         if (preset_edited())
             ui_cat(a, sizeof a, " *");
+        if (part_mono[sys.multi ? part_edit : 0u])
+            ui_cat(a, sizeof a, " MONO");
     } else {
         static const char *const TITLE[21] = {"", "LPG", "RESONATORS", "REVERB", "", "PITCH MOD", "ARPEGGIATOR", "MIDI",
                                               "LFO FREE EG", "SEQUENCER", "PANNING", "EDIT", "TAPE", "TAPE SPEED", "",
@@ -2696,12 +2722,12 @@ static void ui_draw(void)
             ui_cat(b, sizeof b, v);
         }
         ui_cell(T_C2, "2 PART B", b);
-        fmt_int(v, (int32_t)(part_b_preset >> 7) + 1);
+        fmt_int(v, (int32_t)(part_preset(1) >> 7) + 1);
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " ");
-        ui_cat(b, sizeof b, BANK_NAME[(part_b_preset >> 7) % NBANKS]);
+        ui_cat(b, sizeof b, BANK_NAME[(part_preset(1) >> 7) % NBANKS]);
         ui_cell(T_C3, "3 B BANK", b);
-        ui_cell(T_C4, "4 B PRESET", PRESETS[part_b_preset % NPRESETS].name);
+        ui_cell(T_C4, "4 B PRESET", PRESETS[part_preset(1) % NPRESETS].name);
     } else if (sys.page == 13u) {                       /* TAPE's SPEED: the BPM, the ratio, the tape's own tempo, the pitch */
         const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
         int32_t st = (int32_t)(sys.tape_spd % TAPE_NSPD) - 12, c = tape_cents(tape.speed);
@@ -2844,12 +2870,12 @@ static void ui_draw(void)
         ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
         fmt_int(v, sys.ch_b);
         ui_cell(T_C2, "2 B CHANNEL", sys.ch_b ? v : "OMNI");
-        fmt_int(v, (int32_t)(part_b_preset >> 7) + 1);
+        fmt_int(v, (int32_t)(part_preset(1) >> 7) + 1);
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " ");
-        ui_cat(b, sizeof b, BANK_NAME[(part_b_preset >> 7) % NBANKS]);
+        ui_cat(b, sizeof b, BANK_NAME[(part_preset(1) >> 7) % NBANKS]);
         ui_cell(T_C3, "3 B BANK", b);
-        fmt_int(v, (int32_t)(part_b_preset & 127u) + 1);
+        fmt_int(v, (int32_t)(part_preset(1) & 127u) + 1);
         ui_cell(T_C4, "4 B PROGRAM", v);
     } else if (sys.page == 7u) {
         static const char *const USBN[4] = {"OFF", "IN", "OUT", "IN + OUT"};
@@ -3385,7 +3411,19 @@ static void ui_leds(void)
         if (wait && fm1_ms % beat < beat / 6u)
             notes = 0xFFFFFFFFu;
     }
-    if (sys.page == 0u && ui_hot < 4u && fm1_ms - ui_hot_ms < 800u) {   /* an oscillator knob turned: the keys a bar of
+    if (fm1_in.buttons & btn_bit(B_HOME)) {     /* HOME held: OP1, OP2 (the part edited: lit; the other: blinking,
+                                                  * MULTI on), MONO, POLY (the part's: lit; the other: blinking) */
+        uint32_t bl = fm1_ms / 250u & 1u, mo = part_mono[sys.multi ? part_edit : 0u];
+        notes = 0;
+        if (!part_edit || bl)
+            notes |= 1u << KEY_OP1;
+        if (sys.multi && (part_edit || bl))
+            notes |= 1u << KEY_OP2;
+        if (mo || bl)
+            notes |= 1u << KEY_MONO;
+        if (!mo || bl)
+            notes |= 1u << KEY_POLY;
+    } else if (sys.page == 0u && ui_hot < 4u && fm1_ms - ui_hot_ms < 800u) {   /* an oscillator knob turned: the keys a bar of
                                                   * its value, low to high */
         uint32_t nk = 1u + (uint32_t)us_kn(ui_hot) * (NKEYS - 1u) / 127u;
         notes |= nk >= 32u ? 0xFFFFFFFFu : (1u << nk) - 1u;
@@ -3737,6 +3775,27 @@ static uint8_t arp_pre = 0xFF, seq_pre = 0xFF, mfx_pre = 0xFF;   /* (none chosen
 
 static void ui_input(void)
 {
+    kb_home = (fm1_in.buttons & btn_bit(B_HOME)) != 0u;   /* (keys.c: HOME held, its black keys not notes) */
+    if (!sys.multi && part_edit)                 /* (MULTI off: the knobs on A) */
+        part_edit_set(0);
+    if (home_key_req) {                          /* HOME held + OP1, OP2, MONO, POLY */
+        uint32_t k = home_key_req - 1u;
+        home_key_req = 0;
+        if (k == KEY_OP1 || k == KEY_OP2) {
+            if (k == KEY_OP2 && !sys.multi)
+                ui_say("PART 2: MULTI OFF (GLO)");
+            else {
+                part_edit_set(k == KEY_OP2);
+                ui_say(part_edit ? "EDIT PART 2" : "EDIT PART 1");
+            }
+        } else {
+            uint32_t pp = sys.multi ? part_edit : 0u;
+            part_mono[pp] = (uint8_t)(k == KEY_MONO);
+            mono_n[pp] = 0;
+            ui_say(part_mono[pp] ? "MONO" : "POLY");
+        }
+        ui_force = 1;
+    }
     preset_keep();
     uint32_t pressed = fm1_input_edges(0) | rm_btn, b;
     int32_t s;
@@ -3747,7 +3806,7 @@ static void ui_input(void)
         keys_prog_req_b = 0;
         part_b_load(pg);
         str_cpy(t, "B: ", sizeof t);
-        ui_cat(t, sizeof t, PRESETS[part_b_preset % NPRESETS].name);
+        ui_cat(t, sizeof t, PRESETS[part_preset(1) % NPRESETS].name);
         ui_say(t);
     }
     if (keys_prog_req) {                                /* MIDI program change: that preset */
@@ -3830,6 +3889,12 @@ static void ui_input(void)
                 sys.arp_on = 1;
                 ui_say("ARP + KARMA ON");
             }
+            if (sys.page != 6u && sys.page != 18u && !sys.arp_on) {   /* (opened: it plays at once, AUTOPLAY: no notes
+                                                         * chosen yet: C major, latched) */
+                sys.arp_on = 1;
+                rt_auto = 3;
+                ui_say(sys.k_on ? "ARP + KARMA ON" : "ARP ON");
+            }
             sys.page = sys.page == 6u ? 18u : sys.page == 18u ? 0u : 6u;   /* (the ARP, its GROOVE, back) */
             play_last = 0;
             ui_force = 1;
@@ -3841,6 +3906,11 @@ static void ui_input(void)
                     sys.k_logic = 1;
                 sys.k_on = 1;
                 ui_say("ARP + KARMA ON");
+            }
+            if (sys.page != 9u && sys.page != 17u && !sys.k_on) {   /* (opened: it plays at once, as the ARP) */
+                sys.k_on = 1;
+                rt_auto = 3;
+                ui_say(sys.arp_on ? "ARP + KARMA ON" : "KARMA ON");
             }
             sys.page = sys.page == 9u ? 17u : sys.page == 17u ? 0u : 9u;   /* (KARMA, LOGIC, back) */
             play_last = 1;
@@ -4033,12 +4103,12 @@ static void ui_input(void)
             ui_hot = 1; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K3)) != 0) {
-            part_b_load((uint32_t)(((int32_t)(part_b_preset >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
-                                   (int32_t)NBANKS) * 128u + (part_b_preset & 127u));
+            part_b_load((uint32_t)(((int32_t)(part_preset(1) >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
+                                   (int32_t)NBANKS) * 128u + (part_preset(1) & 127u));
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K4)) != 0) {
-            part_b_load((part_b_preset & ~127u) + (uint32_t)(((int32_t)(part_b_preset & 127u) + 128 * 8 + s) % 128));
+            part_b_load((part_preset(1) & ~127u) + (uint32_t)(((int32_t)(part_preset(1) & 127u) + 128 * 8 + s) % 128));
             ui_hot = 3; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 7u) {                /* MIDI: an input changed: what it held let go (no note hangs) */
@@ -4134,16 +4204,16 @@ static void ui_input(void)
             ui_say(!m ? "PART B OFF" : m == 1 ? "PART B OMNI: LAYERED" : "PART B ON ITS CHANNEL");
         }
         if ((s = ui_enc(EN_K3)) != 0) {
-            part_b_load((uint32_t)(((int32_t)(part_b_preset >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
-                                   (int32_t)NBANKS) * 128u + (part_b_preset & 127u));
+            part_b_load((uint32_t)(((int32_t)(part_preset(1) >> 7) + (int32_t)NBANKS * 8 + (s > 0 ? 1 : -1)) %
+                                   (int32_t)NBANKS) * 128u + (part_preset(1) & 127u));
             str_cpy(t, "B: ", sizeof t);
-            ui_cat(t, sizeof t, PRESETS[part_b_preset % NPRESETS].name);
+            ui_cat(t, sizeof t, PRESETS[part_preset(1) % NPRESETS].name);
             ui_say(t);
         }
         if ((s = ui_enc(EN_K4)) != 0) {
-            part_b_load((part_b_preset & ~127u) + (uint32_t)(((int32_t)(part_b_preset & 127u) + 128 * 8 + s) % 128));
+            part_b_load((part_preset(1) & ~127u) + (uint32_t)(((int32_t)(part_preset(1) & 127u) + 128 * 8 + s) % 128));
             str_cpy(t, "B: ", sizeof t);
-            ui_cat(t, sizeof t, PRESETS[part_b_preset % NPRESETS].name);
+            ui_cat(t, sizeof t, PRESETS[part_preset(1) % NPRESETS].name);
             ui_say(t);
         }
     }

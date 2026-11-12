@@ -693,6 +693,12 @@ int main(int argc, char **argv)
 
     edges = btn_bit(B_SEQ);              /* the KARMA page: off, then on with a phrase playing (filled in) */
     ui_input();
+    if (!sys.k_on) {                     /* (opened: it plays at once) */
+        printf("ui shots: opening the KARMA page did not start KARMA\n");
+        bad = 1;
+    }
+    sys.k_on = 0;
+    rt_auto = 0;
     frames(2);
     bad |= shot(dir, "n_karma_off");
     edges = btn_bit(B_PLAY);             /* (PLAY starts it) */

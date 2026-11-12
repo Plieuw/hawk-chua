@@ -313,6 +313,21 @@ static uint8_t part_b_mfx[5];                    /* and its MOD FX (mode, rate, 
 static volatile uint8_t *const PART_MFX[5] = {&sys.mfx_mode, &sys.mfx_rate, &sys.mfx_slew, &sys.mfx_rect, &sys.mfx_mix};
 static int8_t part_b_tr;                         /* and its octave */
 static uint16_t part_b_preset;                   /* (which preset: the GLO page shows its name) */
+/* the part the knobs edit (HOME held + OP1 / OP2, MULTI): its sound in sys, the other's in part_b (and the presets'
+ * numbers so). The audio sees A in sys and B in part_b always: keys_block and synth_render swap in and out (part_edit:
+ * 1 B edited). MONO / POLY: each part's (HOME held + MONO, POLY) */
+static uint8_t part_edit, part_mono[2];
+/* HOME held: the black keys OP1, OP2 (the part the knobs edit), MONO, POLY (its voices) do that, not notes */
+#define KEY_OP1 1u                               /* (F#3) */
+#define KEY_OP2 3u                               /* (G#3) */
+#define KEY_MONO 20u                             /* (C#5) */
+#define KEY_POLY 22u                             /* (D#5) */
+static volatile uint8_t home_key_req;            /* (ui.c: the key + 1) */
+static volatile uint8_t kb_home;                 /* (ui.c: HOME held) */
+static volatile uint8_t rt_auto;                 /* MIDI START / CONTINUE (1) or STOP (2) under CLOCK EXTERNAL: keys_block; 3: ui.c, ARP / SEQ opened:
+                                                  * C major if no notes */
+
+static uint8_t mono_held[2][10], mono_n[2], mono_vel[2];
 static void part_swap(void)                      /* B's sound into sys, A's out (again: back) */
 {
     uint32_t k;
@@ -331,6 +346,19 @@ static void part_swap(void)                      /* B's sound into sys, A's out 
     sys.transpose = part_b_tr;
     part_b_tr = t;
 }
+static void part_edit_to(uint32_t p)            /* the knobs on part p (B: only in MULTI; ui.c part_edit_set: the IRQs off) */
+{
+    uint16_t t;
+    p = sys.multi ? p & 1u : 0u;
+    if (p == part_edit)
+        return;
+    part_swap();
+    t = sys.preset;
+    sys.preset = part_b_preset;
+    part_b_preset = t;
+    part_edit = (uint8_t)p;
+}
+static uint16_t part_preset(uint32_t p) { return (p & 1u) == part_edit ? sys.preset : part_b_preset; }   /* (A's, B's) */
 #define PART_LO() (sys.multi ? (uint32_t)syn_part * (NVOICE / 2u) : 0u)
 #define PART_N() (sys.multi ? NVOICE / 2u : NVOICE)
 static int16_t synth_pan_next;                  /* karma.c: the next note's place instead (synth_pan_set) */
@@ -394,6 +422,28 @@ static void synth_note_on(uint32_t key, uint32_t vel)
         note = (uint32_t)t;
     }
     uint32_t lo = PART_LO(), pn = PART_N();         /* (MULTI: the part's voices) */
+    uint32_t mp = sys.multi ? syn_part & 1u : 0u;
+    if (part_mono[mp]) {                            /* MONO: the part's one voice takes the note (the others let go);
+                                                     * the key on top of the held ones (let go: back to the one under) */
+        uint32_t j, w = 0;
+        for (j = 0; j < mono_n[mp]; j++)
+            if (mono_held[mp][j] != key)
+                mono_held[mp][w++] = mono_held[mp][j];
+        if (w >= 10u) {                             /* (full: the oldest out) */
+            for (j = 0; j < 9u; j++)
+                mono_held[mp][j] = mono_held[mp][j + 1u];
+            w = 9;
+        }
+        mono_held[mp][w++] = (uint8_t)key;
+        mono_n[mp] = (uint8_t)w;
+        mono_vel[mp] = (uint8_t)vel;
+        for (i = lo; i < lo + pn; i++)
+            if (voice[i].stage != ST_OFF && (!v || voice[i].age > v->age))
+                v = &voice[i];
+        for (i = lo; i < lo + pn; i++)
+            if (&voice[i] != v && (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN))
+                voice[i].stage = ST_RELEASE;
+    }
     for (i = lo; i < lo + pn && !v; i++)            /* the same key again: retrigger its voice */
         if (voice[i].stage != ST_OFF && voice[i].key == key)
             v = &voice[i];
@@ -471,7 +521,25 @@ steal:
 
 static void synth_note_off(uint32_t key)
 {
-    uint32_t i;
+    uint32_t i, mp = sys.multi ? syn_part & 1u : 0u;
+    if (part_mono[mp]) {                            /* MONO: off the held ones; the top let go: back to the one under */
+        uint32_t j, w = 0, top = mono_n[mp] && mono_held[mp][mono_n[mp] - 1u] == key;
+        for (j = 0; j < mono_n[mp]; j++)
+            if (mono_held[mp][j] != key)
+                mono_held[mp][w++] = mono_held[mp][j];
+        mono_n[mp] = (uint8_t)w;
+        if (top && w) {
+            uint32_t back = mono_held[mp][w - 1u];
+            mono_n[mp] = (uint8_t)(w - 1u);         /* (note_on puts it on top again) */
+            if (mp && sys.multi) {                  /* (B's: its sound in sys while it starts) */
+                part_swap();
+                synth_note_on(back, mono_vel[mp]);
+                part_swap();
+            } else
+                synth_note_on(back, mono_vel[mp]);
+            return;
+        }
+    }
     for (i = 0; i < NVOICE; i++)
         if (voice[i].key == key && (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN) &&
             (!sys.multi || voice[i].part == syn_part))
@@ -512,6 +580,7 @@ static void play_off(uint32_t key)
 static void synth_all_off(void)
 {
     uint32_t i;
+    mono_n[0] = mono_n[1] = 0;
     for (i = 0; i < NVOICE; i++)
         if (voice[i].stage == ST_ATTACK || voice[i].stage == ST_SUSTAIN)
             voice[i].stage = ST_RELEASE;
@@ -520,6 +589,7 @@ static void synth_all_off(void)
 static void synth_kill(void)
 {
     uint32_t i;
+    mono_n[0] = mono_n[1] = 0;
     for (i = 0; i < NVOICE; i++)
         voice[i].stage = ST_OFF;
     ksm[0].ok = ksm[1].ok = 0;                      /* (the knobs: taken at once again) */
@@ -945,7 +1015,16 @@ static void spk_bass(int32_t *l, int32_t *r, uint32_t n)
     }
 }
 static volatile uint32_t synth_out_lvl;          /* (ui.c: the ENV light) */
-static void synth_render(int32_t *out, uint32_t n)
+static void synth_render_(int32_t *out, uint32_t n);
+static void synth_render(int32_t *out, uint32_t n)   /* (A in sys while it renders: B edited swapped out and back) */
+{
+    if (part_edit)
+        part_swap();
+    synth_render_(out, n);
+    if (part_edit)
+        part_swap();
+}
+static void synth_render_(int32_t *out, uint32_t n)
 {
     uint32_t i, k, busy = 0, newest = 0, mask = 0, own = 0;
     int32_t m = (int32_t)sys.master_q12, sum[CTL], dl[CTL], dr[CTL], basis = (int32_t)(sys.basis & 127u);

@@ -39,7 +39,6 @@ static uint8_t sost_on;                          /* SOSTENUTO (CC 66) down */
 
 enum { OWN_SYNTH, OWN_ARP, OWN_KARMA, OWN_BOTH };   /* who the notes held go to (BOTH: LOGIC) */
 static uint8_t own_was, arp_was_hold, k_was_latch, k_was_on, arp_was_on;
-static volatile uint8_t rt_auto;                 /* MIDI START / CONTINUE (1) or STOP (2) under CLOCK EXTERNAL: keys_block */
 static uint32_t owner(void) { return logic_on() ? OWN_BOTH : sys.k_on ? OWN_KARMA : sys.arp_on ? OWN_ARP : OWN_SYNTH; }
 
 static void note_start(uint32_t note, uint32_t vel)
@@ -158,6 +157,12 @@ static void keyboard_block(void)
             continue;
         if ((cur >> k) & 1u) {                   /* down */
             int32_t n = KEY_BASE_NOTE + (int32_t)k + 12 * sys.octave;
+            if (kb_home &&
+                (k == KEY_OP1 || k == KEY_OP2 || k == KEY_MONO || k == KEY_POLY)) {
+                home_key_req = (uint8_t)(k + 1u);
+                kb_note[k] = KB_SILENT;
+                continue;
+            }
             if (kb_boot_hold || n < 0 || n > 127) {
                 kb_note[k] = KB_SILENT;
                 continue;
@@ -404,7 +409,16 @@ static void menv_param(void)
     }
 }
 
-static void keys_block(void)
+static void keys_block_(void);
+static void keys_block(void)                     /* (A's sound in sys while the keys play: B edited swapped out, back) */
+{
+    if (part_edit)
+        part_swap();
+    keys_block_();
+    if (part_edit)
+        part_swap();
+}
+static void keys_block_(void)
 {
     if (keys_panic_req) {
         keys_panic_req = 0;
