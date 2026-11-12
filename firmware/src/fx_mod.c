@@ -83,7 +83,7 @@ static uint32_t mf_steps(uint32_t inc, int32_t *hs, int32_t *ahs, int32_t *bhs)
 static inline int32_t mf_clip(int32_t x) { return x > 32767 ? 32767 : x < -32768 ? -32768 : x; }
 
 /* a sample of a circuit: stepped, read, rectified (its DC off: dc, k its speed), slewed (sl, sk: Q16) */
-static int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs, int32_t bhs, uint32_t rect, int32_t *dc,
+static inline int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs, int32_t bhs, uint32_t rect, int32_t *dc,
                          uint32_t k, int32_t *sl, int32_t sk)
 {
     uint32_t j;
@@ -145,16 +145,19 @@ static int mf_gen(uint32_t n)
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
         ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
     }
-    for (i = 0; i < n; i++) {
-        int32_t m = 0;
-        if (mode != MF_RING)
-            m = mf_sample(&mf.s, ns, hs, ahs, bhs, rect, &mf.dcl, 12u, &mf.sl, mf.sk);
-        mf.m[i] = m;
-        if (!(mf_view.c++ & 255u))
-            mf_view.m[mf_view.w++ & 63u] = (int16_t)m;
-        if (mode != MF_RING && (i & 1u))
-            mf_view.mf[mf_view.mw++ & 255u] = (int16_t)m;
-    }
+    if (mode == MF_RING) {                       /* (RING: each bus its own circuit, mf_apply; the slow trace still) */
+        for (i = 0; i < n; i++)
+            if (!(mf_view.c++ & 255u))
+                mf_view.m[mf_view.w++ & 63u] = 0;
+    } else
+        for (i = 0; i < n; i++) {
+            int32_t m = mf_sample(&mf.s, ns, hs, ahs, bhs, rect, &mf.dcl, 12u, &mf.sl, mf.sk);
+            mf.m[i] = m;
+            if (!(mf_view.c++ & 255u))
+                mf_view.m[mf_view.w++ & 63u] = (int16_t)m;
+            if (i & 1u)
+                mf_view.mf[mf_view.mw++ & 255u] = (int16_t)m;
+        }
     mf.vb = mf.vw;
     mf.vw += n;
     mf.seen = 0;
@@ -189,35 +192,34 @@ static void mf_apply(uint32_t ch, int32_t *w, uint32_t n, uint32_t inc)
         view = !mf.seen;                         /* (the first bus sounding: the MOD page's trace) */
         mf.seen = 1;
     }
-    for (i = 0; i < n; i++) {
-        int32_t x = w[i], m = mf.m[i], wet;
-        if (mode == MF_RING) {
-            m = mf_sample(&C->s, ns, hs, ahs, bhs, mf.rect, &C->dc, 10u, &C->sl, mf.sk);
+    /* (a loop a mode: nothing decided per sample) */
+    if (mode == MF_RING) {                       /* x times the circuit (x 2: its swing about full) */
+        uint32_t rect = mf.rect;
+        int32_t sk = mf.sk;
+        for (i = 0; i < n; i++) {
+            int32_t x = w[i], m = mf_sample(&C->s, ns, hs, ahs, bhs, rect, &C->dc, 10u, &C->sl, sk), wet;
             if (view && (i & 1u))
                 mf_view.mf[mf_view.mw++ & 255u] = (int16_t)m;
-        }
-        switch (mode) {
-        case MF_VIBRATO: {                       /* the line read late by 4 ms +- up to 3.6 ms (linear in between) */
-            uint32_t d16 = (uint32_t)(176 * 65536 + m * 316), di, fr, p = mf.vb + i;
-            int32_t a0, a1;
-            C->vl[p & (MF_VLEN - 1u)] = (int16_t)mf_clip(x);
-            di = d16 >> 16;
-            fr = d16 >> 1 & 32767u;
-            a0 = C->vl[(p - di) & (MF_VLEN - 1u)];
-            a1 = C->vl[(p - di - 1u) & (MF_VLEN - 1u)];
-            wet = a0 + (((a1 - a0) * (int32_t)fr) >> 15);
-            break;
-        }
-        case MF_RING:                            /* x times the circuit (x 2: its swing about full) */
             wet = (int32_t)(((int64_t)x * m) >> 14);
-            break;
-        default: {                               /* TREMOLO: the level dipped by the slow circuit */
-            wet = (int32_t)(((int64_t)x * (16384 + (m >> 1))) >> 15);
-            break;
+            w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
         }
+    } else if (mode == MF_VIBRATO) {             /* the line read late by 4 ms +- up to 3.6 ms (linear in between) */
+        uint32_t p = mf.vb;
+        int16_t *vl = C->vl;
+        for (i = 0; i < n; i++, p++) {
+            int32_t x = w[i], a0, a1, wet;
+            uint32_t d16 = (uint32_t)(176 * 65536 + mf.m[i] * 316), di = d16 >> 16, fr = d16 >> 1 & 32767u;
+            vl[p & (MF_VLEN - 1u)] = (int16_t)mf_clip(x);
+            a0 = vl[(p - di) & (MF_VLEN - 1u)];
+            a1 = vl[(p - di - 1u) & (MF_VLEN - 1u)];
+            wet = a0 + (((a1 - a0) * (int32_t)fr) >> 15);
+            w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
         }
-        w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
-    }
+    } else                                       /* TREMOLO: the level dipped by the slow circuit */
+        for (i = 0; i < n; i++) {
+            int32_t x = w[i], wet = (int32_t)(((int64_t)x * (16384 + (mf.m[i] >> 1))) >> 15);
+            w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
+        }
 }
 
 static void mf_scope(const int32_t *s, uint32_t n)   /* (what it made: the MOD page's lower trace) */

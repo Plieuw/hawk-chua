@@ -151,7 +151,7 @@ static inline uint32_t np_mul(uint32_t inc, uint32_t r16) { return (uint32_t)(((
 /* FM: the increment moved by mod (Q15) x index (Q15, 1.0 = +-100 % of the increment) */
 static inline uint32_t np_fm(uint32_t inc, int32_t mod, int32_t idx)
 {
-    int32_t d = (int32_t)(((int64_t)(int32_t)(inc >> 1) * mod * idx) >> 29);
+    int32_t d = (int32_t)(((int64_t)(int32_t)(inc >> 1) * (mod * idx)) >> 29);   /* (mod x idx < 2^30: one 64-bit product) */
     return d < -(int32_t)(inc - (inc >> 4)) ? inc >> 4 : inc + (uint32_t)d;   /* (never at a standstill: an */
 }                                                                           /* oscillator stuck would go silent) */
 /* a ratio from a knob: 2^(lo + (hi - lo) k / 32767) octaves, Q16 */

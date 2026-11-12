@@ -51,7 +51,7 @@
 
 typedef struct { int32_t x, y, z; } chua_t;
 
-static int32_t chua_g(int32_t x)                 /* the Chua diode */
+static inline int32_t chua_g(int32_t x)          /* the Chua diode */
 {
     int32_t a = x < 0 ? -x : x, g;
     if (a < C1)
@@ -63,20 +63,19 @@ static int32_t chua_g(int32_t x)                 /* the Chua diode */
     return x < 0 ? -g : g;
 }
 
-/* one substep of hs time units; ahs = alpha * hs, bhs = beta * hs (all Q24) */
-static void chua_step(chua_t *s, int32_t hs, int32_t ahs, int32_t bhs)
+/* one substep of hs time units; ahs = alpha * hs, bhs = beta * hs (all Q24) (the state in locals: in registers) */
+static inline void chua_step(chua_t *s, int32_t hs, int32_t ahs, int32_t bhs)
 {
-    chua_t m;
-    int32_t dx, dy, dz;
-    dx = (int32_t)(((int64_t)ahs * (s->y - s->x - chua_g(s->x))) >> 24);   /* k1 */
-    dy = (int32_t)(((int64_t)hs * (s->x - s->y + s->z)) >> 24);
-    dz = (int32_t)(((int64_t)-bhs * s->y) >> 24);
-    m.x = s->x + dx / 2;                                                    /* the midpoint */
-    m.y = s->y + dy / 2;
-    m.z = s->z + dz / 2;
-    s->x += (int32_t)(((int64_t)ahs * (m.y - m.x - chua_g(m.x))) >> 24);   /* k2 */
-    s->y += (int32_t)(((int64_t)hs * (m.x - m.y + m.z)) >> 24);
-    s->z += (int32_t)(((int64_t)-bhs * m.y) >> 24);
+    int32_t x = s->x, y = s->y, z = s->z, dx, dy, dz, mx, my, mz;
+    dx = (int32_t)(((int64_t)ahs * (y - x - chua_g(x))) >> 24);   /* k1 */
+    dy = (int32_t)(((int64_t)hs * (x - y + z)) >> 24);
+    dz = (int32_t)(((int64_t)-bhs * y) >> 24);
+    mx = x + dx / 2;                                              /* the midpoint */
+    my = y + dy / 2;
+    mz = z + dz / 2;
+    s->x = x + (int32_t)(((int64_t)ahs * (my - mx - chua_g(mx))) >> 24);   /* k2 */
+    s->y = y + (int32_t)(((int64_t)hs * (mx - my + mz)) >> 24);
+    s->z = z + (int32_t)(((int64_t)-bhs * my) >> 24);
 }
 
 /* The saturated circuit's outer cycle coexists with the inner attractors: once a circuit is on it (CHAOS turned up into
@@ -523,7 +522,7 @@ static void synth_kill(void)
 }
 
 /* the ADSR and the gate's control, one frame; 1 = the voice is done */
-static int env_frame(voice_t *v)
+static inline int env_frame(voice_t *v)
 {
     switch (v->stage) {
     case ST_ATTACK:
@@ -578,7 +577,7 @@ static void lpg_coefs(voice_t *v)
 /* one frame through the gate: x the circuit's output (Q15), the gate's level and filter -> Q15. The states are Q23
  * (a full-scale input rung up 40 times still fits), the products rounded (no bias: a ring decays to nothing) */
 #define LPG_R (1ll << 27)
-static int32_t lpg_frame(voice_t *v, int32_t x)
+static inline int32_t lpg_frame(voice_t *v, int32_t x)
 {
     int32_t v0, v1, v2, v3, lvl = (int32_t)(((v->ctl >> 15) * v->amp) >> 15);   /* Q15 */
     if (!v->lpg_n--) {
@@ -825,18 +824,25 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
                 a2[k] = (int32_t)(((int64_t)r * r) >> 28);
                 nk++;
             }
-            for (i = 0; i < n; i++) {
-                int32_t x = t[i], s;
-                for (k = 0; k < nk; k++) {       /* y = a2 x + a1 x1 + x2 - a1 y1 - a2 y2 */
-                    int32_t y = (int32_t)(((int64_t)a2[k] * x + (int64_t)a1[k] * (v->apx[k][0] - v->apy[k][0]) -
-                                           (int64_t)a2[k] * v->apy[k][1]) >> 28) + v->apx[k][1];
-                    v->apx[k][1] = v->apx[k][0];
-                    v->apx[k][0] = x;
-                    v->apy[k][1] = v->apy[k][0];
-                    v->apy[k][0] = y;
-                    x = y;
+            int32_t u[CTL];
+            memcpy(u, t, n * sizeof u[0]);
+            for (k = 0; k < nk; k++) {           /* (a stage at a time over the block: its state in registers) */
+                int32_t b1 = a1[k], b2 = a2[k], x0 = v->apx[k][0], x1 = v->apx[k][1], y0 = v->apy[k][0], y1 = v->apy[k][1];
+                for (i = 0; i < n; i++) {        /* y = a2 x + a1 x1 + x2 - a1 y1 - a2 y2 */
+                    int32_t x = u[i], y = (int32_t)(((int64_t)b2 * x + (int64_t)b1 * (x0 - y0) - (int64_t)b2 * y1) >> 28) + x1;
+                    x1 = x0;
+                    x0 = x;
+                    y1 = y0;
+                    y0 = y;
+                    u[i] = y;
                 }
-                s = (t[i] - x) / 2 * orbit / 127 / 2;   /* the side, at most half the voice */
+                v->apx[k][0] = x0;
+                v->apx[k][1] = x1;
+                v->apy[k][0] = y0;
+                v->apy[k][1] = y1;
+            }
+            for (i = 0; i < n; i++) {
+                int32_t s = (t[i] - u[i]) / 2 * orbit / 127 / 2;   /* the side, at most half the voice */
                 dl[i] -= s;                             /* (L = dry - dl, R = dry - dr) */
                 dr[i] += s;
             }
