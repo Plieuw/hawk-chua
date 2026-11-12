@@ -59,6 +59,9 @@ time with your gear.
 
 1. Open **https://plieuw.github.io/hawk-chua/** in Chrome or Edge.
 2. Connect the FM-1 with a USB **data** cable and press **Install**.
+3. Keep the cable in until it says **Done**: a few minutes. That is longer than the official firmware, because
+   HAWK CHUA is a complete ~600 KB package (the synth, 512 presets, fonts and tables, plus its own update loader) and
+   the install goes over MIDI: SysEx pieces of 512 bytes, 7 bits a byte, each one requested and checked by the FM-1.
 
 This works from the official firmware, from Felucca and from other FM-1 firmwares; the same page installs later
 versions. From the command line: `python3 tools/fm1_install.py hawk-chua.fwsc` (`pip3 install mido python-rtmidi`).
