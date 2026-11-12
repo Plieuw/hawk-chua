@@ -195,6 +195,24 @@ static void chua_params_part(uint32_t part, int snap)   /* the knobs smoothed (s
     chua_params_q(ksm_glide(&v[0], sys.chaos, snap), ksm_glide(&v[1], sys.shape, snap), ksm_glide(&v[2], sys.output, snap));
 }
 
+/* OUTPUT always blends at most two adjacent circuit components. Skip the zero
+ * gain(s) rather than doing three 64-bit multiplies for every audio sample. */
+static inline int32_t chua_output(const chua_t *s)
+{
+    int32_t x = s->x >> 8, y = s->y >> 8, z = s->z >> 8;
+    if (!cc.gy && !cc.gz)
+        return (int32_t)(((int64_t)x * cc.gx) >> 12);
+    if (!cc.gx && !cc.gz)
+        return (int32_t)(((int64_t)y * cc.gy) >> 12);
+    if (!cc.gx && !cc.gy)
+        return (int32_t)(((int64_t)z * cc.gz) >> 12);
+    if (!cc.gx)
+        return (int32_t)(((int64_t)y * cc.gy + (int64_t)z * cc.gz) >> 12);
+    if (!cc.gz)
+        return (int32_t)(((int64_t)x * cc.gx + (int64_t)y * cc.gy) >> 12);
+    return (int32_t)(((int64_t)x * cc.gx + (int64_t)z * cc.gz) >> 12);
+}
+
 /* --------------------------------------------------------------- trace --- */
 #define TRACE_N 1024u                            /* a power of two */
 static struct {
@@ -709,8 +727,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
                 v->s = ghost;
                 v->fresh = 1;
             }
-            s = (int32_t)(((int64_t)(v->s.x >> 8) * cc.gx + (int64_t)(v->s.y >> 8) * cc.gy +
-                           (int64_t)(v->s.z >> 8) * cc.gz) >> 12);
+            s = chua_output(&v->s);
         }
         if (v->fresh) {
             v->fresh = 0;

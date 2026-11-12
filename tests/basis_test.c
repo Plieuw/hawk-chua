@@ -73,6 +73,32 @@ static void check(const char *what, int ok)
     bad += !ok;
 }
 
+/* The optimized CHUA output mixer must match the original three-term
+ * fixed-point expression for every OUTPUT setting, including its endpoints. */
+static void test_chua_output_mix(void)
+{
+    unsigned char saved[sizeof cc];
+    uint32_t o, j;
+    int ok = 1;
+    memcpy(saved, &cc, sizeof cc);
+    for (o = 0; o < 128u; o++) {
+        chua_params_q(64 << 8, 64 << 8, (int32_t)(o << 8));
+        for (j = 0; j < 8u; j++) {
+            chua_t s;
+            int32_t want;
+            s.x = (int32_t)((o * 7919u + j * 104729u) % (32u * C1)) - 16 * C1;
+            s.y = (int32_t)((o * 15401u + j * 65537u) % (32u * C1)) - 16 * C1;
+            s.z = (int32_t)((o * 31337u + j * 99991u) % (64u * C1)) - 32 * C1;
+            want = (int32_t)(((int64_t)(s.x >> 8) * cc.gx + (int64_t)(s.y >> 8) * cc.gy +
+                              (int64_t)(s.z >> 8) * cc.gz) >> 12);
+            if (chua_output(&s) != want)
+                ok = 0;
+        }
+    }
+    memcpy(&cc, saved, sizeof cc);
+    check("CHUA output mixer: bit-identical for all 128 OUTPUT values", ok);
+}
+
 static int32_t buf[2 * CTL];
 static int32_t peak;
 static FILE *wav;
@@ -170,6 +196,7 @@ int main(int argc, char **argv)
                (unsigned)sizeof rz[0].u, (unsigned)sizeof(np_t), (unsigned)sizeof np_buf[0], (unsigned)sizeof(voice_t));
     uint32_t k, w;
     keys_init();
+    test_chua_output_mix();
     sys.master_q12 = 4096;
     sys.spk_bass = 0;                            /* (SPEAKER BASS off: the tests bit for bit as the sound is) */
 
