@@ -512,7 +512,7 @@ int main(int argc, char **argv)
     synth_note_off(55);
     frames(40);
     bad |= shot(dir, "k_tape_play");
-    enc_steps[panel.enc[EN_SELECT]] = 1; /* its SPEED menu: 3/4 (a fourth down): the BPM follows, the speed exact */
+    enc_steps[panel.enc[EN_SELECT]] = 1; /* its SPEED menu: 3/4 (a fourth down): the tape's own, the BPM stays */
     ui_input();
     if (sys.page != 13u) { printf("TAPE: SELECT did not open the SPEED menu\n"); bad = 1; }
     {
@@ -520,18 +520,29 @@ int main(int argc, char **argv)
         enc_steps[panel.enc[EN_K2]] = -5;
         ui_input();
         frames(3);
-        if (sys.tape_spd != 7u || sys.arp_bpm != (bpm0 * 3u + 2u) / 4u || tape.speed != 3072u) {
+        if (sys.tape_spd != 7u || sys.arp_bpm != bpm0 || tape.speed != 3072u || tape.inc != 12288u) {
             printf("TAPE SPEED 3/4: spd %u bpm %u (from %u) speed %u\n", sys.tape_spd, sys.arp_bpm, bpm0, tape.speed);
             bad = 1;
         }
         bad |= shot(dir, "k_tape_speed");
-        sys.arp_bpm = (uint8_t)bpm0;
-        frames(2);
-        if (tape.lock_q12 || tape.speed != 4096u) {
-            printf("TAPE SPEED: the BPM back, not free again (speed %u)\n", tape.speed);
-            bad = 1;
+        {   /* the loop stays its bars: at 3/4, when its clock comes round the head is back at the start */
+            uint32_t k, wraps = 0, l0 = tape.lsamp, ok2 = 1;
+            for (k = 0; k < 400u * FS / 1000u / CTL * 20u && wraps < 1u; k++) {
+                synth_render(abuf_, CTL);
+                if (tape.lsamp < l0) {
+                    wraps++;
+                    ok2 &= (tape.pos >> 16) < 2u;
+                }
+                l0 = tape.lsamp;
+            }
+            if (!wraps || !ok2) { printf("TAPE SPEED 3/4: the loop's start (wraps %u, head %u)\n", wraps, tape.pos >> 16); bad = 1; }
         }
         sys.tape_spd = 12;
+        frames(2);
+        if (tape.speed != 4096u) {
+            printf("TAPE SPEED 1/1: speed %u\n", tape.speed);
+            bad = 1;
+        }
     }
     {   /* BOUNCE from the panel: OCT- down, then OCT+ (and both at once): tracks 2 .. 4 blank, track 1 holds all, the
          * octave the first press moved given back, said when they are let go */
