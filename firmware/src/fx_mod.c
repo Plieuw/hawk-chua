@@ -50,6 +50,7 @@ typedef struct {                                 /* a part's MOD FX (MULTI: A's,
     chua_t s;                                    /* the modulating circuit */
     int32_t dcl, dcl2, sl;                       /* the rectified modulator's DC (twice: 2X), the slew's state (Q16) */
     int32_t m[CTL];                              /* this block's modulator */
+    int32_t mlast;                               /* (VIBRATO, TREMOLO: the slow circuit's last step) */
     uint32_t vw, vb;                             /* the vibrato's write position, this block's */
     uint32_t mode, n, rect;
     uint32_t ratio;                              /* (RING: the ratio's index) */
@@ -221,7 +222,7 @@ static int mf_gen(uint32_t n, uint32_t pp)
         uint32_t lt = (uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16);
         M->lincs = M->lincs ? (uint32_t)((int32_t)M->lincs + ((int32_t)lt - (int32_t)M->lincs) / 16) : lt;
         M->linc = M->lincs;
-        ns = mf_steps(M->linc, &hs, &ahs, &bhs);
+        ns = mf_steps(M->linc * 4u, &hs, &ahs, &bhs);   /* (a step each 4 samples: below) */
     }
     if (MF_KEYED(mode)) {                        /* RING, FM: the reference circuit, its cycles into the tables */
         ns = mf_steps(MF_TINC, &hs, &ahs, &bhs);
@@ -253,9 +254,18 @@ static int mf_gen(uint32_t n, uint32_t pp)
             if (view && !(mf_view.c++ & 255u))
                 mf_view.m[mf_view.w++ & 63u] = 0;
         }
-    } else
+    } else {   /* VIBRATO, TREMOLO: the slow circuit a step each 4 samples (4 x the step: the same course), the
+                * samples between it drawn straight: a quarter of the work, the same modulator below ~1 kHz */
+        int32_t m0 = M->mlast, m1 = m0;
         for (i = 0; i < n; i++) {
-            int32_t m = mf_sample(&M->s, ns, hs, ahs, bhs, rect, &M->dcl, &M->dcl2, 12u, &M->sl, M->sk);
+            int32_t m;
+            if (!(i & 3u)) {
+                m0 = M->mlast;
+                m1 = mf_sample(&M->s, ns, hs, ahs, bhs, rect, &M->dcl, &M->dcl2, 10u, &M->sl,
+                               M->sk >= 65536 ? 65536 : (M->sk * 4 > 65536 ? 65536 : M->sk * 4));
+                M->mlast = m1;
+            }
+            m = m0 + (((m1 - m0) * (int32_t)((i & 3u) + 1u)) >> 2);
             M->m[i] = m;
             if (!view)
                 continue;
@@ -264,6 +274,7 @@ static int mf_gen(uint32_t n, uint32_t pp)
             if (i & 1u)
                 mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
         }
+    }
     M->vb = M->vw;
     M->vw += n;
     return 1;
