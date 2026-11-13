@@ -2239,23 +2239,66 @@ static void draw_sh(void)
 /* the FREE EG page's picture: the recording (128 points over the length), the play head, the DEPTH's base */
 static void draw_feg(void)
 {
+    /* the time across it as the length is: a cycle's (STEPS, BARS, PHRASE, LFO) its whole width, NOTE as long as the
+     * contour rounded up to sixteenths at the tempo; lines at the sixteenths (or the beats, the bars, as many as fit),
+     * the beats' lighter, the bars' brighter */
     const int32_t top = 8, bot = PLOT_H - 16, hh = bot - top;
     int32_t i, px = 0, py = 0;
-    uint32_t pos = feg.pos, n = sys.feg_len % FEG_NLEN ? FEG_N : (feg.rec ? FEG_N : sys.feg_npts);
+    uint32_t len = sys.feg_len % FEG_NLEN, pos = feg.pos, n = len ? FEG_N : (feg.rec ? FEG_N : sys.feg_npts);
+    uint32_t bpm = arp_bpm_now(), s16, L = 0, W, pt, g;
     uint16_t c = feg.rec ? T_ACCENT : sys.feg_on ? (FEG_FM(sys.feg_target) ? T_FM : T_THEME) : T_DIM;
+    bpm = bpm < 20u ? 20u : bpm > 300u ? 300u : bpm;
+    s16 = 2646000u / bpm / 4u;                   /* (samples a sixteenth) */
+    if (!len) {                                  /* NOTE: its points, the window whole sixteenths */
+        uint32_t t = (n ? n : 1u) * FEG_NOTE_STEP;
+        W = (t + s16 - 1u) / s16 * s16;
+        pt = FEG_NOTE_STEP;
+    } else {
+        if (len >= FEG_AUD0)
+            L = 0;                               /* (AM, FM: at the note's rate, no grid) */
+        else if (len >= FEG_LFO0)
+            L = FS * 100u / FEG_LFO_CHZ[len - FEG_LFO0];
+        else if (len == FEG_PHRASE)
+            L = kar.running && kar.phrase_len ? kar.phrase_len : s16 * 16u;
+        else
+            L = feg_ticks(len) * s16 / 6u;       /* (6 clocks a sixteenth) */
+        W = L ? L : FEG_N;
+        pt = L ? 0u : 1u;
+    }
     cv_begin(240, PLOT_H, T_BG);
+    if (L || !len) {                             /* the grid: sixteenths, beats or bars, at most 32 lines */
+        uint32_t k, nl;
+        g = s16;
+        while (W / g > 32u && g < s16 * 64u)
+            g *= 4u;
+        nl = W / g;
+        for (k = 1; k <= nl && g; k++) {
+            uint32_t t = k * g, b16 = t / s16;
+            int32_t x = 8 + (int32_t)(t * 224u / W);   /* (32 bits: t <= W < 2^23) */
+            if (x >= 232)
+                break;
+            if (b16 % 4u)                        /* a sixteenth: a tick at the bottom; a beat a line; a bar brighter */
+                cv_rect(x, bot - 6, 1, 6, T_LINE);
+            else
+                cv_rect(x, top, 1, hh, b16 % 16u ? T_LINE : T_MID);
+        }
+    }
     cv_rect(8, bot, 224, 1, T_LINE);
     cv_rect(8, top, 224, 1, T_LINE);
+#define FEG_X(i) (8 + (int32_t)((len ? (uint32_t)(i) * (L ? L : FEG_N) / FEG_N : (uint32_t)(i) * pt) * 224u / W))
     if (sys.feg_has || feg.rec)
         for (i = 0; i < (int32_t)n && i < (int32_t)FEG_N; i++) {
-            int32_t x = 8 + i * 224 / (int32_t)FEG_N, y = bot - (int32_t)feg.curve[i] * hh / 127;
+            int32_t x = FEG_X(i), y = bot - (int32_t)feg.curve[i] * hh / 127;
             if (i && (!feg.rec || i <= (int32_t)pos))
                 cv_line(px, py, x, y, c);
             px = x;
             py = y;
         }
+    if (!len && n && (sys.feg_has || feg.rec) && px < 232)   /* (NOTE: the last point holds, to the end) */
+        cv_line(px, py, 231, py, c);
     if (pos < FEG_N)
-        cv_rect(8 + (int32_t)pos * 224 / (int32_t)FEG_N, top, 1, hh, T_ACCENT);
+        cv_rect(FEG_X(pos), top, 1, hh, T_ACCENT);
+#undef FEG_X
     cv_text(8, bot + 3, &AF_S, FEG_T_NAME[sys.feg_target % FEG_NT], FEG_FM(sys.feg_target) ? T_FM : T_DIM);
     cv_text_r(232, bot + 3, &AF_S, FEG_LEN_NAME[sys.feg_len % FEG_NLEN], T_DIM, T_BG);
     cv_blit(0, PLOT_Y);

@@ -751,6 +751,17 @@ int main(int argc, char **argv)
     ui_event_ms = 0;
     frames(2);
     bad |= shot(dir, "m_feg");
+    {   /* NOTE: a short contour (a transient), the window whole sixteenths at the tempo */
+        uint8_t l0 = sys.feg_len, n0 = sys.feg_npts;
+        sys.feg_len = 0; sys.feg_npts = 7; feg.pos = 2;
+        for (i = 0; i < 7u; i++) feg.curve[i] = (uint8_t)(120 - i * 12);
+        frames(2);
+        bad |= shot(dir, "m_feg_note");
+        sys.feg_len = 4; feg.pos = 60;               /* (4 STEPS: the sixteenths) */
+        frames(2);
+        bad |= shot(dir, "m_feg_steps");
+        sys.feg_len = l0; sys.feg_npts = n0;
+    }
     sys.feg_has = 0; sys.feg_on = 0; feg.pos = 255;
     edges = btn_bit(B_HOME);
     ui_input();
