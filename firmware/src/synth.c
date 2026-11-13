@@ -184,24 +184,6 @@ static void chua_params_q(int32_t chq, int32_t shq, int32_t oq)
     cc.gy = (int32_t)(((uint32_t)(CHUA_LEVEL * CHUA_RMS_Q) / (uint32_t)(ry < 16 ? 16 : ry) * (uint32_t)wy) >> 8);
     cc.gz = (int32_t)(((uint32_t)(CHUA_LEVEL * CHUA_RMS_Q) / (uint32_t)(rz < 16 ? 16 : rz) * (uint32_t)wz) >> 8);
 }
-/* ANALOG (sys.analog, GLO's UI STYLE page, SELECT): every value a little off, as in an analog synth, where no two
- * voice cards are alike. Each voice its own small offsets (its pitch a few cents, its envelope's times a few percent,
- * its gate's cutoff, its level, its place, a noise program's X and Y), and at each note a little more at random; each
- * part's circuit (CHAOS, SHAPE, OUTPUT) and each resonator (its tuning, BRIGHTNESS, DAMPING) its own. INITIAL: none
- * (the sound exactly as set) */
-static const int16_t AN_CENT[NVOICE] = {95, -114, 38, -57};   /* the pitch, Q16 (~38 a cent): +2.5 -3 +1 -1.5 cents */
-static const uint16_t AN_TIME[NVOICE] = {271, 243, 264, 238}; /* the envelope's speed, Q8: +6 -5 +3 -7 % */
-static const int8_t AN_CUT[NVOICE] = {3, -2, 1, -4};         /* the gate's cutoff (of 255 steps) */
-static const uint16_t AN_AMP[NVOICE] = {261, 249, 258, 252};  /* the level, Q8: ~ +0.2 -0.2 +0.1 -0.1 dB */
-static const int16_t AN_PAN[NVOICE] = {700, -500, -900, 400}; /* its place, Q15 */
-static const int16_t AN_NX[NVOICE] = {300, -250, 150, -350}, AN_NY[NVOICE] = {-200, 350, -300, 120};   /* X, Y (Q15) */
-static const int16_t AN_CIRC[2][3] = {{90, -60, 40}, {-70, 80, -50}};   /* each part's CHAOS, SHAPE, OUTPUT (Q8 of a step) */
-static const int16_t AN_RZ[NVOICE][3] = {{30, 250, -200}, {-45, -300, 150}, {20, 180, 260}, {-25, -150, -120}};
-                                                 /* each resonator's tuning (Q16), BRIGHTNESS, DAMPING (of 65532) */
-static inline uint32_t an_k(uint32_t x, uint32_t t)   /* (x a voice's speed: as set when 0 or 256) */
-{
-    return !t || t == 256u ? x : (uint32_t)(((uint64_t)x * t) >> 8);
-}
 static void chua_params(void)                    /* the knobs as they are (at once) */
 {
     chua_params_q((int32_t)((sys.chaos & 127u) << 8), (int32_t)((sys.shape & 127u) << 8), (int32_t)((sys.output & 127u) << 8));
@@ -209,13 +191,7 @@ static void chua_params(void)                    /* the knobs as they are (at on
 static void chua_params_part(uint32_t part, int snap)   /* the knobs smoothed (synth_render, a block) */
 {
     int32_t *v = ksm[part & 1u].v;
-    int32_t c = ksm_glide(&v[0], sys.chaos, snap), s = ksm_glide(&v[1], sys.shape, snap), o = ksm_glide(&v[2], sys.output, snap);
-    if (sys.analog) {                            /* (ANALOG: each part's circuit a little off) */
-        c = clamp(c + AN_CIRC[part & 1u][0], 0, 127 << 8);
-        s = clamp(s + AN_CIRC[part & 1u][1], 0, 127 << 8);
-        o = clamp(o + AN_CIRC[part & 1u][2], 0, 127 << 8);
-    }
-    chua_params_q(c, s, o);
+    chua_params_q(ksm_glide(&v[0], sys.chaos, snap), ksm_glide(&v[1], sys.shape, snap), ksm_glide(&v[2], sys.output, snap));
 }
 
 /* --------------------------------------------------------------- trace --- */
@@ -258,9 +234,7 @@ static uint32_t note_inc(uint32_t note)      /* the note's frequency / FS, Q32 *
 #include "lpg_tables.h"
 #define ENV_MAX (1u << 30)
 enum { ST_OFF, ST_ATTACK, ST_SUSTAIN, ST_RELEASE, ST_TAIL };   /* (ST_SUSTAIN: the decay towards the sustain level) */
-#ifndef LPG_RISE
 #define LPG_RISE 189813u                         /* the control's one-pole coefficients (Q24): ~2 ms up, */
-#endif
 #define LPG_FALL 12672u                          /* ~30 ms down: 1 - exp(-1 / (t FS)) */
 #define LPG_EVERY 8u                             /* frames between filter coefficient updates (0.18 ms) */
 #define LPG_QUIET 8192                           /* the TAIL ends when the filter's states are below this (Q23: -60 dB) */
@@ -276,7 +250,6 @@ typedef struct {
     uint32_t amph;               /* FREE EG AUDIO: its loop's phase (Q32) */
     int32_t ic1, ic2;            /* the filter's states (Q23) */
     int32_t a1, a2, a3;          /* its coefficients for the cutoff now (Q28) */
-    int32_t lcomp;               /* and the level the ring's taken back out (Q12: eg.comp, less as the ring fades) */
     uint32_t trace_t;            /* time since its last trace point (Q24) */
     uint16_t amp;                /* velocity, Q15 */
     uint8_t note, stage, fresh;  /* fresh: the DC blocker starts at the first sample */
@@ -292,8 +265,6 @@ typedef struct {
     uint32_t orng, ocnt;         /* (the drift's random numbers, blocks to its next target) */
     int32_t otgt;
     int32_t apx[4][2], apy[4][2];   /* ORBIT: its four all-passes' last ins and outs */
-    uint16_t an_t;               /* ANALOG: its envelope's speed, Q8 (256, 0: as set) */
-    int8_t an_c;                 /* ANALOG: its gate's cutoff, steps of the table (0: as set) */
 } voice_t;
 static voice_t voice[NVOICE];
 #define NP_COUNT 32                              /* the noise programs (noise.c, included below; the last: BIG BANG,
@@ -533,20 +504,8 @@ steal:
         v->orng = 0x9E3779B9u * (uint32_t)(v - voice + 1) + voice_clock;
     }
     v->inc0 = note_inc(note);
-    v->amp = (uint16_t)(vel * 258u);                /* 127 -> 32766 */
-    v->an_t = 256;
-    v->an_c = 0;
-    if (sys.analog) {                               /* ANALOG: this voice's own offsets, and a little more at random */
-        uint32_t r = rng(), k = (uint32_t)(v - voice) % NVOICE, a;
-        int32_t c = AN_CENT[k] + (int32_t)(r & 127u) - 64;   /* (+- ~1.7 cents more) */
-        v->inc0 = (uint32_t)(((uint64_t)v->inc0 * (uint32_t)(65536 + c)) >> 16);
-        v->an_t = (uint16_t)(AN_TIME[k] + ((r >> 7) & 15u) - 8u);
-        v->an_c = AN_CUT[k];
-        a = ((uint32_t)v->amp * (AN_AMP[k] + ((r >> 11) & 7u) - 4u)) >> 8;
-        v->amp = (uint16_t)(a > 32767u ? 32767u : a);
-        v->pan = (int16_t)clamp((int32_t)v->pan + AN_PAN[k], -32767, 32767);
-    }
     v->inc = (uint32_t)(((uint64_t)v->inc0 * synth_bend[syn_part & 1u]) >> 16);
+    v->amp = (uint16_t)(vel * 258u);                /* 127 -> 32766 */
     {   /* velocity on the sound (the EDIT page): a soft note's gate opens less (darker), its FM shallower */
         uint32_t cut = (uint32_t)(sys.vel_amt & 127u) * (127u - (vel > 127u ? 127u : vel)) * 2u / 127u;   /* 0 .. 254 */
         if (cut > 250u)
@@ -639,30 +598,22 @@ static void synth_kill(void)
     seat_next = 0;
 }
 
-/* the ADSR's steps for a voice this block (ANALOG: its own speed on them; worked out once, not each frame) */
-typedef struct { uint32_t att, dec, rel; } env_k_t;
-static inline void env_k(const voice_t *v, env_k_t *e)
-{
-    e->att = an_k(eg.att, v->an_t);
-    e->dec = an_k(eg.dec, v->an_t);
-    e->rel = an_k(eg.rel, v->an_t);
-}
 /* the ADSR and the gate's control, one frame; 1 = the voice is done */
-static inline int env_frame(voice_t *v, const env_k_t *e)
+static inline int env_frame(voice_t *v)
 {
     switch (v->stage) {
     case ST_ATTACK:
-        if (ENV_MAX - v->env <= e->att) {
+        if (ENV_MAX - v->env <= eg.att) {
             v->env = ENV_MAX;
             v->stage = ST_SUSTAIN;
         } else
-            v->env += e->att;
+            v->env += eg.att;
         break;
     case ST_SUSTAIN:
-        v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)eg.sus) * e->dec) >> 24));
+        v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)eg.sus) * eg.dec) >> 24));
         break;
     case ST_RELEASE:
-        v->env -= (uint32_t)(((uint64_t)v->env * e->rel) >> 24) + 1u;
+        v->env -= (uint32_t)(((uint64_t)v->env * eg.rel) >> 24) + 1u;
         if (v->env < (ENV_MAX >> 14) || v->env > ENV_MAX) {   /* (-84 dB) */
             v->env = 0;
             v->stage = ST_TAIL;
@@ -693,18 +644,7 @@ static void lpg_coefs(voice_t *v)
     int64_t g, k = (int64_t)eg.k << 4;
     if (v->vbr)                                         /* (velocity: a soft note's gate opens less) */
         c = c * (255u - v->vbr) / 255u;
-    if (v->an_c)                                        /* (ANALOG: this voice's gate a little off) */
-        c = (uint32_t)clamp((int32_t)c + v->an_c, 0, 255);
     g = (int64_t)LPG_G[c] << 4;
-#ifndef LPG_NO_RINGFADE
-    if (c < 96u && k < (2ll << 28))                    /* RING fades out as the gate closes (under ~280 Hz: none at
-                                                         * the bottom), as a vactrol gate's: no low "bloop" of its own
-                                                         * pinged at the note's start and end, only the gate's */
-        k += (((2ll << 28) - k) * (int64_t)(96u - c)) / 96;
-    v->lcomp = c < 96u ? eg.comp + (4096 - eg.comp) * (int32_t)(96u - c) / 96 : eg.comp;   /* (its level back too) */
-#else
-    v->lcomp = eg.comp;
-#endif
     uint32_t d = (uint32_t)((1 << 28) + ((g * (g + k)) >> 28));               /* 1 + g (g + k): 1 .. ~8, Q28 */
     v->a1 = (int32_t)(((1u << 31) / (d >> 13)) << 12);                         /* 1 / d (32-bit division) */
     v->a2 = (int32_t)((g * v->a1) >> 28);
@@ -727,20 +667,7 @@ static inline int32_t lpg_frame(voice_t *v, int32_t x)
     v2 = v->ic2 + (int32_t)(((int64_t)v->a2 * v->ic1 + (int64_t)v->a3 * v3 + LPG_R) >> 28);
     v->ic1 = 2 * v1 - v->ic1;
     v->ic2 = 2 * v2 - v->ic2;
-    return (int32_t)(((int64_t)v2 * v->lcomp) >> 20);                        /* Q23 x Q12 -> Q15 */
-}
-/* a second signal through the voice's gate as it is now (its coefficients and level; its own state c1, c2): MOD FX
- * SHIFT's side, so left and right close alike */
-static inline int32_t lpg_side(const voice_t *v, int32_t x, int32_t *c1, int32_t *c2)
-{
-    int32_t v0, v1, v2, v3, lvl = (int32_t)(((v->ctl >> 15) * v->amp) >> 15);
-    v0 = (int32_t)(((int64_t)x * lvl) >> 7);
-    v3 = v0 - *c2;
-    v1 = (int32_t)(((int64_t)v->a1 * *c1 + (int64_t)v->a2 * v3 + LPG_R) >> 28);
-    v2 = *c2 + (int32_t)(((int64_t)v->a2 * *c1 + (int64_t)v->a3 * v3 + LPG_R) >> 28);
-    *c1 = 2 * v1 - *c1;
-    *c2 = 2 * v2 - *c2;
-    return (int32_t)(((int64_t)v2 * v->lcomp) >> 20);
+    return (int32_t)(((int64_t)v2 * eg.comp) >> 20);                         /* Q23 x Q12 -> Q15 */
 }
 
 static int32_t soft_clip(int32_t x)              /* Q15 in +-1.5 -> +-1: x - 4/27 x^3 */
@@ -792,8 +719,6 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     const uint8_t *am = feg_am.on && !feg_am.fm ? feg_am.curve : 0;
     uint32_t amr = feg_am.r16, fmk[CTL], *fmp = 0;
     int32_t amd = feg_am.depth;
-    env_k_t ek;
-    env_k(v, &ek);
     if (feg_am.on && feg_am.fm) {   /* FREE EG FM: the pitch moved by the loop at x r / 16 the note, every sample. The
                                      * deviation from DEPTH: up to 0.9 of the note over most of the knob (no
                                      * clamping, the mean pitch kept: tonal, the sidebands on the partials: the
@@ -847,7 +772,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     }
     for (i = 0; i < n; i++) {
         int32_t s;
-        int done = pre ? 0 : env_frame(v, &ek);
+        int done = pre ? 0 : env_frame(v);
         if (osc)
             s = src[i];
         else {
@@ -922,22 +847,13 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
             break;
     }
     if (pre) {                                          /* MOD FX on the oscillator, then the gate */
-        mf_ch_t *C = &mf_ch[k];
-        int sh = M->mode == MF_SHIFT;                   /* (SHIFT: its side through a gate of its own, as the voice's) */
-        if (sh)
-            memset(C->sd, 0, sizeof C->sd);
         mf_apply(M, k, xb, n, v->inc, v == render_tv);
         for (i = 0; i < n; i++) {
-            int done = env_frame(v, &ek);
+            int done = env_frame(v);
             sum[i] += lpg_frame(v, xb[i]) >> 1;
-            if (sh)
-                C->sd[i] = lpg_side(v, C->sd[i], &C->sic1, &C->sic2) >> 1;
             if (done)
                 break;
         }
-        if (sh)
-            for (; i < n; i++)
-                C->sd[i] = 0;
     }
 }
 
@@ -966,15 +882,8 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
     /* Fast path: the common mono/centred case needs no temporary block.
      * render_voice() adds into its destination, so this is sample-for-sample
      * identical to rendering into a zeroed t[] and adding t[] to b below. */
-    const mf_t *M = &mfp[sys.multi ? v->part & 1u : 0u];
-    int sh = M->on && M->mode == MF_SHIFT;              /* (MOD FX SHIFT: up on the left, down on the right) */
     if (!orbit && !p) {
         render_voice(v, n, b, restarts);
-        if (sh)
-            for (i = 0; i < n; i++) {
-                dl[i] -= mf_ch[v - voice].sd[i];
-                dr[i] += mf_ch[v - voice].sd[i];
-            }
         return;
     }
     memset(t, 0, sizeof t);
@@ -1048,11 +957,6 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
         for (i = 0; i < n; i++)
             b[i] += t[i];
     }
-    if (sh)
-        for (i = 0; i < n; i++) {
-            dl[i] -= mf_ch[v - voice].sd[i];
-            dr[i] += mf_ch[v - voice].sd[i];
-        }
 }
 static uint32_t c1_restarts, c1_blocks;          /* (diagnostics) */
 static void c1_voices(uint32_t arg)              /* arg: the voices (bit k = voice k) | n << 8 */
@@ -1295,14 +1199,11 @@ static void synth_render_(int32_t *out, uint32_t n)
             }
             synth_out_lvl = pk > synth_out_lvl ? pk : synth_out_lvl - (synth_out_lvl >> 5) - (synth_out_lvl != 0u);
         }
-        if (duck_req || duck_g < 4096) {         /* (the duck: down ~8 ms, up ~23 ms, both an S curve: a note held
-                                                  * through a change dips softly, no plop) */
+        if (duck_req || duck_g < 4096) {         /* (the duck: down ~3 ms, up ~15 ms) */
             for (i = 0; i < n; i++) {
-                int32_t g;
-                duck_g = duck_req ? (duck_g > 12 ? duck_g - 12 : 0) : (duck_g < 4092 ? duck_g + 4 : 4096);
-                g = (int32_t)(((int64_t)duck_g * duck_g * (3 * 4096 - 2 * duck_g)) >> 24);   /* (3 t^2 - 2 t^3, Q12) */
-                l[i] = (int32_t)(((int64_t)l[i] * g) >> 12);
-                r[i] = (int32_t)(((int64_t)r[i] * g) >> 12);
+                duck_g = duck_req ? (duck_g > 32 ? duck_g - 32 : 0) : (duck_g < 4090 ? duck_g + 6 : 4096);
+                l[i] = (int32_t)(((int64_t)l[i] * duck_g) >> 12);
+                r[i] = (int32_t)(((int64_t)r[i] * duck_g) >> 12);
             }
             duck_low = (uint8_t)(duck_g == 0);
             if (duck_low)
