@@ -1742,10 +1742,16 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
 static void ui_status(const char *s)
 {
     /* the pages behind one button: each page its place (1..) and how many (0: one alone) — HOME (BANK), ENV (MOD
-     * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC) */
+     * ENV), FX (SHIMMER), ARP (GROOVE), REC (the TAPE's two menus), GLO (MIDI, MULTI, SOUND), SEQ (KARMA, LOGIC); LFO
+     * (FREE EG 1, 2: below) */
     static const uint8_t LAYER[21] = {1, 1, 2, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 1};
     static const uint8_t COUNT[21] = {2, 2, 3, 3, 0, 2, 2, 3, 0, 2, 0, 0, 2, 2, 2, 4, 3, 2, 2, 3, 3};
-    uint32_t pg = sys.page < 21u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
+    uint32_t pg = sys.page < 21u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w;
+    if (pg == 8u) {                              /* LFO: FREE EG 1, 2 (one page, the two in turn) */
+        l = 1u + feg_ed;
+        nb = 2;
+    }
+    w = 6u + nb * 10u;
     char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
     if (!ui_changed(T_STATUS, s, sig))
         return;
