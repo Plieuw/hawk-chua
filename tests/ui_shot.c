@@ -583,6 +583,11 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "e_multi");
     sys.multi = 0;
+    sys.page = 19u;                      /* UI STYLE: the TUNING and the SOUND (INITIAL / ANALOG) lines */
+    sys.analog = 1;
+    frames(2);
+    bad |= shot(dir, "e_style_analog");
+    sys.analog = 0;
     sys.page = 0;
     edges = btn_bit(B_EDIT);
     ui_input();
