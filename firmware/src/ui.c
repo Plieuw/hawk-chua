@@ -3671,7 +3671,8 @@ static uint8_t play_last;                        /* PLAY outside the ARP / KARMA
 /* AUTO SAVE: the state kept, so switching the FM-1 off (its switch: no warning) loses nothing: 3 s after the last
  * change the settings saved (the preset, the knobs, the pages' settings; power-on applies its own rules on them as
  * ever: PLAY off ...). The flash write stops the CPU for a moment (a hiccup in the sound, the LEDs flashing): only
- * once all is quiet, the ARP, KARMA and the TAPE not playing and no note started for 2 s */
+ * once all is quiet, the ARP, KARMA and the TAPE not playing, no note sounding (nor its tail) and none started for
+ * 2 s */
 static void preset_keep(void)
 {
     static settings_t seen;
@@ -3690,7 +3691,9 @@ static void preset_keep(void)
         ons = synth_ons;
         ons_t = fm1_ms;
     }
-    if ((sys.arp_on && arp.n) || (sys.k_on && (kar.running || kar.n)) || tape.playing || tape.rec)
+    if ((sys.arp_on && arp.n) || (sys.k_on && (kar.running || kar.n)) || tape.playing || tape.rec ||
+        sys.voices || synth_out_lvl > 328u)      /* (a note held, or its tail still heard (over -40 dB): not yet,
+                                                  * the hiccup would be heard) */
         ons_t = fm1_ms;
     if (++tick & 7u)                             /* (the state looked at every eighth frame) */
         return;
