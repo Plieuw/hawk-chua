@@ -2862,6 +2862,36 @@ int main(int argc, char **argv)
             mf_reset(&mfp[0], 0);
         }
     }
+    {   /* FM: a sine of A 440, its phase moved by the carrier at x 1: sidebands at the harmonics (880, 1320 Hz) */
+        uint8_t r0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, c0 = sys.chaos;
+        static int32_t wv[8192];
+        uint32_t i, q;
+        double e[3][2];
+        sys.mfx_slew = 0; sys.mfx_rect = 0; sys.mfx_rate = (uint8_t)(5u * 128u / MF_NRATIO + 4u);
+        sys.chaos = 20; chua_params();
+        for (q = 0; q < 2u; q++) {
+            uint32_t h;
+            sys.mfx_mode = MF_FM; sys.mfx_mix = q ? 100 : 0;
+            mf_reset(&mfp[0], 0);
+            for (i = 0; i < 8192u; i++) wv[i] = (int32_t)(12000.0 * sin(2.0 * M_PI * 440.0 * i / 44100.0));
+            for (i = 0; i + CTL <= 8192u; i += CTL)
+                mf_block(wv + i, CTL);
+            for (h = 1; h <= 3u; h++) {
+                double re = 0, im = 0;
+                for (i = 4096; i < 8192u; i++) {
+                    re += wv[i] * cos(2.0 * M_PI * 440.0 * h * i / 44100.0);
+                    im += wv[i] * sin(2.0 * M_PI * 440.0 * h * i / 44100.0);
+                }
+                e[h - 1][q] = sqrt(re * re + im * im);
+            }
+        }
+        printf("   (FM on A 440: harmonics 1, 2, 3 off %.0f %.0f %.0f, on %.0f %.0f %.0f)\n",
+               e[0][0], e[1][0], e[2][0], e[0][1], e[1][1], e[2][1]);
+        sys.mfx_mode = r0[0]; sys.mfx_rate = r0[1]; sys.mfx_slew = r0[2]; sys.mfx_rect = r0[3]; sys.mfx_mix = r0[4];
+        sys.chaos = c0; chua_params();
+        mf_reset(&mfp[0], 0);
+        check("MOD FX FM: sidebands on the harmonics (x 1)", e[1][1] > 20.0 * e[1][0] + 1e5 && e[1][1] > e[0][1] * 0.1);
+    }
     {   /* VIBRATO, TREMOLO in step with the tempo: at 120 BPM a 1/4 cycles twice a second, a 1/16 eight times */
         uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, ch0 = sys.chaos, bpm0 = sys.arp_bpm;
         uint32_t zc[2], q, i, b;

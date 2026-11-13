@@ -15,8 +15,9 @@
  *              FULL-WAVE 2X (rectified twice, its DC off between: two octaves)
  *   mfx_mix    KNOB 4: dry .. wet
  */
-enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_COUNT };
-static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO"};
+enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_FM, MF_COUNT };
+static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO", "FM"};
+#define MF_KEYED(m) ((m) == MF_RING || (m) == MF_FM)   /* (RING, FM: the carrier at the note x the RATIO) */
 #define MF_NRECT 5
 static const char *const MF_RECT[MF_NRECT] = {"ORIGINAL", "FULL-WAVE", "HALF +", "HALF -", "FULL-WAVE 2X"};
 static uint32_t mf_rect_of(uint32_t v) { return (v & 127u) * MF_NRECT / 128u; }   /* (KNOB 3's value: which) */
@@ -186,11 +187,11 @@ static int mf_gen(uint32_t n, uint32_t pp)
     M->rect = rect;
     M->sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
     M->n = n = n > CTL ? CTL : n;
-    if (mode != MF_RING) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
+    if (!MF_KEYED(mode)) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
         ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
     }
-    if (mode == MF_RING) {                       /* RING: the reference circuit, its cycles into the tables */
+    if (MF_KEYED(mode)) {                        /* RING, FM: the reference circuit, its cycles into the tables */
         ns = mf_steps(MF_TINC, &hs, &ahs, &bhs);
         for (i = 0; i < n; i++) {
             uint32_t j;
@@ -258,7 +259,37 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
         return;
     }
     /* (a loop a mode: nothing decided per sample) */
-    if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
+    if (mode == MF_FM) {                         /* FM: the line read late by the carrier (the part's newest cycle of the
+                                                  * circuit at the note x the ratio): its phase moved, at audio rate. MIX
+                                                  * is the index (0 .. 8: the excursion 8 / (2 pi f), at most 124 samples
+                                                  * about 128; all wet: MIX 0 is MOD FX off) */
+        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio), p = M->vb;
+        uint32_t per = (f >> 8) ? 683565275u / (f >> 8) : 0xFFFFFFFFu;   /* (Q8 samples a unit of index: 2^32 / 2 pi f) */
+        uint32_t bq = (uint32_t)mix >> 4, ex = bq && per > (124u << 16) / bq ? 124u << 16 : per * bq;   /* (the index Q8;
+                                                  * the excursion Q16 samples) */
+        const int16_t *t = M->tab[M->tcur];
+        int16_t *vl = C->vl;
+        int32_t sk = M->sk;
+        for (i = 0; i < n; i++, p++) {
+            int32_t x = w[i], m = 0, a0, a1;
+            uint32_t d16, di, fr;
+            if (L) {
+                uint32_t pos = (uint32_t)(((uint64_t)C->ph * L) >> 16), i0 = pos >> 16, i1 = i0 + 1u >= L ? 0u : i0 + 1u;
+                m = t[i0] + (((t[i1] - t[i0]) * (int32_t)(pos >> 1 & 32767u)) >> 15);
+            }
+            C->ph += f;
+            m = mf_post(m, rect, &C->dc, &C->dc2, 10u, &C->sl, sk);
+            if (view && (i & 1u))
+                mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
+            d16 = (uint32_t)(128 * 65536 + (int32_t)(((int64_t)m * ex) >> 15));
+            di = d16 >> 16;
+            fr = d16 >> 1 & 32767u;
+            vl[p & (MF_VLEN - 1u)] = (int16_t)mf_clip(x);
+            a0 = vl[(p - di) & (MF_VLEN - 1u)];
+            a1 = vl[(p - di - 1u) & (MF_VLEN - 1u)];
+            w[i] = a0 + (((a1 - a0) * (int32_t)fr) >> 15);
+        }
+    } else if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
                                                   * cycle of the circuit read at the note x the ratio */
         uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio);
         const int16_t *t = M->tab[M->tcur];
