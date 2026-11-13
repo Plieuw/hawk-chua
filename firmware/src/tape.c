@@ -3,10 +3,6 @@
  * a quarter of the rate (11 kHz, 4-bit IMA ADPCM: 7.2 s a track in the room 8-bit took for 3.6), recorded from the synth's own output, played under
  * it. The tape runs at the tempo it was recorded at: turn the BPM (or the MIDI clock changes it) and it runs faster
  * or slower, its pitch going with it, as a tape machine's varispeed does; the loop stays the same number of beats.
- * SPEED (its menu, KNOB 2) is the tape's own, as on a four-track: what is on the tape plays at that speed (half: an
- * octave down, twice as slow), the synth played into it as it is (the BPM, the ARP stay), and the loop stays its
- * number of bars: at half speed the head passes half the tape in it, at double the whole tape twice. A take
- * recorded at half speed plays back at 1/1 an octave up, twice as fast.
  *
  *   LENGTH   (the SPEED menu, KNOB 3) the loop in beats: 1, 2, 4 (a bar), 8, 16 (4 bars: the default); as long as the
  *            tape holds at the tape's tempo (4 bars from ~133 BPM, 2 bars below)
@@ -118,16 +114,14 @@ static void tape_dec_lost(void)                  /* (the tape written under the 
 }
 static struct {
     uint32_t pos;                                /* the head, cells Q16 */
-    uint32_t lsamp, llen;                        /* the loop's clock: output samples into it, its length (LENGTH's
-                                                  * beats at the tempo now, exact: round, the head back at the start,
-                                                  * so the loop never drifts from the beat) */
     uint32_t len;                                /* the loop, cells */
     uint32_t spb;                                /* the tape's tempo: output samples a beat when recorded (0: blank) */
     uint32_t inc;                                /* the head's step an output sample, Q16 (speed / TAPE_DIV) */
-    uint32_t speed;                              /* Q12: 4096 = the tempo it was recorded at (x SPEED's ratio) */
+    uint32_t speed;                              /* Q12: 4096 = the tempo it was recorded at */
     uint32_t rec_left, cell, starts;
     uint8_t rec_wait;                            /* REC: waiting for a block's start (the coder starts clean there) */
     ima_t enc, benc;                             /* the recording's coder; the bounce's */
+    uint32_t lock_q12, lock_bpm;                 /* a SPEED chosen: exactly this ratio while the BPM stays lock_bpm */
     int32_t acc, accn, lp, lvl[TAPE_NT];
     int32_t meter[TAPE_NT];                      /* each track's level for the screen, 0..32767 */
     uint8_t playing, rec, has[TAPE_NT];
@@ -205,7 +199,6 @@ static void tape_block(void)
     case 1:                                      /* PLAY: start from the loop's start / stop */
         tape.playing = (uint8_t)!tape.playing;
         tape.pos = 0;
-        tape.lsamp = 0;
         tape.rec = 0;
         break;
     case 2:                                      /* REC: one pass of the armed track / stop recording */
@@ -218,14 +211,9 @@ static void tape_block(void)
             if (!tape.playing) {
                 tape.playing = 1;
                 tape.pos = 0;
-                tape.lsamp = 0;
             }
             tape.rec = 1;
-            {   /* (one pass of the loop: below 1/1 the cells the head passes in it) */
-                const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
-                tape.rec_left = q[0] < q[1] ? tape.len * q[0] / q[1] : tape.len;
-                tape.rec_left = tape.rec_left ? tape.rec_left : 1u;
-            }
+            tape.rec_left = tape.len;
             tape.cell = tape.pos >> 16;
             tape.acc = tape.accn = 0;
             tape.has[a] = 1;
@@ -293,29 +281,23 @@ static void tape_block(void)
     if (arp.starts != tape.starts) {             /* MIDI START: the loop's start */
         tape.starts = arp.starts;
         tape.pos = 0;
-        tape.lsamp = 0;
     }
-    {
-        const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
-        uint32_t base, spb = tape.spb ? tape.spb : now, b = (uint32_t)tape_beats();
-        now = now ? now : 1u;
-        if (tape.spb) {                          /* the tempo's varispeed (the BPM against the tape's): the head's step
-                                                  * an output sample, Q16 cells (tape.spb < 2^17: 32 bits) */
-            base = (tape.spb << 14) / now;
-            base = base < 4096u ? 4096u : base > 65536u ? 65536u : base;
-        } else
-            base = 16384;                        /* (a quarter a sample: FS / TAPE_DIV) */
-        tape.len = tape_cells(spb);
-        while (b * spb / TAPE_DIV > TAPE_N && b > 1u)   /* (the beats that fit: tape_cells's) */
-            b >>= 1;
-        tape.llen = b * now;                     /* (the loop in output samples, at the tempo now) */
-        tape.inc = base * q[0] / q[1];           /* x SPEED's ratio (exact: 1/2 .. 2/1) */
-        tape.speed = tape.inc * TAPE_DIV / 16u;  /* (Q12: the screen's) */
+    if (tape.spb) {
+        tape.len = tape_cells(tape.spb);
+        if (tape.lock_q12 && !arp_ext() && sys.arp_bpm == tape.lock_bpm)
+            tape.speed = tape.lock_q12;          /* (a SPEED's ratio, exact: in tune) */
+        else {
+            tape.lock_q12 = 0;                   /* (the BPM turned: free varispeed again) */
+            tape.speed = tape.spb * 4096u / (now ? now : 1u);   /* (tape.spb < 2^17: no overflow) */
+        }
+        tape.speed = tape.speed < 1024u ? 1024u : tape.speed > 16384u ? 16384u : tape.speed;
+    } else {
+        tape.len = tape_cells(now);
+        tape.speed = 4096;
     }
+    tape.inc = tape.speed * 16u / TAPE_DIV;      /* (Q12 -> Q16, a quarter a sample) */
     if ((tape.pos >> 16) >= tape.len)
         tape.pos = 0;
-    if (tape.lsamp >= tape.llen)
-        tape.lsamp = tape.pos = 0;
     for (t = 0; t < TAPE_NT; t++) {
         tape.lvl[t] = (int32_t)(sys.tape_lv[t] & 127u) * 258;   /* Q15 */
         if (!tape.playing)
@@ -377,10 +359,6 @@ static void tape_run(int32_t *l, int32_t *r, uint32_t n)
         tape.pos += tape.inc;
         if ((tape.pos >> 16) >= len)
             tape.pos -= len << 16;
-        if (++tape.lsamp >= tape.llen) {         /* (the loop's beats round: the head back at its start) */
-            tape.lsamp = 0;
-            tape.pos = 0;
-        }
     }
     for (t = 0; t < TAPE_NT; t++)
         tape.meter[t] = pk[t] > tape.meter[t] ? pk[t] : tape.meter[t] - (tape.meter[t] >> 5);

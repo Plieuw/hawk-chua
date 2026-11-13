@@ -384,12 +384,9 @@ hetzelfde aantal tellen. Lo-fi zoals tape: 11 kHz, 4-bit ADPCM (7,2 s per spoor)
 REC en PLAY werken hier ook). KNOB 1 de globale BPM (40..250; ARP, KARMA en de band volgen; vrije varispeed). KNOB 2 SPEED: de snelheid van de
 band in verhoudingen uit de boventoonreeks (reine stemming), elk op een stap van de chromatische toonladder: 1/2 (half
 speed, -12), 8/15, 9/16, 3/5, 5/8, 2/3 (-7), 45/64, 3/4 (-5), 4/5, 5/6, 9/10, 15/16, 1/1, 16/15, 9/8, 6/5, 5/4 (+4),
-4/3, 45/32, 3/2 (+7), 8/5, 5/3, 9/5, 15/8, 2/1 (dubbel, +12). SPEED is van de band zelf, zoals op een 4-track: wat
-er al op staat speelt op die snelheid (1/2: een octaaf lager en twee keer zo traag), terwijl de BPM, de ARP en wat je
-live speelt blijven zoals ze zijn. De lus blijft even veel maten: op halve snelheid hoor je in die maten de eerste helft
-van de band, op dubbele snelheid de hele band twee keer. Neem je op halve snelheid een nieuw spoor op, dan klinkt dat
-op 1/1 een octaaf hoger en twee keer zo snel. De lus loopt op de tel: na elke ronde begint de kop weer precies aan het
-begin, ook als je de BPM verdraait (varispeed), zodat hij niet uit de maat schuift.
+4/3, 45/32, 3/2 (+7), 8/5, 5/3, 9/5, 15/8, 2/1 (dubbel, +12). Kies je er een, dan springt de globale BPM naar het tempo
+dat daarbij hoort (het tempo van de band x de verhouding) en loopt de band precies op die verhouding: zuiver op de
+toon en in de maat met ARP en KARMA (draai je daarna aan de BPM, dan is het weer vrije varispeed).
 KNOB 3 LENGTH van de lus: 1 tel, 2 tellen, 1 maat, 2 maten (standaard), 4 maten (zo lang als de band past: 7,2 s, dus 4 maten vanaf ~133 BPM, daaronder 2 maten, dan licht de waarde op);
 KNOB 4 de toonhoogte nu in halve tonen; onderin staat het tempo waarop de band is opgenomen.
 

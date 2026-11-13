@@ -2824,7 +2824,7 @@ static void ui_draw(void)
         ui_cat(b, sizeof b, st > 0 ? "  +" : "  ");
         fmt_int(v, st);
         ui_cat(b, sizeof b, v);
-        ui_val_c = q[0] != q[1] ? T_ACCENT : 0;   /* (off 1/1: lit) */
+        ui_val_c = tape.lock_q12 ? T_ACCENT : 0;
         ui_cell(T_C2, "2 SPEED", b);
         ui_val_c = 0;
         {
@@ -4132,9 +4132,16 @@ static void ui_input(void)
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         if ((s = ui_enc(EN_K2)) != 0) {
-            sys.tape_spd = (uint8_t)clamp((int32_t)sys.tape_spd + s, 0, TAPE_NSPD - 1);   /* (the tape's own: the
-                                                  * BPM and the synth played into it stay; tape.c) */
+            sys.tape_spd = (uint8_t)clamp((int32_t)sys.tape_spd + s, 0, TAPE_NSPD - 1);
             ui_hot = 1; ui_hot_ms = fm1_ms;
+            if (tape.spb) {                      /* the tempo the ratio gives: the global BPM follows, the speed exact */
+                const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
+                uint32_t b = (2646000u * q[0] / q[1] * 2u / tape.spb + 1u) / 2u;
+                sys.arp_bpm = (uint8_t)(b < 40u ? 40u : b > 250u ? 250u : b);
+                tape.lock_q12 = 4096u * q[0] / q[1];
+                tape.lock_bpm = sys.arp_bpm;
+            } else
+                ui_say("TAPE BLANK: RECORD FIRST");
         }
     } else if (sys.page == 12u) {                /* TAPE: a blank track's knob arms it; a recorded one's is its fader */
         static const uint8_t KN[4] = {EN_K1, EN_K2, EN_K3, EN_K4};
