@@ -3095,7 +3095,9 @@ static void ui_draw(void)
         } else
             str_cpy(b, MF_DIV_NAME[mf_div()], sizeof b);
         ui_cell(T_C1, MF_KEYED(mode) ? "1 RATIO" : "1 SYNC", b);
-        if (sys.mfx_slew) {                      /* (the slew's corner: 0.9 Hz .. full) */
+        if (sys.mfx_slew >= 127u)                /* (the morph to a sine: OFF .. %, all: SINE) */
+            str_cpy(b, "SINE", sizeof b);
+        else if (sys.mfx_slew) {
             fmt_int(v, (int32_t)(sys.mfx_slew * 100u / 127u));
             str_cpy(b, v, sizeof b);
             ui_cat(b, sizeof b, " %");

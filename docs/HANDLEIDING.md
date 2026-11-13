@@ -404,8 +404,8 @@ het circuit zelf: elke cyclus ervan wordt een golfvorm die elke noot speelt op d
 ruwer; licht voor de CPU, ook met twee parts),
 PRESETS 30 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
 SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP, EP TREMOLO, VIBES
-MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE, WIDE SHIFT, OCTAVE SPLIT, SUB SPLIT, BELL SPLIT, CHAOS SPLIT), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
-glijden),
+MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE, WIDE SHIFT, OCTAVE SPLIT, SUB SPLIT, BELL SPLIT, CHAOS SPLIT), KNOB 2 SLEW (het circuit naar een sinus op zijn eigen fase: OFF de chaos zelf, hoger steeds meer sinus, helemaal
+open SINE: een zuivere sinus; RECTIFY werkt daarna, dus FULL-WAVE + SINE is een gelijkgerichte sinus),
 KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF +, HALF − of FULL-WAVE 2X: twee keer gelijkgericht, twee octaven hoger), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
 parameter VIBRATO of RING MOD (ook in de lijst van FREE EG en MOD ENV). Wiel omhoog zet die stand aan, zo

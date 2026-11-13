@@ -9,8 +9,8 @@
  *   mfx_rate   KNOB 1: VIBRATO, TREMOLO a note value of the tempo (the BPM or MIDI clock: 4 BARS .. 1/32, dotted and
  *              triplets: a cycle of the circuit each); RING the RATIO to the note (key follow: each resonator's bus
  *              its own circuit at its note x 1/4 .. 24, whole-number ratios, so the sidebands stay harmonic)
- *   mfx_slew   KNOB 2: the circuit slewed at audio rate (a lag: 0 off, up to a corner of ~0.9 Hz): its edges rounded,
- *              its jumps glided (the depth is the MIX's: the vibrato's sweep ~4 ms, the ring the full carrier)
+ *   mfx_slew   KNOB 2: the circuit morphed into a sine at its own phase (0 the circuit, 127 a pure sine; RECTIFY
+ *              after it: a rectified sine)
  *   mfx_rect   KNOB 3: the modulator ORIGINAL, FULL-WAVE, HALF +, HALF - (rectified: an octave, sharper) or
  *              FULL-WAVE 2X (rectified twice, its DC off between: two octaves)
  *   mfx_mix    KNOB 4: dry .. wet
@@ -43,22 +43,24 @@ typedef struct {
     int32_t sic1, sic2;                          /* (SHIFT: the side's gate, as the voice's: synth.c lpg_side) */
     int32_t sd[CTL];                             /* (SHIFT: the side made this block: voice_mix L +, R -) */
     uint32_t ph;                                 /* RING: its carrier's phase (Q32: a cycle of the part's table) */
-    int32_t sl, dc, dc2;                         /* (its slew, its rectifier's DC, the second's) */
+    int32_t dc, dc2;                             /* (its rectifier's DC, the second's) */
     uint8_t act;                                 /* blocks it goes on after its input stopped (its tail) */
 } mf_ch_t;
 typedef struct {                                 /* a part's MOD FX (MULTI: A's, B's) */
     chua_t s;                                    /* the modulating circuit */
-    int32_t dcl, dcl2, sl;                       /* the rectified modulator's DC (twice: 2X), the slew's state (Q16) */
+    int32_t dcl, dcl2;                           /* the rectified modulator's DC (twice: 2X) */
     int32_t m[CTL];                              /* this block's modulator */
     uint32_t vw, vb;                             /* the vibrato's write position, this block's */
     uint32_t mode, n, rect;
     uint32_t ratio;                              /* (RING: the ratio's index) */
+    uint32_t lph, linc;                          /* (VIBRATO, TREMOLO: SLEW's sine, its phase and step) */
     /* RING's carrier: one circuit a part at ~172 Hz (a cycle ~256 samples), each of its cycles (upward through its
      * last cycle's middle) kept as a table, its DC off; the voices read the newest whole one at their note x the
      * ratio: the circuit's own shape, harmonic by construction, at a table read a sample instead of a circuit each */
     chua_t rs;
     int16_t tab[2][MF_TMAX];
     uint16_t tlen[2], tn;
+    int32_t tpk[2];
     uint8_t tcur;
     int32_t tsum, tthr, tprev;
     int32_t mix, sk;
@@ -118,10 +120,11 @@ static uint32_t mf_steps(uint32_t inc, int32_t *hs, int32_t *ahs, int32_t *bhs)
 
 static inline int32_t mf_clip(int32_t x) { return x > 32767 ? 32767 : x < -32768 ? -32768 : x; }
 
-/* a sample of a circuit: stepped, read, rectified (its DC off: dc, k its speed), slewed (sl, sk: Q16) */
-static inline int32_t mf_post(int32_t m, uint32_t rect, int32_t *dc, int32_t *dc2, uint32_t k, int32_t *sl, int32_t sk);
+/* a sample of a circuit: stepped, read, slewed toward a sine (sine, sk: Q15, 1 all sine), rectified (its DC off: dc, k
+ * its speed) */
+static inline int32_t mf_post(int32_t m, int32_t sine, int32_t sk, uint32_t rect, int32_t *dc, int32_t *dc2, uint32_t k);
 static inline int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs, int32_t bhs, uint32_t rect, int32_t *dc,
-                         int32_t *dc2, uint32_t k, int32_t *sl, int32_t sk)
+                         int32_t *dc2, uint32_t k, int32_t sine, int32_t sk)
 {
     uint32_t j;
     int32_t m;
@@ -132,11 +135,14 @@ static inline int32_t mf_sample(chua_t *S, uint32_t ns, int32_t hs, int32_t ahs,
         S->y = S->z = 0;
     }
     m = mf_clip(S->x >> 6);                      /* (x: about +-2.5 on the double scroll: Q20 >> 6, +-0.6 of full) */
-    return mf_post(m, rect, dc, dc2, k, sl, sk);
+    return mf_post(m, sine, sk, rect, dc, dc2, k);
 }
-/* a circuit's sample made a modulator: rectified (its DC off: dc, k its speed), slewed (sl, sk: Q16) */
-static inline int32_t mf_post(int32_t m, uint32_t rect, int32_t *dc, int32_t *dc2, uint32_t k, int32_t *sl, int32_t sk)
+/* a circuit's sample made a modulator: SLEW morphs it into a sine at its own phase (sk Q15: 0 the circuit, 1 the
+ * sine), then the rectifier (its DC off: dc, k its speed) */
+static inline int32_t mf_post(int32_t m, int32_t sine, int32_t sk, uint32_t rect, int32_t *dc, int32_t *dc2, uint32_t k)
 {
+    if (sk)
+        m += (int32_t)(((int64_t)(sine - m) * sk) >> 15);
     if (rect == 4u) {                            /* FULL-WAVE 2X: rectified, its DC off, rectified again (two octaves) */
         int32_t a = m < 0 ? -m : m, b;
         *dc += (a - *dc) >> k;
@@ -151,11 +157,6 @@ static inline int32_t mf_post(int32_t m, uint32_t rect, int32_t *dc, int32_t *dc
         *dc += (r2 - *dc) >> k;
         m = mf_clip(rect == 1u ? (r2 - *dc) * 2 : rect ? (r2 - *dc) * 7 / 4 : (r2 - *dc) * 3 / 2);
     }
-    if (sk < 65536) {                            /* SLEW: a one-pole lag on the circuit, every sample */
-        *sl += (int32_t)(((int64_t)(m * 65536 - *sl) * sk) >> 16);
-        m = *sl >> 16;
-    } else
-        *sl = m * 65536;
     return m;
 }
 
@@ -191,11 +192,12 @@ static int mf_gen(uint32_t n, uint32_t pp)
     M->mode = mode;
     M->mix = mix;
     M->rect = rect;
-    M->sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
+    M->sk = slew >= 127u ? 32768 : (int32_t)(slew * 258u);   /* (SLEW, Q15: 127 all sine) */
     M->n = n = n > CTL ? CTL : n;
     if (!MF_KEYED(mode)) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
-        ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
+        M->linc = (uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16);
+        ns = mf_steps(M->linc, &hs, &ahs, &bhs);
     }
     if (MF_KEYED(mode)) {                        /* RING, FM: the reference circuit, its cycles into the tables */
         ns = mf_steps(MF_TINC, &hs, &ahs, &bhs);
@@ -212,8 +214,12 @@ static int mf_gen(uint32_t n, uint32_t pp)
             x = mf_clip(M->rs.x >> 6);
             if ((M->tn >= MF_TMAX / 3u && M->tprev < M->tthr && x >= M->tthr) || M->tn >= MF_TMAX) {
                 int32_t mean = M->tsum / (int32_t)M->tn;   /* (a cycle closed: its DC off, it is the newest) */
-                for (j = 0; j < M->tn; j++)
+                int32_t pk = 1;
+                for (j = 0; j < M->tn; j++) {
                     t[j] = (int16_t)mf_clip(t[j] - mean);
+                    pk = t[j] > pk ? t[j] : -t[j] > pk ? -t[j] : pk;
+                }
+                M->tpk[M->tcur ^ 1u] = pk;   /* (its peak: SLEW's sine as loud) */
                 M->tlen[M->tcur ^ 1u] = M->tn;
                 M->tcur ^= 1u;
                 M->tthr = mean;
@@ -229,7 +235,9 @@ static int mf_gen(uint32_t n, uint32_t pp)
         }
     } else
         for (i = 0; i < n; i++) {
-            int32_t m = mf_sample(&M->s, ns, hs, ahs, bhs, rect, &M->dcl, &M->dcl2, 12u, &M->sl, M->sk);
+            int32_t m = mf_sample(&M->s, ns, hs, ahs, bhs, rect, &M->dcl, &M->dcl2, 12u,
+                                  (int32_t)(((int64_t)px_sin(M->lph) * 20000) >> 30), M->sk);   /* (the sine: its own phase) */
+            M->lph += M->linc;
             M->m[i] = m;
             if (!view)
                 continue;
@@ -298,15 +306,16 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
                                                   * up on the left, down on the right */
         uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio);
         const int16_t *t = M->tab[M->tcur];
-        int32_t sk = M->sk;
+        int32_t sk = M->sk, pk = M->tpk[M->tcur];
         for (i = 0; i < n; i++) {
             int32_t x = w[i], m = 0, xr, xi, mr, mi, mid, side;
             if (L) {
                 uint32_t pos = (uint32_t)(((uint64_t)C->ph * L) >> 16), i0 = pos >> 16, i1 = i0 + 1u >= L ? 0u : i0 + 1u;
                 m = t[i0] + (((t[i1] - t[i0]) * (int32_t)(pos >> 1 & 32767u)) >> 15);
             }
+            m = mf_post(m, (int32_t)(((int64_t)px_sin(C->ph) * pk) >> 30), sk, rect, &C->dc, &C->dc2, 10u);   /* (SLEW's
+                                                  * sine at the cycle's phase, as loud as its peak) */
             C->ph += f;
-            m = mf_post(m, rect, &C->dc, &C->dc2, 10u, &C->sl, sk);
             if (view && (i & 1u))
                 mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
             mf_hilbert(&C->hs, x, &xr, &xi);
@@ -320,15 +329,16 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
                                                   * cycle of the circuit read at the note x the ratio */
         uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio);
         const int16_t *t = M->tab[M->tcur];
-        int32_t sk = M->sk;
+        int32_t sk = M->sk, pk = M->tpk[M->tcur];
         for (i = 0; i < n; i++) {
             int32_t x = w[i], m = 0, wet;
             if (L) {
                 uint32_t pos = (uint32_t)(((uint64_t)C->ph * L) >> 16), i0 = pos >> 16, i1 = i0 + 1u >= L ? 0u : i0 + 1u;
                 m = t[i0] + (((t[i1] - t[i0]) * (int32_t)(pos >> 1 & 32767u)) >> 15);
             }
+            m = mf_post(m, (int32_t)(((int64_t)px_sin(C->ph) * pk) >> 30), sk, rect, &C->dc, &C->dc2, 10u);   /* (SLEW's
+                                                  * sine at the cycle's phase, as loud as its peak) */
             C->ph += f;
-            m = mf_post(m, rect, &C->dc, &C->dc2, 10u, &C->sl, sk);
             if (view && (i & 1u))
                 mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
             wet = (int32_t)(((int64_t)x * m) >> 14);
