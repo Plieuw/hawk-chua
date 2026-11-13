@@ -141,7 +141,8 @@ typedef struct {
  * ~46 ms: FREE EG's NOTE length), as a player would: a flute's overtones coming in as the jet shortens, a burst of air
  * at the lips (the chiff) settling to a steady breath, brass blooming as the lips tighten, a bow swelling, a sax
  * growling late in a long note, a choir's vowel opening, a pad's shimmer rising */
-enum { EG_NONE, EG_OVERTONE, EG_CHIFF, EG_BLOOM, EG_SWELL, EG_REEDSWELL, EG_GROWL, EG_VOWEL, EG_SHIMRISE, EG_OPEN, EG_TALK, EG_COUNT };
+enum { EG_NONE, EG_OVERTONE, EG_CHIFF, EG_BLOOM, EG_SWELL, EG_REEDSWELL, EG_GROWL, EG_VOWEL, EG_SHIMRISE, EG_OPEN, EG_TALK,
+       EG_TINE, EG_CLICK, EG_PERC, EG_PICK, EG_TONE, EG_STRIKE, EG_PUNCH, EG_SLAP, EG_COUNT };
 typedef struct { uint8_t target, n; int8_t p[5][2]; } pre_eg_t;   /* FREE EG's target; points: (point, offset) */
 static const pre_eg_t PRE_EG[EG_COUNT] = {
     {0, 0, {{0, 0}}},
@@ -155,6 +156,16 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
     {15, 2, {{0, -40}, {80, 30}}},                               /* SHIMRISE: SHIMMER rising */
     {3, 2, {{0, -40}, {60, 40}}},                                /* OPEN: RING opening the gate's resonance */
     {15, 4, {{0, -50}, {10, 10}, {40, 40}, {90, 0}}},             /* TALK: MOUTH's vowel (SHIMMER): U, opening to A .. E, back */
+    /* the attack transients (a point ~46 ms; the noise programs glide their X, Y and LEVEL back, ~46 ms, so each
+     * a short burst decaying into the sound): */
+    {5, 3, {{0, 45}, {1, 15}, {4, 0}}},                          /* TINE: the e-piano's bark (NOISE Y: its FM) */
+    {6, 2, {{0, 24}, {1, 0}}},                                   /* CLICK: the organ's key click (NOISE LEVEL) */
+    {6, 3, {{0, 36}, {3, 12}, {8, 0}}},                          /* PERC: the percussion, dying away (NOISE LEVEL) */
+    {5, 3, {{0, -40}, {1, -10}, {3, 0}}},                        /* PICK: the plectrum (NOISE Y: a narrow pulse) */
+    {5, 3, {{0, 45}, {1, 10}, {3, 0}}},                          /* TONE: the finger, the bow plucked (NOISE Y: TONE) */
+    {5, 2, {{0, 50}, {1, 0}}},                                   /* STRIKE: the mallet, the stick (NOISE Y: FOLD, FM) */
+    {0, 3, {{0, -40}, {1, -10}, {3, 0}}},                        /* PUNCH: the synth bass's thump (CHAOS: the cycle) */
+    {0, 3, {{0, 30}, {1, 8}, {3, 0}}},                           /* SLAP: the thumb's pop (CHAOS) */
 };
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
@@ -194,23 +205,23 @@ static const preset_t PRESETS[] = {
     {"BRIGHT PIANO", 60, 76, 58, 0, 127, 127, 22, 0, RZ_PIANO, 0, 0, 0, 0, 0, 36, 26, 0, 40, SI_OCT, 110, 32, 108, 54, 0, 0, 0, 0, SS_PIANO, 64, 0},   /* (PIANO: a hard hammer, open) */
     {"ELECTRIC GRAND", 40, 76, 40, 24, 127, 127, 20, 0, RZ_PIANO, 0, 0, 0, 0, 0, 24, 20, 0, 30, SI_OCT, 90, 32, 100, 92, 0, 0, 0, 0, SS_HALL, 64, 0},   /* (PIANO: a CP-70: short strings, no board, a touch of chorus) */
     {"HONKY-TONK", 56, 76, 51, 0, 127, 127, 22, 0, RZ_PIANO, 0, 0, 0, 0, 0, 20, 18, 0, 30, SI_OCT, 80, 32, 86, 124, 0, 0, 0, 0, SS_HALL, 64, 0, .mfx = MFP_TAPE_WARBLE},   /* (PIANO: the unisons far apart, a small room) */
-    {"E.PIANO 1", NZK, 0, 92, 0, 72, 20, NOFX, 64, 28, SH_DFILT, 18, 0, 20, NZ(1, 3), 2, 18, .sh_space = SS_PINGPONG, .mfx = MFP_EP_TREMOLO},
-    {"E.PIANO 2", NZK, 0, 88, 10, 70, 22, NOFX, 64, 28, SH_DFILT, 18, 0, 20, NZ(1, 3), 8, 45, .sh_space = SS_PINGPONG, .mfx = MFP_EP_TREMOLO},
+    {"E.PIANO 1", NZK, 0, 92, 0, 72, 20, NOFX, 64, 28, SH_DFILT, 18, 0, 20, NZ(1, 3), 2, 18, .sh_space = SS_PINGPONG, .mfx = MFP_EP_TREMOLO, .eg = EG_TINE},
+    {"E.PIANO 2", NZK, 0, 88, 10, 70, 22, NOFX, 64, 28, SH_DFILT, 18, 0, 20, NZ(1, 3), 8, 45, .sh_space = SS_PINGPONG, .mfx = MFP_EP_TREMOLO, .eg = EG_TINE},
     {"HARPSICHORD", 85, 100, 96, 0, 87, 52, 62, 6, 2, 40, 90, 45, 50, 90, 100, 78, 40, 0, 0, 90, 18, 0, 35, 6, 0, 55, 0, 0, 95, 64},   /* (yours: saved on the FM-1) */
     {"CLAVINET", 38, 100, 32, 0, 54, 66, 74, 110, 0, 52, 119, 76, 30, 0, 100, 78, 40, 0, 0, 90, 0, 39, 0, 6, 0, 55, 0, 0, 68, 64, .oct = 1},   /* (yours: saved on the FM-1) */
     /* CHROMATIC PERCUSSION 9-16 */
     {"CELESTA", 54, 90, 64, 0, 25, 0, 76, 43, 0, 52, 119, 70, 30, 110, 112, 55, 95, 26, 0, 30, 9, 39, 0, 6, 0, 55, 0, SS_PINGPONG, 68, 64},   /* (yours: saved on the FM-1) */
-    {"GLOCKENSPIEL", 85, 76, 0, 0, 36, 0, 36, 0, RZ_MODAL, 104, 127, 74, 28, 110, 112, 55, 95, 26, 0, 30, 5, 63, 0, 0, 0, 0, 0, SS_PINGPONG, 72, 0, .oct = 1},
+    {"GLOCKENSPIEL", 85, 76, 0, 0, 36, 0, 36, 0, RZ_MODAL, 104, 127, 74, 28, 110, 112, 55, 95, 26, 0, 30, 5, 63, 0, 0, 0, 0, 0, SS_PINGPONG, 72, 0, .oct = 1, .eg = EG_STRIKE},
     {"MUSIC BOX", 6, 64, 64, 0, 42, 0, 70, 9, 0, 52, 127, 35, 40, 99, 60, 48, 20, 39, 0, 70, 7, 65, 0, 6, 0, 55, 0, 0, 52, 64, .mfx = MFP_TAPE_WARBLE},   /* (yours: saved on the FM-1) */
-    {"VIBRAPHONE", 85, 76, 0, 0, 58, 0, 58, 0, RZ_MODAL, 92, 90, 84, 24, 110, 112, 55, 95, 26, 0, 30, 5, 40, 0, 0, 0, 0, 0, SS_PINGPONG, 100, 0, .mfx = MFP_VIBES_MOTOR},
+    {"VIBRAPHONE", 85, 76, 0, 0, 58, 0, 58, 0, RZ_MODAL, 92, 90, 84, 24, 110, 112, 55, 95, 26, 0, 30, 5, 40, 0, 0, 0, 0, 0, SS_PINGPONG, 100, 0, .mfx = MFP_VIBES_MOTOR, .eg = EG_STRIKE},
     {"MARIMBA", CYC, 0, 52, 0, 52, 0, RZ_MODAL, 90, 70, 54, 24, 48, .sh_size = 112, .sh_decay = 55, .sh_shimmer = 95, .sh_mix = 26, .sh_interval = 0, .sh_tone = 30, .sh_space = SS_PINGPONG},
-    {"XYLOPHONE", 85, 76, 0, 0, 40, 0, 40, 0, RZ_MODAL, 116, 110, 48, 20, 100, 112, 55, 95, 26, 0, 30, 5, 63, 0, 0, 0, 0, 0, SS_PINGPONG, 72, 0, .oct = 1},
-    {"TUBULAR BELLS", 85, 76, 0, 0, 46, 0, 46, 0, RZ_MODAL, 104, 100, 78, 16, 115, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .mfx = MFP_BELL_RING},
-    {"DULCIMER", 85, 76, 0, 0, 42, 0, 42, 0, RZ_SYMP, 4, 100, 82, 60, 90, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0},
+    {"XYLOPHONE", 85, 76, 0, 0, 40, 0, 40, 0, RZ_MODAL, 116, 110, 48, 20, 100, 112, 55, 95, 26, 0, 30, 5, 63, 0, 0, 0, 0, 0, SS_PINGPONG, 72, 0, .oct = 1, .eg = EG_STRIKE},
+    {"TUBULAR BELLS", 85, 76, 0, 0, 46, 0, 46, 0, RZ_MODAL, 104, 100, 78, 16, 115, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .mfx = MFP_BELL_RING, .eg = EG_STRIKE},
+    {"DULCIMER", 85, 76, 0, 0, 42, 0, 42, 0, RZ_SYMP, 4, 100, 82, 60, 90, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0, .eg = EG_PICK},
     /* ORGAN 17-24 */
-    {"DRAWBAR ORGAN", NZK, 24, 64, 127, 50, 0, NOFX, LESS, NZ(1, 9), 0, 12, .sh_space = SS_LESLIE, .mfx = MFP_ORGAN_VIB},
-    {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, LESS, NZ(1, 9), 2, 20, .sh_space = SS_LESLIE, .mfx = MFP_ORGAN_VIB},
-    {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, LESF, NZ(1, 9), 6, 70, .sh_space = SS_LESLIE, .mfx = MFP_ORGAN_VIB},
+    {"DRAWBAR ORGAN", NZK, 24, 64, 127, 50, 0, NOFX, LESS, NZ(1, 9), 0, 12, .sh_space = SS_LESLIE, .mfx = MFP_ORGAN_VIB, .eg = EG_CLICK},
+    {"PERC. ORGAN", NZK, 0, 60, 100, 50, 40, NOFX, LESS, NZ(1, 9), 2, 20, .sh_space = SS_LESLIE, .mfx = MFP_ORGAN_VIB, .eg = EG_PERC},
+    {"ROCK ORGAN", NZK, 2, 64, 127, 50, 20, NOFX, LESF, NZ(1, 9), 6, 70, .sh_space = SS_LESLIE, .mfx = MFP_ORGAN_VIB, .eg = EG_CLICK},
     {"CHURCH ORGAN", NZK, 24, 64, 127, 80, 0, NOFX, ORGB, NZ(1, 9), 2, 8, .sh_space = SS_ORGAN},
     {"REED ORGAN", NZK, 20, 64, 120, 60, 10, RZ_ACCORD, 15, 50, 40, 30, 120, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL, .mfx = MFP_ORGAN_VIB},
     {"ACCORDION", NZK, 24, 64, 120, 56, 10, RZ_ACCORD, 70, 80, 60, 64, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
@@ -218,22 +229,22 @@ static const preset_t PRESETS[] = {
      .eg = EG_REEDSWELL, .mfx = MFP_BREATH_VIB},
     {"TANGO ACCORD.", NZK, 16, 64, 120, 56, 20, RZ_ACCORD, 20, 60, 70, 30, 127, ACCB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_ACCORDION, .eg = EG_REEDSWELL},
     /* GUITAR 25-32 */
-    {"NYLON GUITAR", 85, 76, 0, 0, 58, 0, 58, 0, RZ_STRING, 45, 110, 67, 40, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_GUITAR, 127, 0, .oct = -1},
-    {"STEEL GUITAR", 85, 76, 0, 0, 56, 0, 56, 0, RZ_STRING, 40, 125, 75, 30, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0, .oct = -1},
-    {"JAZZ GUITAR", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 44, 65, 63, 50, 127, 30, 20, 0, 40, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_GUITAR, 110, 0, .oct = -1},
-    {"CLEAN GUITAR", 85, 76, 0, 0, 58, 0, 58, 0, RZ_STRING, 45, 115, 72, 40, 100, 64, 55, SH_DFILT, 28, 0, 20, 12, 64, 25, 0, 0, 0, 0, SS_PINGPONG, 127, 0, .oct = -1, .mfx = MFP_EP_TREMOLO},
-    {"MUTED GUITAR", 85, 76, 0, 0, 40, 0, 40, 0, RZ_STRING, 40, 95, 22, 40, 100, 30, 20, 0, 40, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_GUITAR, 72, 0, .oct = -1},
+    {"NYLON GUITAR", 85, 76, 0, 0, 58, 0, 58, 0, RZ_STRING, 45, 110, 67, 40, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_GUITAR, 127, 0, .oct = -1, .eg = EG_PICK},
+    {"STEEL GUITAR", 85, 76, 0, 0, 56, 0, 56, 0, RZ_STRING, 40, 125, 75, 30, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0, .oct = -1, .eg = EG_PICK},
+    {"JAZZ GUITAR", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 44, 65, 63, 50, 127, 30, 20, 0, 40, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_GUITAR, 110, 0, .oct = -1, .eg = EG_TONE},
+    {"CLEAN GUITAR", 85, 76, 0, 0, 58, 0, 58, 0, RZ_STRING, 45, 115, 72, 40, 100, 64, 55, SH_DFILT, 28, 0, 20, 12, 64, 25, 0, 0, 0, 0, SS_PINGPONG, 127, 0, .oct = -1, .mfx = MFP_EP_TREMOLO, .eg = EG_PICK},
+    {"MUTED GUITAR", 85, 76, 0, 0, 40, 0, 40, 0, RZ_STRING, 40, 95, 22, 40, 100, 30, 20, 0, 40, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_GUITAR, 72, 0, .oct = -1, .eg = EG_TONE},
     {"OVERDRIVE GTR", 110, 64, 96, 24, 80, 100, 64, 60, RZ_STRING, 45, 115, 72, 40, 50, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -1},
     {"DISTORTION GTR", 124, 64, 96, 2, 64, 110, 64, 50, NOFX, ROOM, .oct = -1},
     {"GTR HARMONICS", 54, 90, 64, 0, 70, 0, 74, 60, RZ_MODAL, 8, 120, 75, 50, 120},
     /* BASS 33-40 */
-    {"ACOUSTIC BASS", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 40, 30, 54, 30, 100, 40, 30, 0, 72, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_CELLO, 72, 0, .oct = -2},
-    {"FINGER BASS", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 40, 50, 60, 30, 90, 0, 0, 0, 0, SI_OCT, 0, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -2},
-    {"PICK BASS", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 60, 20, 90, 0, 0, 0, 0, SI_OCT, 0, 12, 0, 63, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -2},
+    {"ACOUSTIC BASS", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 40, 30, 54, 30, 100, 40, 30, 0, 72, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_CELLO, 72, 0, .oct = -2, .eg = EG_TONE},
+    {"FINGER BASS", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 40, 50, 60, 30, 90, 0, 0, 0, 0, SI_OCT, 0, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -2, .eg = EG_TONE},
+    {"PICK BASS", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 60, 20, 90, 0, 0, 0, 0, SI_OCT, 0, 12, 0, 63, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -2, .eg = EG_PICK},
     {"FRETLESS BASS", 6, 30, 64, 0, 70, 90, 56, 40, RZ_STRING, 50, 40, 67, 40, 50, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .oct = -2},
-    {"SLAP BASS 1", 54, 50, 64, 0, 62, 40, 52, 100, .oct = -2},
+    {"SLAP BASS 1", 54, 50, 64, 0, 62, 40, 52, 100, .oct = -2, .eg = EG_SLAP},
     {"SLAP BASS 2", 38, 70, 32, 0, 62, 40, 52, 120, 8, 110, 90, 88, 60, 0, 30, 20, 0, 0, 0, 100, 9, 63, 63, 80, 10, 0, 0, 6, 64, 64, .oct = -2},   /* (yours: saved on the FM-1) */
-    {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30, .oct = -2},
+    {"SYNTH BASS 1", 85, 20, 0, 0, 60, 100, 50, 30, .oct = -2, .eg = EG_PUNCH},
     {"SYNTH BASS 2", 54, 70, 16, 0, 60, 40, 54, 120, .oct = -2},
     /* STRINGS 41-48: the BOW waveguide */
     {"VIOLIN", 85, 76, 0, 62, 80, 118, 70, 20, RZ_BOW, 110, 90, 88, 60, 127, 30, 20, 0, 72, SI_OCT, 100, 17, 63, 63, 0, 0, 0, 0, SS_VIOLIN, 0, 0, .eg = EG_SWELL, .mfx = MFP_STRING_VIB},
@@ -241,8 +252,8 @@ static const preset_t PRESETS[] = {
     {"CELLO", 85, 76, 0, 66, 80, 118, 72, 20, RZ_BOW, 115, 60, 93, 70, 127, 40, 30, 0, 72, SI_OCT, 90, 17, 63, 63, 0, 0, 0, 0, SS_CELLO, 0, 0, .eg = EG_SWELL, .oct = -1, .mfx = MFP_STRING_VIB},
     {"CONTRABASS", 85, 76, 0, 68, 80, 118, 72, 20, RZ_BOW, 120, 45, 93, 74, 127, 40, 30, 0, 72, SI_OCT, 90, 17, 63, 63, 0, 0, 0, 0, SS_CELLO, 0, 0, .eg = EG_SWELL, .oct = -2},
     {"TREMOLO STR.", NZK, 40, 80, 110, 80, 30, RZ_BOW, 105, 85, 88, 60, 127, HALL, NZ(1, 6), 63, 63, .eg = EG_SWELL},
-    {"PIZZICATO", 85, 76, 0, 0, 42, 0, 42, 0, RZ_STRING, 40, 70, 37, 40, 100, 30, 20, 0, 72, SI_OCT, 100, 19, 0, 63, 0, 0, 0, 0, SS_VIOLIN, 72, 0},
-    {"HARP", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 45, 50, 90, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0},
+    {"PIZZICATO", 85, 76, 0, 0, 42, 0, 42, 0, RZ_STRING, 40, 70, 37, 40, 100, 30, 20, 0, 72, SI_OCT, 100, 19, 0, 63, 0, 0, 0, 0, SS_VIOLIN, 72, 0, .eg = EG_TONE},
+    {"HARP", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 40, 90, 45, 50, 90, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0, .eg = EG_PICK},
     {"TIMPANI", NZK, 0, 40, 0, 40, 50, RZ_DRUM, 120, 90, 95, 30, 127, ROOM, NZ(1, 6), 126, 0, .oct = -1},
     /* ENSEMBLE 49-56 */
     {"STRINGS", NZK, 80, 96, 115, 96, 20, RZ_BOW, 110, 80, 93, 64, 110, HALL, NZ(1, 0), 40, 30, .eg = EG_SWELL},
@@ -316,21 +327,21 @@ static const preset_t PRESETS[] = {
     {"ECHOES", 54, 90, 64, 0, 70, 0, 80, 40, RZ_MODAL, 70, 100, 82, 12, 80, 64, 70, SH_DFILT, 32, 3, 60, 0, 0, 0, 0, 0, 0, 0, SS_PINGPONG},
     {"SCI-FI", NZK, 24, 80, 100, 90, 30, NOFX, AIR, NZ(2, 1), 50, 30, 100, 127, 77, .mfx = MFP_ROBOT},
     /* ETHNIC 105-112 */
-    {"SITAR", 85, 76, 0, 0, 46, 0, 46, 10, RZ_SYMP, 16, 105, 78, 70, 90, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
-    {"BANJO", 85, 76, 0, 0, 52, 0, 52, 0, RZ_STRING, 20, 127, 45, 20, 100, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
-    {"SHAMISEN", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 10, 127, 37, 30, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0},
-    {"KOTO", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 60, 95, 72, 20, 85, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0},
-    {"KALIMBA", 85, 76, 0, 0, 42, 0, 42, 0, RZ_KALIMBA, 20, 80, 64, 0, 127, 50, 40, 0, 72, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_HARP, 72, 0},
+    {"SITAR", 85, 76, 0, 0, 46, 0, 46, 10, RZ_SYMP, 16, 105, 78, 70, 90, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0, .eg = EG_PICK},
+    {"BANJO", 85, 76, 0, 0, 52, 0, 52, 0, RZ_STRING, 20, 127, 45, 20, 100, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0, .eg = EG_PICK},
+    {"SHAMISEN", 85, 76, 0, 0, 50, 0, 50, 0, RZ_STRING, 10, 127, 37, 30, 127, 30, 20, 0, 40, SI_OCT, 90, 12, 64, 25, 0, 0, 0, 0, SS_GUITAR, 127, 0, .eg = EG_PICK},
+    {"KOTO", 85, 76, 0, 0, 46, 0, 46, 0, RZ_STRING, 60, 95, 72, 20, 85, 50, 40, 0, 72, SI_OCT, 90, 12, 64, 45, 0, 0, 0, 0, SS_HARP, 127, 0, .eg = EG_PICK},
+    {"KALIMBA", 85, 76, 0, 0, 42, 0, 42, 0, RZ_KALIMBA, 20, 80, 64, 0, 127, 50, 40, 0, 72, SI_OCT, 90, 19, 0, 0, 0, 0, 0, 0, SS_HARP, 72, 0, .eg = EG_TONE},
     {"BAGPIPE", NZK, 10, 70, 127, 60, 20, RZ_BAGPIPE, 20, 100, 80, 0, 127, BAGB, .osc = NZ(1, 6), .np_x = 126, .np_y = 63, .np_level = 30, .sh_space = SS_BAGPIPE},
     {"FIDDLE", NZK, 36, 76, 115, 66, 30, RZ_BOW, 100, 110, 83, 45, 127, VLNB, NZ(1, 6), 63, 63, 0, 0, 0, 12, .sh_space = SS_VIOLIN, .eg = EG_SWELL, .mfx = MFP_STRING_VIB},
     {"SHANAI", CYC, 24, 76, 115, 60, 20, RZ_REED, 120, 120, 73, 125, 127, ROOM, NOOSC, 20, .eg = EG_GROWL},
     /* PERCUSSIVE 113-120 */
     {"TINKLE BELL", 85, 76, 0, 0, 34, 0, 34, 0, RZ_MODAL, 70, 120, 74, 12, 105, 85, 72, 0, 30, SI_OCT, 70, 25, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = 1},
     {"AGOGO", 85, 76, 0, 0, 38, 0, 38, 0, RZ_MODAL, 116, 100, 60, 40, 110, 0, 0, 0, 0, SI_OCT, 0, 25, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0},
-    {"STEEL DRUMS", 85, 76, 0, 0, 46, 0, 46, 0, RZ_MODAL, 90, 110, 62, 40, 110, 0, 0, 0, 0, SI_OCT, 0, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 72, 0},
-    {"WOODBLOCK", 85, 76, 0, 0, 34, 0, 34, 0, RZ_MODAL, 30, 70, 37, 20, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0},
-    {"TAIKO", 85, 76, 0, 0, 42, 0, 42, 0, RZ_DRUM, 0, 60, 80, 20, 127, 115, 96, 0, 40, SI_OCT, 80, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -1},
-    {"MELODIC TOM", 85, 76, 0, 0, 40, 0, 40, 0, RZ_DRUM, 10, 80, 70, 40, 127, 0, 0, 0, 0, SI_OCT, 0, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0},
+    {"STEEL DRUMS", 85, 76, 0, 0, 46, 0, 46, 0, RZ_MODAL, 90, 110, 62, 40, 110, 0, 0, 0, 0, SI_OCT, 0, 19, 0, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .eg = EG_TONE},
+    {"WOODBLOCK", 85, 76, 0, 0, 34, 0, 34, 0, RZ_MODAL, 30, 70, 37, 20, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .eg = EG_STRIKE},
+    {"TAIKO", 85, 76, 0, 0, 42, 0, 42, 0, RZ_DRUM, 0, 60, 80, 20, 127, 115, 96, 0, 40, SI_OCT, 80, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .oct = -1, .eg = EG_STRIKE},
+    {"MELODIC TOM", 85, 76, 0, 0, 40, 0, 40, 0, RZ_DRUM, 10, 80, 70, 40, 127, 0, 0, 0, 0, SI_OCT, 0, 3, 126, 0, 0, 0, 0, 0, SS_HALL, 72, 0, .eg = EG_STRIKE},
     {"SYNTH DRUM", NZK, 0, 52, 0, 52, 30, NOFX, NOSH, NZ(0, 3), 30, 30, 44, 0, 122},
     {"REVERSE CYMBAL", NZK, 100, 30, 0, 30, 20, NOFX, NOSH, NZ(1, 6), 110, 90},
     /* SOUND EFFECTS 121-128 */
