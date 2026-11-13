@@ -986,7 +986,7 @@ static void duck_begin(void)
 {
     uint32_t t0 = fm1_ms, spins = 0;
     duck_req = 1;
-    while (!duck_low && fm1_ms - t0 < 8u && ++spins < 400000u)
+    while (!duck_low && fm1_ms - t0 < 20u && ++spins < 1000000u)   /* (the duck down: ~8 ms) */
         ;
 }
 static void duck_end(void) { duck_req = 0; duck_low = 0; }
