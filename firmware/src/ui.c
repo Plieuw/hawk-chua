@@ -3735,9 +3735,17 @@ static const scl_pre_t SCL_PRE[] = {
     {"MONO", 0, 0}, {"NARROW", 30, 0}, {"WIDE", 90, 0}, {"FULL", 127, 0}, {"SUBTLE DRIFT", 40, 15}, {"DRIFT", 60, 30},
     {"SWIRL", 100, 80}, {"SPACE", 127, 127},
 };
-enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL, FS_LATE, FS_HIT, FS_DIP };
-/* (LATE: still for an eighth, up by a quarter, then held: NOTE ~0.7 s, ~1.5 s; HIT, DIP: an attack, NOTE ~140 ms, around
- * the parameter where it is: HI up (HIT) or down (DIP) at the note's start, a third of it ~46 ms on, gone by ~140 ms) */
+enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL, FS_LATE, FS_HIT, FS_DIP, FS_SNAP, FS_FLAM, FS_LONG,
+       FS_SCOOP };
+/* (LATE: still for an eighth, up by a quarter, then held: NOTE ~0.7 s, ~1.5 s. The attacks (HIT .. SCOOP: NOTE, around the
+ * parameter where it is, HI how far; a point ~46 ms): HIT up at the note's start, a third of it ~46 ms on, gone by
+ * ~140 ms; DIP the same down; SNAP up and gone by ~46 ms; FLAM struck twice, ~90 ms apart; LONG up, dying away over
+ * ~280 ms; SCOOP down, coming back over ~280 ms) */
+static const uint8_t FS_PROF[6][8] = {          /* (the attacks: sixths of HI at each point, then 0; [7] the points) */
+    {6, 2, 1, 0, 0, 0, 0, 4}, {6, 2, 1, 0, 0, 0, 0, 4}, {6, 0, 0, 0, 0, 0, 0, 2},
+    {6, 1, 4, 1, 0, 0, 0, 5}, {6, 5, 4, 3, 2, 1, 0, 7}, {6, 5, 4, 3, 2, 1, 0, 7},
+};
+#define FS_ATTACK(s) ((s) >= FS_HIT && (s) <= FS_SCOOP)
 typedef struct { const char *name; uint8_t shape, lo, hi, len, target; } feg_pre_t;
 static const feg_pre_t FEG_PRE[] = {
     {"OFF", 0, 0, 0, 0, 0},
@@ -3776,6 +3784,20 @@ static const feg_pre_t FEG_PRE[] = {
     {"HIT BRIGHT", FS_HIT, 0, 50, 0, 9},           /* (FX BRIGHTNESS) */
     {"HIT RING MOD", FS_HIT, 0, 110, 0, 29},       /* (a clang of RING MOD on the attack) */
     {"HIT SCREAM", FS_HIT, 0, 90, 0, 27},          /* (the waveguides' breath: a bark) */
+    {"SNAP SHAPE", FS_SNAP, 0, 40, 0, 1},          /* (the circuit's SHAPE flicked: a click of tone) */
+    {"SNAP OUTPUT", FS_SNAP, 0, 45, 0, 2},         /* (OUTPUT: the circuit's other voice, a crack) */
+    {"SNAP NOISE X", FS_SNAP, 0, 50, 0, 4},        /* (a noise program's X: its spread, detune, rate) */
+    {"FLAM NOISE Y", FS_FLAM, 0, 45, 0, 5},        /* (struck twice: a flam, a double pluck) */
+    {"FLAM LEVEL", FS_FLAM, 0, 30, 0, 6},
+    {"FLAM RING MOD", FS_FLAM, 0, 100, 0, 29},
+    {"THUMP CHAOS", FS_SCOOP, 0, 45, 0, 0},        /* (CHAOS down, coming back: a long thump) */
+    {"BLOOM RING", FS_LONG, 0, 50, 0, 3},          /* (RING: the gate's resonance opening on the attack) */
+    {"BITE DAMP", FS_HIT, 0, 40, 0, 10},           /* (FX DAMPING: a bitten attack, then the ring) */
+    {"STRIKE POS", FS_HIT, 0, 40, 0, 11},          /* (FX POSITION: where it is struck, moved) */
+    {"BODY STRUCT", FS_LONG, 0, 35, 0, 8},         /* (FX STRUCTURE: the body moving as it rings in) */
+    {"SPLASH", FS_LONG, 0, 60, 0, 16},             /* (SHIMMER MIX: a splash of the space on each attack) */
+    {"VIB KICK", FS_HIT, 0, 80, 0, 28},            /* (VIBRATO: the pitch wobbles on the attack) */
+    {"SCREAM BLOOM", FS_LONG, 0, 70, 0, 27},       /* (SCREAM dying away: a growl on the attack) */
 };
 #define NPAGE_PRE(t) ((int32_t)(sizeof t / sizeof t[0]))
 static void page_preset(int32_t s)
@@ -3829,12 +3851,17 @@ static void page_preset(int32_t s)
                     u = (int32_t)sh; break;
                 case FS_LATE: u = ph < 128 ? 0 : ph < 256 ? (ph - 128) * 8 : 1024; break;
                 case FS_HIT:
-                case FS_DIP: {                   /* (around the parameter's base: what FREE EG moves it from) */
+                case FS_DIP:
+                case FS_SNAP:
+                case FS_FLAM:
+                case FS_LONG:
+                case FS_SCOOP: {                 /* (around the parameter's base: what FREE EG moves it from) */
                     volatile uint8_t *fl = feg_field(f->target);
                     int32_t base = fegs[0].playing && feg_field(fegs[0].target) == fl ? fegs[0].base :
                                    fegs[1].playing && feg_field(fegs[1].target) == fl ? fegs[1].base : *fl;
-                    int32_t o = k == 0u ? f->hi : k == 1u ? f->hi / 3 : k == 2u ? f->hi / 6 : 0;
-                    u = base + (f->shape == FS_DIP ? -o : o);
+                    const uint8_t *pr = FS_PROF[f->shape - FS_HIT];
+                    int32_t o = k < 7u ? f->hi * pr[k] / 6 : 0;
+                    u = base + (f->shape == FS_DIP || f->shape == FS_SCOOP ? -o : o);
                     c[k] = (uint8_t)(u < 0 ? 0 : u > 127 ? 127 : u);
                     continue;
                 }
@@ -3847,7 +3874,7 @@ static void page_preset(int32_t s)
                 uint32_t q = irq_save();
                 for (k = 0; k < FEG_N; k++)
                     feg.curve[k] = c[k];
-                sys.feg_npts = (uint8_t)(f->shape == FS_HIT || f->shape == FS_DIP ? 4u : 127u);
+                sys.feg_npts = (uint8_t)(FS_ATTACK(f->shape) ? FS_PROF[f->shape - FS_HIT][7] : 127u);
                 sys.feg_len = f->len;
                 sys.feg_target = f->target;
                 sys.feg_depth = 127;
