@@ -849,6 +849,16 @@ int main(int argc, char **argv)
         sys.page = 10; page_preset(-1); ok &= sys.basis == SCL_PRE[NPAGE_PRE(SCL_PRE) - 1].basis;
         sys.page = 8; page_preset(1); ok &= !sys.feg_on;
         page_preset(1); ok &= sys.feg_on && sys.feg_has && sys.feg_target == 3u && feg.curve[32] > feg.curve[96];
+        {   /* FREE EG 2: the same list, its own place in it (left: from the end, HIT SCREAM, around SCREAM's value) */
+            uint8_t sc = sys.scream;
+            feg_edit_to(1);
+            page_preset(-1);
+            ok &= sys.feg_on && sys.feg_target == 27u && sys.feg_len == 0u && sys.feg_npts == 4u &&
+                  feg.curve[0] == (uint8_t)(sc + 90u > 127u ? 127u : sc + 90u) && feg.curve[3] == sc && fegs[0].curve[32] > fegs[0].curve[96];
+            sys.feg_on = 0;
+            feg_edit_to(0);
+            ok &= sys.feg_on && sys.feg_target == 3u;
+        }
         sys.feg_on = 0; sys.page = pg;
         if (!ok) { printf("page presets FAIL\n"); bad = 1; }
     }
