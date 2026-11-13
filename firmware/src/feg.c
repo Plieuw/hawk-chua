@@ -78,7 +78,11 @@ static volatile uint8_t *feg_field(uint32_t t)
     }
 }
 
-static struct {
+/* TWO of them (the LFO button: FREE EG 1, again FREE EG 2, again HOME): two modulation sources, each its own
+ * recording, length, depth and target. The one the page shows is in sys (sys.feg_...) and is `feg`; the other's
+ * settings in feg_po (feg_edit_to swaps them, the IRQs off). Both on the same parameter: their moves add up (the
+ * second takes the first's base). FREE EG 1 is the presets' (their contours); AM / FM: the first that wants it */
+typedef struct {
     uint8_t curve[FEG_N];                        /* the recording (sys.feg_has: there is one) */
     uint32_t t;                                  /* samples into the cycle (its own clock; NOTE: since the note) */
     uint32_t clk0, starts;                       /* MIDI clock: the clock the cycle counts from; STARTs seen */
@@ -88,19 +92,32 @@ static struct {
     uint8_t rec;                                 /* recording */
     uint8_t playing, target, base;               /* driving: which parameter, its value before */
     volatile uint8_t pos;                        /* the play head, 0..127 (the screen); 255: none */
-} feg = {.pos = 255};
+    int16_t off;                                 /* (this block: how far it moves its parameter from the base) */
+} feg_st_t;
+typedef struct { uint8_t val, len, depth, target, on, has, npts; } feg_par_t;
+static feg_st_t fegs[2] = {{.pos = 255}, {.pos = 255}};
+static volatile uint8_t feg_ed;                  /* the one in sys, on the page: 0 FREE EG 1, 1 FREE EG 2 */
+static feg_par_t feg_po = {64, 9, 127, 0, 0, 0, 0};   /* the other's settings */
+static volatile uint8_t feg_pause;               /* (ui.c, a preset loading: both give their parameters back) */
+#define feg (fegs[feg_ed])
 
 static int feg_owns(volatile uint8_t *f)        /* (karma.c: its envelope leaves this one alone) */
 {
-    return (feg.playing || feg.rec) && feg_field(feg.rec ? sys.feg_target : feg.target) == f;
+    uint32_t i;
+    for (i = 0; i < 2u; i++)
+        if (fegs[i].playing && feg_field(fegs[i].target) == f)
+            return 1;
+    return feg.rec && feg_field(sys.feg_target) == f;
 }
 
-static void feg_release(void)                    /* the parameter given back */
+static void feg_release_(feg_st_t *F)           /* the parameter given back (the other on it too: it keeps it) */
 {
-    if (feg.playing)
-        *feg_field(feg.target) = feg.base;
-    feg.playing = 0;
+    feg_st_t *O = F == &fegs[0] ? &fegs[1] : &fegs[0];
+    if (F->playing && !(O->playing && O->target == F->target))
+        *feg_field(F->target) = F->base;
+    F->playing = 0;
 }
+static void feg_release(void) { feg_release_(&feg); }
 
 static void feg_record(int on)                   /* REC: start (from the cycle's start) or stop */
 {
@@ -121,75 +138,95 @@ static void feg_record(int on)                   /* REC: start (from the cycle's
     }
 }
 
-static volatile uint8_t feg_req;                 /* the main loop's REC: 1 start, 2 stop (done here, in the ISR) */
-static void feg_block(uint32_t n, uint32_t note_ons)
+static void feg_par_get(feg_par_t *P)            /* (the one in sys) */
 {
-    uint32_t len = sys.feg_len % FEG_NLEN, L, p, idx, f8;
-    volatile uint8_t *f;
-    if (feg_req) {
-        feg_record(feg_req == 1u);
-        feg_req = 0;
+    P->val = sys.feg_val;
+    P->len = sys.feg_len;
+    P->depth = sys.feg_depth;
+    P->target = sys.feg_target;
+    P->on = sys.feg_on;
+    P->has = sys.feg_has;
+    P->npts = sys.feg_npts;
+}
+static void feg_par_set(const feg_par_t *P)
+{
+    sys.feg_val = P->val;
+    sys.feg_len = P->len;
+    sys.feg_depth = P->depth;
+    sys.feg_target = P->target;
+    sys.feg_on = P->on;
+    sys.feg_has = P->has;
+    sys.feg_npts = P->npts;
+}
+static volatile uint8_t feg_req;                 /* the main loop's REC: 1 start, 2 stop (done here, in the ISR) */
+static uint8_t feg_am_by;                        /* (this block: AM / FM taken, by 1 + which) */
+/* one of them over this block: its offset (F->off, F->playing), or AUDIO's feg_am. P: its settings (P->npts, P->has:
+ * the recording's, written back) */
+static void feg_run(feg_st_t *F, feg_par_t *P, uint32_t i, uint32_t n, uint32_t note_ons)
+{
+    uint32_t len = P->len % FEG_NLEN, L, p, idx, f8;
+    feg_st_t *O = &fegs[i ^ 1u];
+    F->off = 0;
+    if (note_ons != F->notes) {                  /* a note: NOTE starts again */
+        F->notes = note_ons;
+        if (!len && !F->rec)
+            F->t = 0;
     }
-    if (note_ons != feg.notes) {                 /* a note: NOTE starts again */
-        feg.notes = note_ons;
-        if (!len && !feg.rec)
-            feg.t = 0;
+    if (arp.starts != F->starts) {               /* MIDI START: the cycle from its start */
+        F->starts = arp.starts;
+        F->clk0 = arp.clk;
+        F->t = 0;
     }
-    if (arp.starts != feg.starts) {              /* MIDI START: the cycle from its start */
-        feg.starts = arp.starts;
-        feg.clk0 = arp.clk;
-        feg.t = 0;
-    }
-    if (kar.triggers != feg.ktrig) {             /* KARMA's phrase from its start: PHRASE too */
-        feg.ktrig = kar.triggers;
+    if (kar.triggers != F->ktrig) {              /* KARMA's phrase from its start: PHRASE too */
+        F->ktrig = kar.triggers;
         if (len == FEG_PHRASE) {
-            if (feg.rec && feg.last_idx != 0xFFFFFFFFu && feg.last_idx + 8u >= FEG_N)
-                feg_record(0);                   /* (a whole phrase recorded) */
-            else if (feg.rec)
-                feg.last_idx = 0xFFFFFFFFu;      /* (recording: from the phrase's start, in step with it) */
-            feg.t = 0;
+            if (F->rec && F->last_idx != 0xFFFFFFFFu && F->last_idx + 8u >= FEG_N)
+                feg_record(0);                   /* (a whole phrase recorded: only the one in sys records) */
+            else if (F->rec)
+                F->last_idx = 0xFFFFFFFFu;       /* (recording: from the phrase's start, in step with it) */
+            F->t = 0;
         }
     }
     if (len == FEG_PHRASE) {                     /* PHRASE: KARMA's (while it plays; else a bar at the tempo) */
         uint32_t bpm = sys.arp_bpm < 40u ? 40u : sys.arp_bpm > 250u ? 250u : sys.arp_bpm;
         L = kar.running && kar.phrase_len ? kar.phrase_len : 2646000u / bpm / 24u * 96u;
-        if (feg.t >= L)
-            feg.t = feg.rec ? L - 1u : feg.t % L;
-        p = feg.t;
-        if (feg.rec && p + n >= L) {
-            feg.t = L - 1u;
+        if (F->t >= L)
+            F->t = F->rec ? L - 1u : F->t % L;
+        p = F->t;
+        if (F->rec && p + n >= L) {
+            F->t = L - 1u;
         } else
-            feg.t = feg.t + n < L || feg.rec ? feg.t + n : (feg.t + n) % L;
+            F->t = F->t + n < L || F->rec ? F->t + n : (F->t + n) % L;
     } else if (!len) {                           /* NOTE: points every FEG_NOTE_STEP samples */
-        uint32_t pts = feg.rec ? FEG_N : sys.feg_npts;
+        uint32_t pts = F->rec ? FEG_N : P->npts;
         L = (pts ? pts : 1u) * FEG_NOTE_STEP;
-        p = feg.t < L ? feg.t : L - 1u;
-        feg.t = feg.t < 0x7FFFFFFFu ? feg.t + n : feg.t;
+        p = F->t < L ? F->t : L - 1u;
+        F->t = F->t < 0x7FFFFFFFu ? F->t + n : F->t;
     } else if (len >= FEG_LFO0) {                /* LFO (and AUDIO, recorded at 1 Hz): its own free-running loop */
         L = len >= FEG_AUD0 ? FS : FS * 100u / FEG_LFO_CHZ[len - FEG_LFO0];
-        if (feg.rec && feg.t + n >= L) {
-            feg.t = L - 1u;
-            p = feg.t;
+        if (F->rec && F->t + n >= L) {
+            F->t = L - 1u;
+            p = F->t;
         } else
-            p = feg.t % L;
-        feg.t = (feg.t + n) % L;
+            p = F->t % L;
+        F->t = (F->t + n) % L;
     } else if (arp_ext()) {                      /* MIDI clock: the clocks since the cycle's start */
-        uint32_t tk = feg_ticks(len), c = (arp.clk - feg.clk0) % tk;
+        uint32_t tk = feg_ticks(len), c = (arp.clk - F->clk0) % tk;
         uint32_t tl = arp.tick_len ? arp.tick_len : 919u;
         L = tk * tl;
         p = c * tl + (arp.tick_t < tl ? arp.tick_t : tl - 1u);
-        if (feg.rec && arp.clk - feg.clk0 >= tk)  /* one cycle recorded */
+        if (F->rec && arp.clk - F->clk0 >= tk)   /* one cycle recorded */
             feg_record(0);
     } else {                                     /* its own: the ARP's BPM */
         uint32_t bpm = sys.arp_bpm < 40u ? 40u : sys.arp_bpm > 250u ? 250u : sys.arp_bpm;
         uint32_t spt = 2646000u / bpm / 24u;     /* samples a MIDI clock */
         L = spt * feg_ticks(len);
-        if (feg.rec && feg.t + n >= L) {
-            feg.t = L - 1u;
-            p = feg.t;
+        if (F->rec && F->t + n >= L) {
+            F->t = L - 1u;
+            p = F->t;
         } else
-            p = feg.t % L;
-        feg.t = (feg.t + n) % L;
+            p = F->t % L;
+        F->t = (F->t + n) % L;
     }
     if (!len) {                                  /* NOTE: a point every FEG_NOTE_STEP samples */
         idx = p / FEG_NOTE_STEP;
@@ -199,64 +236,106 @@ static void feg_block(uint32_t n, uint32_t note_ons)
         f8 = (p * FEG_N % L) * 256u / L;
     }
     idx = idx >= FEG_N ? FEG_N - 1u : idx;
-    if (feg.rec) {                               /* the knob into the points passed since the last block */
-        uint32_t i = feg.last_idx == 0xFFFFFFFFu ? 0u : feg.last_idx + 1u;
-        uint8_t v = (uint8_t)(sys.feg_val & 127u);
-        for (; i <= idx && i < FEG_N; i++)
-            feg.curve[i] = v;
-        feg.last_idx = idx;
-        *feg_field(sys.feg_target) = v;          /* (heard while recorded) */
-        feg.pos = (uint8_t)idx;
+    if (F->rec) {                                /* the knob into the points passed since the last block */
+        uint32_t k = F->last_idx == 0xFFFFFFFFu ? 0u : F->last_idx + 1u;
+        uint8_t v = (uint8_t)(P->val & 127u);
+        for (; k <= idx && k < FEG_N; k++)
+            F->curve[k] = v;
+        F->last_idx = idx;
+        *feg_field(P->target) = v;               /* (heard while recorded) */
+        F->pos = (uint8_t)idx;
         if (!len) {
-            sys.feg_npts = (uint8_t)(idx + 1u > 127u ? 127u : idx + 1u);
+            P->npts = (uint8_t)(idx + 1u > 127u ? 127u : idx + 1u);
+            sys.feg_npts = P->npts;
             if (idx + 1u >= FEG_N)               /* full */
                 feg_record(0);
         } else if ((len == FEG_PHRASE || len >= FEG_LFO0 || !arp_ext()) && p + n >= L)
             feg_record(0);
         return;
     }
-    if (len >= FEG_AUD0 && sys.feg_on && sys.feg_has) {   /* AUDIO: the voices take it, every sample */
-        feg_release();
+    if (len >= FEG_AUD0 && P->on && P->has && !feg_am_by) {   /* AUDIO: the voices take it, every sample */
+        feg_release_(F);
         feg_am.r16 = FEG_AUD_R4[(len - FEG_AUD0) % 5u];
         feg_am.fm = (uint8_t)(len >= FEG_FM0);
-        feg_am.depth = (uint8_t)(sys.feg_depth & 127u);
-        feg_am.curve = feg.curve;
+        feg_am.depth = (uint8_t)(P->depth & 127u);
+        feg_am.curve = F->curve;
         {   /* (its mean: FM moves the pitch about the note, whatever the drawing's middle) */
             uint32_t q, sm = 0;
             for (q = 0; q < FEG_N; q++)
-                sm += feg.curve[q];
+                sm += F->curve[q];
             feg_am.mid = (uint8_t)((sm + FEG_N / 2u) / FEG_N);
         }
         feg_am.on = 1;
-        feg.pos = (uint8_t)idx;
+        feg_am_by = (uint8_t)(i + 1u);
+        F->pos = (uint8_t)idx;
         return;
     }
-    feg_am.on = 0;
-    if (!sys.feg_on || !sys.feg_has) {
-        feg_release();
-        feg.pos = 255;
+    if (!P->on || !P->has || len >= FEG_AUD0) {  /* (AUDIO taken by the other: still) */
+        feg_release_(F);
+        F->pos = 255;
         return;
     }
-    if (!feg.playing || feg.target != sys.feg_target % FEG_NT) {   /* (on, or another target: take it over) */
-        feg_release();
-        feg.target = (uint8_t)(sys.feg_target % FEG_NT);
-        feg.base = *feg_field(feg.target);
-        feg.playing = 1;
+    if (!F->playing || F->target != P->target % FEG_NT) {   /* (on, or another target: take it over) */
+        feg_release_(F);
+        F->target = (uint8_t)(P->target % FEG_NT);
+        F->base = O->playing && O->target == F->target ? O->base : *feg_field(F->target);   /* (the other on it:
+                                                                                               * its base) */
+        F->playing = 1;
     }
     {   /* between two points (Q8), then DEPTH around the base */
-        int32_t a = feg.curve[idx], b = feg.curve[idx + 1u < FEG_N ? idx + 1u : idx], v;
-        if (!len && idx + 1u >= sys.feg_npts)
+        int32_t a = F->curve[idx], b = F->curve[idx + 1u < FEG_N ? idx + 1u : idx], v;
+        if (!len && idx + 1u >= P->npts)
             b = a;                               /* (NOTE: the last point holds) */
         v = a + (((b - a) * (int32_t)f8) >> 8);
         {   /* (the mod wheel on the same parameter: it sets how deep, 0 still .. DEPTH x the EDIT page's DEPTH) */
-            int32_t d = (int32_t)(sys.feg_depth & 127u), md = (int32_t)(sys.mw_depth & 127u);
-            if (md && sys.mw_seen && sys.mw_target % FEG_NT == feg.target)
+            int32_t d = (int32_t)(P->depth & 127u), md = (int32_t)(sys.mw_depth & 127u);
+            if (md && sys.mw_seen && sys.mw_target % FEG_NT == F->target)
                 d = d * (int32_t)(sys.mw & 127u) * md / (127 * 127);
-            v = feg.base + (v - feg.base) * d / 127;
+            F->off = (int16_t)((v - F->base) * d / 127);
         }
-        f = feg_field(feg.target);
-        *f = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
-        feg.pos = (uint8_t)idx;
+        F->pos = (uint8_t)idx;
+    }
+}
+
+static void feg_block(uint32_t n, uint32_t note_ons)
+{
+    uint32_t i;
+    if (feg_req) {
+        feg_record(feg_req == 1u);
+        feg_req = 0;
+    }
+    if (feg_pause) {                             /* (a preset loading: given back, taken again after it) */
+        feg_release_(&fegs[0]);
+        feg_release_(&fegs[1]);
+        return;
+    }
+    feg_am_by = 0;
+    for (i = 0; i < 2u; i++) {
+        feg_par_t P;
+        uint8_t np, hs;
+        if (i == feg_ed)
+            feg_par_get(&P);
+        else
+            P = feg_po;
+        np = P.npts;
+        hs = P.has;
+        feg_run(&fegs[i], &P, i, n, note_ons);
+        if (i != feg_ed) {                       /* (its recording's length: written back, if it changed) */
+            if (P.npts != np)
+                feg_po.npts = P.npts;
+            if (P.has != hs)
+                feg_po.has = P.has;
+        }
+    }
+    if (!feg_am_by)
+        feg_am.on = 0;
+    for (i = 0; i < 2u; i++) {                   /* the parameters: base + the moves (both on one: added) */
+        feg_st_t *F = &fegs[i], *O = &fegs[i ^ 1u];
+        int32_t v;
+        if (!F->playing || (i && O->playing && O->target == F->target))
+            continue;
+        v = F->base + F->off + (O->playing && O->target == F->target ? O->off : 0);
+        *feg_field(F->target) = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
     }
 }
 
@@ -274,7 +353,7 @@ static void mw_block(void)
     if (!m || !d)
         return;
     f = feg_field(t);
-    if (feg.playing && feg.target == t)
+    if ((fegs[0].playing && fegs[0].target == t) || (fegs[1].playing && fegs[1].target == t))
         return;
     if (!mwd.on) {
         mwd.on = 1;
