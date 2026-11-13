@@ -15,9 +15,9 @@
  *              FULL-WAVE 2X (rectified twice, its DC off between: two octaves)
  *   mfx_mix    KNOB 4: dry .. wet
  */
-enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_FM, MF_COUNT };
-static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO", "FM"};
-#define MF_KEYED(m) ((m) == MF_RING || (m) == MF_FM)   /* (RING, FM: the carrier at the note x the RATIO) */
+enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_SHIFT, MF_COUNT };
+static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO", "SHIFT +/-"};
+#define MF_KEYED(m) ((m) == MF_RING || (m) == MF_SHIFT)   /* (RING, SHIFT: the carrier at the note x the RATIO) */
 #define MF_NRECT 5
 static const char *const MF_RECT[MF_NRECT] = {"ORIGINAL", "FULL-WAVE", "HALF +", "HALF -", "FULL-WAVE 2X"};
 static uint32_t mf_rect_of(uint32_t v) { return (v & 127u) * MF_NRECT / 128u; }   /* (KNOB 3's value: which) */
@@ -34,8 +34,14 @@ static const char *const MF_RATIO_NAME[MF_NRATIO] = {"1/4", "1/3", "1/2", "2/3",
 static const uint32_t MF_RATIO[MF_NRATIO] = {16384, 21845, 32768, 43691, 49152, 65536, 87381, 98304, 109227, 131072,
                                              163840, 196608, 262144, 327680, 393216, 458752, 524288, 589824, 655360,
                                              786432, 1048576, 1310720, 1572864};   /* Q16 */
+typedef struct {                                 /* a Hilbert pair's state (SHIFT): two chains of four all-passes */
+    int32_t hx[8][2], hy[8][2], hd;
+} mf_hil_t;
 typedef struct {
     int16_t vl[MF_VLEN];
+    mf_hil_t hs, hc;                             /* SHIFT: the sound's analytic pair, the carrier's */
+    int32_t sic1, sic2;                          /* (SHIFT: the side's gate, as the voice's: synth.c lpg_side) */
+    int32_t sd[CTL];                             /* (SHIFT: the side made this block: voice_mix L +, R -) */
     uint32_t ph;                                 /* RING: its carrier's phase (Q32: a cycle of the part's table) */
     int32_t sl, dc, dc2;                         /* (its slew, its rectifier's DC, the second's) */
     uint8_t act;                                 /* blocks it goes on after its input stopped (its tail) */
@@ -237,6 +243,33 @@ static int mf_gen(uint32_t n, uint32_t pp)
     return 1;
 }
 
+/* SHIFT's Hilbert pairs (Olli Niemitalo's: ~40 Hz .. 20 kHz 90 degrees apart): a^2 in Q30; out = a (in + out[n-2]) -
+ * in[n-2]; path 1's output a sample later */
+static const int32_t MF_HA[2][4] = {
+    {514752760, 940832443, 1048613677, 1071056671},   /* 0.6923878^2 .. 0.9987488452737^2 */
+    {173686865, 787083823, 1015061512, 1063647745},   /* 0.4021921162426^2 .. 0.9952884791278^2 */
+};
+static inline int32_t mf_ap(int32_t (*x)[2], int32_t (*y)[2], const int32_t *a, int32_t in)
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++) {
+        int32_t o = (int32_t)(((int64_t)a[k] * (in + y[k][1])) >> 30) - x[k][1];
+        x[k][1] = x[k][0];
+        x[k][0] = in;
+        y[k][1] = y[k][0];
+        y[k][0] = o;
+        in = o;
+    }
+    return in;
+}
+static inline void mf_hilbert(mf_hil_t *H, int32_t v, int32_t *re, int32_t *im)
+{
+    int32_t a = mf_ap(H->hx, H->hy, MF_HA[0], v), b = mf_ap(H->hx + 4, H->hy + 4, MF_HA[1], v);
+    *re = H->hd;
+    H->hd = a;
+    *im = b;
+}
+
 /* a channel (ch: a voice, its oscillator before the gate) moved, in place: VIBRATO, TREMOLO by the block's modulator,
  * RING by its own circuit at inc (its note's, Q32 a sample) x the RATIO; view: the voice the screen traces (both cores
  * render voices: only that one writes the MOD page's trace) */
@@ -259,20 +292,15 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
         return;
     }
     /* (a loop a mode: nothing decided per sample) */
-    if (mode == MF_FM) {                         /* FM: the line read late by the carrier (the part's newest cycle of the
-                                                  * circuit at the note x the ratio): its phase moved, at audio rate. MIX
-                                                  * is the index (0 .. 8: the excursion 8 / (2 pi f), at most 124 samples
-                                                  * about 128; all wet: MIX 0 is MOD FX off) */
-        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio), p = M->vb;
-        uint32_t per = (f >> 8) ? 683565275u / (f >> 8) : 0xFFFFFFFFu;   /* (Q8 samples a unit of index: 2^32 / 2 pi f) */
-        uint32_t bq = (uint32_t)mix >> 4, ex = bq && per > (124u << 16) / bq ? 124u << 16 : per * bq;   /* (the index Q8;
-                                                  * the excursion Q16 samples) */
+    if (mode == MF_SHIFT) {                      /* SHIFT +/-: the sound's spectrum moved up by the carrier (the part's
+                                                  * newest circuit cycle at the note x the ratio) and down by it at once:
+                                                  * the mid (their sum, a ring mod) on, the side (up - down) into C->sd:
+                                                  * up on the left, down on the right */
+        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio);
         const int16_t *t = M->tab[M->tcur];
-        int16_t *vl = C->vl;
         int32_t sk = M->sk;
-        for (i = 0; i < n; i++, p++) {
-            int32_t x = w[i], m = 0, a0, a1;
-            uint32_t d16, di, fr;
+        for (i = 0; i < n; i++) {
+            int32_t x = w[i], m = 0, xr, xi, mr, mi, mid, side;
             if (L) {
                 uint32_t pos = (uint32_t)(((uint64_t)C->ph * L) >> 16), i0 = pos >> 16, i1 = i0 + 1u >= L ? 0u : i0 + 1u;
                 m = t[i0] + (((t[i1] - t[i0]) * (int32_t)(pos >> 1 & 32767u)) >> 15);
@@ -281,13 +309,12 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
             m = mf_post(m, rect, &C->dc, &C->dc2, 10u, &C->sl, sk);
             if (view && (i & 1u))
                 mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
-            d16 = (uint32_t)(128 * 65536 + (int32_t)(((int64_t)m * ex) >> 15));
-            di = d16 >> 16;
-            fr = d16 >> 1 & 32767u;
-            vl[p & (MF_VLEN - 1u)] = (int16_t)mf_clip(x);
-            a0 = vl[(p - di) & (MF_VLEN - 1u)];
-            a1 = vl[(p - di - 1u) & (MF_VLEN - 1u)];
-            w[i] = a0 + (((a1 - a0) * (int32_t)fr) >> 15);
+            mf_hilbert(&C->hs, x, &xr, &xi);
+            mf_hilbert(&C->hc, m * 2, &mr, &mi);
+            mid = (int32_t)(((int64_t)xr * mr) >> 15);           /* ((up + down) / 2) */
+            side = (int32_t)(-((int64_t)xi * mi) >> 15);         /* ((up - down) / 2) */
+            w[i] = x + (int32_t)(((int64_t)(mid - x) * mix) >> 15);
+            C->sd[i] = (int32_t)(((int64_t)side * mix) >> 15);
         }
     } else if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
                                                   * cycle of the circuit read at the note x the ratio */

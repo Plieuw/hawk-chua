@@ -669,6 +669,19 @@ static inline int32_t lpg_frame(voice_t *v, int32_t x)
     v->ic2 = 2 * v2 - v->ic2;
     return (int32_t)(((int64_t)v2 * eg.comp) >> 20);                         /* Q23 x Q12 -> Q15 */
 }
+/* a second signal through the voice's gate as it is now (its coefficients and level; its own state c1, c2): MOD FX
+ * SHIFT's side, so left and right close alike */
+static inline int32_t lpg_side(const voice_t *v, int32_t x, int32_t *c1, int32_t *c2)
+{
+    int32_t v0, v1, v2, v3, lvl = (int32_t)(((v->ctl >> 15) * v->amp) >> 15);
+    v0 = (int32_t)(((int64_t)x * lvl) >> 7);
+    v3 = v0 - *c2;
+    v1 = (int32_t)(((int64_t)v->a1 * *c1 + (int64_t)v->a2 * v3 + LPG_R) >> 28);
+    v2 = *c2 + (int32_t)(((int64_t)v->a2 * *c1 + (int64_t)v->a3 * v3 + LPG_R) >> 28);
+    *c1 = 2 * v1 - *c1;
+    *c2 = 2 * v2 - *c2;
+    return (int32_t)(((int64_t)v2 * eg.comp) >> 20);
+}
 
 static int32_t soft_clip(int32_t x)              /* Q15 in +-1.5 -> +-1: x - 4/27 x^3 */
 {
@@ -847,13 +860,22 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
             break;
     }
     if (pre) {                                          /* MOD FX on the oscillator, then the gate */
+        mf_ch_t *C = &mf_ch[k];
+        int sh = M->mode == MF_SHIFT;                   /* (SHIFT: its side through a gate of its own, as the voice's) */
+        if (sh)
+            memset(C->sd, 0, sizeof C->sd);
         mf_apply(M, k, xb, n, v->inc, v == render_tv);
         for (i = 0; i < n; i++) {
             int done = env_frame(v);
             sum[i] += lpg_frame(v, xb[i]) >> 1;
+            if (sh)
+                C->sd[i] = lpg_side(v, C->sd[i], &C->sic1, &C->sic2) >> 1;
             if (done)
                 break;
         }
+        if (sh)
+            for (; i < n; i++)
+                C->sd[i] = 0;
     }
 }
 
@@ -882,8 +904,15 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
     /* Fast path: the common mono/centred case needs no temporary block.
      * render_voice() adds into its destination, so this is sample-for-sample
      * identical to rendering into a zeroed t[] and adding t[] to b below. */
+    const mf_t *M = &mfp[sys.multi ? v->part & 1u : 0u];
+    int sh = M->on && M->mode == MF_SHIFT;              /* (MOD FX SHIFT: up on the left, down on the right) */
     if (!orbit && !p) {
         render_voice(v, n, b, restarts);
+        if (sh)
+            for (i = 0; i < n; i++) {
+                dl[i] -= mf_ch[v - voice].sd[i];
+                dr[i] += mf_ch[v - voice].sd[i];
+            }
         return;
     }
     memset(t, 0, sizeof t);
@@ -957,6 +986,11 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
         for (i = 0; i < n; i++)
             b[i] += t[i];
     }
+    if (sh)
+        for (i = 0; i < n; i++) {
+            dl[i] -= mf_ch[v - voice].sd[i];
+            dr[i] += mf_ch[v - voice].sd[i];
+        }
 }
 static uint32_t c1_restarts, c1_blocks;          /* (diagnostics) */
 static void c1_voices(uint32_t arg)              /* arg: the voices (bit k = voice k) | n << 8 */

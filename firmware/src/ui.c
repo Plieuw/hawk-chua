@@ -74,8 +74,8 @@ typedef struct { const char *name; uint8_t mode, k1, slew, rect, mix; } mfx_pres
 enum { MFP_NONE, MFP_SLOW_WOBBLE, MFP_TAPE_WARBLE, MFP_SEASICK, MFP_CHAOS_VIB, MFP_TRIPLET_SHIMMY, MFP_OCTAVE_RING,
        MFP_FIFTH_BELL, MFP_SUB_RING, MFP_METAL_BELL, MFP_ROBOT, MFP_GONG, MFP_DIRTY_RING, MFP_HELICOPTER,
        MFP_PULSE_GATE, MFP_SLOW_SWELL, MFP_TRIPLET_CHOP, MFP_EP_TREMOLO, MFP_VIBES_MOTOR, MFP_ORGAN_VIB, MFP_STRING_VIB,
-       MFP_BREATH_VIB, MFP_LEAD_VIB, MFP_BELL_RING, MFP_CHAOS_RING, MFP_SLOW_PULSE, MFP_FM_EPIANO, MFP_FM_BELL,
-       MFP_FM_BRASS, MFP_FM_METAL, MFP_FM_GROWL, MFP_COUNT };
+       MFP_BREATH_VIB, MFP_LEAD_VIB, MFP_BELL_RING, MFP_CHAOS_RING, MFP_SLOW_PULSE, MFP_WIDE_SHIFT, MFP_OCTAVE_SPLIT,
+       MFP_SUB_SPLIT, MFP_BELL_SPLIT, MFP_CHAOS_SPLIT, MFP_COUNT };
 static const mfx_preset_t MFX_PRE[MFP_COUNT - 1] = {
     {"SLOW WOBBLE", MF_VIBRATO, 2, 60, 0, 55},   {"TAPE WARBLE", MF_VIBRATO, 5, 95, 0, 40},
     {"SEASICK", MF_VIBRATO, 1, 30, 0, 90},       {"CHAOS VIBRATO", MF_VIBRATO, 8, 0, 0, 70},
@@ -90,9 +90,9 @@ static const mfx_preset_t MFX_PRE[MFP_COUNT - 1] = {
     {"BREATH VIBRATO", MF_VIBRATO, 9, 100, 0, 26}, {"LEAD VIBRATO", MF_VIBRATO, 8, 60, 0, 35},
     {"BELL RING", MF_RING, 12, 0, 0, 30},        {"CHAOS RING", MF_RING, 5, 0, 0, 55},
     {"SLOW PULSE", MF_TREMOLO, 5, 50, 0, 50},
-    {"FM E.PIANO", MF_FM, 5, 0, 0, 40},          {"FM BELL", MF_FM, 10, 0, 0, 70},
-    {"FM BRASS", MF_FM, 5, 40, 0, 60},           {"FM METAL", MF_FM, 8, 0, 0, 95},
-    {"FM GROWL", MF_FM, 2, 0, 1, 85},
+    {"WIDE SHIFT", MF_SHIFT, 5, 0, 0, 60},       {"OCTAVE SPLIT", MF_SHIFT, 9, 0, 0, 80},
+    {"SUB SPLIT", MF_SHIFT, 2, 0, 0, 70},        {"BELL SPLIT", MF_SHIFT, 10, 0, 0, 75},
+    {"CHAOS SPLIT", MF_SHIFT, 5, 20, 1, 90},
 };
 #define MFX_NPRE (sizeof MFX_PRE / sizeof MFX_PRE[0])
 static void mfx_set(uint32_t k)                  /* MOD FX as preset k (0: off; else MFX_PRE[k - 1]) */
@@ -2009,8 +2009,8 @@ static void mfx_scope(uint32_t mode, int on)
             py = y;
         }
         break;
-    case MF_RING:                                /* XY: the sound across, the circuit up (FM: as RING) */
-    case MF_FM:
+    case MF_RING:                                /* XY: the sound across, the circuit up (SHIFT: as RING) */
+    case MF_SHIFT:
         cv_line(120, 10, 120, PLOT_H - 10, grid);
         cv_line(60, cy, 180, cy, grid);
         for (i = 0; i < 256u; i++) {
@@ -2068,8 +2068,8 @@ static void mfx_psy(uint32_t mode, int on)
             us_poly(cx + 1, cy, r, 32u, t << 20, 230, ux_mix(T_BG, c, 50));
         }
         break;
-    case MF_RING:                                /* two rings linked, turning; the product's figure between (FM too) */
-    case MF_FM: {
+    case MF_RING:                                /* two rings linked, turning; the product's figure between (SHIFT too) */
+    case MF_SHIFT: {
         uint32_t a = t << 22;
         int32_t d = 16 + (mfx_mf(255) < 0 ? -mfx_mf(255) : mfx_mf(255)) * 10 / 32768;
         int32_t dx = us_sin(a + (1u << 30), d), dy = us_sin(a, d) / 2;
@@ -3089,7 +3089,7 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 20u) {                /* MOD FX: the note value or ratio, the slew, the rectifier, the mix */
         uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;
-        if (MF_KEYED(mode)) {                    /* (RING, FM: the ratio to the note; VIBRATO, TREMOLO: the tempo's note value) */
+        if (MF_KEYED(mode)) {                    /* (RING, SHIFT: the ratio to the note; VIBRATO, TREMOLO: the tempo's note value) */
             str_cpy(b, "NOTE X ", sizeof b);
             ui_cat(b, sizeof b, MF_RATIO_NAME[mf_ratio()]);
         } else
@@ -4309,7 +4309,7 @@ static void ui_input(void)
         sys.tune432 = (uint8_t)(s > 0);
         ui_say(sys.tune432 ? "TUNING A = 432 HZ" : "TUNING A = 440 HZ");
         ui_force = 1;
-    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, TREMOLO, FM) */
+    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, TREMOLO, SHIFT +/-) */
         sys.mfx_mode = (uint8_t)(((int32_t)sys.mfx_mode + MF_COUNT * 8 + s) % MF_COUNT);
         str_cpy(t, "MOD FX ", sizeof t);
         ui_cat(t, sizeof t, MF_NAME[sys.mfx_mode]);
