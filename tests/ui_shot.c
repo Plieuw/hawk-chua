@@ -255,6 +255,29 @@ int main(int argc, char **argv)
                                                   * it: the resonator's knobs left, FLUTE's base given back) */
             if (!ok) printf("preset FREE EG contour: jet %u .. %u around %u\n", lo, hi, st0);
         }
+        {   /* ANALOG (UI STYLE, SELECT): each voice a few cents off, its envelope a few percent; INITIAL: exact */
+            uint32_t k2, n0 = 0, near = 1;
+            int8_t pg = (int8_t)sys.page;
+            uint32_t rs = rng_state;                     /* (the random numbers after it as without it) */
+            synth_kill();
+            sys.page = 19; enc_steps[panel.enc[EN_SELECT]] = 1; ui_input();
+            ok &= sys.analog == 1u;
+            for (k2 = 0; k2 < NVOICE; k2++) synth_note_on(60u + 4u * k2, 100);
+            for (k2 = 0; k2 < NVOICE; k2++) {
+                uint32_t e = note_inc(voice[k2].note), d = voice[k2].inc0 > e ? voice[k2].inc0 - e : e - voice[k2].inc0;
+                n0 += voice[k2].inc0 != e;
+                near &= d < e / 200u && voice[k2].an_t > 200u && voice[k2].an_t < 300u;   /* (< ~9 cents) */
+            }
+            ok &= n0 >= 3u && near;
+            synth_kill();
+            enc_steps[panel.enc[EN_SELECT]] = -1; ui_input();
+            synth_note_on(60, 100);
+            ok &= !sys.analog && voice[0].inc0 == note_inc(voice[0].note) && voice[0].an_t == 256u;
+            synth_kill();
+            sys.page = (uint8_t)pg;
+            rng_state = rs;
+            if (!ok) printf("ANALOG: %u voices off, near %u\n", n0, near);
+        }
         {   /* FREE EG 2: its own recording and target beside 1 (the LFO button again: its page); both on one
              * parameter: their moves add up; a preset gives both their parameters back */
             uint32_t b2, k2;

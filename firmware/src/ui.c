@@ -1284,6 +1284,7 @@ typedef struct {
     uint8_t tune432;                             /* (26: saved; before: A 440) */
     uint8_t mono;                                /* (27: saved, bit 0 A MONO, bit 1 B; before: POLY) */
     uint8_t feg2_len, feg2_depth, feg2_target, feg2_on, feg2_has, feg2_npts, feg2_curve[FEG_N];   /* (28: FREE EG 2) */
+    uint8_t analog;                              /* (29: saved; before: INITIAL) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1429,6 +1430,7 @@ static void settings_boot(void)    /* power-on, before the audio */
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
         sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
+        sys.analog = (uint8_t)(s.snd >= 29u && s.analog);
         part_mono[0] = (uint8_t)(s.snd >= 27u && (s.mono & 1u));
         part_mono[1] = (uint8_t)(s.snd >= 27u && (s.mono & 2u));
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
@@ -1490,10 +1492,11 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 28;
+    s.snd = 29;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
+    s.analog = sys.analog;
     s.mono = (uint8_t)(part_mono[0] | part_mono[1] << 1);
     s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
@@ -2508,6 +2511,8 @@ static void draw_style(void)
     cv_text(8, 58, &AF_S, US_WHAT[st], T_TEXT);
     cv_text(9, 99, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_BG);
     cv_text(8, 98, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_TEXT);
+    cv_text(9, 113, &AF_S, sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)", T_BG);
+    cv_text(8, 112, &AF_S, sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)", sys.analog ? T_THEME : T_TEXT);
     cv_blit(0, PLOT_Y);
 }
 static void draw_midi(void)
@@ -4361,6 +4366,10 @@ static void ui_input(void)
     } else if (s && sys.page == 9u) {           /* KARMA: LATCH (right on, left off) */
         sys.k_latch = (uint8_t)(s > 0);
         ui_say(sys.k_latch ? "LATCH ON" : "LATCH OFF");
+    } else if (s && sys.page == 19u) {          /* UI STYLE: the sound INITIAL (left: exact) or ANALOG (right) */
+        sys.analog = (uint8_t)(s > 0);
+        ui_say(sys.analog ? "ANALOG: EVERY VOICE A LITTLE OFF" : "INITIAL: EXACT");
+        ui_force = 1;
     } else if (s && sys.page == 8u) {           /* FREE EG: PLAY (right on, left off) */
         sys.feg_on = (uint8_t)(s > 0);
         ui_say(sys.feg_on ? (sys.feg_has ? "PLAY ON" : "NOTHING RECORDED") : "PLAY OFF");
