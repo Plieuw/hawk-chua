@@ -31,7 +31,7 @@
  *            one runs)
  *   ARP      (the ARP button; again: back HOME; its LED lit while on) the arpeggiator (arp.c): KNOB 1 BPM (EXT under
  *            MIDI clock), KNOB 2 SUBDIVIDE, KNOB 3 GATE, KNOB 4 SWING; ALGORITHM the pattern, SELECT LATCH
- *   LFO      the FREE EG page (feg.c): KNOB 1 the knob recorded, KNOB 2 LENGTH (NOTE, 1..8 STEPS, 1..4 BARS),
+ *   LFO      FREE EG 1, again FREE EG 2 (feg.c): KNOB 1 the knob recorded, KNOB 2 LENGTH (NOTE, 1..8 STEPS, 1..4 BARS),
  *            KNOB 3 DEPTH, KNOB 4 the TARGET; SELECT PLAY; REC again there: record (NOTE: REC once more to stop)
  *   SEQ      the KARMA page (karma.c; again: back HOME; PLAY starts it, its LED lit while on): ALGORITHM the GE (the phrase
  *            generator), KNOB 1..4 its four realtime controls (named per GE: DENSITY, RANGE, REPEAT ...), SELECT LATCH,
@@ -1145,32 +1145,66 @@ static void preset_load(uint32_t i)                  /* (in the duck: no plop) *
     preset_load_(i);
     duck_end();
 }
+static void feg_edit_to(uint32_t e)              /* the page on FREE EG e (main loop, the IRQs off meanwhile: feg.c's two) */
+{
+    uint32_t irq;
+    feg_par_t t;
+    e &= 1u;
+    if (e == feg_ed)
+        return;
+    irq = irq_save();
+    feg_record(0);                               /* (a recording stops where it is) */
+    feg_par_get(&t);
+    feg_par_set(&feg_po);
+    feg_po = t;
+    feg_ed = (uint8_t)e;
+    irq_restore(irq);
+}
+
 static void preset_load_(uint32_t i)
 {
-    uint8_t on = sys.feg_on;
-    sys.feg_on = 0;                              /* (FREE EG gives its parameter back; it takes the new value as */
-    feg_release();                               /* its base when it plays again) */
+    uint32_t ed = feg_ed, q;
+    uint8_t on;
+    feg_edit_to(0);                              /* (the presets' contours: FREE EG 1's) */
+    on = sys.feg_on;
+    feg_pause = 1;                               /* (both FREE EGs give their parameters back; they take the new */
+    q = irq_save();                              /* values as their bases when they play again) */
+    feg_release_(&fegs[0]);
+    feg_release_(&fegs[1]);
+    irq_restore(q);
+    sys.feg_on = 0;
     preset_apply(i);
     preset_eg(PRESETS[i % NPRESETS].eg, on);
+    feg_pause = 0;
+    feg_edit_to(ed);
     lvl_set();
 }
 /* FREE EG's target held at its base for a moment (what it moves around, not where it is now): the comparisons and
  * SAVE see the sound's settings, not the contour's place (the audio held off meanwhile: a few microseconds) */
-static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq)
+static volatile uint8_t *feg_held[2];
+static uint8_t feg_was[2];
+static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq)   /* (both FREE EGs: their targets at their bases) */
 {
-    volatile uint8_t *t;
+    uint32_t i;
     *irq = irq_save();
-    t = feg.playing ? feg_field(feg.target) : 0;
-    if (t) {
-        *was = *t;
-        *t = feg.base;
+    for (i = 0; i < 2u; i++) {
+        feg_held[i] = fegs[i].playing ? feg_field(fegs[i].target) : 0;
+        if (feg_held[i]) {
+            feg_was[i] = *feg_held[i];
+            *feg_held[i] = fegs[i].base;
+        }
     }
-    return t;
+    *was = 0;
+    return feg_held[0];
 }
 static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq)
 {
-    if (t)
-        *t = was;
+    uint32_t i;
+    (void)t;
+    (void)was;
+    for (i = 2u; i-- > 0u;)
+        if (feg_held[i])
+            *feg_held[i] = feg_was[i];
     irq_restore(irq);
 }
 static int preset_edited_(void);
@@ -1249,6 +1283,7 @@ typedef struct {
     uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, slew, rectify, mix; before: off) */
     uint8_t tune432;                             /* (26: saved; before: A 440) */
     uint8_t mono;                                /* (27: saved, bit 0 A MONO, bit 1 B; before: POLY) */
+    uint8_t feg2_len, feg2_depth, feg2_target, feg2_on, feg2_has, feg2_npts, feg2_curve[FEG_N];   /* (28: FREE EG 2) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1353,7 +1388,17 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.feg_has = (uint8_t)(s.feg_has != 0);
         sys.feg_npts = (uint8_t)(s.feg_npts & 127u);
         for (uint32_t i = 0; i < FEG_N; i++)
-            feg.curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
+            fegs[0].curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
+        if (s.snd >= 28u) {                      /* (28: FREE EG 2 saved; before: empty, off) */
+            feg_po.len = (uint8_t)(s.feg2_len % FEG_NLEN);
+            feg_po.depth = (uint8_t)(s.feg2_depth & 127u);
+            feg_po.target = (uint8_t)(s.feg2_target % FEG_NT);
+            feg_po.on = (uint8_t)(s.feg2_on != 0);
+            feg_po.has = (uint8_t)(s.feg2_has != 0);
+            feg_po.npts = (uint8_t)(s.feg2_npts & 127u);
+            for (uint32_t i = 0; i < FEG_N; i++)
+                fegs[1].curve[i] = (uint8_t)(s.feg2_curve[i] & 127u);
+        }
         sys.k_on = 0;
         sys.k_ge = (uint8_t)(s.k_ge % KGE_N);
         sys.k_latch = (uint8_t)(s.k_latch != 0);
@@ -1417,26 +1462,25 @@ static void settings_fill(settings_t *sp)        /* the state now, as saved: FRE
                                                   * values they give back (not where they move them); A's sound as
                                                   * A's while B is edited */
 {
-    uint32_t pe = part_edit, f;
+    uint32_t pe = part_edit, f, fd = feg_ed;
+    uint8_t fw;
     part_edit_set(0);
-    f = irq_save();
-    volatile uint8_t *fe = feg.playing ? feg_field(feg.target) : 0, *mw = mwd.on ? feg_field(mwd.target) : 0;
+    feg_edit_to(0);                              /* (FREE EG 1 in sys, 2 in feg_po: as saved) */
+    feg_hold(&fw, &f);
+    volatile uint8_t *mw = mwd.on ? feg_field(mwd.target) : 0;
     volatile uint8_t *me = menv_p.target && menv_p.moved ? feg_field(menv_p.target - 1u) : 0;
-    uint8_t fv = fe ? *fe : 0, mv = mw ? *mw : 0, ev = me ? *me : 0;
+    uint8_t mv = mw ? *mw : 0, ev = me ? *me : 0;
     if (me)
         *me = (uint8_t)clamp((int32_t)*me - menv_p.moved, 0, 127);
     if (mw)
         *mw = mwd.base;
-    if (fe)
-        *fe = feg.base;
     settings_fill_now(sp);
-    if (fe)
-        *fe = fv;
     if (mw)
         *mw = mv;
     if (me)
         *me = ev;
-    irq_restore(f);
+    feg_unhold(0, fw, f);
+    feg_edit_to(fd);
     part_edit_set(pe);
 }
 static void settings_fill_now(settings_t *sp)
@@ -1446,7 +1490,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 27;
+    s.snd = 28;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
@@ -1525,7 +1569,14 @@ static void settings_fill_now(settings_t *sp)
     s.feg_on = sys.feg_on;
     s.feg_has = sys.feg_has;
     s.feg_npts = sys.feg_npts;
-    memcpy(s.feg_curve, feg.curve, sizeof s.feg_curve);
+    memcpy(s.feg_curve, fegs[0].curve, sizeof s.feg_curve);
+    s.feg2_len = feg_po.len;                     /* (FREE EG 2: settings_fill has 1 in sys) */
+    s.feg2_depth = feg_po.depth;
+    s.feg2_target = feg_po.target;
+    s.feg2_on = feg_po.on;
+    s.feg2_has = feg_po.has;
+    s.feg2_npts = feg_po.npts;
+    memcpy(s.feg2_curve, fegs[1].curve, sizeof s.feg2_curve);
     s.k_on = sys.k_on;
     s.k_ge = sys.k_ge;
     s.k_latch = sys.k_latch;
@@ -2716,7 +2767,8 @@ static void ui_draw(void)
         static const char *const TITLE[21] = {"", "LPG", "RESONATORS", "REVERB", "", "PITCH MOD", "ARPEGGIATOR", "MIDI",
                                               "LFO FREE EG", "SEQUENCER", "PANNING", "EDIT", "TAPE", "TAPE SPEED", "",
                                               "MULTI", "SOUND", "SEQ LOGIC", "ARP GROOVE", "UI STYLE", "MOD FX"};
-        str_cpy(a, sys.page == 3u && SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "DELAY" : TITLE[sys.page], sizeof a);
+        str_cpy(a, sys.page == 3u && SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "DELAY" : sys.page == 8u && feg_ed ? "LFO FREE EG 2" :
+                   sys.page == 8u ? "LFO FREE EG 1" : TITLE[sys.page], sizeof a);
     }
     if (note < 128u && sys.voices) {
         str_cpy(b, NOTE_NAME[note % 12u], sizeof b);
@@ -3182,6 +3234,7 @@ static void ui_draw(void)
         } else if (sys.page == 8u) {             /* FREE EG: recording, playing, or what to do */
             str_cpy(a, feg.rec ? "FREE EG   RECORDING: TURN KNOB 1" : !sys.feg_has ? "FREE EG   REC: RECORD" :
                     sys.feg_on ? "FREE EG   PLAYING" : "FREE EG   SELECT: PLAY", sizeof a);
+            a[8] = (char)('1' + feg_ed);           /* (which: FREE EG 1, 2) */
         } else if (sys.page == 7u) {             /* MIDI: the CLOCK (SELECT) */
             str_cpy(a, sys.clk_int ? "CLOCK INT" : "CLOCK EXT", sizeof a);
             ui_cat(a, sizeof a, sys.autoplay ? "  AUTOPLAY ON" : "  AUTOPLAY OFF");
@@ -3477,9 +3530,10 @@ static void ui_leds(void)
     {   /* SCL (BASIS, ORBIT) while in use: a blink at each note (on its page: lit, dark a moment at each note); LFO
          * follows FREE EG: lit while its curve is over the middle, as the ENV light follows the envelope */
         static uint32_t ons_seen, on_ms;
-        uint8_t fp = feg.pos;
+        uint8_t fp = feg.pos, op = fegs[feg_ed ^ 1u].pos;
         int scl = (sys.basis & 127u) || sys.orbit, blink;
-        int lfo = sys.feg_on && sys.feg_has && fp < FEG_N && feg.curve[fp] > 64u;
+        int lfo = (sys.feg_on && sys.feg_has && fp < FEG_N && feg.curve[fp] > 64u) ||   /* (either FREE EG) */
+                  (feg_po.on && feg_po.has && op < FEG_N && fegs[feg_ed ^ 1u].curve[op] > 64u);
         if (synth_ons != ons_seen) {
             ons_seen = synth_ons;
             on_ms = fm1_ms;
@@ -3750,7 +3804,8 @@ static void page_preset(int32_t s)
                 sys.feg_depth = 127;
                 sys.feg_has = 1;
                 sys.feg_on = 1;
-                eg_from_preset = 0;              /* (chosen here: kept over the sound presets, as a recording) */
+                if (!feg_ed)
+                    eg_from_preset = 0;          /* (chosen here: kept over the sound presets, as a recording) */
                 irq_restore(q);
             }
         }
@@ -3956,8 +4011,16 @@ static void ui_input(void)
                 ui_say("STOP");
             }
             break;
-        case B_LFO:                                     /* the FREE EG page and back (REC records there) */
-            sys.page = sys.page == 8u ? 0u : 8u;
+        case B_LFO:                                     /* FREE EG 1, again FREE EG 2, again back (REC records there) */
+            if (sys.page != 8u) {
+                feg_edit_to(0);
+                sys.page = 8;
+            } else if (!feg_ed)
+                feg_edit_to(1);
+            else {
+                feg_edit_to(0);
+                sys.page = 0;
+            }
             ui_force = 1;
             break;
         case B_EDIT:                                    /* the EDIT page (mod wheel, velocity) and back */
