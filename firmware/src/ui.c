@@ -3723,7 +3723,9 @@ static const scl_pre_t SCL_PRE[] = {
     {"MONO", 0, 0}, {"NARROW", 30, 0}, {"WIDE", 90, 0}, {"FULL", 127, 0}, {"SUBTLE DRIFT", 40, 15}, {"DRIFT", 60, 30},
     {"SWIRL", 100, 80}, {"SPACE", 127, 127},
 };
-enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL };
+enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL, FS_LATE, FS_HIT, FS_DIP };
+/* (LATE: still for an eighth, up by a quarter, then held: NOTE ~0.7 s, ~1.5 s; HIT, DIP: an attack, NOTE ~140 ms, around
+ * the parameter where it is: HI up (HIT) or down (DIP) at the note's start, a third of it ~46 ms on, gone by ~140 ms) */
 typedef struct { const char *name; uint8_t shape, lo, hi, len, target; } feg_pre_t;
 static const feg_pre_t FEG_PRE[] = {
     {"OFF", 0, 0, 0, 0, 0},
@@ -3741,11 +3743,33 @@ static const feg_pre_t FEG_PRE[] = {
     {"SCREAM RISE", FS_UP, 0, 127, 9, 27},         /* (SCREAM) */
     {"TALK", FS_SINE, 0, 127, 17, 15},             /* (1 HZ, SHIMMER: MOUTH's vowel) */
     {"YOI YOI", FS_TRI, 10, 120, 2, 15},           /* (2 STEPS, the vowel) */
+    /* MOD FX's VIBRATO and RING MOD (their rate, ratio, slew, rectify: the MOD FX page's) */
+    {"DELAYED VIB", FS_LATE, 0, 70, 0, 28},        /* (NOTE, VIBRATO: in after a moment, as a player's) */
+    {"VIB SWELL BAR", FS_UP, 0, 90, 9, 28},        /* (1 BAR) */
+    {"VIB WAVES", FS_SINE, 0, 80, 15, 28},         /* (0.25 HZ) */
+    {"RING BLOOM", FS_SWELL, 0, 110, 0, 29},       /* (NOTE, RING MOD opening) */
+    {"RING GATE 1/8", FS_SQUARE, 0, 120, 2, 29},   /* (2 STEPS) */
+    {"RING DRIFT", FS_SINE, 0, 100, 16, 29},       /* (0.5 HZ) */
+    {"RING S&H", FS_SH, 0, 120, 10, 29},           /* (2 BARS) */
+    /* at audio rate (AM, FM: the note's level or pitch moved by the drawing, x the note) */
+    {"AM X1/2 GROWL", FS_SINE, 20, 127, 23, 0},    /* (AM X1/2) */
+    {"AM X2 RING", FS_SQUARE, 0, 127, 25, 0},
+    {"FM X1 WARM", FS_SINE, 50, 78, 29, 0},        /* (FM X1: a little) */
+    {"FM X2 BELL", FS_SINE, 34, 94, 30, 0},
+    {"FM X3 METAL", FS_TRI, 24, 104, 31, 0},
+    /* attacks (each note: a burst around where the parameter is) */
+    {"HIT CHAOS", FS_DIP, 0, 40, 0, 0},            /* (CHAOS down: the cycle's thump) */
+    {"HIT NOISE Y", FS_HIT, 0, 45, 0, 5},          /* (the exciter struck harder: pick, mallet) */
+    {"HIT LEVEL", FS_HIT, 0, 30, 0, 6},            /* (NOISE LEVEL: a click) */
+    {"HIT BRIGHT", FS_HIT, 0, 50, 0, 9},           /* (FX BRIGHTNESS) */
+    {"HIT RING MOD", FS_HIT, 0, 110, 0, 29},       /* (a clang of RING MOD on the attack) */
+    {"HIT SCREAM", FS_HIT, 0, 90, 0, 27},          /* (the waveguides' breath: a bark) */
 };
 #define NPAGE_PRE(t) ((int32_t)(sizeof t / sizeof t[0]))
 static void page_preset(int32_t s)
 {
-    static uint8_t pe = 0xFF, pm = 0xFF, pf = 0xFF, ps = 0xFF;   /* (none chosen yet: the first turn right the first) */
+    static uint8_t pe = 0xFF, pm = 0xFF, pfs[2] = {0xFF, 0xFF}, ps = 0xFF;   /* (none chosen yet: the first turn right the
+                                                                              * first; FREE EG 1, 2: each its own place) */
     char t[28];
     const char *nm;
     s = s > 0 ? 1 : -1;
@@ -3771,7 +3795,9 @@ static void page_preset(int32_t s)
     } else {
         const feg_pre_t *f;
         uint32_t k;
+        uint8_t pf = pfs[feg_ed & 1u];
         pf = (uint8_t)(pf == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(FEG_PRE) - 1) : (pf + NPAGE_PRE(FEG_PRE) * 8 + s) % NPAGE_PRE(FEG_PRE));
+        pfs[feg_ed & 1u] = pf;
         f = &FEG_PRE[pf];
         if (!pf)
             sys.feg_on = 0;
@@ -3789,6 +3815,17 @@ static void page_preset(int32_t s)
                 case FS_SH:
                     if (!(k & 7u)) { rng = rng * 1664525u + 1013904223u; sh = rng >> 22; }
                     u = (int32_t)sh; break;
+                case FS_LATE: u = ph < 128 ? 0 : ph < 256 ? (ph - 128) * 8 : 1024; break;
+                case FS_HIT:
+                case FS_DIP: {                   /* (around the parameter's base: what FREE EG moves it from) */
+                    volatile uint8_t *fl = feg_field(f->target);
+                    int32_t base = fegs[0].playing && feg_field(fegs[0].target) == fl ? fegs[0].base :
+                                   fegs[1].playing && feg_field(fegs[1].target) == fl ? fegs[1].base : *fl;
+                    int32_t o = k == 0u ? f->hi : k == 1u ? f->hi / 3 : k == 2u ? f->hi / 6 : 0;
+                    u = base + (f->shape == FS_DIP ? -o : o);
+                    c[k] = (uint8_t)(u < 0 ? 0 : u > 127 ? 127 : u);
+                    continue;
+                }
                 default: u = ph < 768 ? ph * 4 / 3 : 1024; break;   /* (SWELL: up over three quarters, then held) */
                 }
                 u = u < 0 ? 0 : u > 1024 ? 1024 : u;
@@ -3798,7 +3835,7 @@ static void page_preset(int32_t s)
                 uint32_t q = irq_save();
                 for (k = 0; k < FEG_N; k++)
                     feg.curve[k] = c[k];
-                sys.feg_npts = 127;
+                sys.feg_npts = (uint8_t)(f->shape == FS_HIT || f->shape == FS_DIP ? 4u : 127u);
                 sys.feg_len = f->len;
                 sys.feg_target = f->target;
                 sys.feg_depth = 127;
@@ -3809,7 +3846,7 @@ static void page_preset(int32_t s)
                 irq_restore(q);
             }
         }
-        str_cpy(t, "FREE EG: ", sizeof t);
+        str_cpy(t, feg_ed ? "FREE EG 2: " : "FREE EG 1: ", sizeof t);
         nm = f->name;
     }
     ui_cat(t, sizeof t, nm);
