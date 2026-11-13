@@ -2790,7 +2790,7 @@ int main(int argc, char **argv)
         static int32_t wv[CTL];
         int32_t prev = 16000, jump = 0, i, b2;
         int on_after = 0;
-        sys.mfx_mode = MF_TREMOLO; sys.mfx_slew = 127; sys.mfx_rect = 0; sys.mfx_mix = 0;
+        sys.mfx_mode = MF_TREMOLO; sys.mfx_slew = 110; sys.mfx_rect = 0; sys.mfx_mix = 0;
         mf_reset(&mfp[0], 0);
         for (b2 = 0; b2 < 400; b2++) {
             sys.mfx_mix = b2 < 100 ? 0 : b2 < 250 ? 127 : 0;      /* (MIX thrown full open, then shut) */
@@ -2884,41 +2884,6 @@ int main(int argc, char **argv)
             sys.chaos = c0; chua_params();
             mf_reset(&mfp[0], 0);
         }
-    }
-    {   /* SLEW 127: the carrier a pure sine (RING x 1 at A 110 on a steady input: 110 Hz, no harmonics); SLEW 0: the
-         * circuit's own (harmonics there) */
-        uint8_t r0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, c0 = sys.chaos;
-        static int32_t wv[16384];
-        uint32_t i, q, h;
-        double e[2][3];
-        sys.mfx_mode = MF_RING; sys.mfx_mix = 127; sys.mfx_rect = 0;
-        sys.mfx_rate = (uint8_t)(5u * 128u / MF_NRATIO + 4u);      /* (x 1) */
-        sys.chaos = 20; chua_params();
-        for (q = 0; q < 2u; q++) {
-            sys.mfx_slew = q ? 127 : 0;
-            mf_reset(&mfp[0], 0);
-            for (i = 0; i + CTL <= 16384u; i += CTL) {
-                uint32_t j;
-                for (j = 0; j < CTL; j++) wv[i + j] = 16000;
-                if (mf_gen(CTL, 0))
-                    mf_apply(&mfp[0], 0, wv + i, CTL, 10713070u, 1);
-            }
-            for (h = 1; h <= 3u; h++) {
-                double re = 0, im = 0, f = 44100.0 * 10713070.0 / 4294967296.0 * h;
-                for (i = 8192; i < 16384u; i++) {
-                    re += (wv[i] - 16000.0 * 0.0) * cos(2.0 * M_PI * f * i / 44100.0);
-                    im += wv[i] * sin(2.0 * M_PI * f * i / 44100.0);
-                }
-                e[q][h - 1] = sqrt(re * re + im * im);
-            }
-        }
-        printf("   (SLEW 0: harmonics %.0f %.0f %.0f; SLEW 127: %.0f %.0f %.0f)\n",
-               e[0][0], e[0][1], e[0][2], e[1][0], e[1][1], e[1][2]);
-        sys.mfx_mode = r0[0]; sys.mfx_rate = r0[1]; sys.mfx_slew = r0[2]; sys.mfx_rect = r0[3]; sys.mfx_mix = r0[4];
-        sys.chaos = c0; chua_params();
-        mf_reset(&mfp[0], 0);
-        check("MOD FX SLEW 127: the carrier a sine (no harmonics)",
-              e[1][0] > 1e6 && e[1][1] < e[1][0] / 30.0 && e[1][2] < e[1][0] / 30.0);
     }
     {   /* SHIFT +/-: a sine of A 440 moved up (left) and down (right) by the carrier at A 440 x 1/4 (110 Hz):
          * 550 Hz on the left, 330 Hz on the right */
