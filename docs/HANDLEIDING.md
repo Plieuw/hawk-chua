@@ -201,7 +201,7 @@ blaf van de e-piano (E.PIANO 1, 2: NOISE Y, de FM), de key click van het orgel (
 de percussie die wegsterft (PERC. ORGAN), het plectrum (NYLON, STEEL, CLEAN GUITAR, BANJO, SHAMISEN, SITAR, KOTO, HARP,
 DULCIMER, PICK BASS: NOISE Y, een smalle puls), de vinger (JAZZ, MUTED GUITAR, ACOUSTIC, FINGER BASS, PIZZICATO,
 KALIMBA, STEEL DRUMS: NOISE Y, TONE), de klopper en de stok (GLOCKENSPIEL, VIBRAPHONE, XYLOPHONE, TUBULAR BELLS,
-WOODBLOCK, TAIKO, MELODIC TOM: NOISE Y), de dreun van SYNTH BASS 1 en de pop van SLAP BASS 1 (CHAOS). Een preset zonder contour zet FREE EG weer uit (een eigen opname laat hij staan, tot een preset met een
+WOODBLOCK, TAIKO, MELODIC TOM: NOISE Y), de dreun van SYNTH BASS 1 en de pop van SLAP BASS 1 (CHAOS). Ook in de andere banken hebben de getokkelde, aangeslagen en geslagen klanken zo'n aanslag (GM ALT: UKULELE, SANTUR, BALAFON, POP BASS ...; SYNTH: de plucks, keys, bellen en mallets; LAB: het metaal en de percussie), de orgels hun vibrato, de e-piano's hun tremolo, en strijkers, riet, fluiten en leads hun vibrato van MOD FX. Een preset zonder contour zet FREE EG weer uit (een eigen opname laat hij staan, tot een preset met een
 contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de waarde waaromheen FREE EG beweegt.
 
 | LENGTH | Wat |
