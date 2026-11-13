@@ -128,7 +128,7 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
             static const char *const EGN[EG_COUNT] = {"", "EG_OVERTONE", "EG_CHIFF", "EG_BLOOM", "EG_SWELL",
                                                       "EG_REEDSWELL", "EG_GROWL", "EG_VOWEL", "EG_SHIMRISE", "EG_OPEN", "EG_TALK",
                                                       "EG_TINE", "EG_CLICK", "EG_PERC", "EG_PICK", "EG_TONE", "EG_STRIKE",
-                                                      "EG_PUNCH", "EG_SLAP"};
+                                                      "EG_PUNCH", "EG_SLAP", "EG_HOOVER"};
             ui_cat(t, sizeof t, ", .eg = ");
             ui_cat(t, sizeof t, EGN[p->eg % EG_COUNT]);
         }

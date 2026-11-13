@@ -142,8 +142,9 @@ typedef struct {
  * at the lips (the chiff) settling to a steady breath, brass blooming as the lips tighten, a bow swelling, a sax
  * growling late in a long note, a choir's vowel opening, a pad's shimmer rising */
 enum { EG_NONE, EG_OVERTONE, EG_CHIFF, EG_BLOOM, EG_SWELL, EG_REEDSWELL, EG_GROWL, EG_VOWEL, EG_SHIMRISE, EG_OPEN, EG_TALK,
-       EG_TINE, EG_CLICK, EG_PERC, EG_PICK, EG_TONE, EG_STRIKE, EG_PUNCH, EG_SLAP, EG_COUNT };
-typedef struct { uint8_t target, n; int8_t p[5][2]; } pre_eg_t;   /* FREE EG's target; points: (point, offset) */
+       EG_TINE, EG_CLICK, EG_PERC, EG_PICK, EG_TONE, EG_STRIKE, EG_PUNCH, EG_SLAP, EG_HOOVER, EG_COUNT };
+typedef struct { uint8_t target, n; int8_t p[5][2]; uint8_t len; } pre_eg_t;   /* FREE EG's target; points: (point,
+                                                  * offset); its LENGTH (0, left out: NOTE) */
 static const pre_eg_t PRE_EG[EG_COUNT] = {
     {0, 0, {{0, 0}}},
     {8, 4, {{0, -10}, {4, 0}, {26, 25}, {60, 10}}},              /* OVERTONE: the jet (FX STRUCTURE) shortening */
@@ -166,6 +167,8 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
     {5, 2, {{0, 50}, {1, 0}}},                                   /* STRIKE: the mallet, the stick (NOISE Y: FOLD, FM) */
     {0, 3, {{0, -40}, {1, -10}, {3, 0}}},                        /* PUNCH: the synth bass's thump (CHAOS: the cycle) */
     {0, 3, {{0, 30}, {1, 8}, {3, 0}}},                           /* SLAP: the thumb's pop (CHAOS) */
+    {5, 3, {{0, -22}, {64, 30}, {127, -22}}, 18},               /* HOOVER: the pulses' width swept (NOISE Y: PWM), a
+                                                                 * triangle at 2 Hz (LFO 2 HZ), as the Alpha Juno's */
 };
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
@@ -525,10 +528,12 @@ static const preset_t PRESETS[] = {
     {"DIAL TONE", CYC, 0, 64, 127, 40, 0, NOFX, NOSH},
     {"ENGINE", NZK, 20, 80, 120, 80, 40, NOFX, NOSH, NZ(0, 9), 60, 20, .oct = -1},
     {"CROWD", NZK, 60, 90, 110, 96, 10, NOFX, HALL, NZ(0, 8), 60, 100},
-    /* DOMINATOR: the Alpha Juno's "What the" hoover: six detuned pulses (PW CLUSTER, wide), each note diving in from
-     * under the pitch (MOD ENV down ~0.8 octave, a fast fall back), held full, a short release, an octave down, a room */
-    {"DOMINATOR", NZK, 2, 80, 120, 40, 10, NOFX, 85, 72, 0, 36, SI_OCT, 70, NZ(1, 1), 78, 44, 70, 0, 208, 0, SS_HALL, 0, 34,
-     .oct = -1},
+    /* DOMINATOR (Human Resource's): the Alpha Juno's "What the" hoover: six pulses detuned wide (PW CLUSTER), their
+     * width swept by a 2 Hz triangle (FREE EG on NOISE Y: the PWM that makes it churn), each note swooping in from
+     * under the pitch and up (MOD ENV down ~0.8 octave, curved: it hangs low a moment, then rises), the gate a little
+     * resonant (the Juno's filter half open), held full, an octave down, a short dark room */
+    {"DOMINATOR", NZK, 2, 80, 120, 46, 34, NOFX, 70, 60, 0, 28, SI_OCT, 60, NZ(1, 1), 96, 40, 74, 0, 210, 0, SS_HALL, 0, 20,
+     .oct = -1, .eg = EG_HOOVER},
     /* ---- BANK 3: SYNTH (playable synthesizer sounds: leads, basses, pads, keys, plucks, brass and strings,
      * sequence sounds, bells; 16 of each) ---- */
     {"MONO SAW", 85, 76, 0, 24, 64, 115, 60, 50, RZ_MODAL, 0, 0, 0, 0, 0, 64, 60, SH_DFILT, 30, 1, 20, 11, 4, 0, 66, 0, 172, 0, SS_PINGPONG, 0, 96, .mfx = MFP_LEAD_VIB},
@@ -1082,10 +1087,10 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
         v += base;
         feg.curve[k] = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
     }
-    sys.feg_npts = (uint8_t)(g->p[g->n - 1u][0] + 1);
+    sys.feg_npts = (uint8_t)(g->p[g->n - 1u][0] + 1 > 127 ? 127 : g->p[g->n - 1u][0] + 1);
     sys.feg_target = g->target;
     sys.feg_depth = 127;
-    sys.feg_len = 0;                             /* (NOTE: each note plays it from its start) */
+    sys.feg_len = (uint8_t)(g->len % FEG_NLEN);  /* (NOTE: each note plays it from its start; else a cycle) */
     sys.feg_has = 1;
     eg_from_preset = 1;
     sys.feg_on = 1;
