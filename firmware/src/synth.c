@@ -1199,11 +1199,14 @@ static void synth_render_(int32_t *out, uint32_t n)
             }
             synth_out_lvl = pk > synth_out_lvl ? pk : synth_out_lvl - (synth_out_lvl >> 5) - (synth_out_lvl != 0u);
         }
-        if (duck_req || duck_g < 4096) {         /* (the duck: down ~3 ms, up ~15 ms) */
+        if (duck_req || duck_g < 4096) {         /* (the duck: down ~8 ms, up ~23 ms, both an S curve: a note held
+                                                  * through a change dips softly, no plop) */
             for (i = 0; i < n; i++) {
-                duck_g = duck_req ? (duck_g > 32 ? duck_g - 32 : 0) : (duck_g < 4090 ? duck_g + 6 : 4096);
-                l[i] = (int32_t)(((int64_t)l[i] * duck_g) >> 12);
-                r[i] = (int32_t)(((int64_t)r[i] * duck_g) >> 12);
+                int32_t g;
+                duck_g = duck_req ? (duck_g > 12 ? duck_g - 12 : 0) : (duck_g < 4092 ? duck_g + 4 : 4096);
+                g = (int32_t)(((int64_t)duck_g * duck_g * (3 * 4096 - 2 * duck_g)) >> 24);   /* (3 t^2 - 2 t^3, Q12) */
+                l[i] = (int32_t)(((int64_t)l[i] * g) >> 12);
+                r[i] = (int32_t)(((int64_t)r[i] * g) >> 12);
             }
             duck_low = (uint8_t)(duck_g == 0);
             if (duck_low)
