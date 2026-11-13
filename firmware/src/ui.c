@@ -102,7 +102,7 @@ static void mfx_set(uint32_t k)                  /* MOD FX as preset k (0: off; 
     sys.mfx_mode = (uint8_t)(P->mode % MF_COUNT);
     sys.mfx_rate = (uint8_t)(P->mode == MF_RING ? P->k1 * 128u / MF_NRATIO + 4u : P->k1 * 128u / MF_NDIV + 4u);
     sys.mfx_slew = P->slew;
-    sys.mfx_rect = (uint8_t)((P->rect & 3u) * 32u + 16u);
+    sys.mfx_rect = mf_rect_val(P->rect);
     sys.mfx_mix = P->mix;
 }
 
@@ -113,7 +113,7 @@ static int mfx_edited(uint32_t k)                /* MOD FX not as preset k sets 
         return sys.mfx_mode % MF_COUNT != MF_OFF;
     P = &MFX_PRE[k - 1u];
     return sys.mfx_mode != P->mode || sys.mfx_slew != P->slew || sys.mfx_mix != P->mix ||
-           (sys.mfx_rect & 127u) >> 5 != P->rect ||
+           mf_rect_of(sys.mfx_rect) != P->rect ||
            (P->mode == MF_RING ? (sys.mfx_rate & 127u) * MF_NRATIO / 128u : (sys.mfx_rate & 127u) * MF_NDIV / 128u) != P->k1;
 }
 
@@ -880,27 +880,29 @@ static volatile uint8_t *const PR_SYS[PR_N] = {
     &sys.osc, &sys.np_x, &sys.np_y, &sys.menv_len, &sys.menv_skew, &sys.menv_height, &sys.scream,
     &sys.sh_space, &sys.np_level, &sys.menv_bend,
 };
-/* MOD FX in a saved preset: its 25 bits (mode 2, SYNC / RATIO 7, SLEW 7, RECTIFY 2, MIX 7) in bit 7 of values 0 .. 24,
- * free there (HEIGHT's and the SPACE's, 25 and 27, use theirs): a preset saved before has them 0, MOD FX off */
+/* MOD FX in a saved preset: its 26 bits (mode 2, SYNC / RATIO 7, SLEW 7, RECTIFY 2, MIX 7, RECTIFY's third) in bit 7
+ * of values 0 .. 24 and 26, free there (HEIGHT's and the SPACE's, 25 and 27, use theirs): a preset saved before has
+ * them 0, MOD FX off */
 static uint8_t pr_v(const uint8_t *v, uint32_t k) { return k == PR_MH || k == 27u ? v[k] : (uint8_t)(v[k] & 127u); }
 static uint32_t pr_mfx_bits(void)                /* MOD FX now, as the 25 bits */
 {
     return (sys.mfx_mode % MF_COUNT) | (uint32_t)(sys.mfx_rate & 127u) << 2 | (uint32_t)(sys.mfx_slew & 127u) << 9 |
-           (uint32_t)((sys.mfx_rect & 127u) >> 5) << 16 | (uint32_t)(sys.mfx_mix & 127u) << 18;
+           (mf_rect_of(sys.mfx_rect) & 3u) << 16 | (uint32_t)(sys.mfx_mix & 127u) << 18 |
+           (mf_rect_of(sys.mfx_rect) >> 2) << 25;
 }
 static uint32_t pr_mfx_of(const uint8_t *v)      /* a saved preset's */
 {
     uint32_t b = 0, k;
     for (k = 0; k < 25u; k++)
         b |= (uint32_t)(v[k] >> 7) << k;
-    return b;
+    return b | (uint32_t)(v[26] >> 7) << 25;
 }
 static void pr_mfx_set(uint32_t b)               /* MOD FX from the 25 bits */
 {
     sys.mfx_mode = (uint8_t)((b & 3u) % MF_COUNT);
     sys.mfx_rate = (uint8_t)(b >> 2 & 127u);
     sys.mfx_slew = (uint8_t)(b >> 9 & 127u);
-    sys.mfx_rect = (uint8_t)((b >> 16 & 3u) * 32u + 16u);
+    sys.mfx_rect = mf_rect_val((b >> 16 & 3u) | (b >> 25 & 1u) << 2);
     sys.mfx_mix = (uint8_t)(b >> 18 & 127u);
 }
 static upre_t *upre_obj(uint32_t h)              /* object h (64 presets) in upre_buf */
@@ -944,6 +946,7 @@ static int upre_save(uint32_t i)                 /* the sound now over preset i:
         uint32_t b = pr_mfx_bits();
         for (k = 0; k < 25u; k++)                /* (+ MOD FX, in the free bits) */
             u->v[j][k] = (uint8_t)((u->v[j][k] & 127u) | (b >> k & 1u) << 7);
+        u->v[j][26] = (uint8_t)((u->v[j][26] & 127u) | (b >> 25 & 1u) << 7);
     }
     u->has[j >> 3] |= (uint8_t)(1u << (j & 7u));
     upre_bits[(i % NPRESETS) >> 3] = u->has[j >> 3];
@@ -3092,7 +3095,7 @@ static void ui_draw(void)
         } else
             str_cpy(b, "OFF", sizeof b);
         ui_cell(T_C2, "2 SLEW", b);
-        ui_cell(T_C3, "3 RECTIFY", MF_RECT[(sys.mfx_rect & 127u) >> 5]);
+        ui_cell(T_C3, "3 RECTIFY", MF_RECT[mf_rect_of(sys.mfx_rect)]);
         fmt_int(v, (int32_t)(sys.mfx_mix * 100u / 127u));
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " %");
@@ -3562,7 +3565,7 @@ static int32_t knob_choice(volatile uint8_t *p, int32_t v)
     if (p == &sys.mfx_rate)                      /* (MOD FX: the note value, or RING's ratio) */
         return (mf.on ? mf.mode : sys.mfx_mode % MF_COUNT) == MF_RING ? v * MF_NRATIO / 128 : v * MF_NDIV / 128;
     if (p == &sys.mfx_rect)                      /* (MOD FX: the rectifier) */
-        return v >> 5;
+        return (int32_t)mf_rect_of((uint32_t)v);
     if (sys.page == 9u)
         for (i = 0; i < 4u; i++)
             if (p == &sys.k_m[i] && k_ge()->knob[i] == MC_TRANSPOSE)

@@ -399,13 +399,13 @@ VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (verme
 (het volume) of OFF. KNOB 1 SYNC bij VIBRATO en TREMOLO (een notenwaarde van het tempo, de BPM of de MIDI clock: 4 BARS, 2 BARS,
 1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8., 1/8, 1/8T, 1/16., 1/16, 1/16T, 1/32: één cyclus van het circuit), bij RING MOD de RATIO (de draaggolf is
 het circuit zelf: elke cyclus ervan wordt een golfvorm die elke noot speelt op de noot × 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3,
-3/2, 5/3, 2, 5/2, 3, 4, 5, 6 of 8, zodat de zijbanden harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger
+3/2, 5/3, 2, 5/2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20 of 24, zodat de zijbanden harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger
 ruwer; licht voor de CPU, ook met twee parts),
 PRESETS 25 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
 SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP, EP TREMOLO, VIBES
 MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
 glijden),
-KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF + of HALF −), KNOB 4 MIX (hoeveel: de diepte zelf staat
+KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF +, HALF − of FULL-WAVE 2X: twee keer gelijkgericht, twee octaven hoger), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
 parameter VIBRATO of RING MOD (ook in de lijst van FREE EG en MOD ENV). Wiel omhoog zet die stand aan, zo
 veel als het wiel op staat (met RATE, SLEW en RECTIFY van deze pagina), ook als MOD FX hier op OFF staat; wiel omlaag: weer zoals de pagina het zegt. Het scherm tekent per stand zijn eigen beeld. Het hoort bij de preset: zo'n 130 presets hebben een eigen MOD FX
