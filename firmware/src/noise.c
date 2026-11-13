@@ -247,23 +247,6 @@ static const uint16_t NP_PRIMES[16] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 3
 static const uint16_t NP_FIB[16] = {1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597};
 static const uint32_t NP_MODR[6] = {65536, 92682, 131072, 180879, 196608, 32768};   /* 1, 1.41, 2, 2.76, 3, 0.5 */
 
-/* the MOD ENV's AD, a sample: up by ia to full, then down by id to nothing (SKEW where it turns) */
-static inline void np_menv_step(np_t *S, uint32_t ia, uint32_t id)
-{
-    if (S->mstage == 0) {
-        if (ENV_MAX - S->menv <= ia) {
-            S->menv = ENV_MAX;
-            S->mstage = 1;
-        } else
-            S->menv += ia;
-    } else if (S->mstage == 1) {
-        if (S->menv <= id) {
-            S->menv = 0;
-            S->mstage = 2;
-        } else
-            S->menv -= id;
-    }
-}
 /* the MOD ENV's BEND: the envelope's level x (Q15) curved, 64 straight; above, towards x^3 (rises slowly, then
  * fast; falls fast, then slowly: exponential); below, towards 1 - (1 - x)^3 (the other way: logarithmic) */
 static int32_t np_bend(int32_t x, uint32_t bend)
@@ -497,14 +480,22 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
             S->mstage = 0;
             S->menv = 0;
         }
-        if (hgt) {   /* (HEIGHT up: the curve's value a sample, BEND, for the pitch below) */
-            for (i = 0; i < n; i++) {
-                np_menv_step(S, ia, id);
-                fk[i] = (uint32_t)np_bend((int32_t)(S->menv >> 15), sys.menv_bend);
+        for (i = 0; i < n; i++) {
+            if (S->mstage == 0) {
+                if (ENV_MAX - S->menv <= ia) {
+                    S->menv = ENV_MAX;
+                    S->mstage = 1;
+                } else
+                    S->menv += ia;
+            } else if (S->mstage == 1) {
+                if (S->menv <= id) {
+                    S->menv = 0;
+                    S->mstage = 2;
+                } else
+                    S->menv -= id;
             }
-        } else                              /* (off: the envelope keeps its place, nothing worked out) */
-            for (i = 0; i < n; i++)
-                np_menv_step(S, ia, id);
+            fk[i] = (uint32_t)np_bend((int32_t)(S->menv >> 15), sys.menv_bend);   /* (Q15, BEND, for the pitch below) */
+        }
     }
     {   /* the MOD ENV straight on the pitch (no oscillator, no VCA between): HEIGHT^3 the octaves at its peak
          * (0 .. 3: fine near 0), up or down (bit 7: down), the sweep back to the note */

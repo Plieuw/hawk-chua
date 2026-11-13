@@ -198,18 +198,11 @@ static void rz_run(uint32_t r, uint32_t n)
             p = pp > p ? pp : p;
             fq = 256 + (int32_t)(p * 256u / 127u);
         }
-        if (fq == 256)                              /* (no aftertouch: the input as it is, no product a sample) */
-            for (i = 0; i < n; i++) {
-                int32_t a = rz_bus[r][i];
-                pk_in |= a;
-                in[i] = a * (1 << RZ_IN_SHIFT);
-            }
-        else
-            for (i = 0; i < n; i++) {
-                int32_t a = rz_bus[r][i];
-                pk_in |= a;
-                in[i] = ((a * fq) >> 8) * (1 << RZ_IN_SHIFT);
-            }
+        for (i = 0; i < n; i++) {
+            int32_t a = rz_bus[r][i];
+            pk_in |= a;
+            in[i] = ((a * fq) >> 8) * (1 << RZ_IN_SHIFT);
+        }
     }
     switch (md) {
     case RZ_MODAL: {
@@ -492,25 +485,16 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
             bag_drones(drn, n, held, (int32_t)(sys.fx_pos & 127u), (int32_t)(sys.fx_damp & 127u));
         } else
             bag_fill = 0;
-        int32_t *row[RZ_POLY], rpl[RZ_POLY], rpr[RZ_POLY];
-        uint32_t nr = 0, q;
-        for (q = 0; q < RZ_POLY; q++)        /* (the ones this pass ran, taken once: no test a sample) */
-            if (mine >> q & 1u) {
-                row[nr] = rz_out[q];
-                rpl[nr] = pl[q];
-                rpr[nr] = pr[q];
-                nr++;
-            }
         for (i = 0; i < n; i++) {
             int32_t y = drn[i], yl = 0, yr = 0, wet;
-            for (r = 0; r < nr; r++) {
-                int32_t o = row[r][i];
-                y += o;
-                if (basis) {
-                    yl += (int32_t)(((int64_t)o * rpl[r]) >> 15);
-                    yr += (int32_t)(((int64_t)o * rpr[r]) >> 15);
+            for (r = 0; r < RZ_POLY; r++)
+                if (mine >> r & 1u) {
+                    y += rz_out[r][i];
+                    if (basis) {
+                        yl += (int32_t)(((int64_t)rz_out[r][i] * pl[r]) >> 15);
+                        yr += (int32_t)(((int64_t)rz_out[r][i] * pr[r]) >> 15);
+                    }
                 }
-            }
             wet = rz_knee(px_m(y, g, 20));
             sum[i] = (sum[i] * (128 - mix) + wet * mix) >> 7;
             if (basis) {                         /* the dry's panning faded as the dry, the wet's added */
