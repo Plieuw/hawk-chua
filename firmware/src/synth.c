@@ -258,9 +258,7 @@ static uint32_t note_inc(uint32_t note)      /* the note's frequency / FS, Q32 *
 #include "lpg_tables.h"
 #define ENV_MAX (1u << 30)
 enum { ST_OFF, ST_ATTACK, ST_SUSTAIN, ST_RELEASE, ST_TAIL };   /* (ST_SUSTAIN: the decay towards the sustain level) */
-#ifndef LPG_RISE
 #define LPG_RISE 189813u                         /* the control's one-pole coefficients (Q24): ~2 ms up, */
-#endif
 #define LPG_FALL 12672u                          /* ~30 ms down: 1 - exp(-1 / (t FS)) */
 #define LPG_EVERY 8u                             /* frames between filter coefficient updates (0.18 ms) */
 #define LPG_QUIET 8192                           /* the TAIL ends when the filter's states are below this (Q23: -60 dB) */
@@ -276,7 +274,6 @@ typedef struct {
     uint32_t amph;               /* FREE EG AUDIO: its loop's phase (Q32) */
     int32_t ic1, ic2;            /* the filter's states (Q23) */
     int32_t a1, a2, a3;          /* its coefficients for the cutoff now (Q28) */
-    int32_t lcomp;               /* and the level the ring's taken back out (Q12: eg.comp, less as the ring fades) */
     uint32_t trace_t;            /* time since its last trace point (Q24) */
     uint16_t amp;                /* velocity, Q15 */
     uint8_t note, stage, fresh;  /* fresh: the DC blocker starts at the first sample */
@@ -696,15 +693,6 @@ static void lpg_coefs(voice_t *v)
     if (v->an_c)                                        /* (ANALOG: this voice's gate a little off) */
         c = (uint32_t)clamp((int32_t)c + v->an_c, 0, 255);
     g = (int64_t)LPG_G[c] << 4;
-#ifndef LPG_NO_RINGFADE
-    if (c < 96u && k < (2ll << 28))                    /* RING fades out as the gate closes (under ~280 Hz: none at
-                                                         * the bottom), as a vactrol gate's: no low "bloop" of its own
-                                                         * pinged at the note's start and end, only the gate's */
-        k += (((2ll << 28) - k) * (int64_t)(96u - c)) / 96;
-    v->lcomp = c < 96u ? eg.comp + (4096 - eg.comp) * (int32_t)(96u - c) / 96 : eg.comp;   /* (its level back too) */
-#else
-    v->lcomp = eg.comp;
-#endif
     uint32_t d = (uint32_t)((1 << 28) + ((g * (g + k)) >> 28));               /* 1 + g (g + k): 1 .. ~8, Q28 */
     v->a1 = (int32_t)(((1u << 31) / (d >> 13)) << 12);                         /* 1 / d (32-bit division) */
     v->a2 = (int32_t)((g * v->a1) >> 28);
@@ -727,7 +715,7 @@ static inline int32_t lpg_frame(voice_t *v, int32_t x)
     v2 = v->ic2 + (int32_t)(((int64_t)v->a2 * v->ic1 + (int64_t)v->a3 * v3 + LPG_R) >> 28);
     v->ic1 = 2 * v1 - v->ic1;
     v->ic2 = 2 * v2 - v->ic2;
-    return (int32_t)(((int64_t)v2 * v->lcomp) >> 20);                        /* Q23 x Q12 -> Q15 */
+    return (int32_t)(((int64_t)v2 * eg.comp) >> 20);                         /* Q23 x Q12 -> Q15 */
 }
 /* a second signal through the voice's gate as it is now (its coefficients and level; its own state c1, c2): MOD FX
  * SHIFT's side, so left and right close alike */
@@ -740,7 +728,7 @@ static inline int32_t lpg_side(const voice_t *v, int32_t x, int32_t *c1, int32_t
     v2 = *c2 + (int32_t)(((int64_t)v->a2 * *c1 + (int64_t)v->a3 * v3 + LPG_R) >> 28);
     *c1 = 2 * v1 - *c1;
     *c2 = 2 * v2 - *c2;
-    return (int32_t)(((int64_t)v2 * v->lcomp) >> 20);
+    return (int32_t)(((int64_t)v2 * eg.comp) >> 20);
 }
 
 static int32_t soft_clip(int32_t x)              /* Q15 in +-1.5 -> +-1: x - 4/27 x^3 */
