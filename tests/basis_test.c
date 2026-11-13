@@ -2779,11 +2779,34 @@ int main(int argc, char **argv)
             run_ms(20);
             okk &= mf.on && mf.mode == WM[k2];
             midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
-            run_ms(20);
+            run_ms(300);                             /* (faded out, then off: analog) */
             okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm;
         }
         sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
         check("mod wheel on VIBRATO, RING MOD: MOD FX with it", okk);
+    }
+    {   /* analog: MIX glides (no step from one sample to the next on a steady input), off fades out first */
+        uint8_t r0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix};
+        static int32_t wv[CTL];
+        int32_t prev = 16000, jump = 0, i, b2;
+        int on_after = 0;
+        sys.mfx_mode = MF_TREMOLO; sys.mfx_slew = 127; sys.mfx_rect = 0; sys.mfx_mix = 0;
+        mf_reset(&mfp[0], 0);
+        for (b2 = 0; b2 < 400; b2++) {
+            sys.mfx_mix = b2 < 100 ? 0 : b2 < 250 ? 127 : 0;      /* (MIX thrown full open, then shut) */
+            for (i = 0; i < (int32_t)CTL; i++) wv[i] = 16000;
+            mf_block(wv, CTL);
+            for (i = 0; i < (int32_t)CTL; i++) {
+                int32_t d = wv[i] - prev;
+                jump = (d < 0 ? -d : d) > jump ? (d < 0 ? -d : d) : jump;
+                prev = wv[i];
+            }
+            if (b2 == 252) on_after = mfp[0].on;
+        }
+        printf("   (MIX thrown: the largest step a sample %d of 16000)\n", jump);
+        sys.mfx_mode = r0[0]; sys.mfx_rate = r0[1]; sys.mfx_slew = r0[2]; sys.mfx_rect = r0[3]; sys.mfx_mix = r0[4];
+        mf_reset(&mfp[0], 0);
+        check("MOD FX analog: MIX glides, off fades out first", jump < 400 && on_after && !mfp[0].on);
     }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};

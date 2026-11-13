@@ -409,7 +409,7 @@ open SINE: een zuivere sinus; RECTIFY werkt daarna, dus FULL-WAVE + SINE is een 
 KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF +, HALF − of FULL-WAVE 2X: twee keer gelijkgericht, twee octaven hoger), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
 parameter VIBRATO of RING MOD (ook in de lijst van FREE EG en MOD ENV). Wiel omhoog zet die stand aan, zo
-veel als het wiel op staat (met RATE, SLEW en RECTIFY van deze pagina), ook als MOD FX hier op OFF staat; wiel omlaag: weer zoals de pagina het zegt. Het scherm tekent per stand zijn eigen beeld. Het hoort bij de preset: zo'n 130 presets hebben een eigen MOD FX
+veel als het wiel op staat (met RATE, SLEW en RECTIFY van deze pagina), ook als MOD FX hier op OFF staat; wiel omlaag: weer zoals de pagina het zegt. De knoppen werken analoog: MIX en SLEW glijden (~20 ms), een andere RATIO of notenwaarde glijdt erheen (~45 ms) in plaats van te springen, en uitzetten of MIX dicht laat het eerst uitdoven. Het scherm tekent per stand zijn eigen beeld. Het hoort bij de preset: zo'n 130 presets hebben een eigen MOD FX
 die bij hun klank past (de E.PIANO's en VIBRAPHONE een tremolo, de orgels, strijkers, fluiten en saxen een vibrato,
 klokken en sci-fi een ring mod met een harmonische ratio, pads een trage golf), de rest staat op OFF; SAVE bewaart het
 met de preset.

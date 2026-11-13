@@ -63,7 +63,10 @@ typedef struct {                                 /* a part's MOD FX (MULTI: A's,
     int32_t tpk[2];
     uint8_t tcur;
     int32_t tsum, tthr, tprev;
-    int32_t mix, sk;
+    int32_t mix, sk;                             /* (smoothed: this block's end; mix0, sk0 its start, glided between per
+                                                  * sample) */
+    int32_t mix0, sk0;
+    uint32_t rq, lincs;                          /* (the RATIO, Q16, and VIBRATO / TREMOLO's step, glided) */
     uint8_t on;
 } mf_t;
 static mf_t mfp[2];
@@ -88,9 +91,10 @@ static void mf_reset(mf_t *M, uint32_t pp)
 }
 
 static uint32_t mf_ratio(void) { return (sys.mfx_rate & 127u) * MF_NRATIO / 128u; }   /* (RING: KNOB 1's ratio) */
-static uint32_t mf_carrier(uint32_t inc, uint32_t r)   /* (RING: the note's inc x the ratio, at most half the rate) */
+static uint32_t mf_carrier(uint32_t inc, uint32_t rq)   /* (RING, SHIFT: the note's inc x the ratio (Q16), at most half the
+                                                         * rate) */
 {
-    uint64_t f = ((uint64_t)inc * MF_RATIO[r % MF_NRATIO]) >> 16;
+    uint64_t f = ((uint64_t)inc * rq) >> 16;
     return f > 0x7FFFFFFFu ? 0x7FFFFFFFu : (uint32_t)f;
 }
 #define MF_NDIV 14
@@ -175,28 +179,44 @@ static int mf_gen(uint32_t n, uint32_t pp)
             mix = (int32_t)(wv >= wr ? wv : wr) * 258;
         }
     }
-    uint32_t slew = sys.mfx_slew & 127u, ns = 1;
-    int32_t hs = 0, ahs = 0, bhs = 0;
+    uint32_t slew = sys.mfx_slew & 127u, ns = 1, rq;
+    int32_t hs = 0, ahs = 0, bhs = 0, sk;
+    /* (analog: the knobs glide, not step. MIX and SLEW ~20 ms, sample by sample; the RATIO and the note value ~45 ms;
+     * turned off or to MIX 0: faded out first, then off) */
     if (mode == MF_OFF || !mix) {
-        if (M->on)
+        if (!M->on)
+            return 0;
+        if (M->mix < 200) {                      /* (faded out: off) */
             mf_reset(M, pp);
-        return 0;
+            return 0;
+        }
+        mode = M->mode;                          /* (fading: the mode it had, to nothing) */
+        mix = 0;
     }
-    if (!M->on) {
+    if (!M->on) {                                /* (on: from nothing, faded in; the ratio and the rate where they are) */
         mf_reset(M, pp);
         M->on = 1;
+        M->rq = MF_RATIO[mf_ratio()];
+        M->lincs = 0;
     }
     if (mode != M->mode)                         /* (another mode: the part's channels from silence) */
         memset(&mf_ch[MF_LO(pp)], 0, (MF_HI(pp) - MF_LO(pp)) * sizeof mf_ch[0]);
     M->ratio = mf_ratio();
     M->mode = mode;
-    M->mix = mix;
+    M->mix0 = M->mix;
+    M->mix += (mix - M->mix) / 8;
     M->rect = rect;
-    M->sk = slew >= 127u ? 32768 : (int32_t)(slew * 258u);   /* (SLEW, Q15: 127 all sine) */
+    sk = slew >= 127u ? 32768 : (int32_t)(slew * 258u);   /* (SLEW, Q15: 127 all sine) */
+    M->sk0 = M->sk;
+    M->sk += (sk - M->sk) / 8;
+    rq = MF_RATIO[M->ratio % MF_NRATIO];
+    M->rq = (uint32_t)((int32_t)M->rq + ((int32_t)rq - (int32_t)M->rq) / 16);
     M->n = n = n > CTL ? CTL : n;
     if (!MF_KEYED(mode)) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
-        M->linc = (uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16);
+        uint32_t lt = (uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16);
+        M->lincs = M->lincs ? (uint32_t)((int32_t)M->lincs + ((int32_t)lt - (int32_t)M->lincs) / 16) : lt;
+        M->linc = M->lincs;
         ns = mf_steps(M->linc, &hs, &ahs, &bhs);
     }
     if (MF_KEYED(mode)) {                        /* RING, FM: the reference circuit, its cycles into the tables */
@@ -285,7 +305,7 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
 {
     mf_ch_t *C = &mf_ch[ch];
     uint32_t i, any = 0, mode = M->mode;
-    int32_t mix = M->mix;
+    int32_t mix = M->mix0, dm = (M->mix - M->mix0) / (int32_t)(n ? n : 1u), dk = (M->sk - M->sk0) / (int32_t)(n ? n : 1u);
     if (!M->on)
         return;
     n = n > M->n ? M->n : n;
@@ -304,9 +324,9 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
                                                   * newest circuit cycle at the note x the ratio) and down by it at once:
                                                   * the mid (their sum, a ring mod) on, the side (up - down) into C->sd:
                                                   * up on the left, down on the right */
-        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio);
+        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->rq);
         const int16_t *t = M->tab[M->tcur];
-        int32_t sk = M->sk, pk = M->tpk[M->tcur];
+        int32_t sk = M->sk0, pk = M->tpk[M->tcur];
         for (i = 0; i < n; i++) {
             int32_t x = w[i], m = 0, xr, xi, mr, mi, mid, side;
             if (L) {
@@ -324,12 +344,14 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
             side = (int32_t)(-((int64_t)xi * mi) >> 15);         /* ((up - down) / 2) */
             w[i] = x + (int32_t)(((int64_t)(mid - x) * mix) >> 15);
             C->sd[i] = (int32_t)(((int64_t)side * mix) >> 15);
+            mix += dm;
+            sk += dk;
         }
     } else if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
                                                   * cycle of the circuit read at the note x the ratio */
-        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->ratio);
+        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = mf_carrier(inc, M->rq);
         const int16_t *t = M->tab[M->tcur];
-        int32_t sk = M->sk, pk = M->tpk[M->tcur];
+        int32_t sk = M->sk0, pk = M->tpk[M->tcur];
         for (i = 0; i < n; i++) {
             int32_t x = w[i], m = 0, wet;
             if (L) {
@@ -343,6 +365,8 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
                 mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
             wet = (int32_t)(((int64_t)x * m) >> 14);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
+            mix += dm;
+            sk += dk;
         }
     } else if (mode == MF_VIBRATO) {             /* the line read late by 4 ms +- up to 3.6 ms (linear in between) */
         uint32_t p = M->vb;
@@ -355,11 +379,13 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
             a1 = vl[(p - di - 1u) & (MF_VLEN - 1u)];
             wet = a0 + (((a1 - a0) * (int32_t)fr) >> 15);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
+            mix += dm;
         }
     } else                                       /* TREMOLO: the level dipped by the slow circuit */
         for (i = 0; i < n; i++) {
             int32_t x = w[i], wet = (int32_t)(((int64_t)x * (16384 + (M->m[i] >> 1))) >> 15);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
+            mix += dm;
         }
 }
 
