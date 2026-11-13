@@ -866,8 +866,9 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
                 v->s = ghost;
                 v->fresh = 1;
             }
-            s = (int32_t)(((int64_t)(v->s.x >> 8) * cc.gx + (int64_t)(v->s.y >> 8) * cc.gy +
-                           (int64_t)(v->s.z >> 8) * cc.gz) >> 12);
+            s = !cc.gz ? (int32_t)(((int64_t)(v->s.x >> 8) * cc.gx + (int64_t)(v->s.y >> 8) * cc.gy) >> 12)   /* (OUTPUT */
+                       : (int32_t)(((int64_t)(v->s.y >> 8) * cc.gy + (int64_t)(v->s.z >> 8) * cc.gz) >> 12);  /* blends two
+                                                  * neighbours, never X and Z: two products a sample, not three) */
         }
         if (v->fresh) {
             v->fresh = 0;
