@@ -636,22 +636,30 @@ static void synth_kill(void)
     seat_next = 0;
 }
 
+/* the ADSR's steps for a voice this block (ANALOG: its own speed on them; worked out once, not each frame) */
+typedef struct { uint32_t att, dec, rel; } env_k_t;
+static inline void env_k(const voice_t *v, env_k_t *e)
+{
+    e->att = an_k(eg.att, v->an_t);
+    e->dec = an_k(eg.dec, v->an_t);
+    e->rel = an_k(eg.rel, v->an_t);
+}
 /* the ADSR and the gate's control, one frame; 1 = the voice is done */
-static inline int env_frame(voice_t *v)
+static inline int env_frame(voice_t *v, const env_k_t *e)
 {
     switch (v->stage) {
     case ST_ATTACK:
-        if (ENV_MAX - v->env <= an_k(eg.att, v->an_t)) {
+        if (ENV_MAX - v->env <= e->att) {
             v->env = ENV_MAX;
             v->stage = ST_SUSTAIN;
         } else
-            v->env += an_k(eg.att, v->an_t);
+            v->env += e->att;
         break;
     case ST_SUSTAIN:
-        v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)eg.sus) * an_k(eg.dec, v->an_t)) >> 24));
+        v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)eg.sus) * e->dec) >> 24));
         break;
     case ST_RELEASE:
-        v->env -= (uint32_t)(((uint64_t)v->env * an_k(eg.rel, v->an_t)) >> 24) + 1u;
+        v->env -= (uint32_t)(((uint64_t)v->env * e->rel) >> 24) + 1u;
         if (v->env < (ENV_MAX >> 14) || v->env > ENV_MAX) {   /* (-84 dB) */
             v->env = 0;
             v->stage = ST_TAIL;
@@ -772,6 +780,8 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     const uint8_t *am = feg_am.on && !feg_am.fm ? feg_am.curve : 0;
     uint32_t amr = feg_am.r16, fmk[CTL], *fmp = 0;
     int32_t amd = feg_am.depth;
+    env_k_t ek;
+    env_k(v, &ek);
     if (feg_am.on && feg_am.fm) {   /* FREE EG FM: the pitch moved by the loop at x r / 16 the note, every sample. The
                                      * deviation from DEPTH: up to 0.9 of the note over most of the knob (no
                                      * clamping, the mean pitch kept: tonal, the sidebands on the partials: the
@@ -825,7 +835,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
     }
     for (i = 0; i < n; i++) {
         int32_t s;
-        int done = pre ? 0 : env_frame(v);
+        int done = pre ? 0 : env_frame(v, &ek);
         if (osc)
             s = src[i];
         else {
@@ -906,7 +916,7 @@ static void render_voice(voice_t *v, uint32_t n, int32_t *sum, uint32_t *restart
             memset(C->sd, 0, sizeof C->sd);
         mf_apply(M, k, xb, n, v->inc, v == render_tv);
         for (i = 0; i < n; i++) {
-            int done = env_frame(v);
+            int done = env_frame(v, &ek);
             sum[i] += lpg_frame(v, xb[i]) >> 1;
             if (sh)
                 C->sd[i] = lpg_side(v, C->sd[i], &C->sic1, &C->sic2) >> 1;

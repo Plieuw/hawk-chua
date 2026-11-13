@@ -945,17 +945,16 @@ static void upre_boot(void)                      /* (settings_boot: the flash th
             upre_bits[h * 8u + b] = upre_buf.has[b];
     }
 }
-static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq);
-static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq);
+static uint32_t feg_hold(void);
+static void feg_unhold(uint32_t irq);
 static int upre_save(uint32_t i)                 /* the sound now over preset i: 0 saved */
 {
     uint32_t k, h = (i % NPRESETS) >> 6, j = i & 63u, irq;
-    uint8_t was = 0;
     upre_t *u = upre_obj(h);
-    volatile uint8_t *t = feg_hold(&was, &irq);
+    irq = feg_hold();
     for (k = 0; k < PR_N; k++)
         u->v[j][k] = (uint8_t)(*PR_SYS[k] & (k == PR_MH ? 255u : 127u));   /* (HEIGHT: bit 7 down) */
-    feg_unhold(t, was, irq);
+    feg_unhold(irq);
     u->v[j][27] = PR_PACK27(sys.sh_space % SS_COUNT, sys.transpose);   /* (+ the octave) */
     {
         uint32_t b = pr_mfx_bits();
@@ -1188,10 +1187,9 @@ static void preset_load_(uint32_t i)
  * SAVE see the sound's settings, not the contour's place (the audio held off meanwhile: a few microseconds) */
 static volatile uint8_t *feg_held[2];
 static uint8_t feg_was[2];
-static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq)   /* (both FREE EGs: their targets at their bases) */
+static uint32_t feg_hold(void)                   /* (both FREE EGs: their targets at their bases; the IRQs off) */
 {
-    uint32_t i;
-    *irq = irq_save();
+    uint32_t i, irq = irq_save();
     for (i = 0; i < 2u; i++) {
         feg_held[i] = fegs[i].playing ? feg_field(fegs[i].target) : 0;
         if (feg_held[i]) {
@@ -1199,14 +1197,11 @@ static volatile uint8_t *feg_hold(uint8_t *was, uint32_t *irq)   /* (both FREE E
             *feg_held[i] = fegs[i].base;
         }
     }
-    *was = 0;
-    return feg_held[0];
+    return irq;
 }
-static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq)
+static void feg_unhold(uint32_t irq)             /* (given back as they were: the second first) */
 {
     uint32_t i;
-    (void)t;
-    (void)was;
     for (i = 2u; i-- > 0u;)
         if (feg_held[i])
             *feg_held[i] = feg_was[i];
@@ -1215,11 +1210,9 @@ static void feg_unhold(volatile uint8_t *t, uint8_t was, uint32_t irq)
 static int preset_edited_(void);
 static int preset_edited(void)
 {
-    uint8_t was = 0;
-    uint32_t irq;
-    volatile uint8_t *t = feg_hold(&was, &irq);
+    uint32_t irq = feg_hold();
     int r = preset_edited_();
-    feg_unhold(t, was, irq);
+    feg_unhold(irq);
     return r;
 }
 static int preset_edited_(void)
@@ -1470,10 +1463,9 @@ static void settings_fill(settings_t *sp)        /* the state now, as saved: FRE
                                                   * A's while B is edited */
 {
     uint32_t pe = part_edit, f, fd = feg_ed;
-    uint8_t fw;
     part_edit_set(0);
     feg_edit_to(0);                              /* (FREE EG 1 in sys, 2 in feg_po: as saved) */
-    feg_hold(&fw, &f);
+    f = feg_hold();
     volatile uint8_t *mw = mwd.on ? feg_field(mwd.target) : 0;
     volatile uint8_t *me = menv_p.target && menv_p.moved ? feg_field(menv_p.target - 1u) : 0;
     uint8_t mv = mw ? *mw : 0, ev = me ? *me : 0;
@@ -1486,7 +1478,7 @@ static void settings_fill(settings_t *sp)        /* the state now, as saved: FRE
         *mw = mv;
     if (me)
         *me = ev;
-    feg_unhold(0, fw, f);
+    feg_unhold(f);
     feg_edit_to(fd);
     part_edit_set(pe);
 }
