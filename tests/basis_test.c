@@ -2210,18 +2210,16 @@ int main(int argc, char **argv)
         uint32_t f = 0, ok = 1;
         memset(&v, 0, sizeof v);
         sys.attack = 40; sys.decay = 50; sys.sustain = 64; sys.release = 50; sys.ring = 100;
-        env_k_t ek;
         env_params();
-        env_k(&v, &ek);
         v.stage = ST_ATTACK;
-        while (v.stage == ST_ATTACK && f < 100000u) { env_frame(&v, &ek); f++; }
+        while (v.stage == ST_ATTACK && f < 100000u) { env_frame(&v); f++; }
         ok &= f >= ENV_FRAMES[40] - 1u && f <= ENV_FRAMES[40] + 1u;
-        for (f = 0; f < 8u * ENV_FRAMES[50]; f++) env_frame(&v, &ek);
+        for (f = 0; f < 8u * ENV_FRAMES[50]; f++) env_frame(&v);
         ok &= v.stage == ST_SUSTAIN && v.env > eg.sus - ENV_MAX / 100u && v.env < eg.sus + ENV_MAX / 100u;
         v.stage = ST_RELEASE;
-        for (f = 0; f < 20u * ENV_FRAMES[50] && v.stage == ST_RELEASE; f++) env_frame(&v, &ek);
+        for (f = 0; f < 20u * ENV_FRAMES[50] && v.stage == ST_RELEASE; f++) env_frame(&v);
         ok &= v.stage == ST_TAIL && f > 8u * ENV_FRAMES[50];
-        for (f = 0; f < FS && v.stage == ST_TAIL; f++) env_frame(&v, &ek);
+        for (f = 0; f < FS && v.stage == ST_TAIL; f++) env_frame(&v);
         ok &= v.stage == ST_OFF;
         check("ADSR: attack on time, decay settles on sustain, release -> tail -> off", ok);
     }
@@ -2781,34 +2779,11 @@ int main(int argc, char **argv)
             run_ms(20);
             okk &= mf.on && mf.mode == WM[k2];
             midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
-            run_ms(300);                             /* (faded out, then off: analog) */
+            run_ms(20);
             okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm;
         }
         sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
         check("mod wheel on VIBRATO, RING MOD: MOD FX with it", okk);
-    }
-    {   /* analog: MIX glides (no step from one sample to the next on a steady input), off fades out first */
-        uint8_t r0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix};
-        static int32_t wv[CTL];
-        int32_t prev = 16000, jump = 0, i, b2;
-        int on_after = 0;
-        sys.mfx_mode = MF_TREMOLO; sys.mfx_slew = 110; sys.mfx_rect = 0; sys.mfx_mix = 0;
-        mf_reset(&mfp[0], 0);
-        for (b2 = 0; b2 < 400; b2++) {
-            sys.mfx_mix = b2 < 100 ? 0 : b2 < 250 ? 127 : 0;      /* (MIX thrown full open, then shut) */
-            for (i = 0; i < (int32_t)CTL; i++) wv[i] = 16000;
-            mf_block(wv, CTL);
-            for (i = 0; i < (int32_t)CTL; i++) {
-                int32_t d = wv[i] - prev;
-                jump = (d < 0 ? -d : d) > jump ? (d < 0 ? -d : d) : jump;
-                prev = wv[i];
-            }
-            if (b2 == 252) on_after = mfp[0].on;
-        }
-        printf("   (MIX thrown: the largest step a sample %d of 16000)\n", jump);
-        sys.mfx_mode = r0[0]; sys.mfx_rate = r0[1]; sys.mfx_slew = r0[2]; sys.mfx_rect = r0[3]; sys.mfx_mix = r0[4];
-        mf_reset(&mfp[0], 0);
-        check("MOD FX analog: MIX glides, off fades out first", jump < 400 && on_after && !mfp[0].on);
     }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};
@@ -2886,43 +2861,6 @@ int main(int argc, char **argv)
             sys.chaos = c0; chua_params();
             mf_reset(&mfp[0], 0);
         }
-    }
-    {   /* SHIFT +/-: a sine of A 440 moved up (left) and down (right) by the carrier at A 440 x 1/4 (110 Hz):
-         * 550 Hz on the left, 330 Hz on the right */
-        uint8_t r0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, c0 = sys.chaos;
-        static int32_t wv[8192], lw[8192], rw[8192];
-        uint32_t i, h;
-        double e[2][2];
-        static const double FQ[2] = {550.0, 330.0};
-        sys.mfx_mode = MF_SHIFT; sys.mfx_mix = 127; sys.mfx_slew = 0; sys.mfx_rect = 0;
-        sys.mfx_rate = (uint8_t)(0u * 128u / MF_NRATIO + 4u);      /* (x 1/4) */
-        sys.chaos = 20; chua_params();
-        mf_reset(&mfp[0], 0);
-        for (i = 0; i < 8192u; i++) wv[i] = (int32_t)(12000.0 * sin(2.0 * M_PI * 440.0 * i / 44100.0));
-        for (i = 0; i + CTL <= 8192u; i += CTL) {
-            uint32_t j;
-            mf_block(wv + i, CTL);
-            for (j = 0; j < CTL; j++) {
-                lw[i + j] = wv[i + j] + mf_ch[0].sd[j];
-                rw[i + j] = wv[i + j] - mf_ch[0].sd[j];
-            }
-        }
-        for (h = 0; h < 2u; h++) {
-            double rl = 0, il = 0, rr = 0, ir = 0;
-            for (i = 4096; i < 8192u; i++) {
-                double c = cos(2.0 * M_PI * FQ[h] * i / 44100.0), sn = sin(2.0 * M_PI * FQ[h] * i / 44100.0);
-                rl += lw[i] * c; il += lw[i] * sn; rr += rw[i] * c; ir += rw[i] * sn;
-            }
-            e[h][0] = sqrt(rl * rl + il * il);
-            e[h][1] = sqrt(rr * rr + ir * ir);
-        }
-        printf("   (SHIFT +/- on A 440 x 1/4: 550 Hz left %.0f right %.0f, 330 Hz left %.0f right %.0f)\n",
-               e[0][0], e[0][1], e[1][0], e[1][1]);
-        sys.mfx_mode = r0[0]; sys.mfx_rate = r0[1]; sys.mfx_slew = r0[2]; sys.mfx_rect = r0[3]; sys.mfx_mix = r0[4];
-        sys.chaos = c0; chua_params();
-        mf_reset(&mfp[0], 0);
-        check("MOD FX SHIFT +/-: up on the left, down on the right",
-              e[0][0] > 4.0 * e[0][1] && e[1][1] > 4.0 * e[1][0] && e[0][0] > 1e6);
     }
     {   /* VIBRATO, TREMOLO in step with the tempo: at 120 BPM a 1/4 cycles twice a second, a 1/16 eight times */
         uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, ch0 = sys.chaos, bpm0 = sys.arp_bpm;

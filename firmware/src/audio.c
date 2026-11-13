@@ -72,7 +72,7 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
                 felucca_dbg.late++;
             if (late || sys.cpu_q8 > 243u) {
                 cool = 0;
-                if (++hot >= (late ? 1u : 3u)) {   /* (a half late: at once, before it stutters again) */
+                if (++hot >= 3u) {
                     hot = 0;
                     if (synth_light < 3u)
                         synth_light++;
