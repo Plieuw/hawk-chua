@@ -190,7 +190,12 @@ die overgaat in een rustige adem (PAN FLUTE, SHAKUHACHI, BLOWN BOTTLE, CALLIOPE,
 openbloeit doordat de lippen zich spannen (TRUMPET, TROMBONE, TUBA, FRENCH HORN, ...: FX STRUCTURE), een aanzwellende
 streek (de strijkers: FX BRIGHTNESS), het riet dat aanzet (hobo, fagot, klarinet, accordeons), een sax die laat in een
 lange noot gaat grommen (SCREAM), een koor dat van oe naar aa naar ee opent (FX POSITION), een pad waarvan de shimmer
-aanzwelt. Een preset zonder contour zet FREE EG weer uit (een eigen opname laat hij staan, tot een preset met een
+aanzwelt. En de aanslag (transiënten: een korte stoot in de eerste ~50 ms die in ~150 ms wegglijdt in de klank): de
+blaf van de e-piano (E.PIANO 1, 2: NOISE Y, de FM), de key click van het orgel (DRAWBAR, ROCK ORGAN: NOISE LEVEL) en
+de percussie die wegsterft (PERC. ORGAN), het plectrum (NYLON, STEEL, CLEAN GUITAR, BANJO, SHAMISEN, SITAR, KOTO, HARP,
+DULCIMER, PICK BASS: NOISE Y, een smalle puls), de vinger (JAZZ, MUTED GUITAR, ACOUSTIC, FINGER BASS, PIZZICATO,
+KALIMBA, STEEL DRUMS: NOISE Y, TONE), de klopper en de stok (GLOCKENSPIEL, VIBRAPHONE, XYLOPHONE, TUBULAR BELLS,
+WOODBLOCK, TAIKO, MELODIC TOM: NOISE Y), de dreun van SYNTH BASS 1 en de pop van SLAP BASS 1 (CHAOS). Een preset zonder contour zet FREE EG weer uit (een eigen opname laat hij staan, tot een preset met een
 contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de waarde waaromheen FREE EG beweegt.
 
 | LENGTH | Wat |
