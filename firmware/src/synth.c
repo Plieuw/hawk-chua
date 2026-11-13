@@ -745,10 +745,12 @@ static inline int32_t lpg_side(const voice_t *v, int32_t x, int32_t *c1, int32_t
 
 static int32_t soft_clip(int32_t x)              /* Q15 in +-1.5 -> +-1: x - 4/27 x^3 */
 {
-    int64_t c;
+    int32_t c;
     x = clamp(x, -49151, 49151);
-    c = ((int64_t)x * x >> 15) * x >> 15;
-    return x - (int32_t)(c * 4 / 27);
+    /* x * x < 2^32 (unsigned), so the square stays 32 bits; c = x^3 / 2^30 is then under 2^17 and 4 / 27 of it
+     * stays in 32 bits too: one 64-bit product a sample and no 64-bit division (two a frame) */
+    c = (int32_t)(((int64_t)(((uint32_t)x * (uint32_t)x) >> 15) * x) >> 15);
+    return x - c * 4 / 27;
 }
 
 /* the substeps of a voice: h = its time per sample (Q24) split into n of at most CHUA_HMAX */
@@ -1244,12 +1246,19 @@ static void synth_render_(int32_t *out, uint32_t n)
             rz_age[voice[k].rz % RZ_POLY] = voice[k].age;
             rz_epan[voice[k].rz % RZ_POLY] = vpan[k];
         }
-    for (i = 0; i < n; i++) {                           /* the dry: all of them (MULTI: the part's) */
-        int32_t a = 0;
-        for (k = 0; k < RZ_POLY; k++)
-            if (rz_part_mask >> k & 1u)
-                a += rz_bus[k][i];
-        sum[i] = a;
+    {   /* the dry: all of them (MULTI: the part's). The mask is settled above: the rows it picks, taken once,
+         * so a sample's sum is adds (and no test a sample) */
+        int32_t *row[RZ_POLY];
+        uint32_t nr = 0, q;
+        for (q = 0; q < RZ_POLY; q++)
+            if (rz_part_mask >> q & 1u)
+                row[nr++] = rz_bus[q];
+        for (i = 0; i < n; i++) {
+            int32_t a = 0;
+            for (q = 0; q < nr; q++)
+                a += row[q][i];
+            sum[i] = a;
+        }
     }
     if (mfp[0].on && !pp)
         mf_scope(sum, n);
@@ -1280,9 +1289,16 @@ static void synth_render_(int32_t *out, uint32_t n)
     {
         int32_t l[CTL], r[CTL];
         fx_shimmer(sum, l, r, n);                       /* (its tank fed the middle; its dry part panned here) */
-        for (i = 0; i < n; i++) {
-            l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
-            r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
+        {   /* what BASIS, ORBIT and the MOD FX took off the dry: in the centre (the common case) nothing was
+             * panned and dl / dr are all 0, so the block's products are skipped */
+            int32_t any = 0;
+            for (i = 0; i < n && !any; i++)
+                any = dl[i] | dr[i];
+            if (any)
+                for (i = 0; i < n; i++) {
+                    l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
+                    r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
+                }
         }
         if (!synth_light)
             spk_bass(l, r, n);
