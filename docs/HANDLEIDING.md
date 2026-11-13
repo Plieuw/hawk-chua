@@ -181,7 +181,9 @@ hetzelfde blijft als je van patroon wisselt. Wil je wel over meer octaven: UP/DO
 opent de pagina; daar zet KNOB 4 het doel (TARGET: CHAOS, SHAPE, RING, NOISE X/Y, MOD ENV HEIGHT, FX STRUCTURE/BRIGHTNESS/
 DAMPING/MIX, SHIMMER, BASIS, ORBIT, ARP GATE/SWING, KARMA K1..K4, ...), KNOB 2 de lengte en KNOB 3 de diepte. Druk REC en draai aan
 KNOB 1: de beweging wordt opgenomen (128 punten) en je hoort hem meteen op het doel. SELECT rechtsom speelt hem af
-(linksom uit: de parameter krijgt zijn oude waarde terug).
+(linksom uit: de parameter krijgt zijn oude waarde terug). SHIMMER SIZE en SHIMMER TONE staan niet in de lijst: SIZE
+tikt als hij beweegt, TONE hoor je nauwelijks bewegen. FX MIX en SHIMMER MIX zakken bij een beweging niet tot 0 (dan
+gaat het effect uit en begint het opnieuw vanuit stilte) en SHIMMER komt niet op 127 (het filter van een delay open).
 
 **Twee FREE EG's.** Er zijn er twee, twee modulatiebronnen naast elkaar: druk LFO nog een keer voor FREE EG 2, met een
 eigen opname, lengte, diepte, doel en PLAY. Zo kan de ene bijvoorbeeld een LFO op RING zijn en de andere een envelope per

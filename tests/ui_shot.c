@@ -283,39 +283,39 @@ int main(int argc, char **argv)
             uint32_t b2, k2;
             uint8_t sh0, lo = 255, hi = 0, ok2 = 1;
             preset_load(0);
-            sh0 = sys.sh_tone;
+            sh0 = sys.sh_decay;
             feg_edit_to(1);
             for (k2 = 0; k2 < FEG_N; k2++)
-                feg.curve[k2] = (uint8_t)(k2 < 64u ? 127u : 0u);   /* (a square, 2 Hz, on SHIMMER TONE) */
-            sys.feg_len = FEG_LFO0 + 4u; sys.feg_target = 17; sys.feg_depth = 127; sys.feg_has = 1; sys.feg_on = 1;
+                feg.curve[k2] = (uint8_t)(k2 < 64u ? 127u : 0u);   /* (a square, 2 Hz, on SHIMMER DECAY) */
+            sys.feg_len = FEG_LFO0 + 4u; sys.feg_target = 14; sys.feg_depth = 127; sys.feg_has = 1; sys.feg_on = 1;
             feg_edit_to(0);
-            ok2 &= !sys.feg_on && feg_po.on && feg_po.target == 17u && fegs[1].curve[0] == 127u;
+            ok2 &= !sys.feg_on && feg_po.on && feg_po.target == 14u && fegs[1].curve[0] == 127u;
             for (b2 = 0; b2 < FS / CTL; b2++) {
                 feg_block(CTL, voice_clock);
-                lo = sys.sh_tone < lo ? sys.sh_tone : lo;
-                hi = sys.sh_tone > hi ? sys.sh_tone : hi;
+                lo = sys.sh_decay < lo ? sys.sh_decay : lo;
+                hi = sys.sh_decay > hi ? sys.sh_decay : hi;
             }
             ok2 &= lo == 0u && hi == 127u;
             for (k2 = 0; k2 < FEG_N; k2++)               /* 1 too, a held +20 on the same one: added */
                 feg.curve[k2] = (uint8_t)(sh0 + 20u);
-            sys.feg_len = FEG_LFO0 + 4u; sys.feg_target = 17; sys.feg_depth = 127; sys.feg_has = 1; sys.feg_on = 1;
+            sys.feg_len = FEG_LFO0 + 4u; sys.feg_target = 14; sys.feg_depth = 127; sys.feg_has = 1; sys.feg_on = 1;
             fegs[1].curve[0] = fegs[1].curve[127] = 0;
             for (k2 = 0; k2 < FEG_N; k2++)
                 fegs[1].curve[k2] = (uint8_t)(sh0 + 10u);
             for (b2 = 0; b2 < 4u; b2++)
                 feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_tone == sh0 + 30u && fegs[0].base == sh0 && fegs[1].base == sh0;
+            ok2 &= sys.sh_decay == sh0 + 30u && fegs[0].base == sh0 && fegs[1].base == sh0;
             sys.feg_on = 0;                              /* (1 off: 2 goes on alone) */
             feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_tone == sh0 + 10u && !fegs[0].playing;
+            ok2 &= sys.sh_decay == sh0 + 10u && !fegs[0].playing;
             preset_load(0);                              /* (a preset: the base given back, taken again) */
-            ok2 &= !sys.feg_on && feg_po.on && sys.sh_tone == sh0;
+            ok2 &= !sys.feg_on && feg_po.on && sys.sh_decay == sh0;
             feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_tone == sh0 + 10u;
+            ok2 &= sys.sh_decay == sh0 + 10u;
             feg_po.on = 0;
             feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_tone == sh0 && !fegs[1].playing;
-            if (!ok2) printf("FREE EG 2: %u .. %u, tone %u around %u\n", lo, hi, sys.sh_tone, sh0);
+            ok2 &= sys.sh_decay == sh0 && !fegs[1].playing;
+            if (!ok2) printf("FREE EG 2: %u .. %u, tone %u around %u\n", lo, hi, sys.sh_decay, sh0);
             ok &= ok2;
         }
         {   /* the sound's octave: ACOUSTIC BASS two down; the key played still ends its note */

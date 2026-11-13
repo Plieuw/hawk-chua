@@ -403,7 +403,8 @@ static void menv_param(void)
         want = -want;
     f = feg_field(t - 1u);
     {
-        int32_t base = (int32_t)*f - menv_p.moved, now = clamp(base + want, 0, 127);
+        int32_t base = (int32_t)*f - menv_p.moved, now = feg_lim(t - 1u, base + want);   /* (FX MIX, SPACE MIX not
+                                                                                      * through 0: feg.c) */
         *f = (uint8_t)now;
         menv_p.moved = (int16_t)(now - base);
     }

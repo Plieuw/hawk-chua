@@ -298,19 +298,27 @@ static const char *sh_iv_name(uint32_t sp, uint32_t iv)   /* the INTERVAL's name
 }
 static uint32_t sh_dtime(void) { return (sys.sh_size & 127u) * SH_DTIMES / 128u; }
 
+/* the dry and the wet level glide over a block from the last's to this one's (SPACE MIX moved by FREE EG, a knob:
+ * no steps a block apart, no zipper); still: as they are */
+static int32_t sh_gd = 32768, sh_gw;
+#define SH_GLIDE(dry, wet) \
+    int32_t gn = n ? (int32_t)n : 1, cd = sh_gd, cw = sh_gw, sd = ((dry) - cd) / gn, sw = ((wet) - cw) / gn; \
+    cd = (dry) - sd * gn; \
+    cw = (wet) - sw * gn
 static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint32_t sp, int32_t dry, int32_t wet)
 {
     const sh_dpat_t *P = &SH_DPAT[sp - SS_DELAY][sys.sh_interval % SI_COUNT];
-    static uint32_t key = 0xFFFFFFFFu, loop, tap[10];   /* (the taps and their filters: worked out again only when
-                                                  * the tempo, the TIME, the pattern or the FILTER changed, not
-                                                  * every block: no 64-bit divisions in the interrupt then) */
+    static uint32_t key = 0xFFFFFFFFu, fkey = 0xFFFFFFFFu, loop, tap[10];   /* (the taps: worked out again only when
+                                                  * the tempo, the TIME or the pattern changed, not every block: no
+                                                  * 64-bit divisions in the interrupt then; their filters when the
+                                                  * FILTER or the pattern changed, without a division) */
     static int32_t ff[10];
     static uint32_t held = 120u;                 /* (the tempo the taps follow: MIDI clock's wavers by a BPM or so,
                                                   * block to block; they move only for 2 BPM or more, or a held 1 BPM
                                                   * after a second; no clock (0): as they were) */
     static uint32_t off_n;
     uint32_t i, k, bpm = arp_bpm_now(), spt, peak = 0, kn;
-    int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, q, open = (sys.sh_shimmer & 127u) >= 127u;
+    int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, q, fl, open = (sys.sh_shimmer & 127u) >= 127u;
     if (bpm) {
         uint32_t d = bpm > held ? bpm - held : held - bpm;
         off_n = d ? off_n + n : 0u;
@@ -320,7 +328,7 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
         }
     }
     bpm = held < 20u ? 20u : held > 300u ? 300u : held;
-    kn = bpm | sh_dtime() << 9 | (sp - SS_DELAY) << 12 | (sys.sh_interval % SI_COUNT) << 16 | (sys.sh_shimmer & 127u) << 24;
+    kn = bpm | sh_dtime() << 9 | (sp - SS_DELAY) << 12 | (sys.sh_interval % SI_COUNT) << 16;
     if (kn != key) {
         key = kn;
         /* samples (11025 Hz) a tick, Q16: 60 / BPM s a quarter, clocks / 24 of it a step, a 24th of that a tick */
@@ -331,15 +339,23 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
         for (k = 0; k < P->n; k++) {
             tap[k] = (uint32_t)(((uint64_t)P->tap[k].t * spt) >> 16);
             tap[k] = tap[k] < 1u ? 1u : tap[k];
-            {   /* its filter: 150 Hz x 2^(FILTER 0 .. 4.1 oct + its offset), f = 2 sin(pi fc / 11025), Q15 */
-                int32_t oc = (int32_t)(sys.sh_shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
-                uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2(oc < 0 ? 0 : oc)) >> 16);
-                fc = fc > 2600u ? 2600u : fc < 60u ? 60u : fc;
-                ff[k] = px_sin((uint32_t)(((uint64_t)fc << 32) / 22050u)) >> 14;   /* (Q30 -> 2 x Q15) */
-            }
+        }
+    }
+    kn = (sys.sh_shimmer & 127u) | (sp - SS_DELAY) << 8 | (sys.sh_interval % SI_COUNT) << 16;
+    if (kn != fkey) {                            /* (FREE EG on the FILTER: this, a block at a time) */
+        fkey = kn;
+        for (k = 0; k < P->n; k++) {   /* its filter: 150 Hz x 2^(FILTER 0 .. 4.1 oct + its offset), f = 2 sin(pi fc / 11025), Q15 */
+            int32_t oc = (int32_t)(sys.sh_shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
+            uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2(oc < 0 ? 0 : oc)) >> 16);
+            fc = fc > 2600u ? 2600u : fc < 60u ? 60u : fc;
+            ff[k] = px_sin((uint32_t)(((uint64_t)fc * 12466155u) >> 6)) >> 14;   /* (fc 2^32 / 22050: 2^38 / 22050 =
+                                                                                  * 12466154.5, no division; Q30 -> 2 x Q15) */
         }
     }
     q = 32768 - (int32_t)(sys.sh_tone & 127u) * 210;   /* 1 / Q: 1 .. ~0.19 */
+    fl = (65536 - q) * 29 / 32;                  /* (the filter stays stable while f < 2 - 1 / Q: its f at most 0.9 of
+                                                  * that; FILTER near the top with little TONE screamed) */
+    SH_GLIDE(dry, wet);
     for (i = 0; i < n; i++) {
         sh.dacc += in[i];
         if (++sh.dsub >= 4u) {                   /* a quarter-rate sample: in, the feedback, the taps */
@@ -356,9 +372,10 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
                 int32_t v = sh_dread(w >= tap[k] ? w - tap[k] : w + SH_DLEN - tap[k]), gl, gr, p = P->tap[k].pan;
                 if (!open) {                     /* the tap's filter: a state-variable low-pass */
                     int32_t *z = sh.dtap[k], hi;
-                    z[0] += (int32_t)(((int64_t)ff[k] * z[1]) >> 15);
+                    int32_t fk = ff[k] < fl ? ff[k] : fl;
+                    z[0] += (int32_t)(((int64_t)fk * z[1]) >> 15);
                     hi = v - z[0] - (int32_t)(((int64_t)q * z[1]) >> 15);
-                    z[1] += (int32_t)(((int64_t)ff[k] * hi) >> 15);
+                    z[1] += (int32_t)(((int64_t)fk * hi) >> 15);
                     z[1] = z[1] > 98304 ? 98304 : z[1] < -98304 ? -98304 : z[1];
                     z[0] = z[0] > 98304 ? 98304 : z[0] < -98304 ? -98304 : z[0];
                     v = z[0];
@@ -381,8 +398,10 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
             y = sh.dprev[1] + (sh.dout[1] - sh.dprev[1]) * (t + 1) / 4;
             sh.dlp[0] += (v - sh.dlp[0]) / 2;    /* (a little smoothing: the steps' edges) */
             sh.dlp[1] += (y - sh.dlp[1]) / 2;
-            l[i] = (int32_t)(((int64_t)in[i] * dry + (int64_t)sh.dlp[0] * wet) >> 15);
-            r[i] = (int32_t)(((int64_t)in[i] * dry + (int64_t)sh.dlp[1] * wet) >> 15);
+            cd += sd;
+            cw += sw;
+            l[i] = (int32_t)(((int64_t)in[i] * cd + (int64_t)sh.dlp[0] * cw) >> 15);
+            r[i] = (int32_t)(((int64_t)in[i] * cd + (int64_t)sh.dlp[1] * cw) >> 15);
             {
                 uint32_t a2 = (uint32_t)(sh.dlp[0] < 0 ? -sh.dlp[0] : sh.dlp[0]) + (uint32_t)(sh.dlp[1] < 0 ? -sh.dlp[1] : sh.dlp[1]);
                 peak = a2 > peak ? a2 : peak;
@@ -390,6 +409,8 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
         }
     }
     sh_view.env[sh_view.w++ & (SH_ENV - 1u)] = (uint16_t)(peak > 65535u ? 65535u : peak);
+    sh_gd = dry;
+    sh_gw = wet;
 }
 
 
@@ -411,6 +432,8 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
     {
         int clearing = sh_clearing();
         if (!mix || (clearing && !SS_IS_DELAY(sp))) {   /* (off, or a reverb's memory clearing: dry) */
+            sh_gd = 32768;
+            sh_gw = 0;
             for (i = 0; i < n; i++)
                 l[i] = r[i] = in[i];
             return;
@@ -461,6 +484,7 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         wet = mix > 64 ? 32768 : mix * 32768 / 64;
         sh_dry = dry;
     }
+    SH_GLIDE(dry, wet);
     for (i = 0; i < n; i++) {
         int32_t x = in[i] >> 1, o[SH_NLINE], s, ps, v, y, bm = 0, bs = 0;
         /* input diffusion: two allpasses (gain 0.6) */
@@ -598,12 +622,16 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             v = sh.dc[0] / 420;                  /* (/ 256, x 0.6: three lines summed come out ~1.6x the dry) */
             y = sh.dc[1] / 420;
         }
-        l[i] = (int32_t)(((int64_t)in[i] * dry + (int64_t)v * wet) >> 15);
-        r[i] = (int32_t)(((int64_t)in[i] * dry + (int64_t)y * wet) >> 15);
+        cd += sd;
+        cw += sw;
+        l[i] = (int32_t)(((int64_t)in[i] * cd + (int64_t)v * cw) >> 15);
+        r[i] = (int32_t)(((int64_t)in[i] * cd + (int64_t)y * cw) >> 15);
         {
             uint32_t a2 = (uint32_t)(v < 0 ? -v : v) + (uint32_t)(y < 0 ? -y : y);
             peak = a2 > peak ? a2 : peak;
         }
     }
     sh_view.env[sh_view.w++ & (SH_ENV - 1u)] = (uint16_t)(peak > 65535u ? 65535u : peak);
+    sh_gd = dry;
+    sh_gw = wet;
 }

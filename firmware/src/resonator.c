@@ -424,12 +424,14 @@ static void c1_resonators(uint32_t arg)          /* the second core: arg the res
 }
 
 static uint32_t rz_part_mask = (1u << RZ_POLY) - 1u;   /* the resonators this pass runs (MULTI: a part's) */
+static int32_t rz_gm[2] = {-1, -1};              /* each part's FX MIX the last block (0 .. 128) */
 static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
 {
     uint32_t md = sys.fx_model % RZ_COUNT, i, r, run = 0, mine = 0, busy = 0;
     int32_t pl[RZ_POLY], pr[RZ_POLY], basis = 0;
-    int32_t mix = sys.fx_mix > 127u ? 127 : (int32_t)sys.fx_mix;
+    int32_t mix = sys.fx_mix > 127u ? 127 : (int32_t)sys.fx_mix, *gm = &rz_gm[rz_part_mask & 1u ? 0 : 1], mq, ms;
     if (!mix) {
+        *gm = 0;                                 /* (on again: from the dry) */
         for (r = 0; r < RZ_POLY; r++) {          /* (off: the next use starts from silence) */
             if (!(rz_part_mask >> r & 1u))
                 continue;
@@ -473,6 +475,12 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
         basis |= p;                              /* (all in the middle: nothing to pan) */
     }
     mix += mix >> 6;                             /* 0..128 */
+    if (*gm < 0)
+        *gm = mix;
+    ms = (mix - *gm) * 65536 / (int32_t)(n ? n : 1u);   /* (from the last block's to this one's over the block, Q16: FX MIX
+                                                  * moved by FREE EG, a knob, without steps a block apart: no zipper) */
+    mq = (mix << 16) - ms * (int32_t)n;
+    *gm = mix;
     {
         int32_t oct = RZ_OFF[md] - (int32_t)(((int64_t)RZ_SLOPE[md] * (sys.fx_damp & 127u)) / 127);
         int32_t g = (int32_t)(((int64_t)RZ_GAIN[md] * px_exp2(oct)) >> 16), drn[CTL];
@@ -496,6 +504,8 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
                     }
                 }
             wet = rz_knee(px_m(y, g, 20));
+            mq += ms;
+            mix = (mq + 32768) >> 16;
             sum[i] = (sum[i] * (128 - mix) + wet * mix) >> 7;
             if (basis) {                         /* the dry's panning faded as the dry, the wet's added */
                 int32_t wl = wet - rz_knee(px_m(y - yl, g, 20)), wr = wet - rz_knee(px_m(y - yr, g, 20));

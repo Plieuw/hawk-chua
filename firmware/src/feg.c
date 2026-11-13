@@ -77,6 +77,30 @@ static volatile uint8_t *feg_field(uint32_t t)
     default: return &sys.decay;
     }
 }
+/* the ones FREE EG and the mod wheel offer: not SHIMMER SIZE (its lines' lengths and the delay's TIME jump a block at
+ * a time: clicks) nor SHIMMER TONE (hardly heard moving); one of them (saved before) taken as its neighbour */
+#define FEG_T_OUT(t) ((t) == 13u || (t) == 17u)
+static uint32_t feg_t_ok(uint32_t t)
+{
+    t %= FEG_NT;
+    return t == 13u ? 14u : t == 17u ? 16u : t;
+}
+static uint8_t feg_t_step(uint32_t t, int32_t s)   /* (the TARGET knob: s steps on, the left-out skipped) */
+{
+    int32_t v = (int32_t)feg_t_ok(t), d = s > 0 ? 1 : -1;
+    for (; s; s -= d)
+        do
+            v = clamp(v + d, 0, FEG_NT - 1);
+        while (FEG_T_OUT((uint32_t)v) && v > 0 && v < FEG_NT - 1);
+    return (uint8_t)v;
+}
+/* what a move may set it to: FX MIX and SHIMMER MIX never 0 (0 is off: the resonators', the reverb's memory cleared,
+ * back from silence: a gap each time the move passes it), SHIMMER never 127 (a delay's FILTER open: a jump) */
+static uint8_t feg_lim(uint32_t t, int32_t v)
+{
+    int32_t lo = t == 12u || t == 16u ? 1 : 0, hi = t == 15u ? 126 : 127;
+    return (uint8_t)(v < lo ? lo : v > hi ? hi : v);
+}
 
 /* TWO of them (the LFO button: FREE EG 1, again FREE EG 2, again HOME): two modulation sources, each its own
  * recording, length, depth and target. The one the page shows is in sys (sys.feg_...) and is `feg`; the other's
@@ -107,7 +131,7 @@ static int feg_owns(volatile uint8_t *f)        /* (karma.c: its envelope leaves
     for (i = 0; i < 2u; i++)
         if (fegs[i].playing && feg_field(fegs[i].target) == f)
             return 1;
-    return feg.rec && feg_field(sys.feg_target) == f;
+    return feg.rec && feg_field(feg_t_ok(sys.feg_target)) == f;
 }
 
 static void feg_release_(feg_st_t *F)           /* the parameter given back (the other on it too: it keeps it) */
@@ -164,7 +188,7 @@ static uint8_t feg_am_by;                        /* (this block: AM / FM taken, 
  * the recording's, written back) */
 static void feg_run(feg_st_t *F, feg_par_t *P, uint32_t i, uint32_t n, uint32_t note_ons)
 {
-    uint32_t len = P->len % FEG_NLEN, L, p, idx, f8;
+    uint32_t len = P->len % FEG_NLEN, L, p, idx, f8, tg = feg_t_ok(P->target);
     feg_st_t *O = &fegs[i ^ 1u];
     F->off = 0;
     if (note_ons != F->notes) {                  /* a note: NOTE starts again */
@@ -242,7 +266,7 @@ static void feg_run(feg_st_t *F, feg_par_t *P, uint32_t i, uint32_t n, uint32_t 
         for (; k <= idx && k < FEG_N; k++)
             F->curve[k] = v;
         F->last_idx = idx;
-        *feg_field(P->target) = v;               /* (heard while recorded) */
+        *feg_field(tg) = feg_lim(tg, v);         /* (heard while recorded) */
         F->pos = (uint8_t)idx;
         if (!len) {
             P->npts = (uint8_t)(idx + 1u > 127u ? 127u : idx + 1u);
@@ -275,9 +299,9 @@ static void feg_run(feg_st_t *F, feg_par_t *P, uint32_t i, uint32_t n, uint32_t 
         F->pos = 255;
         return;
     }
-    if (!F->playing || F->target != P->target % FEG_NT) {   /* (on, or another target: take it over) */
+    if (!F->playing || F->target != tg) {       /* (on, or another target: take it over) */
         feg_release_(F);
-        F->target = (uint8_t)(P->target % FEG_NT);
+        F->target = (uint8_t)tg;
         F->base = O->playing && O->target == F->target ? O->base : *feg_field(F->target);   /* (the other on it:
                                                                                                * its base) */
         F->playing = 1;
@@ -289,7 +313,7 @@ static void feg_run(feg_st_t *F, feg_par_t *P, uint32_t i, uint32_t n, uint32_t 
         v = a + (((b - a) * (int32_t)f8) >> 8);
         {   /* (the mod wheel on the same parameter: it sets how deep, 0 still .. DEPTH x the EDIT page's DEPTH) */
             int32_t d = (int32_t)(P->depth & 127u), md = (int32_t)(sys.mw_depth & 127u);
-            if (md && sys.mw_seen && sys.mw_target % FEG_NT == F->target)
+            if (md && sys.mw_seen && feg_t_ok(sys.mw_target) == F->target)
                 d = d * (int32_t)(sys.mw & 127u) * md / (127 * 127);
             F->off = (int16_t)((v - F->base) * d / 127);
         }
@@ -335,7 +359,7 @@ static void feg_block(uint32_t n, uint32_t note_ons)
         if (!F->playing || (i && O->playing && O->target == F->target))
             continue;
         v = F->base + F->off + (O->playing && O->target == F->target ? O->off : 0);
-        *feg_field(F->target) = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
+        *feg_field(F->target) = feg_lim(F->target, v);
     }
 }
 
@@ -344,7 +368,7 @@ static void feg_block(uint32_t n, uint32_t note_ons)
 static struct { uint8_t on, target, base; } mwd;
 static void mw_block(void)
 {
-    uint32_t m = sys.mw & 127u, d = sys.mw_depth & 127u, t = sys.mw_target % FEG_NT;
+    uint32_t m = sys.mw & 127u, d = sys.mw_depth & 127u, t = feg_t_ok(sys.mw_target);
     volatile uint8_t *f;
     if (mwd.on && (mwd.target != t || !m || !d)) {   /* (down, off, or another target: given back) */
         *feg_field(mwd.target) = mwd.base;
@@ -360,5 +384,5 @@ static void mw_block(void)
         mwd.target = (uint8_t)t;
         mwd.base = *f;
     }
-    *f = (uint8_t)(mwd.base + (127u - mwd.base) * m * d / (127u * 127u));
+    *f = feg_lim(t, (int32_t)(mwd.base + (127u - mwd.base) * m * d / (127u * 127u)));
 }

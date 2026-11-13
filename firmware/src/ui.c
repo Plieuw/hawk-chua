@@ -1384,7 +1384,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.midi_tx = (uint8_t)(s.midi_tx & 15u);
         sys.feg_len = (uint8_t)(s.feg_len % FEG_NLEN);
         sys.feg_depth = (uint8_t)(s.feg_depth & 127u);
-        sys.feg_target = (uint8_t)(s.feg_target % FEG_NT);
+        sys.feg_target = (uint8_t)feg_t_ok(s.feg_target);
         sys.feg_on = (uint8_t)(s.feg_on != 0);
         sys.feg_has = (uint8_t)(s.feg_has != 0);
         sys.feg_npts = (uint8_t)(s.feg_npts & 127u);
@@ -1393,7 +1393,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         if (s.snd >= 28u) {                      /* (28: FREE EG 2 saved; before: empty, off) */
             feg_po.len = (uint8_t)(s.feg2_len % FEG_NLEN);
             feg_po.depth = (uint8_t)(s.feg2_depth & 127u);
-            feg_po.target = (uint8_t)(s.feg2_target % FEG_NT);
+            feg_po.target = (uint8_t)feg_t_ok(s.feg2_target);
             feg_po.on = (uint8_t)(s.feg2_on != 0);
             feg_po.has = (uint8_t)(s.feg2_has != 0);
             feg_po.npts = (uint8_t)(s.feg2_npts & 127u);
@@ -1403,7 +1403,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_on = 0;
         sys.k_ge = (uint8_t)(s.k_ge % KGE_N);
         sys.k_latch = (uint8_t)(s.k_latch != 0);
-        sys.mw_target = (uint8_t)(s.mw_target % FEG_NT);
+        sys.mw_target = (uint8_t)feg_t_ok(s.mw_target);
         sys.mw_depth = (uint8_t)(s.mw_depth & 127u);
         sys.vel_to = (uint8_t)(s.vel_to & 3u);
         sys.vel_amt = (uint8_t)(s.vel_amt & 127u);
@@ -4128,7 +4128,7 @@ static void ui_input(void)
         }
     } else if (sys.page == 11u) {
         if ((s = ui_enc(EN_K1)) != 0) {
-            sys.mw_target = (uint8_t)clamp((int32_t)sys.mw_target + s, 0, FEG_NT - 1);
+            sys.mw_target = feg_t_step(sys.mw_target, s);
             ui_hot = 0; ui_hot_ms = fm1_ms;
         }
         knob(&sys.mw_depth, EN_K2, 1);
@@ -4153,7 +4153,7 @@ static void ui_input(void)
         }
         knob(&sys.feg_depth, EN_K3, 2);
         if ((s = ui_enc(EN_K4)) != 0) {
-            sys.feg_target = (uint8_t)clamp((int32_t)sys.feg_target + s, 0, FEG_NT - 1);
+            sys.feg_target = feg_t_step(sys.feg_target, s);
             ui_hot = 3; ui_hot_ms = fm1_ms;
         }
     } else if (sys.page == 18u) {               /* GROOVE */
