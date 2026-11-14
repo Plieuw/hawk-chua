@@ -1926,18 +1926,18 @@ int main(int argc, char **argv)
         w0 = kar_view.w;
         run_ms(1000);
         KOK(kar_view.w == w0 && !kar.running && sounding() == 0);
-        /* an envelope: TECHNO STAB moves RING over the phrase, gives it back */
-        sys.k_ge = 5; sys.ring = 50; ring0 = 50;
+        /* an envelope: TECHNO STAB moves the FX's BRIGHTNESS over the phrase, gives it back */
+        sys.k_ge = 5; sys.fx_bright = 50; ring0 = 50;
         midi_in(0x90, 60, 100); midi_in(0x90, 63, 100); midi_in(0x90, 67, 100);
         q = 0;
         for (b = 0; b < 40u; b++) {
             run_ms(50);
-            q |= sys.ring != ring0;
+            q |= sys.fx_bright != ring0;
         }
         KOK(q && kar.env_on);
         midi_in(0x80, 60, 0); midi_in(0x80, 63, 0); midi_in(0x80, 67, 0);
         run_ms(20);
-        KOK(sys.ring == ring0 && !kar.env_on);
+        KOK(sys.fx_bright == ring0 && !kar.env_on);
         /* LATCH: let go, it goes on; a new chord replaces the old */
         sys.k_ge = 0; sys.k_latch = 1;
         midi_in(0x90, 60, 100); midi_in(0x90, 64, 100);
@@ -2770,10 +2770,11 @@ int main(int argc, char **argv)
         mf_reset(&mfp[0], 0);
         check("MOD FX: every mode bounded and audible", okk);
     }
-    {   /* the mod wheel on VIBRATO, RING MOD: MOD FX on with that one (the page OFF), off with the wheel down */
+    {   /* the mod wheel on VIBRATO: MOD FX on with it (the page OFF), off with the wheel down; RING MOD (saved
+         * before: no longer a target) taken as VIBRATO */
         uint8_t t0 = sys.mw_target, d0 = sys.mw_depth, m0 = sys.mfx_mode;
         int okk = 1;
-        static const uint8_t WM[2] = {MF_VIBRATO, MF_RING};
+        static const uint8_t WM[2] = {MF_VIBRATO, MF_VIBRATO};
         uint32_t k2;
         sys.mfx_mode = MF_OFF; sys.mw_depth = 127;
         for (k2 = 0; k2 < 2u; k2++) {
@@ -2786,7 +2787,7 @@ int main(int argc, char **argv)
             okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm;
         }
         sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
-        check("mod wheel on VIBRATO, RING MOD: MOD FX with it", okk);
+        check("mod wheel on VIBRATO: MOD FX with it (RING MOD as VIBRATO)", okk);
     }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};

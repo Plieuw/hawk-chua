@@ -79,13 +79,14 @@ static volatile uint8_t *feg_field(uint32_t t)
 }
 /* the ones FREE EG and the mod wheel offer: not SHIMMER SIZE (its lines' lengths and the delay's TIME jump a block at
  * a time: clicks) nor SHIMMER TONE (hardly heard moving); one of them (saved before) taken as its neighbour */
-#define FEG_T_OUT(t) ((t) == 13u || (t) == 17u)
-/* not offered on the TARGET knob either (a preset's own contour may still move them): RING, RING MOD */
-#define FEG_T_HIDE(t) (FEG_T_OUT(t) || (t) == 3u || (t) == 29u)
+/* nor RING, RING MOD (no longer a modulation target anywhere: FREE EG, the mod wheel, MOD ENV, KARMA's envelopes;
+ * one saved on them: OUTPUT, VIBRATO) */
+#define FEG_T_OUT(t) ((t) == 13u || (t) == 17u || (t) == 3u || (t) == 29u)
+#define FEG_T_HIDE(t) FEG_T_OUT(t)
 static uint32_t feg_t_ok(uint32_t t)
 {
     t %= FEG_NT;
-    return t == 13u ? 14u : t == 17u ? 16u : t;
+    return t == 13u ? 14u : t == 17u ? 16u : t == 3u ? 2u : t == 29u ? 28u : t;
 }
 static uint8_t feg_t_step(uint32_t t, int32_t s)   /* (the TARGET knob: s steps on, the left-out skipped) */
 {

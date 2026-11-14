@@ -373,7 +373,7 @@ static void menv_undo(void)
 }
 static void menv_param(void)
 {
-    uint32_t len, a, ia, id, t = sys.menv_target;
+    uint32_t len, a, ia, id, t = sys.menv_target == 4u ? 0u : sys.menv_target;   /* (RING, saved before: none) */
     int32_t want, h;
     volatile uint8_t *f;
     if (t != menv_p.target) {                    /* (another parameter: the last one given back) */
