@@ -3871,7 +3871,7 @@ static const arp_preset_t ARP_PRE[] = {
     {"CLASSIC UP", 1, 7, 70, 0, 0, 0},           {"TRANCE 16THS", 1, 7, 45, 0, 1, 0},
     {"ACID BASS", 26, 7, 60, 10, 8, 1},          {"HOUSE STABS", 19, 7, 35, 15, 3, 10},
     {"TECHNO DRIVE", 15, 7, 50, 0, 9, 0},        {"SWING UPDOWN", 7, 7, 65, 55, 13, 4},
-    {"HARP RUN", 45, 9, 90, 0, 4, 12},           {"TRIPLET DREAM", 8, 6, 80, 0, 2, 14},
+    {"ROLLED CHORD", 45, 9, 90, 0, 4, 12},           {"TRIPLET DREAM", 8, 6, 80, 0, 2, 14},
     {"RANDOM SPARKLE", 14, 7, 30, 0, 23, 13},    {"WALKING BASS", 35, 4, 75, 40, 0, 5},
     {"REGGAE SKANK", 43, 7, 40, 20, 13, 10},     {"STRUMMER", 37, 7, 85, 10, 5, 0},
     {"CLAVE", 40, 7, 55, 25, 17, 6},             {"WALTZ", 41, 4, 70, 0, 7, 14},

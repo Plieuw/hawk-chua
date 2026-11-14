@@ -139,7 +139,7 @@ USB-C naar USB-C tussen twee apparaten werkt niet, want USB heeft altijd een hos
 | Bediening | Functie |
 | --- | --- |
 | KNOB 1 BPM | 40..250 (bij CLOCK EXTERNAL staat er EXT, met het gemeten tempo, en draaien doet niets); de BPM-knop van de TAPE-pagina's |
-| PRESETS | **ARP-presets** (ook op de GROOVE-pagina): CLASSIC UP, TRANCE 16THS, ACID BASS, HOUSE STABS, TECHNO DRIVE, SWING UPDOWN, HARP RUN, TRIPLET DREAM, RANDOM SPARKLE, WALKING BASS, REGGAE SKANK, STRUMMER, CLAVE, WALTZ, BOUNCING BALL, SLOW FALL: elk zet het patroon, de nootwaarde, GATE, SWING en de GROOVE (velocity- en gate-seq); de BPM blijft |
+| PRESETS | **ARP-presets** (ook op de GROOVE-pagina): CLASSIC UP, TRANCE 16THS, ACID BASS, HOUSE STABS, TECHNO DRIVE, SWING UPDOWN, ROLLED CHORD, TRIPLET DREAM, RANDOM SPARKLE, WALKING BASS, REGGAE SKANK, STRUMMER, CLAVE, WALTZ, BOUNCING BALL, SLOW FALL: elk zet het patroon, de nootwaarde, GATE, SWING en de GROOVE (velocity- en gate-seq); de BPM blijft |
 | KNOB 2 SUBDIVIDE | de tien van de AN1x: 3/8, 1/4, 3/16, 1/6, 1/8, 3/32, 1/12, 1/16, 1/24, 1/32 (standaard 1/8) |
 | KNOB 3 GATE | hoe lang elke noot klinkt: 8..100 % van de stap (GATE FIT: zolang de ARP of KARMA speelt is de attack van elk geluid hoogstens een kwart van de gate, zodat ook trage pads op korte stappen meteen spreken; op de toetsen hun eigen attack) |
 | KNOB 4 SWING | 50 % (geen) .. 83 % (de meeste), zoals de AN1x: elke tweede stap later |
@@ -159,20 +159,23 @@ LEGATO 1/4, SWELL, STUTTER, WALTZ, BREATH), KNOB 3 GATE LENGTH (1..8) hoeveel va
 SEQ LENGTH. De pagina toont
 de stappen als staafjes, de stap die speelt licht op.
 
-De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,
+De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. De stappatronen zijn
+uitgedund: minder noten, rusten ertussen, geen loopjes of toonladders. 1–15: UP, DOWN,
 UPDW A (de uitersten één keer), UPDW B (de uitersten twee keer) en RANDOM, elk over 1, 2 of 4 octaven. 16–30: TECHNO-A
 (Euro), TECHNO-B (UK, met velocity), TECHNO-C (Japans), TECHNO-D (Duits), DA HOUSE (bas links, akkoorden rechts),
-SYNCOPA A, SYNCOPA B (grote octaafsprongen), SYNCO ECHO, TEKK ECHO A en B, PULSE LINE, BASSLINE A–D. Daarna ECHO en
-SWEEP van de DJX. De Data List geeft van 16–30 alleen de naam en één regel commentaar, de handleidingen geen noten: die
+SYNCOPA A, SYNCOPA B, SYNCO ECHO, TEKK ECHO A en B, PULSE LINE, BASSLINE A–D. Daarna ECHO van de DJX, ALBERTI
+(grondtoon, kwint, terts, kwint) en ROOT FIFTH (grondtoon en kwint om en om). De Data List geeft van 16–30 alleen de naam en één regel commentaar, de handleidingen geen noten: die
 stappen zijn mijn invulling van die beschrijvingen ("moving filter" bij TEKK ECHO als een velocity-zwaai). Daarna
 zestien naar de Arpeggio Styles van de Roland MC-303 (ook hier: naam en beschrijving uit de handleiding, de stappen
-zijn eigen werk): GLISSANDO (halve toon voor halve toon van de laagste naar de hoogste noot en terug), SYN BASS,
+zijn eigen werk): SYN BASS,
 SLAP BASS (duim laag, pop een octaaf hoger, gedempte tussennoten), WALK BASS, RHYTHM GTR (akkoordstoten met
 gedempte chops), STRUM GTR (het akkoord echt aangeslagen: neer en op, 12 ms per snaar), 3 FINGER (Travis: de duim
 wisselt laag, de melodie op de hoogste noot), PIANO BACK (bas en akkoord), CLAVI CHORD, WALTZ, SWING WALTZ (in
-triolen: zet SUBDIVIDE op 1/12), REGGAE (de skank op de tweede en vierde tel, kort), PERCUSSION, HARP, SHAMISEN (de
-hoogste noot met loopjes eronder) en BOUND BALL (een stuiterende bal: steeds snellere herhalingen; mooi op 1/32).
-Gedempte stappen klinken een kwart stap, wat de GATE ook is. Alle stappatronen (16–48) blijven in het octaaf van je
+triolen: zet SUBDIVIDE op 1/12), REGGAE (de skank op de tweede en vierde tel, kort), PERCUSSION, ROLLED CHORD (het akkoord gebroken omhoog, twee keer per
+maat), SHAMISEN (de hoogste noot met loopjes eronder) en BOUND BALL (een stuiterende bal: steeds snellere herhalingen;
+mooi op 1/32). Daarna tien basispatronen: ROOT 8THS, ROOT 4THS, OFFBEAT, UP 3, DOWN 3, BASS CHORD (grondtoon, dan
+de rest van het akkoord), CHORD 4THS, CHORD OFFBEAT, CHORD 3-3-2 en TOP PULSE (de hoogste noot).
+Gedempte stappen klinken een kwart stap, wat de GATE ook is. Alle stappatronen (16–58) blijven in het octaaf van je
 akkoord: wat erboven of eronder zou vallen (hun octaafsprongen, de plaatsen voorbij de hoogste noot) wordt terug
 gevouwen naar je laagste noot .. een octaaf hoger (of je hoogste, als het akkoord breder is), zodat het register
 hetzelfde blijft als je van patroon wisselt. Wil je wel over meer octaven: UP/DOWN/UPDW/RANDOM OCT2 en OCT4. Het scherm toont de laatste 32 stappen als een rol.

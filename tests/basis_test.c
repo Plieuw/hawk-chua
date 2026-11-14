@@ -1639,8 +1639,9 @@ int main(int argc, char **argv)
      * gate ends each note; turning it off lets the held notes sound as they are */
     {
         uint32_t okk = 1, w0, j, b, ons;
-        okk &= ARP_NTYPE == 48u && !strcmp(arp_type_name(15), "TECHNO-A") && !strcmp(arp_type_name(29), "BASSLINE D") &&
-               !strcmp(arp_type_name(32), "GLISSANDO") && !strcmp(arp_type_name(47), "BOUND BALL");   /* (the AN1x's 30 + 2, the MC-303's 16) */
+        okk &= ARP_NTYPE == 58u && !strcmp(arp_type_name(15), "TECHNO-A") && !strcmp(arp_type_name(29), "BASSLINE D") &&
+               !strcmp(arp_type_name(32), "ROOT FIFTH") && !strcmp(arp_type_name(47), "BOUND BALL") &&
+               !strcmp(arp_type_name(57), "TOP PULSE");   /* (the AN1x's 30 + 2, the MC-303's 16, 10 basic ones) */
         static const uint8_t UP2[6] = {60, 64, 67, 72, 76, 79};
         synth_kill(); keys_all_off(); run_ms(50);
         sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100; sys.release = 20;
@@ -1746,9 +1747,9 @@ int main(int argc, char **argv)
                 }
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "DA HOUSE"))   /* the bass, then the right hand */
                     okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 2u) & 31u] == 64u;
-                if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "GLISSANDO"))  /* semitones up from the lowest */
-                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 61u &&
-                           arp_view.note[(w0 + 2u) & 31u] == 62u;
+                if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "ROOT FIFTH"))  /* the root, a rest, the third held */
+                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 0u &&
+                           arp_view.note[(w0 + 2u) & 31u] == 67u;
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "3 FINGER"))   /* the thumb low, the melody on top */
                     okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 67u;
             }
