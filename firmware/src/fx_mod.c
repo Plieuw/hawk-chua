@@ -288,9 +288,10 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
             wet = a0 + (((a1 - a0) * (int32_t)fr) >> 15);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
         }
-    } else                                       /* TREMOLO: the level dipped by the slow circuit */
+    } else                                       /* TREMOLO: the level dipped by the slow circuit (x 1.41: as loud as
+                                                  * the other modes on average, ~4 dB under them before) */
         for (i = 0; i < n; i++) {
-            int32_t x = w[i], wet = (int32_t)(((int64_t)x * (16384 + (M->m[i] >> 1))) >> 15);
+            int32_t x = w[i], wet = (int32_t)(((int64_t)x * (16384 + (M->m[i] >> 1)) * 1448) >> 25);
             w[i] = x + (int32_t)(((int64_t)(wet - x) * mix) >> 15);
         }
 }

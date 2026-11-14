@@ -51,6 +51,10 @@ enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_PIANO, SS_GUITAR, SS_VIOL
 #define SS_DELAY SS_PINGPONG                     /* (the delays: PING PONG .. BOUNCE) */
 #define SS_IS_DELAY(sp) ((sp) >= SS_DELAY && (sp) <= SS_BOUNCE)
 #define SS_BODY SS_PIANO                         /* (from here: an instrument's body) */
+/* each space's wet level (Q12): measured against the dry (SPACE MIX 127, short notes and their tails, 6 presets'
+ * oscillators, SIZE 32 and 96), every space within ~2 dB of the others: the bodies were 6 .. 12 dB under the halls,
+ * the delays over */
+static const uint16_t SH_WLVL[SS_COUNT] = {4096, 4868, 4868, 4339, 10289, 10898, 7715, 9713, 14533, 7284, 8173, 4096, 4596, 4096, 3072, 2303, 3072};
 static const char *const SH_SPACE_NAME[SS_COUNT] = {"HALL", "TEMPLE", "CATHEDRAL", "MOSQUE", "PIANO BODY",
                                                     "GUITAR BODY", "VIOLIN BODY", "CELLO BODY", "HARP BODY",
                                                     "ACCORDION", "BAGPIPE", "PIPE ORGAN", "LESLIE", "PING PONG",
@@ -440,7 +444,7 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         }
     }
     if (SS_IS_DELAY(sp)) {                       /* a delay: in the tempo (above) */
-        int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = mix > 64 ? 32768 : mix * 32768 / 64;
+        int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = (mix > 64 ? 32768 : mix * 32768 / 64) * SH_WLVL[sp] >> 12;
         sh_dry = dr;
         sh.on = 1;
         fx_delay(in, l, r, n, sp, dr, wt);
@@ -481,7 +485,7 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         if (sp == SS_MOUTH)
             sh_mouth_set();
         dry = mix < 64 ? 32768 : (127 - mix) * 32768 / 63;
-        wet = mix > 64 ? 32768 : mix * 32768 / 64;
+        wet = (mix > 64 ? 32768 : mix * 32768 / 64) * SH_WLVL[sp] >> 12;
         sh_dry = dry;
     }
     SH_GLIDE(dry, wet);
