@@ -237,7 +237,7 @@ static void midi_cc(uint32_t cc, uint32_t v)
         break;
     case 73:                                     /* (BIG BANG: BANG, EXPAND on CHAOS's and OUTPUT's; PIANO: DECAY,
                                                   * STIFF) */
-        if (sys.osc > NP_BIGBANG)
+        if (NP_OWN_KNOBS(sys.osc))
             sys.chaos = (uint8_t)v;
         else if (sys.osc)
             sys.np_level = (uint8_t)v;
@@ -245,7 +245,7 @@ static void midi_cc(uint32_t cc, uint32_t v)
             sys.output = (uint8_t)v;
         break;
     case 74:
-        if (sys.osc > NP_BIGBANG)
+        if (NP_OWN_KNOBS(sys.osc))
             sys.output = (uint8_t)v;
         else
             sys.ring = (uint8_t)v;

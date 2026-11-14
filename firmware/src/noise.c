@@ -12,6 +12,7 @@
  *                      5 EXIST. PAIN   6 WHO KNOWS      7 SATAN WORKOUT  8 RWALK BITCRUSH  9 RWALK LFREE
  *   D  ORDER           0 BIG BANG (this firmware's own: the standard waves, entropy, a bang, the series stretched)
  *                      1 PIANO (this firmware's own: a piano's tone from its partials, struck, see below)
+ *                      2 FILTER NOISE (this firmware's own: white noise through filter stages, see below)
  *
  * Building blocks: phase accumulators (Q32 cycles), square / pulse / saw / triangle / sine (px_sin), xorshift noise,
  * random walkers in a box, a Chamberlin state-variable band-pass, a granular cell (a 1024-sample buffer read back
@@ -26,9 +27,10 @@
  *   np_start(k, seed)                 a voice's state at a new note
  *   np_render(k, alg, inc, out, n, ext)  voice k, program alg (0..29), the note's increment (ext: FREE EG FM's factor
  *                                     a sample, Q16, or 0): n samples Q15 into out */
-#define NP_COUNT 32
+#define NP_COUNT 33
 #define NP_BIGBANG 30u                           /* (the programs' numbers: osc = program + 1) */
 #define NP_PIANO 31u
+#define NP_FNOISE 32u
 static const char *const NP_NAME[NP_COUNT] = {
     "RADIO OH NO", "RWALK FLANGE", "XMOD RING SQR", "XMOD RING SINE", "CROSS MOD RING",
     "RESONOISE", "GRAIN GLITCH", "GRAIN GLITCH 2", "GRAIN GLITCH 3", "BASURILLA",
@@ -36,19 +38,19 @@ static const char *const NP_NAME[NP_COUNT] = {
     "PRIME CLUSTER", "PRIME C NOISE", "FIBONACCI", "PARTIAL CLUST", "PHASING CLUST",
     "BASURA TOTAL", "ATARI", "WAKING FILOM.", "P S H", "ARRAY ROCKS",
     "EXIST. PAIN", "WHO KNOWS", "SATAN WORKOUT", "RWALK BITCRUSH", "RWALK LFREE",
-    "BIG BANG", "PIANO",
+    "BIG BANG", "PIANO", "FILTER NOISE",
 };
 static const char *const NP_X[NP_COUNT] = {        /* what X and Y do, per program (the screen) */
     "OSC 2", "WALK RATE", "OSC 2", "OSC 2", "RATIOS", "MOD RATIO", "GRAIN", "GRAIN", "GRAIN", "LFO RATE",
     "SPREAD", "DETUNE", "DETUNE", "DETUNE", "DETUNE", "SPREAD", "SPREAD", "SPREAD", "SPREAD", "SPREAD",
     "LFSR BEND", "OSC 2", "BOX", "RATE", "MOD RATIO", "SWEEP RATE", "SWEEP RATE", "FM", "BOX", "BOX",
-    "WAVE", "HAMMER",
+    "WAVE", "HAMMER", "RESONANCE",
 };
 static const char *const NP_Y[NP_COUNT] = {
     "PWM", "FLANGE", "FM", "FM", "FM", "FOLD", "FM", "FM", "FM", "WIDTH",
     "VOICES", "PW", "FM", "FM", "FM", "FM", "NOISE FM", "TONE", "TONE", "DRIFT",
     "REVERB", "FM", "FM", "REVERB", "SCRAMBLE", "DEPTH", "DEPTH", "CRUSH", "REVERB", "REVERB",
-    "ENTROPY", "STRINGS",
+    "ENTROPY", "STRINGS", "FILTER",
 };
 /* the output level per program: measured (tests/basis_test.c, NP_LEVELS=1 prints them) so that each sounds about as
  * loud as the circuit at X = Y = 64, a four-note chord (Q12) */
@@ -56,7 +58,7 @@ static const uint16_t NP_GAIN[NP_COUNT] = {
     1747, 1703, 1041, 2220, 1945, 510, 880, 879, 1531, 4523,
     3027, 1975, 1996, 2339, 2423, 2275, 2289, 2350, 2309, 1750,
     4035, 1169, 1285, 3241, 1548, 959, 382, 925, 2334, 1740,
-    4200, 5600,
+    4200, 5600, 2593,
 };
 
 #define NP_BUF 4096u
@@ -441,7 +443,7 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     uint32_t i, j;
     {   /* the knobs glide (no zipper noise as they turn: synth.c, ksm_glide); a new note, or a change made in silence,
          * takes them at once */
-        int32_t gt = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg >= NP_BIGBANG ? 64 : (int32_t)(sys.np_level & 127u)) / 64;
+        int32_t gt = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg == NP_BIGBANG || alg == NP_PIANO ? 64 : (int32_t)(sys.np_level & 127u)) / 64;
                                                  /* (BIG BANG, PIANO: their own knobs where LEVEL was: at 64) */
         if (voice[k].age != S->kage || S->kep != ksm_epoch) {
             S->kage = voice[k].age;
@@ -922,6 +924,38 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     case 31:    /* PIANO (above) */
         np_piano(k, S, inc, out, n, fk, fm);
         break;
+    case 32: {  /* FILTER NOISE: white noise through four filter stages, all on the note: (1) a one-pole colour (Y: dark
+                 * .. white), (2) a comb tuned to the note's period, its loop damped (X: its feedback 0 .. 97 %: noise ..
+                 * a plucked, pitched tone), (3) two resonant band-passes on the note and its octave (X: broad .. narrow),
+                 * (4) a low-pass from the note up to 7 octaves over it (Y). X: RESONANCE, Y: FILTER */
+        uint32_t ie = fm ? np_mul(inc, fk[0]) : inc, per, fr, i2, lpi;
+        int32_t fb = x * 31 / 32, cin = 32768 - fb / 2, a1 = 1500 + (int32_t)(((int64_t)y * 31267) >> 15);
+        int32_t dmp = 8000 + y * 3 / 4, q = 65536 - x * 2 + x / 16;   /* (q: 65536 .. ~3000, the band-passes' 1/Q) */
+        ie = ie ? ie : 1u;
+        per = 0xFFFFFFFFu / ie;                      /* the period, samples (and its fraction, Q16: 32 bits only) */
+        fr = (0xFFFFFFFFu - per * ie) / ((ie >> 16) ? (ie >> 16) : 1u);
+        fr = fr > 65535u ? 65535u : fr;
+        per = per < 2u ? 2u : per > NP_BUF - 2u ? NP_BUF - 2u : per;
+        i2 = ie > 0x10000000u ? 0x20000000u : ie * 2u;
+        lpi = np_mul(ie, px_exp2(y * 14));           /* (Y: 0 .. 7 octaves over the note) */
+        lpi = lpi > 0x1C000000u ? 0x1C000000u : lpi;
+        for (i = 0; i < n; i++) {
+            int32_t w = np_noise(&S->rng), d0, d1, dl, cv, b1, b2, m;
+            S->lp += (int32_t)(((int64_t)(w - S->lp) * a1) >> 15);                       /* (1) the colour */
+            d0 = b[(S->fw - per) & (NP_BUF - 1u)];                                      /* (2) the comb */
+            d1 = b[(S->fw - per - 1u) & (NP_BUF - 1u)];
+            dl = d0 + (int32_t)(((int64_t)(d1 - d0) * (int32_t)fr) >> 16);
+            S->clp += (int32_t)(((int64_t)(dl - S->clp) * dmp) >> 15);
+            cv = (int32_t)(((int64_t)S->lp * cin + (int64_t)S->clp * fb) >> 15);
+            b[S->fw++ & (NP_BUF - 1u)] = (int16_t)np_clip(cv);
+            b1 = np_bp(&S->lo[0], &S->bd[0], S->lp, ie, q);                             /* (3) the band-passes */
+            b2 = np_bp(&S->lo[1], &S->bd[1], S->lp, i2, q);
+            m = cv + (int32_t)(((int64_t)(b1 + b2 / 2) * q) >> 16);
+            np_bp(&S->lo[2], &S->bd[2], m, lpi, 40000);                                   /* (4) the low-pass */
+            out[i] = np_clip(S->lo[2]);
+        }
+        break;
+    }
     default: {  /* RWALK LFREE: four pulses, frequency and width walking in a box; reverb */
         int32_t box = 2000 + x * 3 / 2;
         for (i = 0; i < n; i++) {

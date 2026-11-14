@@ -4288,7 +4288,7 @@ static void ui_input(void)
     } else if (sys.page == 0u && sys.osc) {
         knob(&sys.np_x, EN_K1, 0);
         knob(&sys.np_y, EN_K2, 1);
-        if (sys.osc > NP_BIGBANG) {              /* BIG BANG: BANG, EXPAND; PIANO: DECAY, STIFF (on the circuit's
+        if (NP_OWN_KNOBS(sys.osc)) {             /* BIG BANG: BANG, EXPAND; PIANO: DECAY, STIFF (on the circuit's
                                                   * CHAOS and OUTPUT) */
             knob(&sys.chaos, EN_K3, 2);
             knob(&sys.output, EN_K4, 3);

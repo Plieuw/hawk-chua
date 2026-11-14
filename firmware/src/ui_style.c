@@ -108,7 +108,7 @@ static void us_beat(void)                        /* (once a frame) */
 static int32_t us_kn(uint32_t i)
 {
     uint8_t v = !sys.osc ? (i == 0u ? sys.chaos : i == 1u ? sys.shape : i == 2u ? sys.output : sys.ring)
-              : (i == 0u ? sys.np_x : i == 1u ? sys.np_y : sys.osc > NP_BIGBANG ? (i == 2u ? sys.chaos : sys.output)
+              : (i == 0u ? sys.np_x : i == 1u ? sys.np_y : NP_OWN_KNOBS(sys.osc) ? (i == 2u ? sys.chaos : sys.output)
                                                                                   : (i == 2u ? sys.np_level : sys.ring));
     return (int32_t)(v & 127u);
 }
@@ -348,7 +348,7 @@ static int32_t us_pan_x(void)                    /* (all 32-bit: the AC79 has no
 static void us_psyche(uint32_t h)
 {
     int32_t k = us_k(), rc = us_react(), cy = (int32_t)h / 2, at, ev = us_env(&at), gf = us_gf(), i;
-    uint32_t t = us_t(), var = us_var(), beat = us_beatms(), osc = sys.osc % 33u;
+    uint32_t t = us_t(), var = us_var(), beat = us_beatms(), osc = sys.osc % (NP_COUNT + 1u);
     int32_t frac = (int32_t)((fm1_ms % beat) * 256u / beat);   /* (the rings' advance through a beat) */
     int32_t vx = us_pan_x(), vy = cy;            /* (in balance round the eye, as sand on a plate; the eye where the
                                                   * sound is in the stereo field: SCL's BASIS) */
