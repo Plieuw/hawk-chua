@@ -43,9 +43,9 @@ static const int8_t RZ_CHORDS[8][PX_NSYMP] = {   /* semitones above the note (Fe
 /* model 1.0 (Q20) -> Q15: measured so that the wet output is about as loud as the dry at every DAMPING (a longer
  * decay holds more energy: 20x for the modes from DAMPING 0 to 127, 6x for the strings): gain 2^(off - slope d),
  * octaves Q16 (tests/basis_test.c checks it) */
-static const int32_t RZ_GAIN[RZ_COUNT] = {4020, 4853, 7516, 11072, 2853, 1096, 2512, 2362, 7050, 6140, 12110, 1211, 11121, 4552, 689, 1792, 3201};
+static const int32_t RZ_GAIN[RZ_COUNT] = {10098, 4853, 7516, 11072, 2853, 1949, 3981, 3744, 7050, 6140, 30419, 2416, 11121, 4552, 973, 3187, 3201};
 static const int32_t RZ_OFF[RZ_COUNT] = {229376, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};          /* 3.5, 0, 0 octaves */
-static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob */
+static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0, 0, 0, 207000, 0, 0, 0, 0, 0, 0};   /* 4.33, 2.6, 2.6 octaves over the knob; DRUM 3.2 (a looser skin rings louder) */
 #define RZ_IN_SHIFT 5                            /* Q15 -> Q20 */
 static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
@@ -365,6 +365,12 @@ static void rz_run(uint32_t r, uint32_t n)
         break;
     case RZ_DRUM:
         wg_drum_run(&R->u.dr, in, y, n, f0, strc, pos, brit, damp);
+        {   /* (a skin rings ~3.6 dB an octave quieter the higher it is tuned: tilted back, level around C4) */
+            int32_t nn = clamp((int32_t)note, 24, 108), gq = (int32_t)px_exp2((nn - 60) * 3277);   /* (0.6 oct / oct, Q16) */
+            uint32_t k;
+            for (k = 0; k < n; k++)
+                y[k] = (int32_t)(((int64_t)y[k] * gq) >> 16);
+        }
         if (view) {                              /* (its modes, as the drum is tuned) */
             uint32_t m2;
             for (m2 = 0; m2 < WG_DM; m2++) {
@@ -482,7 +488,7 @@ static void fx_resonator(int32_t *sum, int32_t *dl, int32_t *dr, uint32_t n)
     mq = (mix << 16) - ms * (int32_t)n;
     *gm = mix;
     {
-        int32_t oct = RZ_OFF[md] - (int32_t)(((int64_t)RZ_SLOPE[md] * (sys.fx_damp & 127u)) / 127);
+        int32_t oct = RZ_OFF[md] - RZ_SLOPE[md] * (int32_t)(sys.fx_damp & 127u) / 127;   /* (< 2^26: 32 bits, no 64-bit division) */
         int32_t g = (int32_t)(((int64_t)RZ_GAIN[md] * px_exp2(oct)) >> 16), drn[CTL];
         memset(drn, 0, sizeof drn);
         if (md == RZ_BAGPIPE) {                  /* the drones: the whole instrument's, while a note holds the bag */

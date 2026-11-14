@@ -604,7 +604,7 @@ static const preset_t PRESETS[] = {
     {"FM PLUCK", 85, 76, 0, 0, 62, 40, 50, 58, 0, 104, 120, 82, 16, 0, 85, 99, 67, 59, 1, 70, 16, 4, 80, 80, 10, 0, 0, 5, 64, 64, .oct = 1},   /* (yours: saved on the FM-1) */
     {"SITAR SYN", 85, 76, 0, 0, 50, 0, 50, 10, 1, 16, 80, 78, 70, 90, 64, 55, SH_DFILT, 28, 0, 20, 12, 0, 63, 80, 10, 0, 0, SS_PINGPONG, 127, 64, .eg = EG_PICK},   /* (yours: saved on the FM-1) */
     {"DRUM PLUCK", 85, 76, 0, 0, 42, 0, 42, 0, RZ_DRUM, 10, 80, 70, 40, 110, 64, 55, SH_DFILT, 28, 0, 20, 3, 126, 0, 0, 0, 0, 0, SS_PINGPONG, 127, 0},
-    {"GLASS PLUCK", 96, 76, 127, 0, 38, 0, 50, 30, 0, 84, 127, 90, 40, 80, 64, 55, SH_DFILT, 28, 0, 20, 31, 52, 14, 80, 10, 0, 0, SS_PINGPONG, 64, 64, .oct = 1, .mfx = MFP_FIFTH_BELL},   /* (yours: saved on the FM-1) */
+    {"GLASS PLUCK", 96, 76, 127, 0, 38, 0, 50, 30, 0, 84, 127, 90, 40, 50, 64, 55, SH_DFILT, 28, 0, 20, 31, 52, 14, 80, 10, 0, 0, SS_PINGPONG, 64, 64, .oct = 1, .mfx = MFP_FIFTH_BELL},   /* (yours: saved on the FM-1) */
     {"PING", 6, 64, 64, 0, 36, 0, 40, 61, 0, 84, 127, 90, 40, 0, 64, 55, SH_DFILT, 28, 0, 20, 0, 52, 14, 80, 10, 0, 0, SS_PINGPONG, 64, 64, .oct = 3},   /* (yours: saved on the FM-1) */
     {"ECHO PLUCK", 85, 76, 0, 0, 62, 40, 60, 60, RZ_MODAL, 0, 0, 0, 0, 0, 64, 60, SH_DFILT, 30, 1, 20, 11, 4, 10, 0, 0, 0, 0, SS_PINGPONG},
     {"SYN BRASS 3", 85, 76, 0, 30, 80, 110, 64, 70, 0, 84, 127, 90, 40, 0, 58, 36, 0, 11, 0, 70, 11, 6, 40, 62, 0, 160, 0, 0, 64, 96, .eg = EG_BLOOM},   /* (yours: saved on the FM-1) */
