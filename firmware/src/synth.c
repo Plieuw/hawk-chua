@@ -187,8 +187,10 @@ static void chua_params_q(int32_t chq, int32_t shq, int32_t oq)
 /* ANALOG (sys.analog, GLO's UI STYLE page, SELECT): every value a little off, as in an analog synth, where no two
  * voice cards are alike. Each voice its own small offsets (its pitch a few cents, its envelope's times a few percent,
  * its gate's cutoff, its level, its place, a noise program's X and Y), and at each note a little more at random; each
- * part's circuit (CHAOS, SHAPE, OUTPUT) and each resonator (its tuning, BRIGHTNESS, DAMPING) its own. INITIAL: none
- * (the sound exactly as set) */
+ * part's circuit (CHAOS, SHAPE, OUTPUT) and each resonator (its tuning, BRIGHTNESS, DAMPING) its own. ANALORD (2): the
+ * same, all of it a lot more (x AN_MORE: ~ +-12 cents a voice), and each note's pitch more at random (~ +-10 cents).
+ * INITIAL: none (the sound exactly as set) */
+#define AN_MORE ((int32_t)sys.analog >= 2 ? 4 : 1)
 static const int16_t AN_CENT[NVOICE] = {95, -114, 38, -57};   /* the pitch, Q16 (~38 a cent): +2.5 -3 +1 -1.5 cents */
 static const uint16_t AN_TIME[NVOICE] = {271, 243, 264, 238}; /* the envelope's speed, Q8: +6 -5 +3 -7 % */
 static const int8_t AN_CUT[NVOICE] = {3, -2, 1, -4};         /* the gate's cutoff (of 255 steps) */
@@ -211,9 +213,9 @@ static void chua_params_part(uint32_t part, int snap)   /* the knobs smoothed (s
     int32_t *v = ksm[part & 1u].v;
     int32_t c = ksm_glide(&v[0], sys.chaos, snap), s = ksm_glide(&v[1], sys.shape, snap), o = ksm_glide(&v[2], sys.output, snap);
     if (sys.analog) {                            /* (ANALOG: each part's circuit a little off) */
-        c = clamp(c + AN_CIRC[part & 1u][0], 0, 127 << 8);
-        s = clamp(s + AN_CIRC[part & 1u][1], 0, 127 << 8);
-        o = clamp(o + AN_CIRC[part & 1u][2], 0, 127 << 8);
+        c = clamp(c + AN_CIRC[part & 1u][0] * AN_MORE, 0, 127 << 8);
+        s = clamp(s + AN_CIRC[part & 1u][1] * AN_MORE, 0, 127 << 8);
+        o = clamp(o + AN_CIRC[part & 1u][2] * AN_MORE, 0, 127 << 8);
     }
     chua_params_q(c, s, o);
 }
@@ -535,13 +537,14 @@ steal:
     v->an_c = 0;
     if (sys.analog) {                               /* ANALOG: this voice's own offsets, and a little more at random */
         uint32_t r = rng(), k = (uint32_t)(v - voice) % NVOICE, a;
-        int32_t c = AN_CENT[k] + (int32_t)(r & 127u) - 64;   /* (+- ~1.7 cents more) */
+        int32_t m = AN_MORE, c = m > 1 ? AN_CENT[k] * m + (int32_t)(r & 767u) - 384   /* (ANALORD: +- ~10 cents more) */
+                                       : AN_CENT[k] + (int32_t)(r & 127u) - 64;      /* (+- ~1.7 cents more) */
         v->inc0 = (uint32_t)(((uint64_t)v->inc0 * (uint32_t)(65536 + c)) >> 16);
-        v->an_t = (uint16_t)(AN_TIME[k] + ((r >> 7) & 15u) - 8u);
-        v->an_c = AN_CUT[k];
-        a = ((uint32_t)v->amp * (AN_AMP[k] + ((r >> 11) & 7u) - 4u)) >> 8;
+        v->an_t = (uint16_t)(256 + ((int32_t)AN_TIME[k] - 256 + (int32_t)((r >> 10) & 15u) - 8) * m);
+        v->an_c = (int8_t)(AN_CUT[k] * m);
+        a = ((uint32_t)v->amp * (uint32_t)(256 + ((int32_t)AN_AMP[k] - 256 + (int32_t)((r >> 14) & 7u) - 4) * m)) >> 8;
         v->amp = (uint16_t)(a > 32767u ? 32767u : a);
-        v->pan = (int16_t)clamp((int32_t)v->pan + AN_PAN[k], -32767, 32767);
+        v->pan = (int16_t)clamp((int32_t)v->pan + AN_PAN[k] * (m > 1 ? 2 : 1), -32767, 32767);
     }
     v->inc = (uint32_t)(((uint64_t)v->inc0 * synth_bend[syn_part & 1u]) >> 16);
     {   /* velocity on the sound (the EDIT page): a soft note's gate opens less (darker), its FM shallower */

@@ -270,6 +270,22 @@ int main(int argc, char **argv)
             }
             ok &= n0 >= 3u && near;
             synth_kill();
+            enc_steps[panel.enc[EN_SELECT]] = 1; ui_input();   /* ANALORD: further off (each voice up to ~25 cents) */
+            ok &= sys.analog == 2u;
+            {
+                uint32_t far = 0, inr = 1;
+                for (k2 = 0; k2 < NVOICE; k2++) synth_note_on(60u + 4u * k2, 100);
+                for (k2 = 0; k2 < NVOICE; k2++) {
+                    uint32_t e = note_inc(voice[k2].note), d = voice[k2].inc0 > e ? voice[k2].inc0 - e : e - voice[k2].inc0;
+                    far += d > e / 400u;                 /* (> ~4 cents) */
+                    inr &= d < e / 60u && voice[k2].an_t > 140u && voice[k2].an_t < 360u;   /* (< ~29 cents) */
+                }
+                ok &= far >= 2u && inr;
+                if (!(far >= 2u && inr)) printf("ANALORD: %u voices far, in range %u\n", far, inr);
+            }
+            synth_kill();
+            enc_steps[panel.enc[EN_SELECT]] = -1; ui_input();
+            ok &= sys.analog == 1u;
             enc_steps[panel.enc[EN_SELECT]] = -1; ui_input();
             synth_note_on(60, 100);
             ok &= !sys.analog && voice[0].inc0 == note_inc(voice[0].note) && voice[0].an_t == 256u;

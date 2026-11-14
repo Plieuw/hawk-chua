@@ -1430,7 +1430,7 @@ static void settings_boot(void)    /* power-on, before the audio */
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
         sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
-        sys.analog = (uint8_t)(s.snd >= 29u && s.analog);
+        sys.analog = (uint8_t)(s.snd >= 29u ? (s.analog > 2u ? 2u : s.analog) : 0u);
         part_mono[0] = (uint8_t)(s.snd >= 27u && (s.mono & 1u));
         part_mono[1] = (uint8_t)(s.snd >= 27u && (s.mono & 2u));
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
@@ -2511,8 +2511,11 @@ static void draw_style(void)
     cv_text(8, 58, &AF_S, US_WHAT[st], T_TEXT);
     cv_text(9, 99, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_BG);
     cv_text(8, 98, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_TEXT);
-    cv_text(9, 113, &AF_S, sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)", T_BG);
-    cv_text(8, 112, &AF_S, sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)", sys.analog ? T_THEME : T_TEXT);
+    {
+        const char *an = sys.analog == 2u ? "SOUND ANALORD (SELECT)" : sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)";
+        cv_text(9, 113, &AF_S, an, T_BG);
+        cv_text(8, 112, &AF_S, an, sys.analog ? T_THEME : T_TEXT);
+    }
     cv_blit(0, PLOT_Y);
 }
 static void draw_midi(void)
@@ -4366,9 +4369,9 @@ static void ui_input(void)
     } else if (s && sys.page == 9u) {           /* KARMA: LATCH (right on, left off) */
         sys.k_latch = (uint8_t)(s > 0);
         ui_say(sys.k_latch ? "LATCH ON" : "LATCH OFF");
-    } else if (s && sys.page == 19u) {          /* UI STYLE: the sound INITIAL (left: exact) or ANALOG (right) */
-        sys.analog = (uint8_t)(s > 0);
-        ui_say(sys.analog ? "ANALOG: EVERY VOICE A LITTLE OFF" : "INITIAL: EXACT");
+    } else if (s && sys.page == 19u) {          /* UI STYLE: the sound INITIAL (exact), ANALOG, ANALORD (a lot more) */
+        sys.analog = (uint8_t)clamp((int32_t)sys.analog + (s > 0 ? 1 : -1), 0, 2);
+        ui_say(sys.analog == 2u ? "ANALORD: EVERY VOICE AND NOTE WAY OFF" : sys.analog ? "ANALOG: EVERY VOICE A LITTLE OFF" : "INITIAL: EXACT");
         ui_force = 1;
     } else if (s && sys.page == 8u) {           /* FREE EG: PLAY (right on, left off) */
         sys.feg_on = (uint8_t)(s > 0);
