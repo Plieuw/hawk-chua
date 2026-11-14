@@ -120,8 +120,9 @@ static inline int32_t np_pulse(uint32_t ph, uint32_t pw) { return ph < pw ? 3276
 static inline int32_t np_saw(uint32_t ph) { return (int32_t)(ph >> 16) - 32768; }
 static inline int32_t np_tri(uint32_t ph)
 {
-    int32_t t = (int32_t)(ph >> 15);             /* 0 .. 131071 */
-    return t < 65536 ? t - 32768 : 98303 - t;
+    /* (0 .. 131071 = ph >> 15: below 65536 t - 32768, above 98303 - t = 32767 - (t & 65535): the low 16 bits turned
+     * over by the top bit, without a branch) */
+    return (int32_t)(((ph >> 15) & 65535u) ^ ((uint32_t)((int32_t)ph >> 31) & 65535u)) - 32768;
 }
 /* a cheap sine (some programs take a dozen per sample): 256 points, linear between them, Q15 */
 static const int16_t NP_SIN[257] = {
@@ -691,19 +692,30 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
         uint32_t sp = (uint32_t)x >> 6, ci[16];      /* a prime's share, 0 .. 512 / 65536 */
         for (j = 0; j < 16u; j++)                    /* (the increments: once a block) */
             ci[j] = np_mul(inc, 65536u + sp * NP_PRIMES[j]);
-        for (i = 0; i < n; i++) {
-            int32_t s = 0, m;
-            if (alg == 15u) {
+        /* (np_fm by hand: its index y / 2 < 0.5, so the increment never falls under half and np_fm's floor never
+         * acts; the modulator times the index once a sample) */
+#define NP_FMS(c, mi) ((c) + (uint32_t)(int32_t)(((int64_t)(int32_t)((c) >> 1) * (mi)) >> 29))
+        if (alg == 15u)
+            for (i = 0; i < n; i++) {
+                int32_t s = 0, mi;
                 S->mp[0] += NPF(inc >> 1);
-                m = np_sin(S->mp[0]);
-            } else
-                m = np_noise(&S->rng);
-            for (j = 0; j < 16u; j++) {
-                S->ph[j] += NPF(np_fm(ci[j], m, y >> 1));
-                s += alg == 15u ? np_saw(S->ph[j]) : np_tri(S->ph[j]);
+                mi = np_sin(S->mp[0]) * (y >> 1);
+                for (j = 0; j < 16u; j++) {
+                    S->ph[j] += NPF(NP_FMS(ci[j], mi));
+                    s += np_saw(S->ph[j]);
+                }
+                out[i] = s / 6;
             }
-            out[i] = s / 6;
-        }
+        else
+            for (i = 0; i < n; i++) {
+                int32_t s = 0, mi = np_noise(&S->rng) * (y >> 1);
+                for (j = 0; j < 16u; j++) {
+                    S->ph[j] += NPF(NP_FMS(ci[j], mi));
+                    s += np_tri(S->ph[j]);
+                }
+                out[i] = s / 6;
+            }
+#undef NP_FMS
         break;
     }
     case 17:    /* FIBONACCI: 16 saws detuned along the Fibonacci series */
@@ -738,8 +750,9 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
             int32_t s = 0, lfo;
             S->mp[0] += 9000u;                       /* ~0.1 Hz */
             lfo = np_sin(S->mp[0]);
+            int32_t ly = lfo * y;                    /* (< 2^30: exact in 32 bits) */
             for (j = 0; j < 16u; j++) {
-                int32_t dr = (int32_t)(((int64_t)lfo * y * (int32_t)(j + 1u)) >> 30);   /* up to +-16 / 65536 x j */
+                int32_t dr = (int32_t)(((int64_t)ly * (int32_t)(j + 1u)) >> 30);   /* up to +-16 / 65536 x j */
                 S->ph[j] += NPF(np_mul(inc, (uint32_t)(65536 + (int32_t)(sp * j) + dr * 4)));
                 s += np_sq(S->ph[j]);
             }

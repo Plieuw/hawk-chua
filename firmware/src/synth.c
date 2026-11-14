@@ -731,7 +731,8 @@ static int32_t soft_clip(int32_t x)              /* Q15 in +-1.5 -> +-1: x - 4/2
     int64_t c;
     x = clamp(x, -49151, 49151);
     c = ((int64_t)x * x >> 15) * x >> 15;
-    return x - (int32_t)(c * 4 / 27);
+    return x - (int32_t)c * 4 / 27;              /* (|c| < 2^17: the division in 32 bits, as a multiply; a 64-bit
+                                                  * signed one is a library call on this core, every sample) */
 }
 
 /* the substeps of a voice: h = its time per sample (Q24) split into n of at most CHUA_HMAX */
