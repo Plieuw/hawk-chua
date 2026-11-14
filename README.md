@@ -117,3 +117,5 @@ CRASH screen's addresses has its own workflow ([debug.yml](.github/workflows/deb
 GPL-3.0-only, like [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita / Hügelton Instruments, which this is
 built on (hardware layer, USB, update path). If you share a build, share its source. See [LICENSE](LICENSE),
 [LICENSING.md](LICENSING.md) and [CREDITS.md](CREDITS.md).
+
+You can also try HAWK CHUA in the browser, no flashing needed, in the free community [FM-1 Emulator](https://fm1-emulator.atst.tools/).
