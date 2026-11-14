@@ -254,21 +254,22 @@ boven 96 noten in de rusten), RANGE (−3..+3 octaven), REPEAT (meer of minder e
 toeval), GATE, RANDOM (af en toe een andere noot, boven 96 octaafsprongen), CLUSTER, TRANSPOSE (octaven), ENV (diepte
 van de envelope) en STRUM.
 
-De GE's: PULSE ARP (de klassieke 16e-arp met accenten en spooknoten), CASCADE (dalende kwarten die echoën), HARP GLISS
-(een glissando door de toonladder), STRUM GUITAR, FINGERPICK (Travis-achtig: bas, dan de akkoordtonen), TECHNO STAB
+De GE's spelen alleen de noten van je akkoord (en hun octaven), zonder toonladders, en laten ruimte tussen de noten:
+PULSE ARP (de klassieke 16e-arp met accenten; DENSITY dunt hem uit), CASCADE (dalende kwarten die echoën), HARP ROLL (het akkoord omhoog
+gerold, twee keer per maat), STRUM GUITAR, FINGERPICK (Travis-achtig: bas, dan de akkoordtonen), TECHNO STAB
 (akkoordstoten, RING zwelt over de frase), ACID LINE (303-achtig, met overbindingen en octaven), BASS WALK (een
-wandelende bas door de toonladder), OCTAVE BASS, TRANCE GATE, RAIN DROPS (pentatonisch, willekeurig, met echo's),
-SPIRAL, BROKEN 6/8, GAMELAN (een kotekan-achtig pentatonisch patroon met echo een octaaf hoger), ECHO CANYON (twee
+wandelende bas door de akkoordtonen), OCTAVE BASS, TRANCE GATE, RAIN DROPS (willekeurig, met echo's),
+SPIRAL, BROKEN 6/8, GAMELAN (een kotekan-achtig patroon met echo een octaaf hoger), ECHO CANYON (twee
 noten, vier echo's), FUNK CLAV, POLY 3 OVER 4 (een figuur van drie zestienden tegen de maat), SWELL PAD (lange
-akkoorden, SHIMMER MIX zwelt), CHAOS MACHINE (de toonladder over vier octaven terwijl CHAOS oploopt: het circuit raakt
-steeds verder uit zijn baan), SCROLL HOPPER (OUTPUT golft over de frase: van de scroll naar de spiraal en terug), NOISE
-PERC (voor de noise-programma's: korte tikken laag en hoog), BIRD CALLS (trillers in 1/32 en stilte: mooi met de
-SYRINX-waveguide), MINIMAL 5/4 (Reich-achtig, 20 zestienden, met echo een octaaf hoger) en LULLABY. Daarna tien
+akkoorden, SHIMMER MIX zwelt), CHAOS MACHINE (willekeurige akkoordtonen over twee octaven terwijl CHAOS oploopt: het
+circuit raakt steeds verder uit zijn baan), SCROLL HOPPER (OUTPUT golft over de frase: van de scroll naar de spiraal en terug), NOISE
+PERC (voor de noise-programma's: korte tikken laag en hoog), BIRD CALLS (korte roepjes in 1/32 en stilte: mooi met
+de SYRINX-waveguide), MINIMAL 5/4 (Reich-achtig, 20 zestienden, met echo een octaaf hoger) en LULLABY. Daarna tien
 naar de stijlen van de Roland MC-303: REGGAE SKANK (bas en korte skank-akkoorden op de achtertel), WALTZ (bas, akkoord,
 akkoord; de bas wisselt grondtoon en kwint), SWING WALTZ (rechte achtsten: de swing komt, zoals bij alle GE's, van SWING op de ARP-pagina), PIANO COMP (bas en gesyncopeerde akkoorden),
-SLAP POP (duim en pop, octaven), GUITAR CHOP (korte aangeslagen akkoorden), SHAMISEN (de hoogste noot met loopjes,
-pentatonisch), SEQ LINE (een 16e-sequencerlijn met octaafsprongen, de helderheid golft mee), BOUNCING BALL (elke
-nieuwe noot stuitert uit: steeds snellere, zachtere herhalingen, van links naar rechts) en THREE FINGER. En twaalf met akkoorden: HOUSE PIANO (M1-house: akkoordstoten op de achtertel), GOSPEL COMP (bas en volle akkoorden met spookslagen), BOSSA NOVA (de syncopen van de gitaar over grondtoon en kwint), NEO SOUL (lui, gerolde akkoorden, achter de tel), CHARLESTON (de 1 en de en van 2), MONTUNO (salsapiano: octaven en tertsen, gesyncopeerd), DUB CHORDS (akkoorden op de achtertel die wegechoën), ROCK EIGHTS (rechte achtsten, de backbeat luider), HALFTIME (grote akkoorden, twee per maat, openend), OOM PAH (een mars: bas, akkoord), AFROBEAT CHOP (korte in elkaar grijpende chops, links en rechts) en CHORD STAIRS (het akkoord klimt door zijn omkeringen). De GE's met een
+SLAP POP (duim en pop, octaven), GUITAR CHOP (korte aangeslagen akkoorden), SHAMISEN (de hoogste noot met loopjes
+eronder), SEQ LINE (een 8e-sequencerlijn met octaafsprongen, de helderheid golft mee), BOUNCING BALL (elke
+nieuwe noot stuitert uit: steeds snellere, zachtere herhalingen, van links naar rechts) en THREE FINGER. En twaalf met akkoorden: HOUSE PIANO (M1-house: akkoordstoten op de achtertel), GOSPEL COMP (bas en volle akkoorden met spookslagen), BOSSA NOVA (de syncopen van de gitaar over grondtoon en kwint), NEO SOUL (lui, gerolde akkoorden, achter de tel), CHARLESTON (de 1 en de en van 2), MONTUNO (salsapiano: octaven en tertsen, gesyncopeerd), DUB CHORDS (akkoorden op de achtertel die wegechoën), ROCK EIGHTS (rechte achtsten, de backbeat luider), HALFTIME (grote akkoorden, twee per maat, openend), OOM PAH (een mars: bas, akkoord), AFROBEAT CHOP (korte in elkaar grijpende chops, links en rechts) en CHORD STAIRS (het akkoord klimt door zijn omkeringen). En acht basispatronen: ROOT PULSE (de grondtoon in achtsten), OCTAVE PULSE (grondtoon en octaaf), ROOT FIFTH, BROKEN CHORD (1-3-5-3), SLOW ARP (kwarten omhoog), CHORD QUARTERS, CHORD OFFBEAT en CHORD ONCE A BAR. De GE's met een
 envelope (TECHNO STAB, ACID LINE, TRANCE GATE, SWELL PAD, CHAOS MACHINE, SCROLL HOPPER, MINIMAL 5/4) spelen dus ook
 met de klank, niet alleen met de noten.
 
