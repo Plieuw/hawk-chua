@@ -50,6 +50,8 @@ static const int32_t RZ_SLOPE[RZ_COUNT] = {283771, 170394, 170394, 0, 0, 0, 0, 0
 static uint8_t at_poly[128];                     /* keys.c: polyphonic aftertouch, per note (0 when it ends) */
 
 #define RZ_POLY 4                                /* resonators (Rings: 1, 2 or 4) */
+static px_modal_cache_t rz_mc[RZ_POLY];          /* MODAL: each resonator's block kept (phys_dsp.c) */
+static px_string_cache_t rz_sc[RZ_POLY];         /* STRING, SYMP: its string's */
 #define RZ_QUIET 64                              /* blocks of no input and a quiet output (~46 ms): not run */
 #define RZ_QUIET_Q20 256                         /* "quiet": the model's output under this (Q20, ~ -72 dB) */
 typedef struct {
@@ -207,7 +209,7 @@ static void rz_run(uint32_t r, uint32_t n)
     switch (md) {
     case RZ_MODAL: {
         px_modal_blk_t B;
-        px_modal_block(&B, &R->u.m, f0, strc, brit, damp, 0, pos * 129, 0);   /* position 0..1/4 */
+        px_modal_block_c(&rz_mc[r], &B, &R->u.m, f0, strc, brit, damp, 0, pos * 129, 0);   /* position 0..1/4 */
         px_modal_run(&B, &R->u.m, in, y, ax, n);
         if (view) {
             for (i = 0; i < B.n; i++) {
@@ -221,7 +223,7 @@ static void rz_run(uint32_t r, uint32_t n)
     }
     case RZ_STRING: {
         px_string_blk_t B;
-        px_string_block(&B, &R->u.s, f0, strc, brit, damp, 0, 0, 0);
+        px_string_block_c(&rz_sc[r], &B, &R->u.s, f0, strc, brit, damp, 0, 0, 0);
         px_string_run(&B, &R->u.s, in, y, n);
         if (view) {
             for (i = 0; i < 12u && (uint64_t)f0 * (i + 1u) < 0x7F000000u; i++) {   /* its partials (harmonic: */
@@ -390,7 +392,7 @@ static void rz_run(uint32_t r, uint32_t n)
             uint32_t fk = nn < 0 || nn > 127 ? 0u : note_inc((uint32_t)nn);
             f[k] = k == 0u ? fk + (fk >> 9) : k == 2u ? fk - (fk >> 9) : fk;   /* (+-3 cents: the strings beat) */
         }
-        px_string_block(&B, &R->u.y.s, f0, 16384, brit, damp, 0, 0, 0);      /* STRUCTURE 0.25: a plain string */
+        px_string_block_c(&rz_sc[r], &B, &R->u.y.s, f0, 16384, brit, damp, 0, 0, 0);   /* STRUCTURE 0.25: a plain string */
         px_string_run(&B, &R->u.y.s, in, y, n);
         px_symp_block(&R->u.y, f, brit, damp, pos * 516);
         px_symp_run(&R->u.y, y, y, n);

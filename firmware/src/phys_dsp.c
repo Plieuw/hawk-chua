@@ -341,6 +341,30 @@ static __attribute__((noinline)) void px_modal_block(px_modal_blk_t *B, px_modal
     }
 }
 
+/* px_modal_block, kept: the same note and knobs and no strike waiting give the same block, so it is copied instead
+ * of worked out again (a dozen filters' coefficients, two 64-bit divisions each: every block, every resonator); the
+ * states bounded as px_modal_block does */
+typedef struct { uint32_t f0; int32_t s, b, d, a, p, w; uint8_t ok; px_modal_blk_t B; } px_modal_cache_t;
+static void px_modal_block_c(px_modal_cache_t *C, px_modal_blk_t *B, px_modal_t *M, uint32_t f0, int32_t structure,
+                             int32_t brightness, int32_t damping, int32_t accent, int32_t pos, int32_t bow)
+{
+    uint32_t i;
+    if (C->ok && !M->trig && C->f0 == f0 && C->s == structure && C->b == brightness && C->d == damping &&
+        C->a == accent && C->p == pos && C->w == bow) {
+        *B = C->B;
+        for (i = 0; i < B->n; i++) {
+            M->s[i][0] = px_clamp(M->s[i][0], -(1 << 28), 1 << 28);
+            M->s[i][1] = px_clamp(M->s[i][1], -(1 << 28), 1 << 28);
+        }
+        return;
+    }
+    px_modal_block(B, M, f0, structure, brightness, damping, accent, pos, bow);
+    C->f0 = f0; C->s = structure; C->b = brightness; C->d = damping; C->a = accent; C->p = pos; C->w = bow;
+    C->B = *B;
+    C->B.strike = 0;                                     /* (the strike once: the next block's none) */
+    C->ok = 1;
+}
+
 /* ----------------------------------------------------------- Membrane --- */
 /* MEMB (Felucca's, on the modal resonator above): the modes of a struck circular membrane instead of a
  * bar's. The ratios of the zeros of the Bessel functions J_m (an ideal head: inharmonic), blended by HARM
@@ -540,6 +564,25 @@ static __attribute__((noinline)) void px_string_block(px_string_blk_t *B, px_str
         B->curving = px_m(px_m(nl, nl, 16), 10737418, 16);     /* nl^2 0.01 */
         B->ap_gain = -(int32_t)(((int64_t)663568203 * nl) / (9830 + nl));   /* -0.618 nl / (0.15 + nl) */
     }
+}
+
+/* px_string_block, kept (as px_modal_block_c): the same note and knobs, no trigger, not bowed: the same block (four
+ * 64-bit divisions skipped); its one write to the string's state done again */
+typedef struct { uint32_t f0; int32_t s, b, d, a, w, p; uint8_t ok; px_string_blk_t B; } px_string_cache_t;
+static void px_string_block_c(px_string_cache_t *C, px_string_blk_t *B, px_string_t *S, uint32_t f0, int32_t structure,
+                              int32_t brightness, int32_t damping, int32_t accent, int32_t bow, int32_t pos)
+{
+    if (C->ok && !S->trig && !bow && C->f0 == f0 && C->s == structure && C->b == brightness && C->d == damping &&
+        C->a == accent && C->w == bow && C->p == pos) {
+        *B = C->B;
+        if (B->src_ratio == 1 << 30)
+            S->src = 1u << 30;
+        return;
+    }
+    px_string_block(B, S, f0, structure, brightness, damping, accent, bow, pos);
+    C->f0 = f0; C->s = structure; C->b = brightness; C->d = damping; C->a = accent; C->w = bow; C->p = pos;
+    C->B = *B;
+    C->ok = 1;
 }
 
 static inline int32_t px_hermite(const int32_t *l, uint32_t wp, uint32_t delay)   /* DelayLine::ReadHermite */
