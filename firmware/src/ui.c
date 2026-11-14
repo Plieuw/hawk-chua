@@ -3740,10 +3740,9 @@ enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL, FS_LATE, FS_
 typedef struct { const char *name; uint8_t shape, lo, hi, len, target; } feg_pre_t;
 static const feg_pre_t FEG_PRE[] = {
     {"OFF", 0, 0, 0, 0, 0},
-    {"RING SWEEP", FS_SINE, 30, 120, 15, 3},       /* (LENGTH: 15 LFO 0.25 HZ; TARGET 3 RING) */
-    {"WOBBLE 1/8", FS_DOWN, 20, 127, 2, 3},        /* (2 STEPS) */
-    {"SQUARE TRILL", FS_SQUARE, 30, 120, 1, 3},
-    {"BAR RISE", FS_UP, 20, 120, 9, 3},            /* (1 BAR) */
+    {"WOBBLE 1/8", FS_DOWN, 20, 127, 2, 9},        /* (2 STEPS, FX BRIGHTNESS) */
+    {"SQUARE TRILL", FS_SQUARE, 30, 90, 1, 0},     /* (CHAOS: two orbits in turn) */
+    {"BAR RISE", FS_UP, 20, 120, 9, 9},            /* (1 BAR, FX BRIGHTNESS) */
     {"AUTO PAN", FS_TRI, 0, 127, 16, 18},          /* (0.5 HZ, BASIS) */
     {"ORBIT DRIFT", FS_SINE, 0, 90, 14, 19},       /* (0.1 HZ, ORBIT) */
     {"S&H CHAOS", FS_SH, 40, 100, 9, 0},           /* (CHAOS) */
@@ -3754,14 +3753,10 @@ static const feg_pre_t FEG_PRE[] = {
     {"SCREAM RISE", FS_UP, 0, 127, 9, 27},         /* (SCREAM) */
     {"TALK", FS_SINE, 0, 127, 17, 15},             /* (1 HZ, SHIMMER: MOUTH's vowel) */
     {"YOI YOI", FS_TRI, 10, 120, 2, 15},           /* (2 STEPS, the vowel) */
-    /* MOD FX's VIBRATO and RING MOD (their rate, ratio, slew, rectify: the MOD FX page's) */
+    /* MOD FX's VIBRATO (its rate, slew, rectify: the MOD FX page's) */
     {"DELAYED VIB", FS_LATE, 0, 70, 0, 28},        /* (NOTE, VIBRATO: in after a moment, as a player's) */
     {"VIB SWELL BAR", FS_UP, 0, 90, 9, 28},        /* (1 BAR) */
     {"VIB WAVES", FS_SINE, 0, 80, 15, 28},         /* (0.25 HZ) */
-    {"RING BLOOM", FS_SWELL, 0, 110, 0, 29},       /* (NOTE, RING MOD opening) */
-    {"RING GATE 1/8", FS_SQUARE, 0, 120, 2, 29},   /* (2 STEPS) */
-    {"RING DRIFT", FS_SINE, 0, 100, 16, 29},       /* (0.5 HZ) */
-    {"RING S&H", FS_SH, 0, 120, 10, 29},           /* (2 BARS) */
     /* at audio rate (AM, FM: the note's level or pitch moved by the drawing, x the note) */
     {"AM X1/2 GROWL", FS_SINE, 20, 127, 23, 0},    /* (AM X1/2) */
     {"AM X2 RING", FS_SQUARE, 0, 127, 25, 0},
@@ -3773,7 +3768,6 @@ static const feg_pre_t FEG_PRE[] = {
     {"HIT NOISE Y", FS_HIT, 0, 45, 0, 5},          /* (the exciter struck harder: pick, mallet) */
     {"HIT LEVEL", FS_HIT, 0, 30, 0, 6},            /* (NOISE LEVEL: a click) */
     {"HIT BRIGHT", FS_HIT, 0, 50, 0, 9},           /* (FX BRIGHTNESS) */
-    {"HIT RING MOD", FS_HIT, 0, 110, 0, 29},       /* (a clang of RING MOD on the attack) */
     {"HIT SCREAM", FS_HIT, 0, 90, 0, 27},          /* (the waveguides' breath: a bark) */
 };
 #define NPAGE_PRE(t) ((int32_t)(sizeof t / sizeof t[0]))

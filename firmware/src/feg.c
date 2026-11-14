@@ -80,6 +80,8 @@ static volatile uint8_t *feg_field(uint32_t t)
 /* the ones FREE EG and the mod wheel offer: not SHIMMER SIZE (its lines' lengths and the delay's TIME jump a block at
  * a time: clicks) nor SHIMMER TONE (hardly heard moving); one of them (saved before) taken as its neighbour */
 #define FEG_T_OUT(t) ((t) == 13u || (t) == 17u)
+/* not offered on the TARGET knob either (a preset's own contour may still move them): RING, RING MOD */
+#define FEG_T_HIDE(t) (FEG_T_OUT(t) || (t) == 3u || (t) == 29u)
 static uint32_t feg_t_ok(uint32_t t)
 {
     t %= FEG_NT;
@@ -88,10 +90,15 @@ static uint32_t feg_t_ok(uint32_t t)
 static uint8_t feg_t_step(uint32_t t, int32_t s)   /* (the TARGET knob: s steps on, the left-out skipped) */
 {
     int32_t v = (int32_t)feg_t_ok(t), d = s > 0 ? 1 : -1;
-    for (; s; s -= d)
+    for (; s; s -= d) {
+        int32_t w = v;
         do
-            v = clamp(v + d, 0, FEG_NT - 1);
-        while (FEG_T_OUT((uint32_t)v) && v > 0 && v < FEG_NT - 1);
+            w += d;
+        while (w >= 0 && w < FEG_NT && FEG_T_HIDE((uint32_t)w));
+        if (w < 0 || w >= FEG_NT)                /* (no more that way) */
+            break;
+        v = w;
+    }
     return (uint8_t)v;
 }
 /* what a move may set it to: FX MIX and SHIMMER MIX never 0 (0 is off: the resonators', the reverb's memory cleared,
