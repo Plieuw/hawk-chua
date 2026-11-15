@@ -1638,54 +1638,68 @@ static uint16_t ui_val_hue(const char *v)
     return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
 }
 
-/* the knobs' cells: four in a row, each a knob drawn (its value on the inner track, a modulation's sweep on the
- * outer ring: FREE EG, the mod wheel, MOD ENV, KARMA's envelope moving it, from where it was set to where it is now),
- * its label and value under it */
+/* the knobs' cells: four in a row, each a knob (see-through: its pointer, and its position on the outer ring), its
+ * label and value under it; a modulation (FREE EG, the mod wheel, MOD ENV, KARMA's envelope) on the inner ring: the
+ * range it sweeps, where it is now lit */
 #include "knob_tables.h"
 static volatile uint8_t *ui_kp[4];               /* the parameter each cell's knob turns (knob(), on its page) */
 static uint8_t ui_kp_pg[4] = {255, 255, 255, 255};
-static int ui_mod_base(const volatile uint8_t *p, int32_t *base)   /* p moved by a modulation: 1, *base where it was */
+/* p moved by a modulation: 1, *base where it was set (the knob), *lo .. *hi the range it sweeps (0..127) */
+static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t *hi)
 {
+    int32_t a, b;
     if (feg.playing && feg_field(feg.target) == p) {
+        int32_t d = (int32_t)(sys.feg_depth & 127u), cmin = 127, cmax = 0;
+        uint32_t k, n = sys.feg_npts ? sys.feg_npts : FEG_N;
+        for (k = 0; k < n && k < FEG_N; k++) {
+            cmin = feg.curve[k] < cmin ? feg.curve[k] : cmin;
+            cmax = feg.curve[k] > cmax ? feg.curve[k] : cmax;
+        }
         *base = feg.base;
-        return 1;
-    }
-    if (mwd.on && feg_field(mwd.target) == p) {
+        a = feg.base + (cmin - feg.base) * d / 127;
+        b = feg.base + (cmax - feg.base) * d / 127;
+    } else if (mwd.on && feg_field(mwd.target) == p) {
         *base = mwd.base;
-        return 1;
-    }
-    if (menv_p.moved && menv_p.target && feg_field(menv_p.target - 1u) == p) {
+        a = mwd.base;
+        b = mwd.base + (127 - mwd.base) * (int32_t)(sys.mw_depth & 127u) / 127;
+    } else if (menv_p.moved && menv_p.target && feg_field(menv_p.target - 1u) == p) {
+        int32_t h = (int32_t)(sys.menv_height & 127u);
         *base = (int32_t)*p - menv_p.moved;
-        return 1;
-    }
-    if (kar.env_on && k_env_field(kar.env_tgt) == p) {
+        a = *base;
+        b = *base + (sys.menv_height & 0x80u ? -h : h);
+    } else if (kar.env_on && k_env_field(kar.env_tgt) == p) {
+        int32_t d = (int32_t)KGE[sys.k_ge % KGE_N].env_depth * k_mc(MC_ENV) / 64;
+        d = d > 127 ? 127 : d;
         *base = kar.env_base;
-        return 1;
-    }
-    return 0;
+        a = kar.env_base - d / 2;
+        b = kar.env_base + d / 2;
+    } else
+        return 0;
+    a = a < 0 ? 0 : a > 127 ? 127 : a;
+    b = b < 0 ? 0 : b > 127 ? 127 : b;
+    *lo = a < b ? a : b;
+    *hi = a < b ? b : a;
+    return 1;
 }
-/* the knob at (ox, oy) of the canvas: v 0..127 (-1: a choice of its own, no value shown), lo < hi: the modulation's
- * sweep (0..127). From the tile's tables (knob_tables.h): its body lit from the upper left, the track, the ring */
-static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi)
+/* the knob at (ox, oy) of the canvas: v 0..127 its position (-1: a choice of its own, none shown); cur >= 0: a
+ * modulation, sweeping lo..hi, now at cur. From the tile's tables (knob_tables.h, anti-aliased) */
+static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur)
 {
-    uint16_t pal[16], on = T_THEME, off = ux_mix(T_BG, T_MID, 35), mc = ux_mix(T_THEME, 0x3D9Fu, 80);
-    int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, x, y;
+    uint16_t on = T_THEME, off = ux_mix(T_BG, T_MID, 30), mc = ux_mix(T_THEME, 0x3D9Fu, 80), mt = ux_mix(T_BG, mc, 30);
+    int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, cu = cur * 2, x, y;
     uint32_t k = 0;
-    for (x = 0; x < 16; x++)
-        pal[x] = ux_mix(T_BG, T_TEXT, 6 + x * 3);
     for (y = 0; y < KN_W; y++)
         for (x = 0; x < KN_W; x++, k++) {
             int32_t u = KN_ANG[k];
-            if (u != 255) {
-                if (KN_RING[k] && lo < hi && u >= lu && u <= hu)
-                    cv_pblend(ox + x, oy + y, mc, KN_RING[k] + 1u);
-                if (KN_TRACK[k])
-                    cv_pblend(ox + x, oy + y, u <= vu ? on : off, KN_TRACK[k] + 1u);
-            }
-            if (KN_BODY[k])
-                cv_pblend(ox + x, oy + y, pal[KN_SHADE[k] >> 4], KN_BODY[k] + 1u);
+            if (u == 255)
+                continue;
+            if (KN_TRACK[k])                     /* the outer ring: the knob's position */
+                cv_pblend(ox + x, oy + y, u <= vu ? on : off, KN_TRACK[k] + 1u);
+            if (KN_RING[k] && cur >= 0)          /* the inner ring: the modulation's range, where it is now lit */
+                cv_pblend(ox + x, oy + y, u >= cu - 5 && u <= cu + 5 ? T_TEXT : u >= lu && u <= hu ? mc : mt,
+                          KN_RING[k] + 1u);
         }
-    if (v >= 0) {
+    if (v >= 0) {                                /* the pointer (the knob itself see-through) */
         const int16_t *q = KN_PTR[v & 127];
         cv_aline(ox * 16 + q[0], oy * 16 + q[1], ox * 16 + q[2], oy * 16 + q[3], T_TEXT);
         cv_aline(ox * 16 + q[0] + 8, oy * 16 + q[1], ox * 16 + q[2] + 8, oy * 16 + q[3], T_TEXT);
@@ -1705,11 +1719,11 @@ static uint16_t ui_hot_col;                      /* (the turned knob's value col
                                                   * in it, ui_style.c) */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
-    static char kshown[4][4];
+    static char kshown[4][5];
     uint32_t c = i - T_C1;
     char hot[2] = {(char)('0' + (ui_hot == c && fm1_ms - ui_hot_ms < 1000u)), 0};
-    char v[24], ks[4], lb[24], vb[24];
-    int32_t kv = -1, lo = 0, hi = 0, base;
+    char v[24], ks[5], lb[24], vb[24];
+    int32_t kv = -1, lo = 0, hi = 0, cur = -1, base;
     int changed;
     str_cpy(v, value, sizeof v);
     if (hot[0] == '1') {
@@ -1718,25 +1732,25 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
     if (c < 4u && ui_kp_pg[c] == sys.page && ui_kp[c]) {
         kv = *ui_kp[c] & 127;
-        if (ui_mod_base(ui_kp[c], &base)) {
-            base = base < 0 ? 0 : base > 127 ? 127 : base;
-            lo = base < kv ? base : kv;
-            hi = base < kv ? kv : base;
+        if (ui_mod(ui_kp[c], &base, &lo, &hi)) {  /* (modulated: the knob where it was set, the value moving) */
+            cur = kv;
+            kv = base < 0 ? 0 : base > 127 ? 127 : base;
         }
     }
     ks[0] = (char)(kv + 2);
     ks[1] = (char)(lo + 1);
     ks[2] = (char)(hi + 1);
-    ks[3] = 0;
+    ks[3] = (char)(cur + 2);
+    ks[4] = 0;
     changed = ui_changed(i, label, v);
-    if (!changed && !ui_force && !memcmp(kshown[c & 3u], ks, 4))
+    if (!changed && !ui_force && !memcmp(kshown[c & 3u], ks, 5))
         return;
-    memcpy(kshown[c & 3u], ks, 4);
+    memcpy(kshown[c & 3u], ks, 5);
     if (label[0] >= '1' && label[0] <= '4' && (label[1] == ' ' || !label[1]))
         label += label[1] ? 2 : 1;               /* (the knob's number: its place shows it) */
     cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
     if (label[0] || value[0])
-        ui_knob(10, 0, kv, lo, hi);
+        ui_knob(10, 0, kv, lo, hi, cur);
     ui_fit(lb, sizeof lb, label, 58);
     ui_fit(vb, sizeof vb, value, 58);
     cv_text((60 - text_w(&AF_S, lb)) / 2, KN_W, &AF_S, lb, T_MID);
