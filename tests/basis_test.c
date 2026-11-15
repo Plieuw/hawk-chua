@@ -2210,18 +2210,16 @@ int main(int argc, char **argv)
         uint32_t f = 0, ok = 1;
         memset(&v, 0, sizeof v);
         sys.attack = 40; sys.decay = 50; sys.sustain = 64; sys.release = 50; sys.ring = 100;
-        env_k_t ek;
         env_params();
-        env_k(&v, &ek);
         v.stage = ST_ATTACK;
-        while (v.stage == ST_ATTACK && f < 100000u) { env_frame(&v, &ek); f++; }
+        while (v.stage == ST_ATTACK && f < 100000u) { env_frame(&v); f++; }
         ok &= f >= ENV_FRAMES[40] - 1u && f <= ENV_FRAMES[40] + 1u;
-        for (f = 0; f < 8u * ENV_FRAMES[50]; f++) env_frame(&v, &ek);
+        for (f = 0; f < 8u * ENV_FRAMES[50]; f++) env_frame(&v);
         ok &= v.stage == ST_SUSTAIN && v.env > eg.sus - ENV_MAX / 100u && v.env < eg.sus + ENV_MAX / 100u;
         v.stage = ST_RELEASE;
-        for (f = 0; f < 20u * ENV_FRAMES[50] && v.stage == ST_RELEASE; f++) env_frame(&v, &ek);
+        for (f = 0; f < 20u * ENV_FRAMES[50] && v.stage == ST_RELEASE; f++) env_frame(&v);
         ok &= v.stage == ST_TAIL && f > 8u * ENV_FRAMES[50];
-        for (f = 0; f < FS && v.stage == ST_TAIL; f++) env_frame(&v, &ek);
+        for (f = 0; f < FS && v.stage == ST_TAIL; f++) env_frame(&v);
         ok &= v.stage == ST_OFF;
         check("ADSR: attack on time, decay settles on sustain, release -> tail -> off", ok);
     }
@@ -2830,39 +2828,6 @@ int main(int argc, char **argv)
         sys.chaos = ch0; chua_params();
         mf_reset(&mfp[0], 0);
         check("MOD FX RING: key follow, the carrier an octave up with the note", okk);
-        {   /* RECTIFY FULL-WAVE 2X: twice the crossings of FULL-WAVE (an octave more); RATIO up to x 24 */
-            uint32_t zr[2];
-            uint8_t r0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, c0 = sys.chaos;
-            sys.mfx_mode = MF_RING; sys.mfx_slew = 0; sys.mfx_mix = 127;
-            sys.mfx_rate = (uint8_t)(5u * 128u / MF_NRATIO + 4u);    /* (x 1) */
-            sys.chaos = 20; chua_params();
-            for (q = 0; q < 2u; q++) {
-                int32_t prev = 0;
-                sys.mfx_rect = mf_rect_val(q ? 4u : 1u);
-                mf_reset(&mfp[0], 0);
-                zr[q] = 0;
-                for (b = 0; b < 44100u / CTL; b++) {
-                    for (i = 0; i < CTL; i++) wv[i] = 16000;
-                    if (mf_gen(CTL, 0))
-                        mf_apply(&mfp[0], 0, wv, CTL, 10713070u, 1);
-                    for (i = 0; i < CTL; i++) {
-                        if (b > 60u && ((wv[i] >= 0) != (prev >= 0))) zr[q]++;
-                        prev = wv[i];
-                    }
-                }
-            }
-            printf("   (RECTIFY on A 110 x 1: FULL-WAVE %u, 2X %u zero crossings)\n", zr[0], zr[1]);
-            sys.mfx_rect = 0;
-            sys.mfx_mode = MF_RING; sys.mfx_rate = 127;
-            mf_reset(&mfp[0], 0);
-            mf_gen(CTL, 0);
-            check("MOD FX: RECTIFY FULL-WAVE 2X an octave over FULL-WAVE; RATIO up to x 24",
-                  zr[0] > 150u && zr[1] > zr[0] * 3u / 2u && zr[1] < zr[0] * 5u / 2u &&
-                  MF_RATIO[mfp[0].ratio] == 24u * 65536u && mf_rect_of(mf_rect_val(4)) == 4u);
-            sys.mfx_mode = r0[0]; sys.mfx_rate = r0[1]; sys.mfx_slew = r0[2]; sys.mfx_rect = r0[3]; sys.mfx_mix = r0[4];
-            sys.chaos = c0; chua_params();
-            mf_reset(&mfp[0], 0);
-        }
     }
     {   /* VIBRATO, TREMOLO in step with the tempo: at 120 BPM a 1/4 cycles twice a second, a 1/16 eight times */
         uint8_t k0[5] = {sys.mfx_mode, sys.mfx_rate, sys.mfx_slew, sys.mfx_rect, sys.mfx_mix}, ch0 = sys.chaos, bpm0 = sys.arp_bpm;

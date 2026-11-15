@@ -28,7 +28,7 @@ time with your gear.
   waveguides for voice, flute, brass, bow, reed and drum.
 - **The rest of the chain**: a low pass gate per voice. After it comes **SHIMMER**: reverbs, instrument bodies, a
   Leslie, tempo delays and a talk box.
-- **Movement**: **MOD ENV** gives a per-note envelope on any parameter. **FREE EG** (two of them) records a knob movement and plays it
+- **Movement**: **MOD ENV** gives a per-note envelope on any parameter. **FREE EG** records a knob movement and plays it
   back once, as an LFO, or locked to a phrase.
 
 ## ARP and SEQ, together

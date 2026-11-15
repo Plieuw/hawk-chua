@@ -62,7 +62,6 @@ static volatile struct {
     uint8_t clk_int;             /* arp.c, GLO page (SELECT): 0 the tempo follows MIDI clock when it comes, 1 the internal BPM always */
     uint8_t mfx_mode, mfx_rate, mfx_slew, mfx_rect, mfx_mix;   /* fx_mod.c, the MOD page (FX once): MOD FX */
     uint8_t tune432;             /* synth.c note_inc, GLO's UI STYLE page (ALGORITHM): 0 A = 440 Hz, 1 A = 432 Hz */
-    uint8_t analog;              /* synth.c, GLO's UI STYLE page (SELECT): 0 INITIAL (exact), 1 ANALOG (every voice a little off) */
     uint8_t mw_vib, mw_ringm;   /* fx_mod.c: VIBRATO, RING MOD as the mod wheel's (FREE EG's) targets: 0 off */
     uint8_t autoplay;            /* keys.c, GLO / MIDI page (PRESETS): CLOCK EXTERNAL's MIDI START plays the ARP and KARMA */
     uint8_t midi_trs, midi_usb, midi_rx, midi_tx;   /* keys.c, GLO page: TRS in on; USB 0 off 1 in 2 out 3 both; rx 0 omni

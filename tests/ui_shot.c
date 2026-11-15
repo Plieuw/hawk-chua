@@ -127,7 +127,6 @@ static void frames(uint32_t n)                  /* n UI frames, 40 ms of audio e
 {
     while (n--) {
         run_ms(40);
-        ui_input();                              /* (as main.c: the knobs' parameters named for their cells) */
         ui_draw();
         if (cv_w == 240u && cv_h == PLOT_H) {    /* (the plot drawn last: the panel must show it all) */
             uint32_t i;
@@ -255,69 +254,6 @@ int main(int argc, char **argv)
             ok &= !sys.feg_on && sys.fx_struct == (PRESETS[0].fx_mix ? PRESETS[0].fx_struct : st0);   /* (no FX in
                                                   * it: the resonator's knobs left, FLUTE's base given back) */
             if (!ok) printf("preset FREE EG contour: jet %u .. %u around %u\n", lo, hi, st0);
-        }
-        {   /* ANALOG (UI STYLE, SELECT): each voice a few cents off, its envelope a few percent; INITIAL: exact */
-            uint32_t k2, n0 = 0, near = 1;
-            int8_t pg = (int8_t)sys.page;
-            uint32_t rs = rng_state;                     /* (the random numbers after it as without it) */
-            synth_kill();
-            sys.page = 19; enc_steps[panel.enc[EN_SELECT]] = 1; ui_input();
-            ok &= sys.analog == 1u;
-            for (k2 = 0; k2 < NVOICE; k2++) synth_note_on(60u + 4u * k2, 100);
-            for (k2 = 0; k2 < NVOICE; k2++) {
-                uint32_t e = note_inc(voice[k2].note), d = voice[k2].inc0 > e ? voice[k2].inc0 - e : e - voice[k2].inc0;
-                n0 += voice[k2].inc0 != e;
-                near &= d < e / 200u && voice[k2].an_t > 200u && voice[k2].an_t < 300u;   /* (< ~9 cents) */
-            }
-            ok &= n0 >= 3u && near;
-            synth_kill();
-            enc_steps[panel.enc[EN_SELECT]] = -1; ui_input();
-            synth_note_on(60, 100);
-            ok &= !sys.analog && voice[0].inc0 == note_inc(voice[0].note) && voice[0].an_t == 256u;
-            synth_kill();
-            sys.page = (uint8_t)pg;
-            rng_state = rs;
-            if (!ok) printf("ANALOG: %u voices off, near %u\n", n0, near);
-        }
-        {   /* FREE EG 2: its own recording and target beside 1 (the LFO button again: its page); both on one
-             * parameter: their moves add up; a preset gives both their parameters back */
-            uint32_t b2, k2;
-            uint8_t sh0, lo = 255, hi = 0, ok2 = 1;
-            preset_load(0);
-            sh0 = sys.sh_decay;
-            feg_edit_to(1);
-            for (k2 = 0; k2 < FEG_N; k2++)
-                feg.curve[k2] = (uint8_t)(k2 < 64u ? 127u : 0u);   /* (a square, 2 Hz, on SHIMMER DECAY) */
-            sys.feg_len = FEG_LFO0 + 4u; sys.feg_target = 14; sys.feg_depth = 127; sys.feg_has = 1; sys.feg_on = 1;
-            feg_edit_to(0);
-            ok2 &= !sys.feg_on && feg_po.on && feg_po.target == 14u && fegs[1].curve[0] == 127u;
-            for (b2 = 0; b2 < FS / CTL; b2++) {
-                feg_block(CTL, voice_clock);
-                lo = sys.sh_decay < lo ? sys.sh_decay : lo;
-                hi = sys.sh_decay > hi ? sys.sh_decay : hi;
-            }
-            ok2 &= lo == 0u && hi == 127u;
-            for (k2 = 0; k2 < FEG_N; k2++)               /* 1 too, a held +20 on the same one: added */
-                feg.curve[k2] = (uint8_t)(sh0 + 20u);
-            sys.feg_len = FEG_LFO0 + 4u; sys.feg_target = 14; sys.feg_depth = 127; sys.feg_has = 1; sys.feg_on = 1;
-            fegs[1].curve[0] = fegs[1].curve[127] = 0;
-            for (k2 = 0; k2 < FEG_N; k2++)
-                fegs[1].curve[k2] = (uint8_t)(sh0 + 10u);
-            for (b2 = 0; b2 < 4u; b2++)
-                feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_decay == sh0 + 30u && fegs[0].base == sh0 && fegs[1].base == sh0;
-            sys.feg_on = 0;                              /* (1 off: 2 goes on alone) */
-            feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_decay == sh0 + 10u && !fegs[0].playing;
-            preset_load(0);                              /* (a preset: the base given back, taken again) */
-            ok2 &= !sys.feg_on && feg_po.on && sys.sh_decay == sh0;
-            feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_decay == sh0 + 10u;
-            feg_po.on = 0;
-            feg_block(CTL, voice_clock);
-            ok2 &= sys.sh_decay == sh0 && !fegs[1].playing;
-            if (!ok2) printf("FREE EG 2: %u .. %u, tone %u around %u\n", lo, hi, sys.sh_decay, sh0);
-            ok &= ok2;
         }
         {   /* the sound's octave: ACOUSTIC BASS two down; the key played still ends its note */
             uint32_t k3, found = 0;
@@ -584,11 +520,6 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "e_multi");
     sys.multi = 0;
-    sys.page = 19u;                      /* UI STYLE: the TUNING and the SOUND (INITIAL / ANALOG) lines */
-    sys.analog = 1;
-    frames(2);
-    bad |= shot(dir, "e_style_analog");
-    sys.analog = 0;
     sys.page = 0;
     edges = btn_bit(B_EDIT);
     ui_input();
@@ -758,15 +689,6 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "m_feg");
     sys.feg_has = 0; sys.feg_on = 0; feg.pos = 255;
-    {   /* the FX page with FREE EG moving DAMPING (from 40 to 96 now): its knob's outer ring */
-        uint8_t d0 = sys.fx_damp, pg0 = sys.page;
-        sys.page = 2; fegs[0].playing = 1; fegs[0].target = 10; fegs[0].base = 40; sys.fx_damp = 96;
-        ui_force = 1;
-        frames(2);
-        bad |= shot(dir, "f_fx_mod");
-        fegs[0].playing = 0; sys.fx_damp = d0; sys.page = pg0;
-        ui_force = 1;
-    }
     edges = btn_bit(B_HOME);
     ui_input();
 
@@ -887,16 +809,6 @@ int main(int argc, char **argv)
         sys.page = 10; page_preset(-1); ok &= sys.basis == SCL_PRE[NPAGE_PRE(SCL_PRE) - 1].basis;
         sys.page = 8; page_preset(1); ok &= !sys.feg_on;
         page_preset(1); ok &= sys.feg_on && sys.feg_has && sys.feg_target == 3u && feg.curve[32] > feg.curve[96];
-        {   /* FREE EG 2: the same list, its own place in it (left: from the end, HIT SCREAM, around SCREAM's value) */
-            uint8_t sc = sys.scream;
-            feg_edit_to(1);
-            page_preset(-1);
-            ok &= sys.feg_on && sys.feg_target == 27u && sys.feg_len == 0u && sys.feg_npts == 4u &&
-                  feg.curve[0] == (uint8_t)(sc + 90u > 127u ? 127u : sc + 90u) && feg.curve[3] == sc && fegs[0].curve[32] > fegs[0].curve[96];
-            sys.feg_on = 0;
-            feg_edit_to(0);
-            ok &= sys.feg_on && sys.feg_target == 3u;
-        }
         sys.feg_on = 0; sys.page = pg;
         if (!ok) { printf("page presets FAIL\n"); bad = 1; }
     }
