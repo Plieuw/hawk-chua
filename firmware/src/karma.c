@@ -198,7 +198,7 @@ static struct {
     uint8_t env_on, env_tgt, env_base;           /* its envelope driving a parameter, that parameter's value */
     volatile uint8_t view_step;                  /* the screen: the step playing (255: none) */
 } kar = {.rng = 0x6C8E9CF5u, .view_step = 255, .ge_seen = 255};
-static struct { uint8_t note[32]; volatile uint32_t w; } kar_view;   /* the notes played (the screen) */
+static struct { uint8_t note[32], gate[32]; volatile uint32_t w; } kar_view;   /* the notes played (the screen) */
 static int feg_owns(volatile uint8_t *f);        /* feg.c: FREE EG drives this parameter */
 
 static uint32_t k_rnd(void) { kar.rng = kar.rng * 1664525u + 1013904223u; return kar.rng >> 8; }
@@ -377,6 +377,10 @@ static void k_sound(uint32_t note, uint32_t vel, int32_t pan, uint32_t dur)
     kar.act[kar.nact].note = (uint8_t)note;
     kar.act[kar.nact++].off = kar.now + (dur ? dur : 1u);
     kar_view.note[kar_view.w & 31u] = (uint8_t)note;
+    {   /* (the screen: its length, % of a step; 100 at most) */
+        uint32_t g = dur / (kar.steplen / 100u + 1u);
+        kar_view.gate[kar_view.w & 31u] = (uint8_t)(g > 100u ? 100u : g < 1u ? 1u : g);
+    }
     kar_view.w++;
 }
 

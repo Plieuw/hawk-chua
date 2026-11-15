@@ -2287,14 +2287,49 @@ static void draw_feg(void)
     cv_blit(0, PLOT_Y);
 }
 
+/* the ARP's and the SEQ's roll: the last 8 notes, each in its step (a dim frame), the note as long as its gate (a
+ * tie joined to the note before), their heights the pitch, the newest bright */
+static void note_roll8(const uint8_t *note, const uint8_t *gate, uint32_t wv, int32_t top, int32_t bot, int on)
+{
+    const int32_t w = 28, hh = bot - top;
+    uint32_t i, lo = 127, hi = 0;
+    for (i = 0; i < 8u; i++) {
+        uint32_t nt = note[(wv - 8u + i) & 31u];
+        if (nt && wv >= 8u - i) {
+            lo = nt < lo ? nt : lo;
+            hi = nt > hi ? nt : hi;
+        }
+    }
+    if (hi < lo + 12u)                           /* (at least an octave tall) */
+        hi = lo + 12u;
+    cv_rect(8, bot, 224, 1, T_LINE);
+    for (i = 0; i < 8u; i++) {
+        uint32_t nt = note[(wv - 8u + i) & 31u], g = gate[(wv - 8u + i) & 31u];
+        int32_t x = 8 + (int32_t)i * w, y, gw;
+        uint16_t c;
+        if (!nt || wv < 8u - i)
+            continue;
+        y = bot - 8 - (int32_t)(nt - lo) * (hh - 12) / (int32_t)(hi - lo);
+        c = i == 7u && on ? T_ACCENT : on ? ux_mix(T_BG, T_THEME, 45 + (int32_t)i * 8) : T_DIM;
+        cv_frame(x, y, w - 2, 7, ux_mix(T_BG, T_DIM, 35));       /* (the step) */
+        if (g & 128u) {                          /* a tie: on from the note before */
+            cv_rect(x - 2, y + 1, w, 5, c);
+            continue;
+        }
+        g = g > 100u ? 100u : g;
+        gw = (w - 2) * (int32_t)g / 100;
+        cv_rect(x, y, gw < 3 ? 3 : gw, 7, c);
+    }
+}
+
 /* the KARMA page's picture: the GE's rhythm (each step: a hit's weight its height, a long one wide, ties joined, the
- * step playing lit), under it the last notes made as a roll, the newest bright */
+ * step playing lit), under it the last 8 notes made as a roll, each as long as its gate, the newest bright */
 static void draw_karma(void)
 {
     const ge_t *G = k_ge();
     const char *r = G->rhy;
     const int32_t rt = 6, rh = 26, top = 42, bot = PLOT_H - 14;
-    uint32_t len = str_len(r), i, wv = kar_view.w, lo = 127, hi = 0, cur = kar.view_step;
+    uint32_t len = str_len(r), i, wv = kar_view.w, cur = kar.view_step;
     int32_t w = 224 / (int32_t)(len ? len : 1u);
     char a[40], v[12];
     cv_begin(240, PLOT_H, T_BG);
@@ -2309,24 +2344,7 @@ static void draw_karma(void)
         else
             cv_rect(x + w / 2 - 1, rt + rh - 2, 2, 2, T_LINE);
     }
-    for (i = 0; i < 32u; i++) {
-        uint32_t nt = kar_view.note[(wv - 32u + i) & 31u];
-        if (nt && wv >= 32u - i) {
-            lo = nt < lo ? nt : lo;
-            hi = nt > hi ? nt : hi;
-        }
-    }
-    if (hi < lo + 12u)
-        hi = lo + 12u;
-    cv_rect(8, bot, 224, 1, T_LINE);
-    for (i = 0; i < 32u; i++) {
-        uint32_t nt = kar_view.note[(wv - 32u + i) & 31u];
-        if (nt && wv >= 32u - i) {
-            int32_t y = bot - 4 - (int32_t)(nt - lo) * (bot - top - 8) / (int32_t)(hi - lo);
-            cv_rect(8 + (int32_t)i * 7, y, 6, 4, i == 31u && sys.k_on ? T_ACCENT :
-                    sys.k_on ? ux_mix(T_BG, T_THEME, 40 + (int32_t)i * 2) : T_DIM);
-        }
-    }
+    note_roll8(kar_view.note, kar_view.gate, wv, top, bot, sys.k_on);
     str_cpy(a, !sys.k_on ? "OFF  " : arp_ext() ? "EXT " : "", sizeof a);
     fmt_int(v, (int32_t)(arp_ext() ? arp_bpm_now() : sys.arp_bpm));
     ui_cat(a, sizeof a, v);
@@ -2582,32 +2600,13 @@ static void draw_midi(void)
     cv_blit(0, PLOT_Y);
 }
 
-/* the ARP page's picture: the last 32 steps as a roll (their notes' heights, rests empty), the newest bright; ON / OFF
- * and the tempo's beat flashing */
+/* the ARP page's picture: the last 8 steps as a roll (their notes' heights, their gates' lengths, rests empty), the
+ * newest bright; ON / OFF and the tempo's beat flashing */
 static void draw_arp(void)
 {
-    const int32_t top = 8, bot = PLOT_H - 14, hh = bot - top, w = 7;
-    uint32_t i, wv = arp_view.w, lo = 127, hi = 0;
     cv_begin(240, PLOT_H, T_BG);
-    for (i = 0; i < 32u; i++) {
-        uint32_t nt = arp_view.note[(wv - 32u + i) & 31u];
-        if (nt) {
-            lo = nt < lo ? nt : lo;
-            hi = nt > hi ? nt : hi;
-        }
-    }
-    if (hi < lo + 12u)                           /* (at least an octave tall) */
-        hi = lo + 12u;
-    cv_rect(8, bot, 224, 1, T_LINE);
-    for (i = 0; i < 32u; i++) {
-        uint32_t nt = arp_view.note[(wv - 32u + i) & 31u];
-        if (nt && wv >= 32u - i) {
-            int32_t y = bot - 4 - (int32_t)(nt - lo) * (hh - 8) / (int32_t)(hi - lo);
-            cv_rect(8 + (int32_t)i * w, y, w - 1, 4, i == 31u && sys.arp_on ? T_ACCENT :
-                    sys.arp_on ? ux_mix(T_BG, T_THEME, 40 + (int32_t)i * 2) : T_DIM);
-        }
-    }
-    cv_text(8, bot + 1, &AF_S, sys.arp_on ? (arp_ext() ? "MIDI CLOCK" : "INTERNAL") : "OFF: PRESS PLAY", T_DIM);
+    note_roll8(arp_view.note, arp_view.gate, arp_view.w, 8, PLOT_H - 14, sys.arp_on);
+    cv_text(8, PLOT_H - 13, &AF_S, sys.arp_on ? (arp_ext() ? "MIDI CLOCK" : "INTERNAL") : "OFF: PRESS PLAY", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 

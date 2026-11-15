@@ -209,7 +209,8 @@ static struct {
 } arp = {.rng = 0x2545F491u, .ext_age = 0xFFFFFFFFu, .vmul = 100};
 
 /* the ARP page's picture (ui.c): the last steps played, their notes (0: a rest) */
-static struct { uint8_t note[32]; volatile uint32_t w; } arp_view;
+static struct { uint8_t note[32], gate[32]; volatile uint32_t w; } arp_view;   /* (gate: % of the step; 128 + : a tie) */
+static uint8_t arp_vtie;
 
 #define ARP_STRUM 529u                           /* samples between a strum's strings (12 ms) */
 static void arp_off_all(void)
@@ -380,7 +381,7 @@ static uint32_t arp_vel(uint32_t v, uint32_t acc)
 }
 
 /* one step: the notes of the last off (unless tied), the pattern's next on */
-static void arp_do_step(void)
+static void arp_do_step_(void)
 {
     uint8_t s[ARP_MAXN], v[ARP_MAXN];
     uint32_t n = arp_sorted(s, v), type = sys.arp_type % ARP_NTYPE, i, nt, shown = 0;
@@ -423,6 +424,7 @@ static void arp_do_step(void)
         const arp_step_t *st = &P->s[arp.pos % P->n];
         arp.pos++;
         if (st->sel == ARP_TIE) {                /* (the notes go on) */
+            arp_vtie = 1;
             arp_view.note[arp_view.w++ & 31u] = arp.non ? arp.on[0] : 0u;
             return;
         }
@@ -475,6 +477,21 @@ static void arp_do_step(void)
                 break;
         }
     }
+}
+
+/* (the screen: the step's gate, % of the step) */
+static uint32_t arp_gpct(void)
+{
+    uint32_t g = arp.len ? arp.gate * 100u / arp.len : 100u;
+    return g > 100u ? 100u : g < 1u ? 1u : g;
+}
+static void arp_do_step(void)
+{
+    uint32_t w0 = arp_view.w;
+    arp_vtie = 0;
+    arp_do_step_();
+    if (arp_view.w != w0)
+        arp_view.gate[(arp_view.w - 1u) & 31u] = (uint8_t)(arp_vtie ? 128u + 100u : arp_gpct());
 }
 
 static void arp_midi_rt(uint32_t status)
@@ -602,6 +619,7 @@ static void arp_lforce(void)                     /* (NOR: neither hit here: the 
         arp.vmul = 100;
         arp_sound(nt, arp.vel[0]);
         arp_view.note[(arp_view.w - 1u) & 31u] = (uint8_t)nt;
+        arp_view.gate[(arp_view.w - 1u) & 31u] = (uint8_t)arp_gpct();
     }
     arp.step++;
 }

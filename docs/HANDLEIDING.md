@@ -175,7 +175,7 @@ hoogste noot met loopjes eronder) en BOUND BALL (een stuiterende bal: steeds sne
 Gedempte stappen klinken een kwart stap, wat de GATE ook is. Alle stappatronen (16–48) blijven in het octaaf van je
 akkoord: wat erboven of eronder zou vallen (hun octaafsprongen, de plaatsen voorbij de hoogste noot) wordt terug
 gevouwen naar je laagste noot .. een octaaf hoger (of je hoogste, als het akkoord breder is), zodat het register
-hetzelfde blijft als je van patroon wisselt. Wil je wel over meer octaven: UP/DOWN/UPDW/RANDOM OCT2 en OCT4. Het scherm toont de laatste 32 stappen als een rol.
+hetzelfde blijft als je van patroon wisselt. Wil je wel over meer octaven: UP/DOWN/UPDW/RANDOM OCT2 en OCT4. Het scherm toont de laatste 8 stappen als een rol: elke noot zo lang als zijn gate (een kader is de hele stap, een tie loopt door vanaf de noot ervoor).
 
 **FREE EG (LFO).** Neemt een knopbeweging op en speelt die af op een parameter, zoals de Free EG van de AN1x. LFO
 opent de pagina; daar zet KNOB 4 het doel (TARGET: CHAOS, SHAPE, RING, NOISE X/Y, MOD ENV HEIGHT, FX STRUCTURE/BRIGHTNESS/
@@ -256,7 +256,7 @@ nieuwe noot stuitert uit: steeds snellere, zachtere herhalingen, van links naar 
 envelope (TECHNO STAB, ACID LINE, TRANCE GATE, SWELL PAD, CHAOS MACHINE, SCROLL HOPPER, MINIMAL 5/4) spelen dus ook
 met de klank, niet alleen met de noten.
 
-Het scherm toont het ritme van de GE (hoogte = gewicht, het spelende stapje licht op) en eronder de laatste 32 noten
+Het scherm toont het ritme van de GE (hoogte = gewicht, het spelende stapje licht op) en eronder de laatste 8 noten, elk zo lang als zijn gate,
 als een rol; onderin de klok en de lengte ("20 x 1/16").
 
 **KARMA, de ARP en FREE EG samen.**

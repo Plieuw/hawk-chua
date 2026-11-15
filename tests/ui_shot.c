@@ -673,6 +673,8 @@ int main(int argc, char **argv)
     sys.arp_on = 1; sys.arp_type = AT_UPDOWN; sys.arp_swing = 40; sys.arp_hold = 1;
     for (i = 0; i < 32u; i++) {
         static const uint8_t N[10] = {60, 64, 67, 72, 76, 79, 76, 72, 67, 64};
+        static const uint8_t G[8] = {54, 30, 54, 128 + 100, 80, 20, 54, 54};
+        arp_view.gate[arp_view.w & 31u] = G[i % 8u];
         arp_view.note[arp_view.w++ & 31u] = i % 8u == 7u ? 0u : N[i % 10u];
     }
     ui_event_ms = 0;
@@ -721,6 +723,7 @@ int main(int argc, char **argv)
     sys.k_ge = 5; sys.k_latch = 1; sys.k_m[0] = 90; kar.view_step = 6;
     for (i = 0; i < 32u; i++) {
         static const uint8_t N[8] = {48, 55, 60, 64, 67, 60, 72, 64};
+        kar_view.gate[kar_view.w & 31u] = (uint8_t)(25u + (i * 37u) % 76u);
         kar_view.note[kar_view.w++ & 31u] = N[(i * 3u) % 8u];
     }
     ui_event_ms = 0;
