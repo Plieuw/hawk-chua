@@ -377,6 +377,10 @@ static uint32_t env_cap;
 #ifndef ENV_A_MIN
 #define ENV_A_MIN 14u                            /* (ENV_FRAMES[14]: 66 frames, 1.5 ms) */
 #endif
+/* RELEASE at most ~21 ms (ENV_FRAMES[48]: 931 samples; 49 would be ~23 ms), fewer voices left ringing: the knob, a preset, a
+ * saved setting and the ENV presets all stop there (a pad's tail is the reverb's, not the gate's) */
+#define REL_MAX 48u
+static inline uint8_t rel_cap(uint32_t v) { v &= 127u; return (uint8_t)(v > REL_MAX ? REL_MAX : v); }
 static void env_params_r(int32_t rq)             /* rq: RING, Q8 */
 {
     uint32_t a = sys.attack & 127u;
@@ -394,7 +398,7 @@ static void env_params_r(int32_t rq)             /* rq: RING, Q8 */
     eg.att = ENV_MAX / ENV_FRAMES[a];
     eg.dec = ENV_COEF[sys.decay & 127u];
     eg.sus = (uint32_t)(sys.sustain & 127u) * (ENV_MAX / 127u);
-    eg.rel = ENV_COEF[sys.release & 127u];
+    eg.rel = ENV_COEF[rel_cap(sys.release)];
     {   /* (between the table's steps: RING smoothed) */
         uint32_t i = (uint32_t)rq >> 8, f = (uint32_t)rq & 255u, j = i < 127u ? i + 1u : i;
         eg.k = (int32_t)LPG_K[i] + (int32_t)(((int64_t)((int32_t)LPG_K[j] - (int32_t)LPG_K[i]) * (int32_t)f) >> 8);
