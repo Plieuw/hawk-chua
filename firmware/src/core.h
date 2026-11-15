@@ -98,7 +98,7 @@ static volatile struct {
          
          .menv_len = 80, .menv_skew = 10, .menv_height = 0, .menv_bend = 64, .ui_style = 1 /* PSYCHEDELIC first */, .ui_motion = 64, .ui_backdrop = 70, .ui_react = 80, .basis = 0, .orbit = 0,
          .arp_on = 0, .arp_type = 0, .arp_bpm = 128, .arp_div = 4, .arp_gate = 80, .arp_swing = 0, .arp_hold = 1,
-         .multi = 0, .ch_b = 2, .midi_trs = 1, .midi_usb = 3, .midi_rx = 0, .midi_tx = 0, .clk_int = 1, .autoplay = 1, .mfx_mode = 0, .mfx_rate = 64, .mfx_slew = 0, .mfx_rect = 0, .mfx_mix = 64,
+         .multi = 0, .ch_b = 2, .midi_trs = 1, .midi_usb = 3, .midi_rx = 0, .midi_tx = 0, .clk_int = 1, .autoplay = 1, .mfx_mode = 1, .mfx_rate = 64, .mfx_slew = 0, .mfx_rect = 0, .mfx_mix = 0,
          .feg_val = 64, .feg_len = 9, .feg_depth = 127, .feg_target = 0, .feg_on = 0, .feg_has = 0, .feg_npts = 0,
          .k_on = 0, .k_ge = 0, .k_latch = 1, .k_m = {64, 64, 64, 64},
          .mw = 0, .mw_target = 0, .mw_depth = 127, .vel_to = 0, .vel_amt = 64,

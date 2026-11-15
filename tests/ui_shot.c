@@ -629,7 +629,7 @@ int main(int argc, char **argv)
     synth_kill();
     {   /* PRESETS on FX and SHIMMER: their own presets, the sound preset kept */
         uint16_t pr = sys.preset;
-        sys.page = 2; fx_pre = 0;
+        sys.page = 2; fx_pre = 0xFF;            /* (none chosen yet: the first right, BELL) */
         enc_steps[panel.enc[EN_PRESET]] = 1;
         ui_input();
         if (sys.preset != pr || sys.fx_model != RZ_MODAL || sys.fx_mix != 100u) {
@@ -639,9 +639,9 @@ int main(int argc, char **argv)
         bad |= shot(dir, "f_fx_preset");
         enc_steps[panel.enc[EN_PRESET]] = -1;
         ui_input();
-        if (sys.fx_mix != 0u) { printf("PRESETS on FX: back to FX OFF\n"); bad = 1; }
-        sys.page = 3; sh_pre = 0;
-        enc_steps[panel.enc[EN_PRESET]] = 3;
+        if (sys.fx_mix == 0u || fx_pre != NFX_PRESETS - 1u) { printf("PRESETS on FX: back round to the last (no OFF)\n"); bad = 1; }
+        sys.page = 3; sh_pre = 0;                /* (UNDERWORLD; two on: ORACLE CHAMBER) */
+        enc_steps[panel.enc[EN_PRESET]] = 2;
         ui_input();
         if (sys.preset != pr || sys.sh_interval != SI_FIFTH || sys.sh_space != SS_TEMPLE || sys.sh_mix != 68u) {
             printf("PRESETS on SHIMMER: not ORACLE CHAMBER\n"); bad = 1;

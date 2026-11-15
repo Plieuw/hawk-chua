@@ -94,11 +94,19 @@ static const mfx_preset_t MFX_PRE[MFP_COUNT - 1] = {
     {"SLOW PULSE", MF_TREMOLO, 5, 50, 0, 50},
 };
 #define MFX_NPRE (sizeof MFX_PRE / sizeof MFX_PRE[0])
-static void mfx_set(uint32_t k)                  /* MOD FX as preset k (0: off; else MFX_PRE[k - 1]) */
+static void mfx_norm(void)                       /* (no OFF among the modes: MIX 0 is off; an OFF of before: so) */
+{
+    if (sys.mfx_mode % MF_COUNT == MF_OFF) {
+        sys.mfx_mode = MF_VIBRATO;
+        sys.mfx_mix = 0;
+    }
+}
+static void mfx_set(uint32_t k)                  /* MOD FX as preset k (0: none, MIX 0; else MFX_PRE[k - 1]) */
 {
     const mfx_preset_t *P;
     if (!k || k > MFX_NPRE) {
-        sys.mfx_mode = MF_OFF;
+        sys.mfx_mix = 0;
+        mfx_norm();
         return;
     }
     P = &MFX_PRE[k - 1u];
@@ -113,7 +121,7 @@ static int mfx_edited(uint32_t k)                /* MOD FX not as preset k sets 
 {
     const mfx_preset_t *P;
     if (!k || k > MFX_NPRE)
-        return sys.mfx_mode % MF_COUNT != MF_OFF;
+        return sys.mfx_mix != 0u && sys.mfx_mode % MF_COUNT != MF_OFF;
     P = &MFX_PRE[k - 1u];
     return sys.mfx_mode != P->mode || sys.mfx_slew != P->slew || sys.mfx_mix != P->mix ||
            (sys.mfx_rect & 127u) >> 5 != P->rect ||
@@ -881,7 +889,6 @@ typedef char presets_are_512[NPRESETS == 128u * NBANKS ? 1 : -1];   /* (one for 
 /* the FX page's own presets (PRESETS turned there): the resonator / waveguide alone, the sound left as it is */
 typedef struct { const char *name; uint8_t model, st, br, dm, pos, mix; } fx_preset_t;
 static const fx_preset_t FX_PRESETS[] = {
-    {"FX OFF", 0, 70, 90, 100, 24, 0},
     {"BELL", RZ_MODAL, 70, 100, 82, 12, 100},     {"TUNED BAR", RZ_MODAL, 116, 40, 60, 24, 70},
     {"GLASS", RZ_MODAL, 100, 127, 90, 40, 80},    {"SITAR", RZ_SYMP, 16, 80, 78, 70, 90},
     {"DRONE STRINGS", RZ_SYMP, 60, 60, 86, 40, 80}, {"PIANO STRING", RZ_STRING, 100, 70, 72, 20, 85},
@@ -907,7 +914,6 @@ static const fx_preset_t FX_PRESETS[] = {
 /* the SHIMMER page's own presets */
 typedef struct { const char *name; uint8_t size, decay, shimmer, mix, interval, tone, space; } sh_preset_t;
 static const sh_preset_t SH_PRESETS[] = {
-    {"SHIMMER OFF", 100, 90, 70, 0, SI_OCT, 80, SS_HALL},
     {"UNDERWORLD", 110, 110, 100, 76, SI_OCT, 100, SS_HALL},
     {"STONE TEMPLE", 70, 95, 15, 56, SI_OCT, 50, SS_TEMPLE},
     {"ORACLE CHAMBER", 90, 110, 40, 68, SI_FIFTH, 40, SS_TEMPLE},
@@ -949,7 +955,8 @@ static const sh_preset_t SH_PRESETS[] = {
     {"GIANT MOUTH", 0, 40, 50, 100, 0, 50, SS_MOUTH},
 };
 #define NSH_PRESETS (sizeof SH_PRESETS / sizeof SH_PRESETS[0])
-static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not saved: the knobs are) */
+static uint8_t fx_pre = 0xFF, sh_pre = 0xFF;     /* the last chosen of each (not saved: the knobs are; none yet:
+                                                  * the first turn right is the first). No OFF among them: MIX 0 is */
 
 /* the user's presets: SAVE writes the sound as it is over the preset playing (its name kept), in the flash (two
  * objects of 64: a bit each saying which are overwritten, then the 30 values of each); PRESETS and program change
@@ -1004,6 +1011,11 @@ static void pr_mfx_set(uint32_t b)               /* MOD FX from the 25 bits */
     sys.mfx_slew = (uint8_t)(b >> 9 & 127u);
     sys.mfx_rect = (uint8_t)((b >> 16 & 3u) * 32u + 16u);
     sys.mfx_mix = (uint8_t)(b >> 18 & 127u);
+    mfx_norm();
+}
+static uint32_t pr_mfx_norm(uint32_t b)          /* (a saved OFF as it loads: VIBRATO, MIX 0) */
+{
+    return (b & 3u) == MF_OFF ? (b & ~(3u | 127u << 18)) | MF_VIBRATO : b;
 }
 static upre_t *upre_obj(uint32_t h)              /* object h (64 presets) in upre_buf */
 {
@@ -1313,7 +1325,7 @@ static int preset_edited_(void)
                                  sys.vel_to != v[PR_N + 2u] % VEL_TO_N || sys.vel_amt != (v[PR_N + 3u] & 127u)))
             return 1;
         return (uint32_t)sys.sh_space != PR_SPACE(v[27]) || ((uint32_t)sys.transpose & 7u) != (v[27] >> 2 & 7u) ||
-               pr_mfx_of(v) != pr_mfx_bits();
+               pr_mfx_norm(pr_mfx_of(v)) != pr_mfx_bits();
     }
     return sys.chaos != p->chaos || sys.shape != p->shape || sys.output != p->output || sys.attack != p->attack ||
            sys.decay != dec_of_env(p->decay) || sys.sustain != p->sustain || sys.release != rel_of_env(p->release) || sys.ring != p->ring ||
@@ -1507,11 +1519,12 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.clk_int = (uint8_t)(s.snd < 23u || s.clk_int);   /* (23: EXTERNAL strict now: INTERNAL, once) */
         sys.autoplay = (uint8_t)(s.snd < 24u || s.autoplay);   /* (on after this install, once; then as saved) */
         if (s.snd >= 25u) {
-            sys.mfx_mode = (uint8_t)(s.mfx[0] % MF_COUNT);
+            sys.mfx_mode = (uint8_t)(s.mfx[0] % MF_COUNT);   /* (an OFF of before: MIX 0, below) */
             sys.mfx_rate = (uint8_t)(s.mfx[1] & 127u);
             sys.mfx_slew = (uint8_t)(s.mfx[2] & 127u);
             sys.mfx_rect = (uint8_t)(s.mfx[3] & 127u);
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
+            mfx_norm();
         }
         sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
         sys.analog = (uint8_t)(s.snd >= 30u ? s.analog & 127u : 0u);
@@ -4701,8 +4714,10 @@ static void ui_input(void)
         ui_cat(t, sizeof t, " ");
         ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
         ui_say(t);
-    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, TREMOLO) */
-        sys.mfx_mode = (uint8_t)(((int32_t)sys.mfx_mode + MF_COUNT * 8 + s) % MF_COUNT);
+    } else if (s && sys.page == 20u) {          /* MOD FX: the mode (VIBRATO, RING MOD, TREMOLO; off: MIX 0) */
+        int32_t md = (int32_t)(sys.mfx_mode % MF_COUNT);
+        md = md == MF_OFF ? MF_VIBRATO : md;
+        sys.mfx_mode = (uint8_t)(1 + (md - 1 + (MF_COUNT - 1) * 8 + s) % (MF_COUNT - 1));
         str_cpy(t, "MOD FX ", sizeof t);
         ui_cat(t, sizeof t, MF_NAME[sys.mfx_mode]);
         ui_say(t);
@@ -4781,7 +4796,8 @@ static void ui_input(void)
         ui_force = 1;
     } else if (s && sys.page == 2u) {                   /* FX: PRESETS goes through the FX presets */
         const fx_preset_t *f;
-        fx_pre = (uint8_t)(((int32_t)fx_pre + (int32_t)NFX_PRESETS * 8 + s) % (int32_t)NFX_PRESETS);
+        fx_pre = (uint8_t)(fx_pre == 0xFFu ? (s > 0 ? 0 : (int32_t)NFX_PRESETS - 1) :
+                           ((int32_t)fx_pre + (int32_t)NFX_PRESETS * 8 + s) % (int32_t)NFX_PRESETS);
         f = &FX_PRESETS[fx_pre];
         duck_begin();
         sys.fx_mix = 0;                                 /* (the model changed silent, then its knobs, then heard) */
@@ -4795,7 +4811,8 @@ static void ui_input(void)
         ui_force = 1;
     } else if (s && sys.page == 3u) {                   /* SHIMMER: through the shimmer presets */
         const sh_preset_t *h;
-        sh_pre = (uint8_t)(((int32_t)sh_pre + (int32_t)NSH_PRESETS * 8 + s) % (int32_t)NSH_PRESETS);
+        sh_pre = (uint8_t)(sh_pre == 0xFFu ? (s > 0 ? 0 : (int32_t)NSH_PRESETS - 1) :
+                           ((int32_t)sh_pre + (int32_t)NSH_PRESETS * 8 + s) % (int32_t)NSH_PRESETS);
         h = &SH_PRESETS[sh_pre];
         duck_begin();
         sys.sh_size = h->size; sys.sh_decay = h->decay; sys.sh_shimmer = h->shimmer;
