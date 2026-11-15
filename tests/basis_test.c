@@ -2217,8 +2217,8 @@ int main(int argc, char **argv)
         for (f = 0; f < 8u * ENV_FRAMES[50]; f++) env_frame(&v);
         ok &= v.stage == ST_SUSTAIN && v.env > eg.sus - ENV_MAX / 100u && v.env < eg.sus + ENV_MAX / 100u;
         v.stage = ST_RELEASE;
-        for (f = 0; f < 20u * ENV_FRAMES[40] && v.stage == ST_RELEASE; f++) env_frame(&v);
-        ok &= v.stage == ST_TAIL && f > 8u * ENV_FRAMES[40];
+        for (f = 0; f < 20u * REL_FRAMES[40] && v.stage == ST_RELEASE; f++) env_frame(&v);
+        ok &= v.stage == ST_TAIL && f > 8u * REL_FRAMES[40];
         for (f = 0; f < FS && v.stage == ST_TAIL; f++) env_frame(&v);
         ok &= v.stage == ST_OFF;
         check("ADSR: attack on time, decay settles on sustain, release -> tail -> off", ok);

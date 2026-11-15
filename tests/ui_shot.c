@@ -408,7 +408,7 @@ int main(int argc, char **argv)
     frames(10);
     bad |= shot(dir, "e_env_held");
     preset_load(1);
-    sys.release = REL_MAX;
+    sys.release = 100;
     enc_steps[panel.enc[EN_K2]] = 30;    /* (DECAY turned: its cell lit) */
     ui_input();
     synth_note_on(60, 100);
@@ -747,7 +747,7 @@ int main(int argc, char **argv)
     ui_input();
 
     sys.octave = 2;                      /* the widest values: a knob just turned, a message */
-    sys.release = REL_MAX;
+    sys.release = 100;
     sys.cpu_q8 = 255;
     enc_steps[panel.enc[EN_K2]] = 127;
     ui_input();
@@ -761,7 +761,7 @@ int main(int argc, char **argv)
         uint8_t sh = sys.shape;
         sys.octave = 0; sys.shape = 0; sys.release = 0;
         settings_boot();
-        if (sys.octave != 2 || sys.shape != sh || sys.release != REL_MAX) {
+        if (sys.octave != 2 || sys.shape != sh || sys.release != 100) {
             printf("settings round trip FAIL\n");
             bad = 1;
         }

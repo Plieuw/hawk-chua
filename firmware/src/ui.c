@@ -1003,7 +1003,7 @@ static void preset_apply(uint32_t i)
     sys.attack = p->attack;
     sys.decay = p->decay;
     sys.sustain = p->sustain;
-    sys.release = rel_cap(p->release);
+    sys.release = rel_of_env(p->release);
     sys.ring = p->ring;
     if (p->fx_mix) {                             /* (a preset without FX leaves the resonator's knobs, MIX off) */
         sys.fx_model = p->fx_model;
@@ -1185,7 +1185,7 @@ static int preset_edited_(void)
                pr_mfx_of(v) != pr_mfx_bits();
     }
     return sys.chaos != p->chaos || sys.shape != p->shape || sys.output != p->output || sys.attack != p->attack ||
-           sys.decay != p->decay || sys.sustain != p->sustain || sys.release != rel_cap(p->release) || sys.ring != p->ring ||
+           sys.decay != p->decay || sys.sustain != p->sustain || sys.release != rel_of_env(p->release) || sys.ring != p->ring ||
            sys.fx_mix != p->fx_mix || (p->fx_mix && (sys.fx_model != p->fx_model || sys.fx_struct != p->fx_struct ||
            sys.fx_bright != p->fx_bright || sys.fx_damp != p->fx_damp || sys.fx_pos != p->fx_pos)) ||
            sys.sh_mix != p->sh_mix || (p->sh_mix && (sys.sh_size != p->sh_size || sys.sh_decay != p->sh_decay ||
@@ -1292,7 +1292,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.shape = (uint8_t)(s.shape & 127u);
         sys.output = (uint8_t)(s.output & 127u);
         sys.attack = (uint8_t)(s.attack & 127u);
-        sys.release = rel_cap(s.release);
+        sys.release = s.snd >= 28u ? (uint8_t)(s.release & 127u) : rel_of_env(s.release);   /* (28: the knob's own scale) */
         sys.decay = (uint8_t)(s.decay & 127u);
         sys.sustain = (uint8_t)(s.sustain & 127u);
         sys.ring = (uint8_t)(s.ring & 127u);
@@ -1435,7 +1435,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 27;
+    s.snd = 28;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
@@ -2003,9 +2003,11 @@ static void draw_plot(void)
 }
 
 /* an ADSR time as text: 0.5 ms .. 10 s */
-static void env_time(char *b, uint32_t n, uint32_t v)
+static void env_time_f(char *b, uint32_t n, uint32_t fr);
+static void env_time(char *b, uint32_t n, uint32_t v) { env_time_f(b, n, ENV_FRAMES[v & 127u]); }
+static void env_time_f(char *b, uint32_t n, uint32_t fr)   /* (frames) */
 {
-    uint32_t us = ENV_FRAMES[v & 127u] * 1000u / 44u;        /* (frames / 44.1 kHz, close enough to show) */
+    uint32_t us = fr * 1000u / 44u;        /* (frames / 44.1 kHz, close enough to show) */
     char d[12];
     if (us < 10000u) {                                       /* 0.5 .. 9.9 ms */
         fmt_int(d, (int32_t)(us / 1000u));
@@ -3305,7 +3307,7 @@ static void ui_draw(void)
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " %");
         ui_cell(T_C3, "3 SUSTAIN", b);
-        env_time(b, sizeof b, rel_cap(sys.release));
+        env_time_f(b, sizeof b, REL_FRAMES[sys.release & 127u]);
         ui_cell(T_C4, "4 RELEASE", b);
     }
 
@@ -3876,7 +3878,7 @@ static void page_preset(int32_t s)
         const env_pre_t *e;
         pe = (uint8_t)(pe == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(ENV_PRE) - 1) : (pe + NPAGE_PRE(ENV_PRE) * 8 + s) % NPAGE_PRE(ENV_PRE));
         e = &ENV_PRE[pe];
-        sys.attack = e->a; sys.decay = e->d; sys.sustain = e->s; sys.release = rel_cap(e->r);
+        sys.attack = e->a; sys.decay = e->d; sys.sustain = e->s; sys.release = rel_of_env(e->r);
         str_cpy(t, "ENV: ", sizeof t);
         nm = e->name;
     } else if (sys.page == 5u) {
@@ -4397,7 +4399,6 @@ static void ui_input(void)
         knob(&sys.decay, EN_K2, 1);
         knob(&sys.sustain, EN_K3, 2);
         knob(&sys.release, EN_K4, 3);
-        sys.release = rel_cap(sys.release);      /* (~21 ms at most) */
     }
     if (sys.page == 14u) {                       /* BANK: part B (MULTI) too: KNOB 2 off / OMNI / its channel, 3 the part
                                                   * edited, 4 MONO / POLY (as HOME held + OP1, OP2, MONO, POLY) */
