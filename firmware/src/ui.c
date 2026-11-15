@@ -1683,9 +1683,9 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
 }
 /* the knob at (ox, oy) of the canvas: v 0..127 its position (-1: a choice of its own, none shown); cur >= 0: a
  * modulation, sweeping lo..hi, now at cur. From the tile's tables (knob_tables.h, anti-aliased) */
-static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur)
+static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur, uint16_t on)
 {
-    uint16_t on = T_THEME, off = ux_mix(T_BG, T_MID, 30), mc = ux_mix(T_THEME, 0x3D9Fu, 80), mt = ux_mix(T_BG, mc, 30);
+    uint16_t off = ux_mix(T_BG, T_MID, 30), mc = ux_mix(T_THEME, 0x3D9Fu, 80), mt = ux_mix(T_BG, mc, 30);
     int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, cu = cur * 2, x, y;
     uint32_t k = 0;
     for (y = 0; y < KN_W; y++)
@@ -1748,17 +1748,20 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     memcpy(kshown[c & 3u], ks, 5);
     if (label[0] >= '1' && label[0] <= '4' && (label[1] == ' ' || !label[1]))
         label += label[1] ? 2 : 1;               /* (the knob's number: its place shows it) */
-    cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
-    if (label[0] || value[0])
-        ui_knob(10, 0, kv, lo, hi, cur);
-    ui_fit(lb, sizeof lb, label, 58);
-    ui_fit(vb, sizeof vb, value, 58);
-    cv_text((60 - text_w(&AF_S, lb)) / 2, KN_W, &AF_S, lb, T_MID);
-    cv_text((60 - text_w(&AF_S, vb)) / 2, KN_W + AF_S.h, &AF_S, vb,
-            sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
-                                                                  : ui_val_hue(value))
-            : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);   /* (PSYCHEDELIC: the value's own colour; just
-                                                                             * turned: paler) */
+    {
+        int psy = sys.ui_style % US_COUNT == US_PSYCHE;
+        uint16_t vc = psy ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45) : ui_val_hue(value))
+                          : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT;   /* (PSYCHEDELIC: the value's own
+                                                                                      * colour; just turned: paler) */
+        cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
+        if (label[0] || value[0])                /* (PSYCHEDELIC: the ring in the value's colour, as the arc round the
+                                                  * eye when it is turned) */
+            ui_knob(10, 0, kv, lo, hi, cur, psy ? vc : T_THEME);
+        ui_fit(lb, sizeof lb, label, 58);
+        ui_fit(vb, sizeof vb, value, 58);
+        cv_text((60 - text_w(&AF_S, lb)) / 2, KN_W, &AF_S, lb, T_MID);
+        cv_text((60 - text_w(&AF_S, vb)) / 2, KN_W + AF_S.h, &AF_S, vb, vc);
+    }
     cv_blit(c * 60u, 150);
     lcd_sync();
 }
@@ -1772,9 +1775,19 @@ static void ui_status(const char *s)
     static const uint8_t LAYER[21] = {1, 1, 2, 3, 0, 2, 1, 1, 0, 1, 0, 0, 1, 2, 2, 2, 2, 2, 2, 3, 1};
     static const uint8_t COUNT[21] = {2, 2, 3, 3, 0, 2, 2, 3, 0, 2, 0, 0, 2, 2, 2, 4, 3, 2, 2, 3, 3};
     uint32_t pg = sys.page < 21u ? sys.page : 0u, l = LAYER[pg], nb = COUNT[pg], w = 6u + nb * 10u;
-    char sig[3] = {(char)('0' + l), (char)('0' + nb), 0};
+    char sig[3] = {(char)('0' + l), (char)('0' + nb), 0}, f[48];
     if (!ui_changed(T_STATUS, s, sig))
         return;
+    str_cpy(f, s, sizeof f);
+    if (text_w(&AF_S, f) > (int32_t)(240u - w) - 8) {   /* (too long: single spaces, then cut, not off the edge) */
+        uint32_t i, j = 0;
+        for (i = 0; f[i]; i++)
+            if (f[i] != ' ' || !j || f[j - 1u] != ' ')
+                f[j++] = f[i];
+        f[j] = 0;
+        ui_fit(f, sizeof f, f, (int32_t)(240u - w) - 8);
+    }
+    s = f;
     if (!nb) {
         draw_text_line(0, 223, 240, &AF_S, s, T_MID, T_BG, 1);
         return;
@@ -2287,15 +2300,15 @@ static void draw_feg(void)
     cv_blit(0, PLOT_Y);
 }
 
-/* the ARP's and the SEQ's roll: the last 8 notes, each in its step (a dim frame), the note as long as its gate (a
+/* the ARP's and the SEQ's roll: the last n notes (8 or 16), each in its step (a dim frame), the note as long as its gate (a
  * tie joined to the note before), their heights the pitch, the newest bright */
-static void note_roll8(const uint8_t *note, const uint8_t *gate, uint32_t wv, int32_t top, int32_t bot, int on)
+static void note_roll(uint32_t n, const uint8_t *note, const uint8_t *gate, uint32_t wv, int32_t top, int32_t bot, int on)
 {
-    const int32_t w = 28, hh = bot - top;
+    const int32_t w = 224 / (int32_t)n, hh = bot - top;
     uint32_t i, lo = 127, hi = 0;
-    for (i = 0; i < 8u; i++) {
-        uint32_t nt = note[(wv - 8u + i) & 31u];
-        if (nt && wv >= 8u - i) {
+    for (i = 0; i < n; i++) {
+        uint32_t nt = note[(wv - n + i) & 31u];
+        if (nt && wv >= n - i) {
             lo = nt < lo ? nt : lo;
             hi = nt > hi ? nt : hi;
         }
@@ -2303,14 +2316,14 @@ static void note_roll8(const uint8_t *note, const uint8_t *gate, uint32_t wv, in
     if (hi < lo + 12u)                           /* (at least an octave tall) */
         hi = lo + 12u;
     cv_rect(8, bot, 224, 1, T_LINE);
-    for (i = 0; i < 8u; i++) {
-        uint32_t nt = note[(wv - 8u + i) & 31u], g = gate[(wv - 8u + i) & 31u];
+    for (i = 0; i < n; i++) {
+        uint32_t nt = note[(wv - n + i) & 31u], g = gate[(wv - n + i) & 31u];
         int32_t x = 8 + (int32_t)i * w, y, gw;
         uint16_t c;
-        if (!nt || wv < 8u - i)
+        if (!nt || wv < n - i)
             continue;
         y = bot - 8 - (int32_t)(nt - lo) * (hh - 12) / (int32_t)(hi - lo);
-        c = i == 7u && on ? T_ACCENT : on ? ux_mix(T_BG, T_THEME, 45 + (int32_t)i * 8) : T_DIM;
+        c = i == n - 1u && on ? T_ACCENT : on ? ux_mix(T_BG, T_THEME, 45 + (int32_t)(i * 64u / n)) : T_DIM;
         cv_frame(x, y, w - 2, 7, ux_mix(T_BG, T_DIM, 35));       /* (the step) */
         if (g & 128u) {                          /* a tie: on from the note before */
             cv_rect(x - 2, y + 1, w, 5, c);
@@ -2323,7 +2336,7 @@ static void note_roll8(const uint8_t *note, const uint8_t *gate, uint32_t wv, in
 }
 
 /* the KARMA page's picture: the GE's rhythm (each step: a hit's weight its height, a long one wide, ties joined, the
- * step playing lit), under it the last 8 notes made as a roll, each as long as its gate, the newest bright */
+ * step playing lit), under it the last 16 notes made as a roll, each as long as its gate, the newest bright */
 static void draw_karma(void)
 {
     const ge_t *G = k_ge();
@@ -2344,7 +2357,7 @@ static void draw_karma(void)
         else
             cv_rect(x + w / 2 - 1, rt + rh - 2, 2, 2, T_LINE);
     }
-    note_roll8(kar_view.note, kar_view.gate, wv, top, bot, sys.k_on);
+    note_roll(16u, kar_view.note, kar_view.gate, wv, top, bot, sys.k_on);
     str_cpy(a, !sys.k_on ? "OFF  " : arp_ext() ? "EXT " : "", sizeof a);
     fmt_int(v, (int32_t)(arp_ext() ? arp_bpm_now() : sys.arp_bpm));
     ui_cat(a, sizeof a, v);
@@ -2605,7 +2618,7 @@ static void draw_midi(void)
 static void draw_arp(void)
 {
     cv_begin(240, PLOT_H, T_BG);
-    note_roll8(arp_view.note, arp_view.gate, arp_view.w, 8, PLOT_H - 14, sys.arp_on);
+    note_roll(8u, arp_view.note, arp_view.gate, arp_view.w, 8, PLOT_H - 14, sys.arp_on);
     cv_text(8, PLOT_H - 13, &AF_S, sys.arp_on ? (arp_ext() ? "MIDI CLOCK" : "INTERNAL") : "OFF: PRESS PLAY", T_DIM);
     cv_blit(0, PLOT_Y);
 }
@@ -2736,7 +2749,7 @@ static uint32_t menv_targets(uint8_t *t, const char **nm)
                                              "MURAIKI"};
     uint32_t n = 0, md = sys.fx_model % RZ_COUNT, alg = sys.osc ? (sys.osc - 1u) % NP_COUNT : 0u;
 #define MT(f, s) do { t[n] = (uint8_t)((f) + 1u); nm[n] = (s); n++; } while (0)
-    t[n] = 0; nm[n] = sys.osc ? "PITCH" : "PITCH (NOISE ONLY)"; n++;
+    t[n] = 0; nm[n] = sys.osc ? "PITCH" : "PITCH (NOISE)"; n++;
     if (!sys.osc) {
         MT(0, "CHAOS"); MT(1, "SHAPE"); MT(2, "OUTPUT");
     } else {
@@ -2827,7 +2840,7 @@ static void ui_draw(void)
             ui_cat(b, sizeof b, v);
         }
         ui_cell(T_C2, "2 PART B", b);
-        ui_cell(T_C3, "3 EDIT PART", sys.multi ? (part_edit ? "2" : "1") : "1 (MULTI OFF)");   /* (as HOME held + OP1, OP2) */
+        ui_cell(T_C3, "3 EDIT PART", sys.multi ? (part_edit ? "2" : "1") : "1");   /* (as HOME held + OP1, OP2) */
         ui_cell(T_C4, "4 VOICES", part_mono[sys.multi ? part_edit : 0u] ? "MONO" : "POLY");   /* (+ MONO, POLY) */
     } else if (sys.page == 13u) {                       /* TAPE's SPEED: the BPM, the ratio, the tape's own tempo, the pitch */
         const uint8_t *q = TAPE_SPD[sys.tape_spd % TAPE_NSPD];
@@ -2885,7 +2898,7 @@ static void ui_draw(void)
         ui_val_c = 0;
     } else if (sys.page == 11u) {
         ui_val_c = FEG_FM(sys.mw_target) ? T_FM : 0;
-        ui_cell(T_C1, "1 MOD WHEEL", FEG_T_NAME[sys.mw_target % FEG_NT]);
+        ui_cell(T_C1, "1 WHEEL", FEG_T_NAME[sys.mw_target % FEG_NT]);
         ui_val_c = 0;
         fmt_int(v, sys.mw_depth);
         ui_cell(T_C2, "2 DEPTH", v);
@@ -2935,61 +2948,61 @@ static void ui_draw(void)
         ui_val_c = 0;
     } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY SEQ, the GATE SEQ */
         fmt_int(v, (int32_t)arp_vlen());
-        ui_cell(T_C1, "1 SEQ LENGTH", v);
+        ui_cell(T_C1, "1 VEL LEN", v);
         fmt_int(v, (int32_t)(sys.arp_vd & 127u));
         ui_cell(T_C2, "2 DEPTH", v);
         fmt_int(v, (int32_t)arp_glen());
-        ui_cell(T_C3, "3 GATE LENGTH", v);
+        ui_cell(T_C3, "3 GATE LEN", v);
         ui_cell(T_C4, "4 GATE SEQ", ARP_GPAT[sys.arp_gp % ARP_NGP].name);
     } else if (sys.page == 17u) {                /* LOGIC: how the ARP and KARMA meet */
         static const char *const LG[7] = {"OFF", "OR", "AND", "XOR", "NOR", "ALT", "S/R"};
         ui_cell(T_C1, "1 LOGIC", LG[sys.k_logic % 7u]);
-        ui_cell(T_C2, "2 NOTE QUANT", logic_q_name(sys.k_lq));
+        ui_cell(T_C2, "2 QUANT", logic_q_name(sys.k_lq));
         ui_cell(T_C3, "3 ROOT", sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO");
         ui_cell(T_C4, "4 INVERSE", sys.k_inv ? "ON" : "OFF");
     } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH, BEND RANGE */
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
-        ui_cell(T_C1, "1 SPEAKER BASS", sys.spk_bass & 127u ? v : "OFF");
-        ui_cell(T_C2, "2 LEVEL MATCH", sys.lvl_match ? "ON" : "OFF");
+        ui_cell(T_C1, "1 BASS", sys.spk_bass & 127u ? v : "OFF");
+        ui_cell(T_C2, "2 LEVELS", sys.lvl_match ? "ON" : "OFF");
         fmt_int(v, (int32_t)sys.bend_range);
         str_cpy(b, sys.bend_range ? "+-" : "OFF", sizeof b);
         if (sys.bend_range)
             ui_cat(b, sizeof b, v);
-        ui_cell(T_C3, "3 BEND RANGE", b);
+        ui_cell(T_C3, "3 BEND", b);
         ui_cell(T_C4, "4", "");
     } else if (sys.page == 19u) {                /* UI STYLE: the look, its motion, its backdrop */
-        ui_cell(T_C1, "1 STYLE", US_NAME[sys.ui_style % US_COUNT]);
+        ui_cell(T_C1, "1 STYLE", sys.ui_style % US_COUNT == US_PSYCHE ? "PSYCHE" : US_NAME[sys.ui_style % US_COUNT]);
         fmt_int(v, (int32_t)(sys.ui_motion & 127u));
         ui_cell(T_C2, "2 MOTION", sys.ui_motion & 127u ? v : "STILL");
         fmt_int(v, (int32_t)((sys.ui_backdrop & 127u) * 100u / 127u));
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " %");
-        ui_cell(T_C3, "3 BACKDROP", sys.ui_style % US_COUNT ? b : "-");
+        ui_cell(T_C3, "3 BACK", sys.ui_style % US_COUNT ? b : "-");
         fmt_int(v, (int32_t)(sys.ui_react & 127u));
         ui_cell(T_C4, "4 REACT", sys.ui_react & 127u ? v : "OFF");
     } else if (sys.page == 15u) {                /* MULTI: on, part B's channel, its bank, its program */
         ui_cell(T_C1, "1 MULTI", sys.multi ? "ON" : "OFF");
         fmt_int(v, sys.ch_b);
-        ui_cell(T_C2, "2 B CHANNEL", sys.ch_b ? v : "OMNI");
+        ui_cell(T_C2, "2 B CH", sys.ch_b ? v : "OMNI");
         fmt_int(v, (int32_t)(part_preset(1) >> 7) + 1);
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " ");
         ui_cat(b, sizeof b, BANK_NAME[(part_preset(1) >> 7) % NBANKS]);
         ui_cell(T_C3, "3 B BANK", b);
         fmt_int(v, (int32_t)(part_preset(1) & 127u) + 1);
-        ui_cell(T_C4, "4 B PROGRAM", v);
+        ui_cell(T_C4, "4 B PROG", v);
     } else if (sys.page == 7u) {
         static const char *const USBN[4] = {"OFF", "IN", "OUT", "IN + OUT"};
         if (sys.midi_rx) {
             fmt_int(v, sys.midi_rx);
-            ui_cell(T_C1, "1 CHANNEL A", v);
+            ui_cell(T_C1, "1 A CH", v);
         } else
-            ui_cell(T_C1, "1 CHANNEL A", "OMNI");
+            ui_cell(T_C1, "1 A CH", "OMNI");
         ui_cell(T_C2, "2 USB MIDI", USBN[sys.midi_usb & 3u]);
         fmt_int(v, sys.ch_b);
-        ui_cell(T_C3, "3 CHANNEL B", sys.ch_b ? v : "OMNI");
+        ui_cell(T_C3, "3 B CH", sys.ch_b ? v : "OMNI");
         fmt_int(v, (int32_t)(sys.midi_tx & 15u) + 1);
-        ui_cell(T_C4, "4 TX CHANNEL", v);
+        ui_cell(T_C4, "4 OUT CH", v);
     } else if (sys.page == 6u) {
         uint32_t bpm = arp_bpm_now();
         if (arp_ext()) {                         /* (CLOCK EXTERNAL: the knob does nothing; the tempo coming in) */
@@ -3102,10 +3115,7 @@ static void ui_draw(void)
             ui_cell(T_C4, "4 RING", v);
         }
     } else if (sys.page == 0u) {
-        str_cpy(a, "1 CHAOS ", sizeof a);
-        fmt_int(v, sys.chaos);
-        ui_cat(a, sizeof a, v);
-        ui_cell(T_C1, a, REG_NAME[reg]);
+        ui_cell(T_C1, "1 CHAOS", REG_NAME[reg]);
         {   /* beta with one decimal */
             int32_t bq = chua_beta_q16(sys.shape), t = (bq * 10 + 32768) >> 16;
             fmt_int(v, t / 10);
@@ -3178,7 +3188,7 @@ static void ui_draw(void)
     } else if (sys.page == 20u) {                /* MOD FX: the note value or ratio, the slew, the rectifier, the mix */
         uint32_t mode = mf.on ? mf.mode : sys.mfx_mode % MF_COUNT;
         if (mode == MF_RING) {                   /* (RING: the ratio to the note; VIBRATO, TREMOLO: the tempo's note value) */
-            str_cpy(b, "NOTE X ", sizeof b);
+            str_cpy(b, "X ", sizeof b);
             ui_cat(b, sizeof b, MF_RATIO_NAME[mf_ratio()]);
         } else
             str_cpy(b, MF_DIV_NAME[mf_div()], sizeof b);
@@ -3197,8 +3207,8 @@ static void ui_draw(void)
         ui_cell(T_C4, "4 MIX", b);
     } else if (sys.page == 2u) {
         uint32_t md = sys.fx_model % RZ_COUNT;
-        static const char *const K1[RZ_COUNT] = {"1 STRUCTURE", "1 CHORD", "1 STRUCTURE", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
-                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON", "1 MUSETTE", "1 SOFT REED", "1 TINE", "1 LIPS",
+        static const char *const K1[RZ_COUNT] = {"1 STRUCT", "1 CHORD", "1 STRUCT", "1 SIZE", "1 JET", "1 CHIRP", "1 SCREAM", "1 LIP",
+                                                   "1 PRESSURE", "1 REED", "1 KETTLE", "1 UNISON", "1 MUSETTE", "1 SOFT", "1 TINE", "1 LIPS",
                                                    "1 MURAIKI"};
         if (md == RZ_SYMP)
             str_cpy(b, RZ_CHORD_NAME[(sys.fx_struct & 127u) >> 4], sizeof b);
@@ -3210,7 +3220,7 @@ static void ui_draw(void)
         }
         ui_cell(T_C1, K1[md], b);
         fmt_int(v, sys.fx_bright);
-        ui_cell(T_C2, "2 BRIGHTNESS", v);
+        ui_cell(T_C2, "2 BRIGHT", v);
         fmt_int(v, sys.fx_damp);
         ui_cell(T_C3, md == RZ_BAGPIPE ? "3 DRONES" : md == RZ_ACCORD ? "3 CHAMBER" : "3 DAMPING", v);
         if (sys.fx_mix) {
@@ -3240,7 +3250,7 @@ static void ui_draw(void)
             str_cpy(a, SH_SPACE_NAME[sys.sh_space % SS_COUNT], sizeof a);
             ui_cat(a, sizeof a, " ");
             ui_cat(a, sizeof a, sh_iv_name(sys.sh_space % SS_COUNT, sys.sh_interval));
-            ui_cat(a, sizeof a, SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "  RESO " : "  TONE ");
+            ui_cat(a, sizeof a, SS_IS_DELAY(sys.sh_space % SS_COUNT) ? "  RES " : "  TONE ");
             fmt_int(v, sys.sh_tone);
             ui_cat(a, sizeof a, v);
         } else if (sys.page == 20u) {
@@ -3253,7 +3263,7 @@ static void ui_draw(void)
             fx_pos_text(b, sizeof b, 1);
             ui_cat(a, sizeof a, b);
         } else if (sys.page == 9u) {             /* KARMA: on or off, the GE, LATCH */
-            str_cpy(a, sys.k_on ? "KARMA ON  " : "KARMA OFF  ", sizeof a);
+            str_cpy(a, sys.k_on ? "" : "OFF  ", sizeof a);
             ui_cat(a, sizeof a, k_ge()->name);
             if (sys.k_latch)
                 ui_cat(a, sizeof a, "  LATCH");

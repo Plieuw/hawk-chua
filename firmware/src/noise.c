@@ -39,15 +39,15 @@ static const char *const NP_NAME[NP_COUNT] = {
     "BIG BANG", "PIANO",
 };
 static const char *const NP_X[NP_COUNT] = {        /* what X and Y do, per program (the screen) */
-    "OSC 2", "WALK RATE", "OSC 2", "OSC 2", "RATIOS", "MOD RATIO", "GRAIN", "GRAIN", "GRAIN", "LFO RATE",
+    "OSC 2", "WALK", "OSC 2", "OSC 2", "RATIOS", "RATIO", "GRAIN", "GRAIN", "GRAIN", "LFO RATE",
     "SPREAD", "DETUNE", "DETUNE", "DETUNE", "DETUNE", "SPREAD", "SPREAD", "SPREAD", "SPREAD", "SPREAD",
-    "LFSR BEND", "OSC 2", "BOX", "RATE", "MOD RATIO", "SWEEP RATE", "SWEEP RATE", "FM", "BOX", "BOX",
+    "BEND", "OSC 2", "BOX", "RATE", "RATIO", "SWEEP", "SWEEP", "FM", "BOX", "BOX",
     "WAVE", "HAMMER",
 };
 static const char *const NP_Y[NP_COUNT] = {
     "PWM", "FLANGE", "FM", "FM", "FM", "FOLD", "FM", "FM", "FM", "WIDTH",
     "VOICES", "PW", "FM", "FM", "FM", "FM", "NOISE FM", "TONE", "TONE", "DRIFT",
-    "REVERB", "FM", "FM", "REVERB", "SCRAMBLE", "DEPTH", "DEPTH", "CRUSH", "REVERB", "REVERB",
+    "REVERB", "FM", "FM", "REVERB", "MANGLE", "DEPTH", "DEPTH", "CRUSH", "REVERB", "REVERB",
     "ENTROPY", "STRINGS",
 };
 /* the output level per program: measured (tests/basis_test.c, NP_LEVELS=1 prints them) so that each sounds about as

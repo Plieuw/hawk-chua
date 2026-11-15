@@ -16,7 +16,7 @@
  */
 enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_COUNT };
 static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO"};
-static const char *const MF_RECT[4] = {"ORIGINAL", "FULL-WAVE", "HALF +", "HALF -"};
+static const char *const MF_RECT[4] = {"ORIGINAL", "FULL", "HALF +", "HALF -"};
 
 #define MF_VLEN 512u                             /* the vibrato's line (a power of two: ~11.6 ms; at most ~334 used) */
 #define MF_CH NVOICE                             /* the channels: the voices (a note each; before their gates) */

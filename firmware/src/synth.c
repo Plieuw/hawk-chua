@@ -92,7 +92,7 @@ static int chua_out_of_range(const chua_t *s)
 
 /* ------------------------------------------------- the knobs' circuit --- */
 enum { REG_CYCLE, REG_PERIOD2, REG_SPIRAL, REG_DOUBLE, REG_OUTER, REG_COUNT };
-static const char *const REG_NAME[REG_COUNT] = {"CYCLE", "PERIOD 2", "SPIRAL", "DBL SCROLL", "OUTER"};
+static const char *const REG_NAME[REG_COUNT] = {"CYCLE", "PERIOD 2", "SPIRAL", "SCROLL", "OUTER"};
 static uint32_t chua_regime(uint32_t chaos)      /* what the CHAOS knob's position is (the tables' landmarks) */
 {
     return chaos < 32u ? REG_CYCLE : chaos < 48u ? REG_PERIOD2 : chaos < 60u ? REG_SPIRAL :

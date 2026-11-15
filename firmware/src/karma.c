@@ -42,7 +42,7 @@ enum { TR_ANY, TR_AKR };                                           /* trigger: a
 enum { MC_DENSITY, MC_RANGE, MC_REPEAT, MC_ACCENT, MC_GATE, MC_RANDOM, MC_CLUSTER, MC_TRANSPOSE, MC_ENV, MC_STRUM,
        MC_COUNT };
 static const char *const MC_NAME[MC_COUNT] = {"DENSITY", "RANGE", "REPEAT", "ACCENT", "GATE", "RANDOM", "CLUSTER",
-                                              "TRANSPOSE", "ENV", "STRUM"};
+                                              "OCTAVE", "ENV", "STRUM"};
 typedef struct {
     const char *name;
     uint8_t res;                                 /* MIDI clocks a step (24 a quarter: 6 a sixteenth, 8 an eighth triplet) */

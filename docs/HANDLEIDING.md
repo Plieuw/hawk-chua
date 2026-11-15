@@ -41,7 +41,7 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | Bediening | Functie |
 | --- | --- |
 | 27 toetsen | spelen (4 stemmen, elk een eigen circuit en een eigen resonator/waveguide), sturen USB-MIDI uit (kanaal 1) |
-| KNOB 1 — CHAOS | α: CYCLE 0 · PERIOD 2 32 · SPIRAL 48 · DBL SCROLL 60 · OUTER 112 |
+| KNOB 1 — CHAOS | α: CYCLE 0 · PERIOD 2 32 · SPIRAL 48 · SCROLL 60 · OUTER 112 |
 | KNOB 2 — SHAPE | β 10..34: lage waarden trage, ronde spiralen; hoge waarden snelle, strakke |
 | KNOB 3 — OUTPUT | welke spanning je hoort: X (het scrollen, diep), X+Y, Y (de spiraal, helder), Y+Z, Z (rond) |
 | KNOB 4 — RING | resonantie van de low pass gate: 0 geen, 127 Q 6 (een korte, houtachtige ring) |
@@ -62,11 +62,11 @@ in de chaotische regimes rond die toonhoogte, met de typische subharmonische rui
 | SAVE | (knippert altijd, één keer per maat op de eerste tel; alle knipperende LEDs volgen de BPM) alle instellingen in flash (terug na herstart; dat gebeurt ook vanzelf: 3 s na een wijziging, zodra er niets speelt, zodat uitzetten niets kost; bij het opstarten gelden de vaste regels nog steeds, zoals PLAY uit), én de klank zoals hij nu is over de preset die speelt (de naam blijft); PRESETS en program change laden daarna die opgeslagen versie. Via USB: `python3 tools/fm1_remote.py presets presets.txt` of de knop *Presets → C* op de Remote-pagina geeft alle 512 als regels voor de tabel in `firmware/src/ui.c` (de opgeslagen gemarkeerd `SAVED`); `reset-presets` of *Opgeslagen presets wissen* zet de ingebouwde terug |
 | (blokjes rechtsonder) | knoppen met twee pagina's (ENV + MOD ENV, FX + SHIMMER) tonen rechtsonder twee blokjes: de pagina waar je bent oranje gevuld, de andere een leeg vakje |
 | LFO | de FREE EG-pagina (nog een keer: terug naar HOME); daar neemt REC op |
-| EDIT | de EDIT-pagina (nog een keer: terug naar HOME); SELECT zet het octaaf van de klank (-3 .. +3: alle oscillatoren, de FX stemmen mee; de presets zetten het op het register van hun instrument, bassen -2, cello en gitaren -1, piccolo en glockenspiel +1; opgeslagen met SAVE); KNOB 1 welke parameter het MOD WHEEL (MIDI CC 1) beweegt (de lijst van FREE EG), KNOB 2 hoe ver (DEPTH; wiel omhoog = tot 127, wiel omlaag = de oude waarde terug; speelt FREE EG op dezelfde parameter, dan regelt het wiel de diepte van FREE EG: wiel omlaag = stil, omhoog = FREE EG's DEPTH; pas zodra er een mod wheel binnenkomt), KNOB 3 VELOCITY op de klank (OFF, BRIGHT: zacht = donkerder, SWEEP: zacht = minder MOD ENV-sweep, BRIGHT + SWEEP), KNOB 4 hoeveel |
-| GLO | de MIDI-pagina; nog een keer: de **SOUND-pagina** (KNOB 1 SPEAKER BASS 0..127, standaard 4: de boventonen van de bas erbij gemaakt, zodat je hem op de kleine interne speaker hoort (het oor hoort de grondtoon die erbij hoort); KNOB 2 LEVEL MATCH aan/uit, standaard aan: elke preset op hetzelfde gemeten volume, -22 LU (nooit boven -1 dBFS); een opgeslagen preset krijgt de waarde van zijn plek; KNOB 3 BEND RANGE: MIDI pitch bend 0..12 halve tonen op en neer, standaard 12); nog een keer: een pagina waar ALGORITHM de stemming kiest, links A = 440 Hz (standaard), rechts A = 432 Hz (alle oscillatoren en FX stemmen mee; opgeslagen met SAVE); nog een keer: terug naar HOME. De MIDI-pagina (TRS MIDI IN staat altijd aan): KNOB 1 het kanaal van part A (OMNI, 1..16), KNOB 2 USB MIDI (OFF, IN, OUT, IN + OUT), KNOB 3 het MIDI-kanaal van part B (OMNI: over A heen, of 1..16; part B aan of uit: PART B op de BANK-pagina), KNOB 4 TX-kanaal (1..16); SELECT de CLOCK: links INTERNAL (standaard: de eigen BPM, binnenkomende clock genegeerd), rechts EXTERNAL (alleen MIDI clock: de BPM-knop doet dan niets en toont EXT, zonder clock wachten ARP en KARMA); PRESETS AUTOPLAY: rechts aan, links uit (aan na het installeren, daarna zoals opgeslagen met SAVE) |
+| EDIT | de EDIT-pagina (nog een keer: terug naar HOME); SELECT zet het octaaf van de klank (-3 .. +3: alle oscillatoren, de FX stemmen mee; de presets zetten het op het register van hun instrument, bassen -2, cello en gitaren -1, piccolo en glockenspiel +1; opgeslagen met SAVE); KNOB 1 (WHEEL) welke parameter het MOD WHEEL (MIDI CC 1) beweegt (de lijst van FREE EG), KNOB 2 hoe ver (DEPTH; wiel omhoog = tot 127, wiel omlaag = de oude waarde terug; speelt FREE EG op dezelfde parameter, dan regelt het wiel de diepte van FREE EG: wiel omlaag = stil, omhoog = FREE EG's DEPTH; pas zodra er een mod wheel binnenkomt), KNOB 3 VELOCITY op de klank (OFF, BRIGHT: zacht = donkerder, SWEEP: zacht = minder MOD ENV-sweep, BRIGHT + SWEEP), KNOB 4 hoeveel |
+| GLO | de MIDI-pagina; nog een keer: de **SOUND-pagina** (KNOB 1 BASS (speaker bass) 0..127, standaard 4: de boventonen van de bas erbij gemaakt, zodat je hem op de kleine interne speaker hoort (het oor hoort de grondtoon die erbij hoort); KNOB 2 LEVELS (level match) aan/uit, standaard aan: elke preset op hetzelfde gemeten volume, -22 LU (nooit boven -1 dBFS); een opgeslagen preset krijgt de waarde van zijn plek; KNOB 3 BEND (bend range): MIDI pitch bend 0..12 halve tonen op en neer, standaard 12); nog een keer: een pagina waar ALGORITHM de stemming kiest, links A = 440 Hz (standaard), rechts A = 432 Hz (alle oscillatoren en FX stemmen mee; opgeslagen met SAVE); nog een keer: terug naar HOME. De MIDI-pagina (TRS MIDI IN staat altijd aan): KNOB 1 het kanaal van part A (OMNI, 1..16), KNOB 2 USB MIDI (OFF, IN, OUT, IN + OUT), KNOB 3 het MIDI-kanaal van part B (OMNI: over A heen, of 1..16; part B aan of uit: PART B op de BANK-pagina), KNOB 4 TX-kanaal (1..16); SELECT de CLOCK: links INTERNAL (standaard: de eigen BPM, binnenkomende clock genegeerd), rechts EXTERNAL (alleen MIDI clock: de BPM-knop doet dan niets en toont EXT, zonder clock wachten ARP en KARMA); PRESETS AUTOPLAY: rechts aan, links uit (aan na het installeren, daarna zoals opgeslagen met SAVE) |
 | Snel draaien | elke knop en encoder (KNOB 1–4, SELECT, ALGORITHM, PRESETS) versnelt tot 4×, net als BPM (van 0 naar 127 in één zwaai); één klik blijft één stap |
 | MASTER | volume |
-| MIDI in (USB en TRS) | note on/off op het kanaal van part A (of elk: OMNI), program change = preset in de bank van bank select (CC 0/32 = 0..3; program 1 = de eerste); clock voor de arpeggiator; CC's volgens de XG/GM-indeling (zoals een Yamaha MU90): 1 MODULATION = mod wheel (zie EDIT; ook op VIBRATO of RING MOD van MOD FX), 7 MAIN VOLUME (100 = normaal), 10 PAN (balans), 11 EXPRESSION, 64 HOLD (noten klinken door; bij PIANO blijven de dempers omhoog), 66 SOSTENUTO, 67 SOFT PEDAL (nieuwe noten zachter), 71..74 = KNOB 1..4 van de HOME-pagina (circuit: CHAOS, SHAPE, OUTPUT, RING; noise-programma: X, Y, LEVEL, RING), 91 REVERB = SHIMMER MIX, 93 CHORUS = FX MIX, 94 VARIATION = SHIMMER, 0/32 BANK SELECT (zie PRESETS), 120/123 alles uit, 121 RESET ALL CONTROLLERS; pitch bend (tot een octaaf op en neer: BEND RANGE op de SOUND-pagina; de FX buigen mee). Aftertouch: niet ingedrukt klinkt alles zoals zonder aftertouch, indrukken geeft tot twee keer zoveel adem. Niet: portamento, RPN/NRPN |
+| MIDI in (USB en TRS) | note on/off op het kanaal van part A (of elk: OMNI), program change = preset in de bank van bank select (CC 0/32 = 0..3; program 1 = de eerste); clock voor de arpeggiator; CC's volgens de XG/GM-indeling (zoals een Yamaha MU90): 1 MODULATION = mod wheel (zie EDIT; ook op VIBRATO of RING MOD van MOD FX), 7 MAIN VOLUME (100 = normaal), 10 PAN (balans), 11 EXPRESSION, 64 HOLD (noten klinken door; bij PIANO blijven de dempers omhoog), 66 SOSTENUTO, 67 SOFT PEDAL (nieuwe noten zachter), 71..74 = KNOB 1..4 van de HOME-pagina (circuit: CHAOS, SHAPE, OUTPUT, RING; noise-programma: X, Y, LEVEL, RING), 91 REVERB = SHIMMER MIX, 93 CHORUS = FX MIX, 94 VARIATION = SHIMMER, 0/32 BANK SELECT (zie PRESETS), 120/123 alles uit, 121 RESET ALL CONTROLLERS; pitch bend (tot een octaaf op en neer: BEND op de SOUND-pagina; de FX buigen mee). Aftertouch: niet ingedrukt klinkt alles zoals zonder aftertouch, indrukken geeft tot twee keer zoveel adem. Niet: portamento, RPN/NRPN |
 | USB | class-compliant MIDI + USB-audio-ingang (opnemen in je DAW) |
 | OCT- + OCT+ 5 s ingedrukt | UBOOT (update-modus) |
 
@@ -150,13 +150,13 @@ USB-C naar USB-C tussen twee apparaten werkt niet, want USB heeft altijd een hos
 tegen het arp-patroon in schuift) dat per stap de velocity bepaalt, 1..9 zacht tot hard; een 0 is geen noot op die stap
 (een rust, het arp-patroon loopt door). ALGORITHM kiest het patroon: ACCENT 4, ACCENT 3, OFFBEAT, RAMP UP/DOWN, TRESILLO,
 WALTZ, GHOSTS, PUMP, SWELL, FIVE, SEVEN, BACKBEAT, en met rusten SKIP, OFF SKIP, 3 OF 4, CLAVE, GALLOP, BREATH, FIVE RESTS,
-STUTTER, SPARSE, HOLES. KNOB 1 SEQ LENGTH (1..8): hoeveel van de acht getoonde stappen
-(het patroon herhaald) de velocity seq loopt; de stappen erachter worden donker. Een ander patroon kiezen zet SEQ LENGTH op
+STUTTER, SPARSE, HOLES. KNOB 1 VEL LEN (1..8): hoeveel van de acht getoonde stappen
+(het patroon herhaald) de velocity seq loopt; de stappen erachter worden donker. Een ander patroon kiezen zet VEL LEN op
 de eigen lengte van dat patroon. KNOB 2 DEPTH: hoe sterk de velocity's werken (de rusten altijd). Daaronder de ARP GATE SEQ, in dezelfde stijl: per stap de
 gate, met GATE (KNOB 3 op de ARP-pagina) als basis: 1..9 is x 0,2 tot x 1,8 (5 is GATE zelf, hoogstens 100 %). KNOB 4
 kiest het patroon (OFF, LONG SHORT, SHORT LONG, SHORT x3, GALLOP, DOTTED, TRESILLO, RAMP UP/DOWN, BOUNCE, STAB,
-LEGATO 1/4, SWELL, STUTTER, WALTZ, BREATH), KNOB 3 GATE LENGTH (1..8) hoeveel van de acht stappen meelopen, zoals
-SEQ LENGTH. De pagina toont
+LEGATO 1/4, SWELL, STUTTER, WALTZ, BREATH), KNOB 3 GATE LEN (1..8) hoeveel van de acht stappen meelopen, zoals
+VEL LEN. De pagina toont
 de stappen als staafjes, de stap die speelt licht op.
 
 De patronen: de dertig Arpeggiator Types van de AN1x (uit zijn Data List) en twee van de DJX. 1–15: UP, DOWN,
@@ -231,11 +231,11 @@ Een GE is, zoals bij KARMA, een paar kleine generatoren die samenwerken:
 | ALGORITHM | de GE (24, zie hieronder) |
 | KNOB 1..4 | de vier *Realtime Controls* van die GE; de cellen tonen wat ze doen. 64 is de GE zoals hij geschreven is |
 | SELECT | LATCH (standaard aan): rechtsom aan (de frase loopt door als je loslaat, een nieuw akkoord vervangt het oude), linksom uit |
-| PRESETS | **SEQ-presets** (ook op de LOGIC-pagina): PULSE ARP, ACID LINE, TRANCE GATE, GAMELAN, BOSSA NOVA, MONTUNO, FUNK CLAV, POLY 3 OVER 4, RAIN DROPS, CHAOS MACHINE, ECHO CANYON, DUB CHORDS, HOUSE PIANO, AFROBEAT, SWELL PAD, BIRD CALLS: elk kiest een GE en zet zijn vier realtime-knoppen (een TRANSPOSE-knop blijft staan); het tempo staat op KNOB 1 van de ARP-pagina |
+| PRESETS | **SEQ-presets** (ook op de LOGIC-pagina): PULSE ARP, ACID LINE, TRANCE GATE, GAMELAN, BOSSA NOVA, MONTUNO, FUNK CLAV, POLY 3 OVER 4, RAIN DROPS, CHAOS MACHINE, ECHO CANYON, DUB CHORDS, HOUSE PIANO, AFROBEAT, SWELL PAD, BIRD CALLS: elk kiest een GE en zet zijn vier realtime-knoppen (een OCTAVE-knop blijft staan); het tempo staat op KNOB 1 van de ARP-pagina |
 
 De Realtime Controls: DENSITY (0 niets, laag alleen de zware aanslagen, 64 het patroon, hoger ook de spooknoten en
 boven 96 noten in de rusten), RANGE (−3..+3 octaven), REPEAT (meer of minder echo's), ACCENT (dynamiek, boven 96 ook
-toeval), GATE, RANDOM (af en toe een andere noot, boven 96 octaafsprongen), CLUSTER, TRANSPOSE (octaven), ENV (diepte
+toeval), GATE, RANDOM (af en toe een andere noot, boven 96 octaafsprongen), CLUSTER, OCTAVE (transponeren in octaven), ENV (diepte
 van de envelope) en STRUM.
 
 De GE's: PULSE ARP (de klassieke 16e-arp met accenten en spooknoten), CASCADE (dalende kwarten die echoën), HARP GLISS
@@ -256,7 +256,7 @@ nieuwe noot stuitert uit: steeds snellere, zachtere herhalingen, van links naar 
 envelope (TECHNO STAB, ACID LINE, TRANCE GATE, SWELL PAD, CHAOS MACHINE, SCROLL HOPPER, MINIMAL 5/4) spelen dus ook
 met de klank, niet alleen met de noten.
 
-Het scherm toont het ritme van de GE (hoogte = gewicht, het spelende stapje licht op) en eronder de laatste 8 noten, elk zo lang als zijn gate,
+Het scherm toont het ritme van de GE (hoogte = gewicht, het spelende stapje licht op) en eronder de laatste 16 noten, elk zo lang als zijn gate,
 als een rol; onderin de klok en de lengte ("20 x 1/16").
 
 **KARMA, de ARP en FREE EG samen.**
@@ -269,7 +269,7 @@ als een rol; onderin de klok en de lengte ("20 x 1/16").
   beurt: elke tel met een slag gaat naar de volgende), S/R (een slag van de ARP zet aan, een van KARMA zet uit: aan speelt
   de ARP, uit KARMA). KNOB 4 INVERSE: wat de logica tegenhoudt komt erdoor en andersom. Beide spelen dezelfde vastgehouden noten op één klok, die van KARMA: de ARP begint mee met
   de frase (op de zestiende), en de vergelijking gebeurt op het rechte raster; SWING komt daarna, voor elk apart. Een
-  stap die tegengehouden wordt is een rust, het patroon loopt door. KNOB 2 NOTE QUANT zet alles wat de twee maken in een toonsoort: CHORD (standaard: alleen de akkoordtonen), AUTO (de
+  stap die tegengehouden wordt is een rust, het patroon loopt door. KNOB 2 QUANT zet alles wat de twee maken in een toonsoort: CHORD (standaard: alleen de akkoordtonen), AUTO (de
   toonladder van het akkoord, majeur of mineur, de akkoordtonen altijd erin), of een eigen toonladder: MAJOR, MINOR,
   DORIAN, PHRYGIAN, LYDIAN, MIXOLYDIAN, LOCRIAN, HARM MINOR, MEL MINOR, PENTA MAJOR, PENTA MINOR, BLUES, WHOLE TONE,
   HIRAJOSHI, DOUBLE HARM; of OFF. KNOB 3 ROOT: de grondtoon, AUTO (de laagste vastgehouden noot) of C .. B. PLAY op deze pagina zet ze samen aan en uit. De pagina laat de laatste tellen
@@ -302,13 +302,13 @@ verder op de nieuwe toonhoogte, net als bij Rings. Resonatoren die stil zijn rek
 de helft van de klinkende voor zijn rekening. Het scherm toont de resonator van de nieuwste noot. De DSP is de fixed-point port van
 Rings en DaisySP (Emilie Gillet, Electrosmith; MIT) die Felucca al had (`phys_dsp.c`, `phys_symp.c`).
 
-| Model (ALGORITHM) | Wat | KNOB 1 STRUCTURE | SELECT |
+| Model (ALGORITHM) | Wat | KNOB 1 STRUCT | SELECT |
 | --- | --- | --- | --- |
 | MODAL | 12 gestemde modes: klokken, staven, platen | rek van de boventonen (34 harmonisch, 70 klok, 116 staaf) | aanslagpositie |
 | SYMP STRING | een snaar met drie meeresonerende snaren | het akkoord: OCT 5TH 4TH MAJ MIN SUS 7TH OCTAVES | hoeveel ze meenemen |
 | STRING | een Karplus-Strong-snaar | onder ~32 een gebogen kam (sitar), daarboven dispersie (piano) | — |
 
-KNOB 2 BRIGHTNESS, KNOB 3 DAMPING (zoals Rings: rechtsom langer), KNOB 4 MIX (0 = uit, dan rekent er niets). Het
+KNOB 2 BRIGHT, KNOB 3 DAMPING (zoals Rings: rechtsom langer), KNOB 4 MIX (0 = uit, dan rekent er niets). Het
 scherm tekent het model als één 3D-draadmodel in vectorstijl, in het midden (dunne lijnen in perspectief, langzaam
 draaiend, de achterkant gestippeld), met linksboven een pictogram en de naam (de klok, de snaar, de sitar, de fluit,
 de zangvogel, de havik, een hoofd bij VOICE, de trompet, de viool, de klarinet of sax en de trom). Wat het model doet
@@ -350,7 +350,7 @@ worden. **SCREAM** (een doel van de modwheel en FREE EG, onderaan de lijst op de
 van de stemmen op de adem, van een vleugje tot het instrument erdoor gedreven: met het CHUA-circuit op hoge CHAOS
 blaast de chaos het instrument (de "scream" van de VL1).
 
-KNOB 2 BRIGHTNESS (mondopening/snavel/demping van de hoogte), KNOB 3 DAMPING (hoe lang de buis naklinkt), KNOB 4 MIX.
+KNOB 2 BRIGHT (mondopening/snavel/demping van de hoogte), KNOB 3 DAMPING (hoe lang de buis naklinkt), KNOB 4 MIX.
 Combineer gerust: een noise-programma als adem in de FLUTE, een noise-tik als stok op de DRUM (TIMPANI, TAIKO,
 MELODIC TOM), de ruis van een zaagtandcluster door de VOICE (CHOIR AAHS).
 
@@ -405,7 +405,7 @@ PRESETS 25 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, T
 SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP, EP TREMOLO, VIBES
 MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
 glijden),
-KNOB 3 RECTIFY (ORIGINAL, FULL-WAVE: een octaaf hoger en scherper, HALF + of HALF −), KNOB 4 MIX (hoeveel: de diepte zelf staat
+KNOB 3 RECTIFY (ORIGINAL, FULL: een octaaf hoger en scherper, HALF + of HALF −), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
 parameter VIBRATO of RING MOD (ook in de lijst van FREE EG en MOD ENV). Wiel omhoog zet die stand aan, zo
 veel als het wiel op staat (met RATE, SLEW en RECTIFY van deze pagina), ook als MOD FX hier op OFF staat; wiel omlaag: weer zoals de pagina het zegt. Het scherm tekent per stand zijn eigen beeld. Het hoort bij de preset: zo'n 130 presets hebben een eigen MOD FX
