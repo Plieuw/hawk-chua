@@ -388,6 +388,13 @@ static uint32_t env_cap;
  * tail is the reverb's, not the gate's). The built-in presets and the ENV presets keep the old scale (ENV_FRAMES'
  * index, as ATTACK and DECAY): rel_of_env takes it over, longer than ~21 ms the knob's end */
 #define REL_SPAN 48u                             /* (ENV_FRAMES[48]: the longest) */
+/* DECAY 0.5 ms .. 1 s over the whole knob (DEC_FRAMES); the presets' old scale (ENV_FRAMES' index, 10 s at the end)
+ * taken over by dec_of_env: x ln 20000 / ln 2000, longer than 1 s the knob's end */
+static inline uint8_t dec_of_env(uint32_t v)
+{
+    v = (v & 127u) * 1303u + 500u;
+    return (uint8_t)(v >= 127500u ? 127u : v / 1000u);
+}
 static inline uint8_t rel_of_env(uint32_t v)
 {
     v &= 127u;
@@ -408,7 +415,7 @@ static void env_params_r(int32_t rq)             /* rq: RING, Q8 */
         a = lo < ENV_A_MIN ? ENV_A_MIN : lo;
     }
     eg.att = ENV_MAX / ENV_FRAMES[a];
-    eg.dec = ENV_COEF[sys.decay & 127u];
+    eg.dec = DEC_COEF[sys.decay & 127u];
     eg.sus = (uint32_t)(sys.sustain & 127u) * (ENV_MAX / 127u);
     eg.rel = REL_COEF[sys.release & 127u];
     {   /* (between the table's steps: RING smoothed) */

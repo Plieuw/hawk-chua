@@ -1642,9 +1642,9 @@ int main(int argc, char **argv)
             h = *voice_of(60);
             okk &= h.vdc == 0u && h.vsu == 0u;
             a.stage = h.stage = ST_SUSTAIN; a.env = h.env = ENV_MAX;
-            for (f = 0; f < ENV_FRAMES[60]; f++) { env_frame(&a); env_frame(&h); }
+            for (f = 0; f < DEC_FRAMES[60]; f++) { env_frame(&a); env_frame(&h); }
             okk &= a.env + ENV_MAX / 10u < h.env;
-            for (f = 0; f < 20u * ENV_FRAMES[60]; f++) { env_frame(&a); env_frame(&h); }
+            for (f = 0; f < 20u * DEC_FRAMES[60]; f++) { env_frame(&a); env_frame(&h); }
             okk &= a.env + ENV_MAX / 4u < h.env && h.env > eg.sus - ENV_MAX / 100u;
             synth_kill();
         }
@@ -2232,7 +2232,7 @@ int main(int argc, char **argv)
         v.stage = ST_ATTACK;
         while (v.stage == ST_ATTACK && f < 100000u) { env_frame(&v); f++; }
         ok &= f >= ENV_FRAMES[40] - 1u && f <= ENV_FRAMES[40] + 1u;
-        for (f = 0; f < 8u * ENV_FRAMES[50]; f++) env_frame(&v);
+        for (f = 0; f < 8u * DEC_FRAMES[50]; f++) env_frame(&v);
         ok &= v.stage == ST_SUSTAIN && v.env > eg.sus - ENV_MAX / 100u && v.env < eg.sus + ENV_MAX / 100u;
         v.stage = ST_RELEASE;
         for (f = 0; f < 20u * REL_FRAMES[40] && v.stage == ST_RELEASE; f++) env_frame(&v);

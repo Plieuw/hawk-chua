@@ -816,7 +816,7 @@ int main(int argc, char **argv)
     {   /* the pages' presets: PRESETS on ENV, MOD ENV, SCL, FREE EG sets that page's knobs */
         int ok = 1;
         uint8_t pg = sys.page;
-        sys.page = 1; page_preset(1); ok &= sys.attack == ENV_PRE[0].a && sys.decay == ENV_PRE[0].d;
+        sys.page = 1; page_preset(1); ok &= sys.attack == ENV_PRE[0].a && sys.decay == dec_of_env(ENV_PRE[0].d);
         page_preset(1); ok &= sys.sustain == ENV_PRE[1].s;
         sys.page = 5; page_preset(1); page_preset(1); ok &= sys.menv_height == MENV_PRE[1].height;
         sys.page = 10; page_preset(-1); ok &= sys.basis == SCL_PRE[NPAGE_PRE(SCL_PRE) - 1].basis;

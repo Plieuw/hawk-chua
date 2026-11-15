@@ -1001,7 +1001,7 @@ static void preset_apply(uint32_t i)
     sys.shape = p->shape;
     sys.output = p->output;
     sys.attack = p->attack;
-    sys.decay = p->decay;
+    sys.decay = dec_of_env(p->decay);
     sys.sustain = p->sustain;
     sys.release = rel_of_env(p->release);
     sys.ring = p->ring;
@@ -1185,7 +1185,7 @@ static int preset_edited_(void)
                pr_mfx_of(v) != pr_mfx_bits();
     }
     return sys.chaos != p->chaos || sys.shape != p->shape || sys.output != p->output || sys.attack != p->attack ||
-           sys.decay != p->decay || sys.sustain != p->sustain || sys.release != rel_of_env(p->release) || sys.ring != p->ring ||
+           sys.decay != dec_of_env(p->decay) || sys.sustain != p->sustain || sys.release != rel_of_env(p->release) || sys.ring != p->ring ||
            sys.fx_mix != p->fx_mix || (p->fx_mix && (sys.fx_model != p->fx_model || sys.fx_struct != p->fx_struct ||
            sys.fx_bright != p->fx_bright || sys.fx_damp != p->fx_damp || sys.fx_pos != p->fx_pos)) ||
            sys.sh_mix != p->sh_mix || (p->sh_mix && (sys.sh_size != p->sh_size || sys.sh_decay != p->sh_decay ||
@@ -1293,7 +1293,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.output = (uint8_t)(s.output & 127u);
         sys.attack = (uint8_t)(s.attack & 127u);
         sys.release = s.snd >= 28u ? (uint8_t)(s.release & 127u) : rel_of_env(s.release);   /* (28: the knob's own scale) */
-        sys.decay = (uint8_t)(s.decay & 127u);
+        sys.decay = s.snd >= 29u ? (uint8_t)(s.decay & 127u) : dec_of_env(s.decay);   /* (29: the knob's own scale) */
         sys.sustain = (uint8_t)(s.sustain & 127u);
         sys.ring = (uint8_t)(s.ring & 127u);
         sys.view = V_3D;                         /* (the turning 3D picture: SELECT on HOME is the octave) */
@@ -1435,7 +1435,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 28;
+    s.snd = 29;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
@@ -1736,30 +1736,42 @@ static int ui_cstep(uint32_t c, int32_t *i, int32_t *n)
     int32_t a = -1, m = 0;
     switch (sys.page) {
     case 5u: if (c == 2u) { int32_t h = (int32_t)(sys.menv_height & 127u) * (sys.menv_height & 0x80u ? -1 : 1);
-                            a = (h + 127) / 2; } break;
+                            a = (h + 127) / 2; }
+             break;
     case 6u: if (c == 0u && !arp_ext()) { a = ((int32_t)sys.arp_bpm - 40) * 127 / 210; }
-             else if (c == 1u) { a = sys.arp_div % ARP_NDIV; m = ARP_NDIV; } break;
+             else if (c == 1u) { a = sys.arp_div % ARP_NDIV; m = ARP_NDIV; }
+             break;
     case 7u: if (c == 0u) { a = sys.midi_rx; m = 17; } else if (c == 1u) { a = sys.midi_usb & 3u; m = 4; }
-             else if (c == 2u) { a = sys.ch_b; m = 17; } else { a = sys.midi_tx & 15u; m = 16; } break;
+             else if (c == 2u) { a = sys.ch_b; m = 17; } else { a = sys.midi_tx & 15u; m = 16; }
+             break;
     case 8u: if (c == 1u) { a = sys.feg_len % FEG_NLEN; m = FEG_NLEN; }
-             else if (c == 3u) { a = sys.feg_target % FEG_NT; m = FEG_NT; } break;
-    case 11u: if (c == 0u) { a = sys.mw_target % FEG_NT; m = FEG_NT; } else if (c == 2u) { a = sys.vel_to % VEL_TO_N; m = (int32_t)VEL_TO_N; } break;
+             else if (c == 3u) { a = sys.feg_target % FEG_NT; m = FEG_NT; }
+             break;
+    case 11u: if (c == 0u) { a = sys.mw_target % FEG_NT; m = FEG_NT; } else if (c == 2u) { a = sys.vel_to % VEL_TO_N; m = (int32_t)VEL_TO_N; }
+             break;
     case 13u: if (c == 0u && !arp_ext()) { a = ((int32_t)sys.arp_bpm - 40) * 127 / 210; }
               else if (c == 1u) { a = sys.tape_spd % TAPE_NSPD; m = TAPE_NSPD; }
-              else if (c == 2u) { a = sys.tape_len % 5u; m = 5; } break;
+              else if (c == 2u) { a = sys.tape_len % 5u; m = 5; }
+             break;
     case 14u: if (c == 0u) { a = (int32_t)(sys.preset >> 7) % NBANKS; m = NBANKS; }
               else if (c == 1u) { a = sys.multi ? sys.ch_b + 1 : 0; m = 18; }
               else if (c == 2u) { a = sys.multi && part_edit; m = 2; }
-              else { a = !part_mono[sys.multi ? part_edit : 0u]; m = 2; } break;
+              else { a = !part_mono[sys.multi ? part_edit : 0u]; m = 2; }
+             break;
     case 15u: if (c == 0u) { a = sys.multi != 0; m = 2; } else if (c == 1u) { a = sys.ch_b; m = 17; }
               else if (c == 2u) { a = (int32_t)(part_preset(1) >> 7) % NBANKS; m = NBANKS; }
-              else { a = (int32_t)(part_preset(1) & 127u); } break;
-    case 16u: if (c == 1u) { a = sys.lvl_match != 0; m = 2; } else if (c == 2u) { a = sys.bend_range; m = 13; } break;
+              else { a = (int32_t)(part_preset(1) & 127u); }
+             break;
+    case 16u: if (c == 1u) { a = sys.lvl_match != 0; m = 2; } else if (c == 2u) { a = sys.bend_range; m = 13; }
+             break;
     case 17u: if (c == 0u) { a = sys.k_logic % 7u; m = 7; } else if (c == 1u) { a = sys.k_lq % LQ_N; m = (int32_t)LQ_N; }
-              else if (c == 2u) { a = sys.k_root % 13u; m = 13; } else { a = sys.k_inv != 0; m = 2; } break;
+              else if (c == 2u) { a = sys.k_root % 13u; m = 13; } else { a = sys.k_inv != 0; m = 2; }
+             break;
     case 18u: if (c == 0u) { a = (int32_t)arp_vlen() - 1; m = 8; } else if (c == 2u) { a = (int32_t)arp_glen() - 1; m = 8; }
-              else if (c == 3u) { a = sys.arp_gp % ARP_NGP; m = (int32_t)ARP_NGP; } break;
-    case 19u: if (c == 0u) { a = sys.ui_style % US_COUNT; m = US_COUNT; } break;
+              else if (c == 3u) { a = sys.arp_gp % ARP_NGP; m = (int32_t)ARP_NGP; }
+             break;
+    case 19u: if (c == 0u) { a = sys.ui_style % US_COUNT; m = US_COUNT; }
+             break;
     default: break;
     }
     if (a < 0)
@@ -3311,7 +3323,7 @@ static void ui_draw(void)
     } else {
         env_time(b, sizeof b, sys.attack);
         ui_cell(T_C1, "1 ATTACK", b);
-        env_time(b, sizeof b, sys.decay);
+        env_time_f(b, sizeof b, DEC_FRAMES[sys.decay & 127u]);
         ui_cell(T_C2, "2 DECAY", b);
         fmt_int(v, (int32_t)(sys.sustain * 100u / 127u));
         str_cpy(b, v, sizeof b);
@@ -3888,7 +3900,7 @@ static void page_preset(int32_t s)
         const env_pre_t *e;
         pe = (uint8_t)(pe == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(ENV_PRE) - 1) : (pe + NPAGE_PRE(ENV_PRE) * 8 + s) % NPAGE_PRE(ENV_PRE));
         e = &ENV_PRE[pe];
-        sys.attack = e->a; sys.decay = e->d; sys.sustain = e->s; sys.release = rel_of_env(e->r);
+        sys.attack = e->a; sys.decay = dec_of_env(e->d); sys.sustain = e->s; sys.release = rel_of_env(e->r);
         str_cpy(t, "ENV: ", sizeof t);
         nm = e->name;
     } else if (sys.page == 5u) {

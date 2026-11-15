@@ -7,6 +7,8 @@
   ENV_COEF[v]     the one-pole coefficient that falls to 1/e in that time (Q24): decay
   REL_FRAMES[v]   v = 0..127: RELEASE, 0.5 .. ~21 ms (ENV_FRAMES' first 48 steps spread over the whole knob)
   REL_COEF[v]     its coefficient (Q24)
+  DEC_FRAMES[v]   v = 0..127: DECAY, 0.5 ms .. 1 s (exponential over the whole knob)
+  DEC_COEF[v]     its coefficient (Q24)
   LPG_G[i]        i = 0..255 the gate's control: tan(pi fc / FS), fc 25 Hz .. 15 kHz exponential (Q24)
   LPG_K[v]        v = 0..127 RING: the filter's damping k = 1/Q, 2 (no ring) .. 1/6 (Q 6) (Q24)
   LPG_COMP[v]     the level the resonance adds, taken back out (Q12): measured on the circuit's output"""
@@ -27,6 +29,13 @@ REL_SPAN = 48                                     # RELEASE: ENV_FRAMES' 0 .. 48
 
 def rel_frames(v):
     return max(1, round(T0 * (T1 / T0) ** (v * REL_SPAN / 127 / 127) * FS))
+
+
+DEC_T1 = 1.0                                      # DECAY: 0.5 ms .. 1 s over the knob
+
+
+def dec_frames(v):
+    return max(1, round(T0 * (DEC_T1 / T0) ** (v / 127) * FS))
 
 
 def k_of(v):
@@ -54,6 +63,8 @@ def main():
     print(row("ENV_COEF", "uint32_t", [round((1 - math.exp(-1 / frames(v))) * (1 << 24)) for v in range(128)]))
     print(row("REL_FRAMES", "uint32_t", [rel_frames(v) for v in range(128)]))
     print(row("REL_COEF", "uint32_t", [round((1 - math.exp(-1 / rel_frames(v))) * (1 << 24)) for v in range(128)]))
+    print(row("DEC_FRAMES", "uint32_t", [dec_frames(v) for v in range(128)]))
+    print(row("DEC_COEF", "uint32_t", [round((1 - math.exp(-1 / dec_frames(v))) * (1 << 24)) for v in range(128)]))
     print(row("LPG_G", "uint32_t",
               [round(math.tan(math.pi * F0 * (F1 / F0) ** (i / 255) / FS) * (1 << 24)) for i in range(256)]))
     print(row("LPG_K", "uint32_t", [round(k_of(v) * (1 << 24)) for v in range(128)]))
