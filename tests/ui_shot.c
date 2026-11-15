@@ -825,25 +825,25 @@ int main(int argc, char **argv)
         sys.feg_on = 0; sys.page = pg;
         if (!ok) { printf("page presets FAIL\n"); bad = 1; }
     }
-    {   /* AUTO SAVE: a change kept 3 s after it, once all is quiet; not while the ARP plays */
+    {   /* AUTO SAVE: a change kept 30 s after it, once all is quiet for 30 s; not while the ARP plays */
         settings_t st;
         uint32_t i;
         int ok = 1;
         sys.arp_on = 0; sys.k_on = 0; arp.n = 0;
         for (i = 0; i < 20u; i++) { run_ms(40); ui_input(); }   /* (the state as it is now: saved) */
         sys.decay = 33;
-        for (i = 0; i < 25u; i++) { run_ms(40); ui_input(); }   /* (1 s: not yet) */
+        for (i = 0; i < 500u; i++) { run_ms(40); ui_input(); }  /* (20 s: not yet) */
         st_load(OBJ_SETTINGS, &st, sizeof st);
         ok &= st.decay != 33u;
-        for (i = 0; i < 125u; i++) { run_ms(40); ui_input(); }  /* (6 s: kept) */
+        for (i = 0; i < 300u; i++) { run_ms(40); ui_input(); }  /* (32 s: kept) */
         st_load(OBJ_SETTINGS, &st, sizeof st);
         ok &= st.decay == 33u;
         sys.arp_on = 1; arp.n = 1; sys.decay = 44;
-        for (i = 0; i < 150u; i++) { run_ms(40); ui_input(); }  /* (the ARP playing: never) */
+        for (i = 0; i < 900u; i++) { run_ms(40); ui_input(); }  /* (the ARP playing: never) */
         st_load(OBJ_SETTINGS, &st, sizeof st);
         ok &= st.decay == 33u;
         arp.n = 0; sys.arp_on = 0;
-        for (i = 0; i < 150u; i++) { run_ms(40); ui_input(); }  /* (stopped: kept) */
+        for (i = 0; i < 800u; i++) { run_ms(40); ui_input(); }  /* (stopped, 32 s: kept) */
         st_load(OBJ_SETTINGS, &st, sizeof st);
         ok &= st.decay == 44u;
         if (!ok) { printf("auto save FAIL (%u)\n", st.decay); bad = 1; }

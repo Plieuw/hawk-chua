@@ -3815,10 +3815,10 @@ static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
 static int8_t oct_was;                           /* the octave before the OCTs went down (BOUNCE gives it back) */
 static uint8_t oct_both;                         /* OCT- and OCT+ both held: 1, 2 (a BOUNCE made) */
 static uint8_t play_last;                        /* PLAY outside the ARP / KARMA pages: 0 the ARP, 1 KARMA (the last opened) */
-/* AUTO SAVE: the state kept, so switching the FM-1 off (its switch: no warning) loses nothing: 3 s after the last
+/* AUTO SAVE: the state kept, so switching the FM-1 off (its switch: no warning) loses little: 30 s after the last
  * change the settings saved (the preset, the knobs, the pages' settings; power-on applies its own rules on them as
  * ever: PLAY off ...). The flash write stops the CPU for a moment (a hiccup in the sound, the LEDs flashing): only
- * once all is quiet, the ARP, KARMA and the TAPE not playing and no note started for 2 s */
+ * once all is quiet, the ARP, KARMA and the TAPE not playing and no note started for 30 s: seldom in a session */
 static void preset_keep(void)
 {
     static settings_t seen;
@@ -3848,7 +3848,8 @@ static void preset_keep(void)
         seen = now;
         since = fm1_ms;
     }
-    if (fm1_ms - since > 3000u && fm1_ms - ons_t > 2000u)
+    if (fm1_ms - since > 30000u && fm1_ms - ons_t > 30000u)   /* (30 s without a change and without playing:
+                                                               * seldom in the middle of a session) */
         settings_save();
 }
 /* the pages' own presets (PRESETS on ENV, MOD ENV, FREE EG, SCL): starting points for that page's knobs only */
