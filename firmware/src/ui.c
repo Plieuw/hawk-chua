@@ -1703,11 +1703,13 @@ static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, i
                     cv_pblend(ox + x, oy + y, i * 127 / (n - 1) == v ? on : dim, KN_TRACK[k] + 1u);
             } else if (KN_TRACK[k] && u <= vu)   /* the outer ring: the knob's position (nothing past it) */
                 cv_pblend(ox + x, oy + y, on, KN_TRACK[k] + 1u);
-            if (KN_TRACK[k] && cur >= 0 && u >= lu && u <= hu)   /* the modulation's depth: its range over the ring,
-                                                                    * half see-through */
-                cv_pblend(ox + x, oy + y, mc, (KN_TRACK[k] + 1u) * 5u / 8u);
-            if (KN_RING[k] && cur >= 0 && u >= cu - 5 && u <= cu + 5)   /* inside it: where it is now */
-                cv_pblend(ox + x, oy + y, T_TEXT, KN_RING[k] + 1u);
+            if (KN_RING[k] && cur >= 0) {        /* the inner ring: the modulation's offset from the knob's place
+                                                  * (its depth, either way), where it is now lit */
+                if (u >= cu - 5 && u <= cu + 5)
+                    cv_pblend(ox + x, oy + y, T_TEXT, KN_RING[k] + 1u);
+                else if (u >= (lu < vu ? lu : vu) && u <= (hu > vu ? hu : vu))
+                    cv_pblend(ox + x, oy + y, mc, KN_RING[k] + 1u);
+            }
         }
     if (v >= 0) {                                /* the pointer (the knob itself see-through) */
         const int16_t *q = KN_PTR[v & 127];
