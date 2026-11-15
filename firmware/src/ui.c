@@ -1688,7 +1688,7 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
  * modulation, sweeping lo..hi, now at cur. From the tile's tables (knob_tables.h, anti-aliased) */
 static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur, uint16_t on, int32_t n)
 {
-    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0x3D9Fu, 80), ml = ux_mix(mc, 0xFFFFu, 60);
+    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0xFB56u, 85), ml = ux_mix(mc, 0xFFFFu, 50);   /* (the modulation: pink) */
     int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, cu = cur * 2, x, y;
     uint32_t k = 0;
     for (y = 0; y < KN_W; y++)
