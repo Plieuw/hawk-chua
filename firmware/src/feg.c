@@ -9,9 +9,9 @@
  *                 SELECT PLAY on / off; REC (on the page) records: from the start of a cycle, for one length
  *                 (NOTE: until REC again, or full), the target following the knob while it records
  *
- * The recording: 128 points over the length. Playing, the target is driven (base + (curve - base) x DEPTH, base its
- * value when PLAY went on, given back when it goes off or the target changes): its own knob (and FREE EG's VALUE)
- * moves the base meanwhile (ui.c knob_at).
+ * The recording: 128 points over the length, an offset from where the knob was when it began (ref). Playing, the
+ * target is driven (base + (curve - ref) x DEPTH, base its value when PLAY went on, given back when it goes off or
+ * the target changes): its own knob (and FREE EG's VALUE) moves the base meanwhile (ui.c knob_at), the swing with it.
  * The targets include KARMA's four realtime controls (KARMA K1..K4): its DENSITY or REPEAT moved over the phrase.
  *
  *   feg_block(n)   keys.c, the audio ISR, after the arpeggiator: once a block */
@@ -94,6 +94,8 @@ static struct {
     uint32_t last_idx;                           /* recording: the last point written */
     uint8_t rec;                                 /* recording */
     uint8_t playing, target, base;               /* driving: which parameter, its value before */
+    uint8_t ref;                                 /* the curve's zero: the knob's place it was made from (the swing is
+                                                  * curve - ref, an offset round the knob, base) */
     volatile uint8_t pos;                        /* the play head, 0..127 (the screen); 255: none */
 } feg = {.pos = 255};
 
@@ -113,6 +115,7 @@ static void feg_record(int on)                   /* REC: start (from the cycle's
 {
     if (on) {
         feg_release();
+        feg.ref = (uint8_t)(sys.feg_val & 127u);   /* (from where the knob is: the recording an offset from it) */
         feg.rec = 1;
         feg.t = 0;
         feg.clk0 = arp.clk;
@@ -125,6 +128,7 @@ static void feg_record(int on)                   /* REC: start (from the cycle's
             for (uint32_t i = feg.last_idx + 1u; i < FEG_N; i++)
                 feg.curve[i] = feg.curve[feg.last_idx];
         sys.feg_has = 1;
+        *feg_field(sys.feg_target) = feg.ref;   /* (the knob back where the recording began: its zero) */
     }
 }
 
@@ -259,7 +263,7 @@ static void feg_block(uint32_t n, uint32_t note_ons)
             int32_t d = (int32_t)(sys.feg_depth & 127u), md = (int32_t)(sys.mw_depth & 127u);
             if (md && sys.mw_seen && sys.mw_target % FEG_NT == feg.target)
                 d = d * (int32_t)(sys.mw & 127u) * md / (127 * 127);
-            v = feg.base + (v - feg.base) * d / 127;
+            v = feg.base + (v - feg.ref) * d / 127;
         }
         f = feg_field(feg.target);
         *f = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);

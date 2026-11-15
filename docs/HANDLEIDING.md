@@ -205,9 +205,10 @@ contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de wa
 | FM X1/2 .. X4 | dezelfde lus als frequentiemodulatie van de oscillator (CHUA: de stapgrootte, NOISE: de filters), 1/2 tot 4 keer de noot: zijbanden op de harmonischen, de toonhoogte blijft de noot; DEPTH tot ~110 blijft tonaal (van zacht naar metaalachtig), daarboven slaat het om naar ruis |
 
 STEPS en BARS lopen op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de lus opnieuw);
-de opname begint aan het begin van een lus en stopt vanzelf na één lengte. DEPTH 127 speelt de opname precies af, lager
-schaalt hij rond de stand van de knop van die parameter. Die knop blijft werken terwijl hij speelt (de ring eromheen
-toont het bereik), en VALUE (KNOB 1) staat altijd op dezelfde stand: draaien aan de een is draaien aan de ander.
+de opname begint aan het begin van een lus en stopt vanzelf na één lengte. De opname is een
+verschuiving ten opzichte van waar de knop stond toen je begon op te nemen: hij speelt rond de stand van de knop van
+die parameter, DEPTH 127 zo ver als opgenomen, lager minder. Draai je die knop (of VALUE, KNOB 1, die altijd op
+dezelfde stand staat) terwijl hij speelt, dan schuift de hele beweging mee; de ring om de knop toont het bereik.
 
 **KARMA (SEQ).** Een frasegenerator naar KARMA van Korg (Kay Algorithmic Realtime Music Architecture, Stephen
 Kay; de KARMA Basic Guide). De noten die je vasthoudt klinken niet zelf: een *Generated Effect* (GE) maakt er een

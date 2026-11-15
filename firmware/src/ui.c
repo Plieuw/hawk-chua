@@ -1171,7 +1171,6 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
 {
     const pre_eg_t *g = &PRE_EG[e % EG_COUNT];
     uint32_t k, j;
-    int32_t base;
     if (!e || e >= EG_COUNT) {
         if (eg_from_preset) {                    /* (the last preset's contour off: not this one's) */
             sys.feg_has = 0;
@@ -1181,7 +1180,6 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
         sys.feg_on = was_on;
         return;
     }
-    base = *feg_field(g->target);
     for (k = 0; k < FEG_N; k++) {                /* the points, the offsets between them straight */
         int32_t v = g->p[g->n - 1u][1];
         for (j = 0; j + 1u < g->n; j++)
@@ -1190,9 +1188,10 @@ static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the pres
                 v = g->p[j][1] + (g->p[j + 1u][1] - g->p[j][1]) * ((int32_t)k - t0) / (t1 - t0);
                 break;
             }
-        v += base;
+        v += 64;                                 /* (offsets round 64, its zero: round the knob as it plays) */
         feg.curve[k] = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
     }
+    feg.ref = 64;
     sys.feg_npts = (uint8_t)(g->p[g->n - 1u][0] + 1);
     sys.feg_target = g->target;
     sys.feg_depth = 127;
@@ -1372,6 +1371,7 @@ typedef struct {
     uint8_t tune432;                             /* (26: saved; before: A 440) */
     uint8_t mono;                                /* (27: saved, bit 0 A MONO, bit 1 B; before: POLY) */
     uint8_t analog;                              /* (30: saved; before: INITIAL) */
+    uint8_t feg_ref;                             /* (31: FREE EG's curve's zero; before: its middle) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1475,8 +1475,15 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.feg_on = (uint8_t)(s.feg_on != 0);
         sys.feg_has = (uint8_t)(s.feg_has != 0);
         sys.feg_npts = (uint8_t)(s.feg_npts & 127u);
-        for (uint32_t i = 0; i < FEG_N; i++)
-            feg.curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
+        {
+            uint32_t i, lo = 127, hi = 0;
+            for (i = 0; i < FEG_N; i++) {
+                feg.curve[i] = (uint8_t)(s.feg_curve[i] & 127u);
+                lo = feg.curve[i] < lo ? feg.curve[i] : lo;
+                hi = feg.curve[i] > hi ? feg.curve[i] : hi;
+            }
+            feg.ref = (uint8_t)(s.snd >= 31u ? s.feg_ref & 127u : (lo + hi + 1u) / 2u);
+        }
         sys.k_on = 0;
         sys.k_ge = (uint8_t)(s.k_ge % KGE_N);
         sys.k_latch = (uint8_t)(s.k_latch != 0);
@@ -1570,7 +1577,7 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 30;
+    s.snd = 31;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
@@ -1650,6 +1657,7 @@ static void settings_fill_now(settings_t *sp)
     s.feg_on = sys.feg_on;
     s.feg_has = sys.feg_has;
     s.feg_npts = sys.feg_npts;
+    s.feg_ref = feg.ref;
     memcpy(s.feg_curve, feg.curve, sizeof s.feg_curve);
     s.k_on = sys.k_on;
     s.k_ge = sys.k_ge;
@@ -1795,8 +1803,8 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
             cmax = feg.curve[k] > cmax ? feg.curve[k] : cmax;
         }
         *base = feg.base;
-        a = feg.base + (cmin - feg.base) * d / 127;
-        b = feg.base + (cmax - feg.base) * d / 127;
+        a = feg.base + (cmin - feg.ref) * d / 127;   /* (as feg.c: an offset round the knob) */
+        b = feg.base + (cmax - feg.ref) * d / 127;
     } else if (mwd.on && feg_field(mwd.target) == p) {
         *base = mwd.base;
         a = mwd.base;
@@ -4094,6 +4102,7 @@ static void page_preset(int32_t s)
                 for (k = 0; k < FEG_N; k++)
                     feg.curve[k] = c[k];
                 sys.feg_npts = 127;
+                feg.ref = (uint8_t)((f->lo + f->hi + 1) / 2);   /* (its swing round the knob) */
                 sys.feg_len = f->len;
                 sys.feg_target = f->target;
                 sys.feg_depth = 127;

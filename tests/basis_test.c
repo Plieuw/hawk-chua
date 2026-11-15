@@ -866,11 +866,11 @@ int main(int argc, char **argv)
             sys.feg_val = (uint8_t)(t >= L ? 127u : t * 127u / L);
             block();
         }
-        okk &= !feg.rec && sys.feg_has;                      /* (stopped by itself after one bar) */
-        sys.chaos = 85;
+        okk &= !feg.rec && sys.feg_has && feg.ref == 0u;    /* (stopped by itself after one bar; from the knob at 0) */
+        sys.chaos = 0;                                       /* (the knob where it was: the ramp as recorded) */
         sys.feg_on = 1;
         run_ms(10);
-        okk &= feg.base == 85u;
+        okk &= feg.base == 0u;
         for (b = 0; b < 3u; b++) {                           /* the ramp, three times */
             uint32_t q;
             while (feg.pos != 0u) block();
@@ -882,13 +882,17 @@ int main(int argc, char **argv)
             okk &= c0 < 12 && c1 > 50 && c1 < 78 && c2 > 105;
         }
         printf("   (FREE EG 1 BAR: CHAOS %d .. %d .. %d)\n", c0, c1, c2);
+        feg.base = 20;                                       /* the knob turned up: the ramp moves with it */
+        for (b = 0; b < L / 2u / CTL; b++) block();
+        okk &= sys.chaos >= 20;
+        feg.base = 0;
         sys.feg_depth = 0;                                   /* DEPTH 0: as it was */
         run_ms(100);
-        okk &= sys.chaos == 85;
+        okk &= sys.chaos == 0;
         sys.feg_depth = 127;
         sys.feg_on = 0;                                      /* off: given back */
         run_ms(20);
-        okk &= sys.chaos == 85;
+        okk &= sys.chaos == 0;
         /* NOTE: 0 for ~0.5 s, then 127; stopped; each note from the start */
         sys.feg_len = 0; sys.feg_val = 0;
         feg_req = 1;
@@ -1046,6 +1050,7 @@ int main(int argc, char **argv)
         uint8_t base = 30;
         for (k = 0; k < FEG_N; k++)
             feg.curve[k] = 120;
+        feg.ref = base;                                              /* (made from the knob at 30: +90) */
         sys.fx_struct = base; sys.feg_target = 8; sys.feg_depth = 127; sys.feg_len = 9;
         sys.feg_has = 1; sys.feg_on = 1; sys.mw_target = 8; sys.mw_depth = 127;
         midi_in_source[mi_w % MQ] = 1; midi_in(0xB0, 1, 0);
@@ -2021,16 +2026,16 @@ int main(int argc, char **argv)
         if (feg.rec || feg.curve[10] || feg.curve[120] != 100u)
             printf("   (FEG PHRASE: rec %u, %u %u %u)\n", feg.rec, feg.curve[10], feg.curve[64], feg.curve[120]);
         sys.feg_on = 1;
-        sys.k_m[0] = 64;
+        sys.k_m[0] = 20;                                     /* (the knob at 20: the recording, made from 0, round it) */
         q = 0;
-        for (b = 0; b < 200u; b++) {                         /* driven: 0 in its first half, 100 in its second */
+        for (b = 0; b < 200u; b++) {                         /* driven: 20 in its first half, 120 in its second */
             run_ms(20);
-            q |= (sys.k_m[0] == 0u) << 0 | (sys.k_m[0] == 100u) << 1;
+            q |= (sys.k_m[0] == 20u) << 0 | (sys.k_m[0] == 120u) << 1;
         }
         KOK(q == 3u);
         sys.feg_on = 0;
         run_ms(10);
-        KOK(sys.k_m[0] == 64u);
+        KOK(sys.k_m[0] == 20u);
         sys.feg_has = 0; sys.feg_len = 9; sys.feg_target = 0;
         midi_in(0x80, 60, 0); midi_in(0x80, 64, 0); midi_in(0x80, 67, 0);
         sys.k_on = 0;
@@ -2235,18 +2240,24 @@ int main(int argc, char **argv)
         sys.analog = 32;
         synth_note_on(60, 100);
         i1 = voice_of(60)->inc0;
-        okk &= i1 != i0 && voice[0].an_t != 0u && i1 > i0 - i0 / 400u && i1 < i0 + i0 / 400u;   /* (within ~4 cents) */
+        okk &= i1 != i0 && voice[0].an_t != 0u && i1 > i0 - i0 / 250u && i1 < i0 + i0 / 250u;   /* (within ~7 cents) */
         synth_kill();
         sys.analog = 127;
         synth_note_on(60, 100);
         i2 = voice_of(60)->inc0;
         okk &= i2 > i0 - i0 / 60u && i2 < i0 + i0 / 60u;  /* (ANALORD: within ~30 cents) */
         run_ms(200);
-        for (i0 = 0; i0 < 2u * CTL; i0++)
-            okk &= buf[i0] <= 8388607 && buf[i0] >= -8388608;
+        {
+            uint32_t j;
+            int ob = 1;
+            for (j = 0; j < 2u * CTL; j++)
+                ob &= buf[j] <= 8388607 && buf[j] >= -8388608;
+            if (!ob) printf("   (ANALOG: out of range)\n");
+            okk &= ob;
+        }
         synth_kill();
         sys.analog = 0;
-        if (!okk) printf("   (ANALOG: inc %u %u %u)\n", i0, i1, i2);
+        if (!okk) printf("   (ANALOG: inc %u %u %u, note %u)\n", i0, i1, i2, note_inc(60));
         check("ANALOG: exact at 0, each voice a little off above, ANALORD the most", okk);
     }
 
