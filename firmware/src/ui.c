@@ -26,6 +26,9 @@
  *            SELECT the TONE; the tail's level over the last seconds drawn (the undertow building)
  *   SELECT   HOME: the view (3D turning, X-Y, X-Z, Y-Z, TIME)
  * Each parameter lives in one place: RING on HOME (KNOB 4), the oscillator on HOME (ALGORITHM).
+ * The three encoders, on every page alike: ALGORITHM the kind (the oscillator, the FX model, the space, the MOD FX
+ * mode, the pattern, the GE, the LOGIC, the UI style), PRESETS presets (the page's own, else the sound's), SELECT
+ * the page's one extra (the octave, the POSITION, the TONE, LATCH, PLAY, the CLOCK, on what, the tuning).
  *   PRESETS the presets
  *   PLAY     starts / stops the ARP or KARMA (on their pages that one; elsewhere the last of them opened; lit while
  *            one runs)
@@ -35,7 +38,7 @@
  *            KNOB 3 DEPTH, KNOB 4 the TARGET; SELECT PLAY; REC again there: record (NOTE: REC once more to stop)
  *   SEQ      the KARMA page (karma.c; again: back HOME; PLAY starts it, its LED lit while on): ALGORITHM the GE (the phrase
  *            generator), KNOB 1..4 its four realtime controls (named per GE: DENSITY, RANGE, REPEAT ...), SELECT LATCH,
- *            PRESETS the tempo (the ARP page's BPM: one for all)
+ *            PRESETS its presets
  *   EDIT     the EDIT page (again: back HOME): KNOB 1 the MOD WHEEL's parameter (MIDI CC 1; FREE EG's list), KNOB 2
  *            its DEPTH (FREE EG playing the same one: the wheel sets FREE EG's depth), KNOB 3 VELOCITY on the sound (OFF, BRIGHT, SWEEP, BOTH), KNOB 4 how much; MIDI program change
  *            loads the preset (program 1 the first)
@@ -45,7 +48,7 @@
  *            one pass on the armed track (PLAY held: erase it), PLAY the transport, SELECT its two menus: TAPE (KNOB
  *            1..4: a blank track's knob arms it, a recorded one's is its level; ALGORITHM arms a recorded one) and
  *            SPEED (KNOB 1 the global BPM, KNOB 2 the SPEED in the harmonic series' ratios, 1/2 .. 2/1, each a
- *            chromatic step, the BPM following; KNOB 3 the LENGTH, 1 .. 16 beats; KNOB 4 the pitch); PRESETS the BPM
+ *            chromatic step, the BPM following; KNOB 3 the LENGTH, 1 .. 16 beats; KNOB 4 the pitch)
  *   LFO      the FREE EG page (again: back HOME); REC records there
  *   OCT- / OCT+  octave -3..+3               SAVE       the settings into flash (restored at power-on)
  *   GLO      the MIDI page (again: back HOME): KNOB 1 TRS IN on / off, KNOB 2 USB (OFF, IN, OUT, IN+OUT), KNOB 3 the
@@ -2571,8 +2574,8 @@ static void draw_style(void)
     cv_text(8, 26, &AF_M, US_NAME[st], T_THEME);
     cv_text(9, 59, &AF_S, US_WHAT[st], T_BG);
     cv_text(8, 58, &AF_S, US_WHAT[st], T_TEXT);
-    cv_text(9, 99, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_BG);
-    cv_text(8, 98, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_TEXT);
+    cv_text(9, 99, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (SELECT)" : "TUNING A = 440 HZ (SELECT)", T_BG);
+    cv_text(8, 98, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (SELECT)" : "TUNING A = 440 HZ (SELECT)", T_TEXT);
     cv_blit(0, PLOT_Y);
 }
 static void draw_midi(void)
@@ -2609,7 +2612,8 @@ static void draw_midi(void)
     cv_text(48, y, &AF_S, a, T_MID);
     y += 24;
     cv_text(8, y, &AF_S, sys.clk_int ? "CLOCK  INTERNAL (SELECT)" : arp_ext_alive() ? "CLOCK  EXTERNAL: MIDI IN" : "CLOCK  EXTERNAL: WAITING", T_DIM);
-    cv_text(8, y + 17, &AF_S, sys.autoplay ? "AUTOPLAY  ON (PRESETS): START PLAYS" : "AUTOPLAY  OFF (PRESETS)", T_DIM);
+    if (!sys.clk_int)
+        cv_text(8, y + 17, &AF_S, sys.autoplay ? "AUTOPLAY: START PLAYS (SELECT)" : "AUTOPLAY OFF (SELECT)", T_DIM);
     cv_blit(0, PLOT_Y);
 }
 
@@ -3277,8 +3281,7 @@ static void ui_draw(void)
             str_cpy(a, feg.rec ? "FREE EG   RECORDING: TURN KNOB 1" : !sys.feg_has ? "FREE EG   REC: RECORD" :
                     sys.feg_on ? "FREE EG   PLAYING" : "FREE EG   SELECT: PLAY", sizeof a);
         } else if (sys.page == 7u) {             /* MIDI: the CLOCK (SELECT) */
-            str_cpy(a, sys.clk_int ? "CLOCK INT" : "CLOCK EXT", sizeof a);
-            ui_cat(a, sizeof a, sys.autoplay ? "  AUTOPLAY ON" : "  AUTOPLAY OFF");
+            str_cpy(a, sys.clk_int ? "CLOCK INT" : sys.autoplay ? "CLOCK EXT  AUTOPLAY" : "CLOCK EXT", sizeof a);
         } else if (sys.page == 12u || sys.page == 13u) {   /* TAPE: the transport, the LENGTH, the speed */
             static const char *const LN[5] = {"1 BEAT", "2 BEATS", "1 BAR", "2 BARS", "4 BARS"};
             uint32_t sp = (tape.speed * 100u + 2048u) / 4096u;
@@ -4161,8 +4164,8 @@ static void ui_input(void)
             sys.arp_glen = 0;
             ui_hot = 3; ui_hot_ms = fm1_ms;
         }
-    } else if (sys.page == 17u) {               /* LOGIC */
-        if ((s = ui_enc(EN_K1)) != 0) {
+    } else if (sys.page == 17u) {               /* LOGIC (ALGORITHM: the mode too) */
+        if ((s = ui_enc(EN_K1) + ui_enc(EN_ALGO)) != 0) {
             static const char *const LG[7] = {"LOGIC OFF: ONE OR THE OTHER", "LOGIC OR: BOTH", "LOGIC AND: WHERE BOTH HIT",
                                               "LOGIC XOR: WHERE ONE HITS", "LOGIC NOR: THE GAPS", "LOGIC ALT: IN TURN",
                                               "LOGIC S/R: ARP SETS"};
@@ -4187,8 +4190,8 @@ static void ui_input(void)
             sys.k_inv = (uint8_t)(s > 0);
             ui_say(sys.k_inv ? "INVERSE ON" : "INVERSE OFF");
         }
-    } else if (sys.page == 19u) {               /* UI STYLE */
-        if ((s = ui_enc(EN_K1)) != 0) {
+    } else if (sys.page == 19u) {               /* UI STYLE (ALGORITHM: the style too, as everywhere the kind) */
+        if ((s = ui_enc(EN_K1) + ui_enc(EN_ALGO)) != 0) {
             sys.ui_style = (uint8_t)((sys.ui_style + (s > 0 ? 1u : US_COUNT - 1u)) % US_COUNT);
             style_apply();
             ui_hot = 0; ui_hot_ms = fm1_ms;
@@ -4360,10 +4363,19 @@ static void ui_input(void)
     } else if (s && sys.page == 8u) {           /* FREE EG: PLAY (right on, left off) */
         sys.feg_on = (uint8_t)(s > 0);
         ui_say(sys.feg_on ? (sys.feg_has ? "PLAY ON" : "NOTHING RECORDED") : "PLAY OFF");
-    } else if (s && sys.page == 7u) {           /* MIDI: the CLOCK: EXTERNAL (the tempo follows MIDI clock when it
-                                                 * comes) or INTERNAL (the BPM always) */
-        sys.clk_int = (uint8_t)(s < 0);
-        ui_say(sys.clk_int ? "CLOCK INTERNAL" : "CLOCK EXTERNAL");
+    } else if (s && sys.page == 7u) {           /* MIDI: the CLOCK: INTERNAL (the BPM always), EXTERNAL (the tempo
+                                                 * follows MIDI clock when it comes), EXTERNAL + AUTOPLAY (its START
+                                                 * and STOP play and stop too) */
+        int32_t c = sys.clk_int ? 0 : sys.autoplay ? 2 : 1;
+        c = clamp(c + (s > 0 ? 1 : -1), 0, 2);
+        sys.clk_int = (uint8_t)(c == 0);
+        if (c)
+            sys.autoplay = (uint8_t)(c == 2);
+        ui_say(c == 0 ? "CLOCK INTERNAL" : c == 1 ? "CLOCK EXTERNAL" : "CLOCK EXTERNAL + AUTOPLAY");
+    } else if (s && sys.page == 19u) {          /* UI STYLE: the tuning, A 440 (left) or A 432 (right) */
+        sys.tune432 = (uint8_t)(s > 0);
+        ui_say(sys.tune432 ? "TUNING A = 432 HZ" : "TUNING A = 440 HZ");
+        ui_force = 1;
     } else if (s && sys.page == 5u) {           /* MOD ENV: on what (the pitch, an oscillator's or an FX's parameter) */
         uint8_t tl[20];
         const char *nm[20];
@@ -4408,10 +4420,6 @@ static void ui_input(void)
         ui_cat(t, sizeof t, " ");
         ui_cat(t, sizeof t, sh_iv_name(sys.sh_space, sys.sh_interval));
         ui_say(t);
-    } else if (s && sys.page == 19u) {          /* UI STYLE: the tuning, A 440 (left) or A 432 (right) */
-        sys.tune432 = (uint8_t)(s > 0);
-        ui_say(sys.tune432 ? "TUNING A = 432 HZ" : "TUNING A = 440 HZ");
-        ui_force = 1;
     } else if (s && sys.page == 20u) {          /* MOD FX: the mode (OFF, VIBRATO, RING MOD, TREMOLO) */
         sys.mfx_mode = (uint8_t)(((int32_t)sys.mfx_mode + MF_COUNT * 8 + s) % MF_COUNT);
         str_cpy(t, "MOD FX ", sizeof t);
@@ -4482,19 +4490,6 @@ static void ui_input(void)
         ui_cat(t, sizeof t, P->name);
         ui_say(t);
         ui_force = 1;
-    } else if (s && (sys.page == 12u || sys.page == 13u)) {   /* TAPE: PRESETS is the BPM */
-        if (arp_ext())                           /* (CLOCK EXTERNAL: the tempo is the MIDI clock's) */
-            ui_say("CLOCK EXTERNAL: GLO");
-        else {
-            sys.arp_bpm = (uint8_t)clamp((int32_t)sys.arp_bpm + s, 40, 250);
-            str_cpy(t, "BPM ", sizeof t);
-            fmt_int(v, sys.arp_bpm);
-            ui_cat(t, sizeof t, v);
-            ui_say(t);
-        }
-    } else if (s && sys.page == 7u) {                   /* MIDI: PRESETS turns AUTOPLAY on (right) or off (left) */
-        sys.autoplay = (uint8_t)(s > 0);
-        ui_say(sys.autoplay ? "AUTOPLAY ON" : "AUTOPLAY OFF");
     } else if (s && sys.page == 20u) {                  /* MOD FX: its presets */
         mfx_pre = (uint8_t)(mfx_pre == 0xFFu ? (s > 0 ? 0 : (int32_t)MFX_NPRE - 1) :
                             ((int32_t)mfx_pre + (int32_t)MFX_NPRE * 8 + s) % (int32_t)MFX_NPRE);
