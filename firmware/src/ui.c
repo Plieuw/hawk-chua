@@ -1638,29 +1638,114 @@ static uint16_t ui_val_hue(const char *v)
     return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
 }
 
-/* a knob's cell: its label small, its value under it */
+/* the knobs' cells: four in a row, each a knob drawn (its value on the inner track, a modulation's sweep on the
+ * outer ring: FREE EG, the mod wheel, MOD ENV, KARMA's envelope moving it, from where it was set to where it is now),
+ * its label and value under it */
+#include "knob_tables.h"
+static volatile uint8_t *ui_kp[4];               /* the parameter each cell's knob turns (knob(), on its page) */
+static uint8_t ui_kp_pg[4] = {255, 255, 255, 255};
+static int ui_mod_base(const volatile uint8_t *p, int32_t *base)   /* p moved by a modulation: 1, *base where it was */
+{
+    if (feg.playing && feg_field(feg.target) == p) {
+        *base = feg.base;
+        return 1;
+    }
+    if (mwd.on && feg_field(mwd.target) == p) {
+        *base = mwd.base;
+        return 1;
+    }
+    if (menv_p.moved && menv_p.target && feg_field(menv_p.target - 1u) == p) {
+        *base = (int32_t)*p - menv_p.moved;
+        return 1;
+    }
+    if (kar.env_on && k_env_field(kar.env_tgt) == p) {
+        *base = kar.env_base;
+        return 1;
+    }
+    return 0;
+}
+/* the knob at (ox, oy) of the canvas: v 0..127 (-1: a choice of its own, no value shown), lo < hi: the modulation's
+ * sweep (0..127). From the tile's tables (knob_tables.h): its body lit from the upper left, the track, the ring */
+static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi)
+{
+    uint16_t pal[16], on = T_THEME, off = ux_mix(T_BG, T_MID, 35), mc = ux_mix(T_THEME, 0x3D9Fu, 80);
+    int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, x, y;
+    uint32_t k = 0;
+    for (x = 0; x < 16; x++)
+        pal[x] = ux_mix(T_BG, T_TEXT, 6 + x * 3);
+    for (y = 0; y < KN_W; y++)
+        for (x = 0; x < KN_W; x++, k++) {
+            int32_t u = KN_ANG[k];
+            if (u != 255) {
+                if (KN_RING[k] && lo < hi && u >= lu && u <= hu)
+                    cv_pblend(ox + x, oy + y, mc, KN_RING[k] + 1u);
+                if (KN_TRACK[k])
+                    cv_pblend(ox + x, oy + y, u <= vu ? on : off, KN_TRACK[k] + 1u);
+            }
+            if (KN_BODY[k])
+                cv_pblend(ox + x, oy + y, pal[KN_SHADE[k] >> 4], KN_BODY[k] + 1u);
+        }
+    if (v >= 0) {
+        const int16_t *q = KN_PTR[v & 127];
+        cv_aline(ox * 16 + q[0], oy * 16 + q[1], ox * 16 + q[2], oy * 16 + q[3], T_TEXT);
+        cv_aline(ox * 16 + q[0] + 8, oy * 16 + q[1], ox * 16 + q[2] + 8, oy * 16 + q[3], T_TEXT);
+    }
+}
+static void ui_fit(char *d, uint32_t n, const char *s, int32_t w)   /* s, cut with an ellipsis to w pixels (AF_S) */
+{
+    uint32_t l;
+    str_cpy(d, s, n);
+    l = str_len(d);
+    while (l > 1u && text_w(&AF_S, d) > w) {
+        d[l - 2u] = ELLIPSIS;
+        d[--l] = 0;
+    }
+}
 static uint16_t ui_hot_col;                      /* (the turned knob's value colour: PSYCHEDELIC lights up what it moves
                                                   * in it, ui_style.c) */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
-    static const uint8_t X[4] = {8, 124, 8, 124}, Y[4] = {152, 152, 186, 186};
+    static char kshown[4][4];
     uint32_t c = i - T_C1;
     char hot[2] = {(char)('0' + (ui_hot == c && fm1_ms - ui_hot_ms < 1000u)), 0};
-    char v[24];
+    char v[24], ks[4], lb[24], vb[24];
+    int32_t kv = -1, lo = 0, hi = 0, base;
+    int changed;
     str_cpy(v, value, sizeof v);
     if (hot[0] == '1') {
         ui_hot_col = ux_mix(ui_val_hue(value), 0xFFFFu, 45);   /* (as its value shows it, just turned: one colour) */
     }
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
-    if (!ui_changed(i, label, v))
+    if (c < 4u && ui_kp_pg[c] == sys.page && ui_kp[c]) {
+        kv = *ui_kp[c] & 127;
+        if (ui_mod_base(ui_kp[c], &base)) {
+            base = base < 0 ? 0 : base > 127 ? 127 : base;
+            lo = base < kv ? base : kv;
+            hi = base < kv ? kv : base;
+        }
+    }
+    ks[0] = (char)(kv + 2);
+    ks[1] = (char)(lo + 1);
+    ks[2] = (char)(hi + 1);
+    ks[3] = 0;
+    changed = ui_changed(i, label, v);
+    if (!changed && !ui_force && !memcmp(kshown[c & 3u], ks, 4))
         return;
-    cv_begin(112, AF_S.h + AF_M.h, T_BG);
-    cv_text(0, 0, &AF_S, label, T_MID);
-    cv_text(0, AF_S.h, &AF_M, value, sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
-                                                                                         : ui_val_hue(value))
-                                   : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);   /* (PSYCHEDELIC: the value's
-                                                  * own colour; just turned: paler) */
-    cv_blit(X[c], Y[c]);
+    memcpy(kshown[c & 3u], ks, 4);
+    if (label[0] >= '1' && label[0] <= '4' && (label[1] == ' ' || !label[1]))
+        label += label[1] ? 2 : 1;               /* (the knob's number: its place shows it) */
+    cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
+    if (label[0] || value[0])
+        ui_knob(10, 0, kv, lo, hi);
+    ui_fit(lb, sizeof lb, label, 58);
+    ui_fit(vb, sizeof vb, value, 58);
+    cv_text((60 - text_w(&AF_S, lb)) / 2, KN_W, &AF_S, lb, T_MID);
+    cv_text((60 - text_w(&AF_S, vb)) / 2, KN_W + AF_S.h, &AF_S, vb,
+            sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
+                                                                  : ui_val_hue(value))
+            : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);   /* (PSYCHEDELIC: the value's own colour; just
+                                                                             * turned: paler) */
+    cv_blit(c * 60u, 150);
     lcd_sync();
 }
 
@@ -3587,6 +3672,10 @@ static int knob_step(volatile uint8_t *p, int32_t s)
 static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
 {
     int32_t s = ui_enc(role);
+    if (cell < 4u) {                             /* (the cell's knob drawn from it) */
+        ui_kp[cell] = p;
+        ui_kp_pg[cell] = sys.page;
+    }
     if (!s)
         return;
     if (!knob_step(p, s))

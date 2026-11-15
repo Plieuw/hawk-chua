@@ -127,6 +127,7 @@ static void frames(uint32_t n)                  /* n UI frames, 40 ms of audio e
 {
     while (n--) {
         run_ms(40);
+        ui_input();                              /* (as main.c: the knobs' parameters named for their cells) */
         ui_draw();
         if (cv_w == 240u && cv_h == PLOT_H) {    /* (the plot drawn last: the panel must show it all) */
             uint32_t i;
@@ -689,6 +690,15 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "m_feg");
     sys.feg_has = 0; sys.feg_on = 0; feg.pos = 255;
+    {   /* the FX page with FREE EG moving DAMPING (from 40 to 96 now): its knob's outer ring */
+        uint8_t d0 = sys.fx_damp, pg0 = sys.page;
+        sys.page = 2; feg.playing = 1; feg.target = 10; feg.base = 40; sys.fx_damp = 96;
+        ui_force = 1;
+        frames(2);
+        bad |= shot(dir, "f_fx_mod");
+        feg.playing = 0; sys.fx_damp = d0; sys.page = pg0;
+        ui_force = 1;
+    }
     edges = btn_bit(B_HOME);
     ui_input();
 
