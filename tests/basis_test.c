@@ -1630,8 +1630,26 @@ int main(int argc, char **argv)
         synth_note_on(64, 127);
         okk &= voice_of(64) && voice_of(64)->vbr == 0u;
         synth_kill();
+        {   /* DECAY + SUSTAIN: a soft note falls faster, to a lower level, than a hard one */
+            voice_t a, h;
+            uint32_t f;
+            sys.vel_to = 6; sys.decay = 60; sys.sustain = 80; env_params();
+            synth_note_on(60, 20);
+            okk &= voice_of(60) && voice_of(60)->vdc > 150u && voice_of(60)->vsu > 120u && voice_of(60)->vbr == 0u;
+            a = *voice_of(60);
+            synth_kill();
+            synth_note_on(60, 127);
+            h = *voice_of(60);
+            okk &= h.vdc == 0u && h.vsu == 0u;
+            a.stage = h.stage = ST_SUSTAIN; a.env = h.env = ENV_MAX;
+            for (f = 0; f < ENV_FRAMES[60]; f++) { env_frame(&a); env_frame(&h); }
+            okk &= a.env + ENV_MAX / 10u < h.env;
+            for (f = 0; f < 20u * ENV_FRAMES[60]; f++) { env_frame(&a); env_frame(&h); }
+            okk &= a.env + ENV_MAX / 4u < h.env && h.env > eg.sus - ENV_MAX / 100u;
+            synth_kill();
+        }
         sys.vel_to = 0;
-        check("velocity: soft notes darker and less FM when on, unchanged when OFF", okk);
+        check("velocity: soft notes darker, less FM, shorter and lower (DECAY, SUSTAIN) when on, unchanged when OFF", okk);
     }
 
     /* the arpeggiator: on its own clock (120 BPM, 1/16: 8 steps a second) UP plays the held chord low to high over

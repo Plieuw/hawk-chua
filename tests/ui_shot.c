@@ -507,7 +507,7 @@ int main(int argc, char **argv)
     synth_kill();
     edges = btn_bit(B_EDIT);             /* the EDIT page: the mod wheel half up, velocity BRIGHT */
     ui_input();
-    sys.mw = 64; sys.vel_to = 1; sys.last_vel = 90;
+    sys.mw = 64; sys.vel_to = 8; sys.last_vel = 90;
     frames(2);
     bad |= shot(dir, "e_edit");
     sys.mw = 0; sys.vel_to = 0;

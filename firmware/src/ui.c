@@ -1348,7 +1348,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_latch = (uint8_t)(s.k_latch != 0);
         sys.mw_target = (uint8_t)(s.mw_target % FEG_NT);
         sys.mw_depth = (uint8_t)(s.mw_depth & 127u);
-        sys.vel_to = (uint8_t)(s.vel_to & 3u);
+        sys.vel_to = (uint8_t)(s.vel_to % VEL_TO_N);
         sys.vel_amt = (uint8_t)(s.vel_amt & 127u);
         for (uint32_t i = 0; i < 4u; i++)
             sys.tape_lv[i] = (uint8_t)(s.tape_lv[i] & 127u);
@@ -1743,7 +1743,7 @@ static int ui_cstep(uint32_t c, int32_t *i, int32_t *n)
              else if (c == 2u) { a = sys.ch_b; m = 17; } else { a = sys.midi_tx & 15u; m = 16; } break;
     case 8u: if (c == 1u) { a = sys.feg_len % FEG_NLEN; m = FEG_NLEN; }
              else if (c == 3u) { a = sys.feg_target % FEG_NT; m = FEG_NT; } break;
-    case 11u: if (c == 0u) { a = sys.mw_target % FEG_NT; m = FEG_NT; } else if (c == 2u) { a = sys.vel_to & 3u; m = 4; } break;
+    case 11u: if (c == 0u) { a = sys.mw_target % FEG_NT; m = FEG_NT; } else if (c == 2u) { a = sys.vel_to % VEL_TO_N; m = (int32_t)VEL_TO_N; } break;
     case 13u: if (c == 0u && !arp_ext()) { a = ((int32_t)sys.arp_bpm - 40) * 127 / 210; }
               else if (c == 1u) { a = sys.tape_spd % TAPE_NSPD; m = TAPE_NSPD; }
               else if (c == 2u) { a = sys.tape_len % 5u; m = 5; } break;
@@ -2467,7 +2467,12 @@ static void draw_pan(void)
 }
 
 /* the EDIT page's picture: the mod wheel now and the parameter it moves, the last velocity and what it does */
-static const char *const VEL_TO_NAME[4] = {"OFF", "BRIGHT", "SWEEP", "BRIGHT + SWEEP"};
+static const char *const VEL_TO_NAME[VEL_TO_N] = {"OFF", "BRIGHT", "SWEEP", "BRIGHT + SWEEP", "DECAY", "SUSTAIN",
+                                                  "DECAY + SUSTAIN", "BRIGHT + DECAY",
+                                                  "BRIGHT DECAY SUSTAIN", "SWEEP + DECAY", "BRIGHT + SUSTAIN",
+                                                  "ALL FOUR"};
+static const char *const VEL_TO_SHORT[VEL_TO_N] = {"OFF", "BRIGHT", "SWEEP", "BR+SWEEP", "DECAY", "SUSTAIN", "DEC+SUS",
+                                                   "PIANO", "PLUCK", "STRIKE", "ORGAN", "ALL"};
 static void draw_edit(void)
 {
     const int32_t x0 = 8, w = 224, h = 14;
@@ -2490,9 +2495,14 @@ static void draw_edit(void)
     cv_frame(x0, 84, w, h, T_LINE);
     if (vel && sys.last_note < 128u)
         cv_rect(x0 + 1, 85, (w - 2) * vel / 127, h - 2, T_THEME);
-    str_cpy(a, "ON THE SOUND: ", sizeof a);
-    ui_cat(a, sizeof a, VEL_TO_NAME[sys.vel_to & 3u]);
-    cv_text(x0, 102, &AF_S, a, T_MID);
+    str_cpy(a, sys.vel_to % VEL_TO_N ? "ON THE SOUND: " : "ON THE SOUND: OFF", sizeof a);
+    if (sys.vel_to % VEL_TO_N)
+        ui_cat(a, sizeof a, VEL_TO_NAME[sys.vel_to % VEL_TO_N]);
+    {
+        char f[48];
+        ui_fit(f, sizeof f, a, w);
+        cv_text(x0, 102, &AF_S, f, T_MID);
+    }
     cv_blit(0, PLOT_Y);
 }
 
@@ -2970,7 +2980,7 @@ static void ui_draw(void)
         ui_val_c = 0;
         fmt_int(v, sys.mw_depth);
         ui_cell(T_C2, "2 DEPTH", v);
-        ui_cell(T_C3, "3 VELOCITY", VEL_TO_NAME[sys.vel_to & 3u]);
+        ui_cell(T_C3, "3 VELOCITY", VEL_TO_SHORT[sys.vel_to % VEL_TO_N]);
         fmt_int(v, sys.vel_amt);
         ui_cell(T_C4, "4 AMOUNT", sys.vel_to ? v : "-");
     } else if (sys.page == 10u) {
@@ -4204,7 +4214,7 @@ static void ui_input(void)
         }
         knob(&sys.mw_depth, EN_K2, 1);
         if ((s = ui_enc(EN_K3)) != 0) {
-            sys.vel_to = (uint8_t)clamp((int32_t)sys.vel_to + (s > 0 ? 1 : -1), 0, 3);
+            sys.vel_to = (uint8_t)clamp((int32_t)sys.vel_to + (s > 0 ? 1 : -1), 0, (int32_t)VEL_TO_N - 1);
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
         knob(&sys.vel_amt, EN_K4, 3);

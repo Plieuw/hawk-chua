@@ -87,7 +87,7 @@ static volatile struct {
     uint8_t bend_range;          /* keys.c, the SOUND page: MIDI pitch bend up and down, 0 .. 12 semitones */
     uint8_t spk_bass, lvl_match; /* synth.c, the SOUND page (GLO 3x): SPEAKER BASS 0 .. 127 (its overtones for a small
                                   * speaker), LEVEL MATCH on (each preset at its measured level) */
-    uint8_t vel_to, vel_amt;     /* synth.c: velocity also on the sound: 0 off, 1 BRIGHT (the gate), 2 FM, 3 both; how much */   /* karma.c: KARMA (SEQ): on, the GE, LATCH, its four realtime controls */
+    uint8_t vel_to, vel_amt;     /* synth.c: velocity also on the sound (VEL_TO_MASK: BRIGHT, SWEEP, DECAY, SUSTAIN and combinations); how much */   /* karma.c: KARMA (SEQ): on, the GE, LATCH, its four realtime controls */
     uint16_t menv_view;          /* the newest voice's MOD ENV pitch sweep now, 0..32767 = 3 octaves (ui.c) */
 } sys = {.octave = 0, .chaos = 85, .shape = 76, .output = 0, .attack = 6, .decay = 80, .sustain = 110, .release = 70,
          .ring = 50, .master_q12 = 2048, .last_note = 0xFF, .cpu2 = 1,

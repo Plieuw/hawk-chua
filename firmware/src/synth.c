@@ -257,6 +257,7 @@ typedef struct {
     uint8_t part;                /* MULTI: the part it plays (0 A: sys; 1 B: ui.c's part_b) */
     uint8_t lpg_n;               /* frames until the next coefficient update */
     uint8_t vbr, vfm;            /* velocity on the sound (EDIT): taken off the gate's opening, the FM depth, /255 (0: none) */
+    uint8_t vdc, vsu;            /* ... a soft note's DECAY faster (x 1 + vdc/64), its SUSTAIN lower (x 1 - vsu/256) */
     uint8_t osc;                 /* the oscillator its state belongs to (sys.osc when it started; a change restarts it) */
     uint8_t rz;                  /* the FX resonator it feeds (resonator.c: the one tuned to its note) */
     int16_t pan;                 /* its place in the stereo field at BASIS 127, Q15 (- left): its seat (KARMA: its own) */
@@ -267,6 +268,12 @@ typedef struct {
     int32_t apx[4][2], apy[4][2];   /* ORBIT: its four all-passes' last ins and outs */
 } voice_t;
 static voice_t voice[NVOICE];
+/* velocity on the sound (the EDIT page's KNOB 3): what a soft note changes, alone and in combinations */
+enum { VT_BRIGHT = 1, VT_SWEEP = 2, VT_DECAY = 4, VT_SUS = 8 };
+static const uint8_t VEL_TO_MASK[] = {0, VT_BRIGHT, VT_SWEEP, VT_BRIGHT | VT_SWEEP, VT_DECAY, VT_SUS, VT_DECAY | VT_SUS,
+                                      VT_BRIGHT | VT_DECAY, VT_BRIGHT | VT_DECAY | VT_SUS, VT_SWEEP | VT_DECAY,
+                                      VT_BRIGHT | VT_SUS, 15};
+#define VEL_TO_N (sizeof VEL_TO_MASK / sizeof VEL_TO_MASK[0])
 #define NP_COUNT 32                              /* the noise programs (noise.c, included below; the last: BIG BANG,
                                                   * PIANO) */
 static void np_start(uint32_t k, uint32_t seed);
@@ -519,8 +526,11 @@ steal:
         uint32_t cut = (uint32_t)(sys.vel_amt & 127u) * (127u - (vel > 127u ? 127u : vel)) * 2u / 127u;   /* 0 .. 254 */
         if (cut > 250u)
             cut = 250u;
-        v->vbr = (uint8_t)(sys.vel_to & 1u ? cut : 0u);
-        v->vfm = (uint8_t)(sys.vel_to & 2u ? cut : 0u);
+        uint32_t m = VEL_TO_MASK[sys.vel_to % VEL_TO_N];
+        v->vbr = (uint8_t)(m & VT_BRIGHT ? cut : 0u);
+        v->vfm = (uint8_t)(m & VT_SWEEP ? cut : 0u);
+        v->vdc = (uint8_t)(m & VT_DECAY ? cut : 0u);
+        v->vsu = (uint8_t)(m & VT_SUS ? cut * 7u / 8u : 0u);
     }
     v->stage = ST_ATTACK;                           /* (a retrigger: the attack from where the envelope is) */
     v->age = ++voice_clock;
@@ -619,7 +629,11 @@ static inline int env_frame(voice_t *v)
             v->env += eg.att;
         break;
     case ST_SUSTAIN:
-        v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)eg.sus) * eg.dec) >> 24));
+        if (v->vdc | v->vsu) {                   /* (velocity: a soft note decays faster, to a lower sustain) */
+            uint32_t sus = eg.sus - (uint32_t)(((uint64_t)eg.sus * v->vsu) >> 8), dec = eg.dec + ((eg.dec * v->vdc) >> 6);
+            v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)sus) * dec) >> 24));
+        } else
+            v->env = (uint32_t)((int32_t)v->env - (int32_t)(((int64_t)((int32_t)v->env - (int32_t)eg.sus) * eg.dec) >> 24));
         break;
     case ST_RELEASE:
         v->env -= (uint32_t)(((uint64_t)v->env * eg.rel) >> 24) + 1u;
