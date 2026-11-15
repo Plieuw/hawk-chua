@@ -813,6 +813,21 @@ int main(int argc, char **argv)
         sys.fx_model = m0; sys.fx_struct = st0; sys.osc = o0; sys.np_y = y0;
         if (!ok) { printf("knob choices FAIL (struct %u y %u)\n", sys.fx_struct, sys.np_y); bad = 1; }
     }
+    {   /* knob speed: slow, one a step; fast the same way, up to x8; slowing by halves; turning back: one */
+        int ok = 1;
+        uint32_t t0 = fm1_ms;
+        int32_t a1, a2, a3, a4, a5;
+        fm1_ms += 1000u; a1 = knob_accel(EN_K2, 1);            /* (alone) */
+        fm1_ms += 200u;  a2 = knob_accel(EN_K2, 1);            /* (5 a second) */
+        fm1_ms += 20u;   (void)knob_accel(EN_K2, 1);
+        fm1_ms += 20u;   a3 = knob_accel(EN_K2, 1);            /* (50 a second) */
+        fm1_ms += 60u;   a4 = knob_accel(EN_K2, 1);            /* (~17 a second: x4 on the way down) */
+        fm1_ms += 20u;   a5 = knob_accel(EN_K2, -1);           /* (turned back) */
+        ok &= a1 == 1 && a2 == 1 && a3 == 8 && a4 == 4 && a5 == -1;
+        fm1_ms = t0;
+        enc_speed[EN_K2] = 0; enc_t[EN_K2] = 0;
+        if (!ok) { printf("knob speed FAIL (%d %d %d %d %d)\n", a1, a2, a3, a4, a5); bad = 1; }
+    }
     {   /* the pages' presets: PRESETS on ENV, MOD ENV, SCL, FREE EG sets that page's knobs */
         int ok = 1;
         uint8_t pg = sys.page;

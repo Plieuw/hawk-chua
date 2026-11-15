@@ -3713,19 +3713,26 @@ static void ui_leds_init(void)                         /* the idle glow under ev
 }
 
 /* ------------------------------------------------------------- input --- */
-/* a knob turned on (the same way within 40 ms) speeds up to x4: 0 .. 127 in a flick, one detent still one step
- * (after M-VAVE's fm1_open, app/screen.c read_encoders); every knob and encoder (ui_enc), lists too */
+/* a knob turned fast goes faster: by how many detents a second it turns the same way (under ~12 one detent one
+ * step; then x2, x4, x8: 0 .. 127 in a flick of ~16 detents), slowing again by halves as it slows; one detent still
+ * one step (after M-VAVE's fm1_open, app/screen.c read_encoders); every knob and encoder (ui_enc), lists too */
 static uint32_t enc_t[NE];
 static int8_t enc_dir[NE];
 static uint8_t enc_speed[NE];
 static int32_t knob_accel(uint32_t role, int32_t s)
 {
     int8_t d = (int8_t)(s > 0 ? 1 : -1);
-    enc_speed[role] = (uint8_t)(d == enc_dir[role] && fm1_ms - enc_t[role] <= 40u ?
-                                (enc_speed[role] < 4u ? enc_speed[role] + 1u : 4u) : 1u);
+    uint32_t dt = fm1_ms - enc_t[role], n = (uint32_t)(s > 0 ? s : -s), f = 1;
+    if (d == enc_dir[role] && dt <= 150u) {     /* (on the same way: its rate, detents a second) */
+        uint32_t rate = n * 1000u / (dt ? dt : 1u);
+        f = rate < 12u ? 1u : rate < 24u ? 2u : rate < 40u ? 4u : 8u;
+        if (f < enc_speed[role])                 /* (slowing: by halves, no jump) */
+            f = enc_speed[role] / 2u > f ? enc_speed[role] / 2u : f;
+    }
+    enc_speed[role] = (uint8_t)f;
     enc_dir[role] = d;
     enc_t[role] = fm1_ms;
-    return s * enc_speed[role];
+    return s * (int32_t)f;
 }
 
 static int32_t ui_enc(uint32_t role)            /* every knob and encoder: detents, accelerated */
