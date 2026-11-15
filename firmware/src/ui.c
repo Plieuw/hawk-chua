@@ -1653,7 +1653,7 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
     int32_t a, b;
     if (feg.playing && feg_field(feg.target) == p) {
         int32_t d = (int32_t)(sys.feg_depth & 127u), cmin = 127, cmax = 0;
-        uint32_t k, n = sys.feg_npts ? sys.feg_npts : FEG_N;
+        uint32_t k, n = sys.feg_len % FEG_NLEN ? FEG_N : sys.feg_npts ? sys.feg_npts : FEG_N;
         for (k = 0; k < n && k < FEG_N; k++) {
             cmin = feg.curve[k] < cmin ? feg.curve[k] : cmin;
             cmax = feg.curve[k] > cmax ? feg.curve[k] : cmax;
@@ -3681,9 +3681,9 @@ static int32_t knob_choice(volatile uint8_t *p, int32_t v)
     return -1;
 }
 /* a turn of such a knob: one detent, the next choice (not a range's ten detents a choice) */
-static int knob_step(volatile uint8_t *p, int32_t s)
+static int knob_step_at(volatile uint8_t *p, volatile uint8_t *at, int32_t s)   /* (at: where the value is kept) */
 {
-    int32_t v = *p & 127, c = knob_choice(p, v), d = s > 0 ? 1 : -1;
+    int32_t v = *at & 127, c = knob_choice(p, v), d = s > 0 ? 1 : -1;
     if (c < 0)
         return 0;
     while (v + d >= 0 && v + d <= 127) {
@@ -3691,8 +3691,19 @@ static int knob_step(volatile uint8_t *p, int32_t s)
         if (knob_choice(p, v) != c)
             break;
     }
-    *p = (uint8_t)v;
+    *at = (uint8_t)v;
     return 1;
+}
+static int knob_step(volatile uint8_t *p, int32_t s) { return knob_step_at(p, p, s); }
+/* where a turn of p's knob goes: FREE EG or the mod wheel driving it: the place it swings about (DEPTH round the
+ * knob's place, as the ring shows), so the knob still works under them */
+static volatile uint8_t *knob_at(volatile uint8_t *p)
+{
+    if (feg.playing && feg_field(feg.target) == p)
+        return &feg.base;
+    if (mwd.on && feg_field(mwd.target) == p)
+        return &mwd.base;
+    return p;
 }
 
 static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
@@ -3704,8 +3715,11 @@ static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
     }
     if (!s)
         return;
-    if (!knob_step(p, s))
-        *p = (uint8_t)clamp(*p + s, 0, 127);
+    {
+        volatile uint8_t *at = knob_at(p);
+        if (!knob_step_at(p, at, s))
+            *at = (uint8_t)clamp(*at + s, 0, 127);
+    }
     if (cell < 4u) {
         ui_hot = (uint8_t)cell;
         ui_hot_ms = fm1_ms;
@@ -4139,7 +4153,15 @@ static void ui_input(void)
         knob(&sys.k_m[2], EN_K3, 2);
         knob(&sys.k_m[3], EN_K4, 3);
     } else if (sys.page == 8u) {
-        knob(&sys.feg_val, EN_K1, 0);
+        {   /* VALUE: the TARGET's own knob (where it stands on its page, under FREE EG the place it swings about);
+             * recording: what is recorded, the target following */
+            volatile uint8_t *at = knob_at(feg_field(sys.feg_target % FEG_NT));
+            if (!feg.rec)
+                sys.feg_val = (uint8_t)(*at & 127u);
+            knob(&sys.feg_val, EN_K1, 0);
+            if (!feg.rec && (sys.feg_val & 127u) != (*at & 127u))
+                *at = (uint8_t)((*at & 0x80u) | (sys.feg_val & 127u));
+        }
         if ((s = ui_enc(EN_K2)) != 0) {
             sys.feg_len = (uint8_t)clamp((int32_t)sys.feg_len + s, 0, FEG_NLEN - 1);
             ui_hot = 1; ui_hot_ms = fm1_ms;
@@ -4269,9 +4291,10 @@ static void ui_input(void)
         knob(&sys.menv_len, EN_K1, 0);
         knob(&sys.menv_skew, EN_K2, 1);
         if ((s = ui_enc(EN_K3)) != 0) {          /* HEIGHT: -127 .. 127 (64 steps a side ... the middle 0: OFF) */
-            int32_t h = (int32_t)(sys.menv_height & 127u) * (sys.menv_height & 0x80u ? -1 : 1) + s;
+            volatile uint8_t *at = knob_at(&sys.menv_height);
+            int32_t h = (int32_t)(*at & 127u) * (*at & 0x80u ? -1 : 1) + s;
             h = clamp(h, -127, 127);
-            sys.menv_height = (uint8_t)(h < 0 ? 0x80u | (uint32_t)-h : (uint32_t)h);
+            *at = (uint8_t)(h < 0 ? 0x80u | (uint32_t)-h : (uint32_t)h);
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
         knob(&sys.menv_bend, EN_K4, 3);
@@ -4392,12 +4415,12 @@ static void ui_input(void)
         sys.arp_hold = (uint8_t)(s > 0);
         ui_say(sys.arp_hold ? "LATCH ON" : "LATCH OFF");
     } else if (s && (sys.page == 2u || sys.page == 3u)) {   /* (MOD, MOD ENV: nothing; RING is on HOME) */
-        volatile uint8_t *p = sys.page == 3u ? &sys.sh_tone : &sys.fx_pos;
-        if (!knob_step(p, s))
-            *p = (uint8_t)clamp(*p + s, 0, 127);
+        volatile uint8_t *p = sys.page == 3u ? &sys.sh_tone : &sys.fx_pos, *at = knob_at(p);
+        if (!knob_step_at(p, at, s))
+            *at = (uint8_t)clamp(*at + s, 0, 127);
         if (sys.page == 3u) {
             str_cpy(t, "TONE ", sizeof t);
-            fmt_int(v, *p);
+            fmt_int(v, *at);
             ui_cat(t, sizeof t, v);
         } else
             fx_pos_text(t, sizeof t, 0);

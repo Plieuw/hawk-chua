@@ -10,7 +10,8 @@
  *                 (NOTE: until REC again, or full), the target following the knob while it records
  *
  * The recording: 128 points over the length. Playing, the target is driven (base + (curve - base) x DEPTH, base its
- * value when PLAY went on, given back when it goes off or the target changes): its own knob is taken over meanwhile.
+ * value when PLAY went on, given back when it goes off or the target changes): its own knob (and FREE EG's VALUE)
+ * moves the base meanwhile (ui.c knob_at).
  * The targets include KARMA's four realtime controls (KARMA K1..K4): its DENSITY or REPEAT moved over the phrase.
  *
  *   feg_block(n)   keys.c, the audio ISR, after the arpeggiator: once a block */
@@ -243,7 +244,7 @@ static void feg_block(uint32_t n, uint32_t note_ons)
         feg.base = *feg_field(feg.target);
         feg.playing = 1;
     }
-    {   /* between two points (Q8), then DEPTH around the base */
+    {   /* between two points (Q8), then DEPTH around the base (the knob's place: its knob still moves it) */
         int32_t a = feg.curve[idx], b = feg.curve[idx + 1u < FEG_N ? idx + 1u : idx], v;
         if (!len && idx + 1u >= sys.feg_npts)
             b = a;                               /* (NOTE: the last point holds) */

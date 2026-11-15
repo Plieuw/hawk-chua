@@ -206,7 +206,8 @@ contour hem vervangt). Het sterretje bij de presetnaam en SAVE kijken naar de wa
 
 STEPS en BARS lopen op de BPM van de ARP-pagina, of op MIDI clock als die binnenkomt (START begint de lus opnieuw);
 de opname begint aan het begin van een lus en stopt vanzelf na één lengte. DEPTH 127 speelt de opname precies af, lager
-schaalt hij rond de waarde die de parameter had; zolang hij speelt neemt hij de eigen knop van die parameter over.
+schaalt hij rond de stand van de knop van die parameter. Die knop blijft werken terwijl hij speelt (de ring eromheen
+toont het bereik), en VALUE (KNOB 1) staat altijd op dezelfde stand: draaien aan de een is draaien aan de ander.
 
 **KARMA (SEQ).** Een frasegenerator naar KARMA van Korg (Kay Algorithmic Realtime Music Architecture, Stephen
 Kay; de KARMA Basic Guide). De noten die je vasthoudt klinken niet zelf: een *Generated Effect* (GE) maakt er een
