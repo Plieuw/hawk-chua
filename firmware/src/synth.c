@@ -756,6 +756,26 @@ static uint32_t voice_h(const voice_t *v, int32_t *hs)
 #define C1_RUN(fn, arg) 0                        /* hand it fn(arg): 1 = taken */
 #define C1_WAIT() 0                              /* wait for it: 0 = done */
 #endif
+#ifndef C1_IDLE
+#define C1_IDLE() 1                              /* its job done (no waiting) */
+#endif
+/* MULTI: the SPACE on the second core, a block behind (synth_render_): its job running, the block it works on (in:
+ * the sum, the dry's pans; out: the space's), the n of the block waiting for it (0: none). Before another job: c1_free */
+static uint8_t sh_job;
+static uint32_t sh_pn, sh_jn;
+static int32_t sh_pin[CTL], sh_pdl[CTL], sh_pdr[CTL], sh_ol[CTL], sh_or[CTL];
+static void c1_space(uint32_t n);
+static int c1_free(void)                         /* the second core free for a job: 1 (its space job, done, collected) */
+{
+    if (!sh_job)
+        return 1;
+    if (!C1_IDLE())
+        return 0;
+    if (C1_WAIT())                               /* (it stopped answering: the space here) */
+        c1_space(sh_jn);
+    sh_job = 0;
+    return 1;
+}
 /* FREE EG at audio rate (feg.c, LENGTH AM / FM): its loop read at x 1/2 .. 4 the note, every sample, on the voice's
  * level (AM) or its pitch (FM) */
 static struct { uint8_t on, depth, fm, mid; uint32_t r16; const uint8_t *curve; } feg_am;   /* mid: the loop's mean */
@@ -993,7 +1013,9 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
                 v->apy[k][1] = y1;
             }
             for (i = 0; i < n; i++) {
-                int32_t s = (t[i] - u[i]) / 2 * orbit / 127 / 2;   /* the side, at most half the voice */
+                int32_t h = (t[i] - u[i]) / 2, s;
+                h = h > 16000000 ? 16000000 : h < -16000000 ? -16000000 : h;   /* (x 127 within 32 bits) */
+                s = h * orbit / 127 / 2;                /* the side, at most half the voice */
                 dl[i] -= s;                             /* (L = dry - dl, R = dry - dr) */
                 dr[i] += s;
             }
@@ -1015,6 +1037,15 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
     } else {
         for (i = 0; i < n; i++)
             b[i] += t[i];
+    }
+}
+static void c1_space(uint32_t n)                 /* the waiting block through the SPACE (its knobs: sh_snap'd) */
+{
+    uint32_t i;
+    fx_shimmer(sh_pin, sh_ol, sh_or, n);
+    for (i = 0; i < n; i++) {
+        sh_ol[i] -= (int32_t)(((int64_t)sh_pdl[i] * sh_dry) >> 15);
+        sh_or[i] -= (int32_t)(((int64_t)sh_pdr[i] * sh_dry) >> 15);
     }
 }
 static uint32_t c1_restarts, c1_blocks;          /* (diagnostics) */
@@ -1088,7 +1119,7 @@ static void synth_render_(int32_t *out, uint32_t n)
     uint32_t i, k, busy = 0, newest = 0, mask = 0, own = 0;
     int32_t m = (int32_t)sys.master_q12, sum[CTL], dl[CTL], dr[CTL], basis = (int32_t)(sys.basis & 127u);
     voice_t *tv = 0;
-    int inner, ml, mr;
+    int inner, ml, mr, pipe = sys.multi && C1_ON();     /* (pipe: MULTI with the SPACE on the second core) */
     {   /* MAIN VOLUME x EXPRESSION (CC 7, 11; squared, as on a GM synth: 100 x 127 = the level as it was), PAN (CC 10) */
         uint32_t ve = (uint32_t)(mcc.vol > 100u ? 100u : mcc.vol) * mcc.expr;     /* 0 .. 12700 */
         uint32_t p = mcc.pan & 127u;
@@ -1147,6 +1178,8 @@ static void synth_render_(int32_t *out, uint32_t n)
     {
     int32_t psum[CTL], pdl[CTL], pdr[CTL];
     uint32_t pp, np2 = sys.multi ? 2u : 1u;
+    if (!pipe)
+        sh_pn = 0;                                      /* (out of MULTI: the waiting block let go) */
     if (sys.multi) {
         memset(psum, 0, sizeof psum);
         memset(pdl, 0, sizeof pdl);
@@ -1183,7 +1216,7 @@ static void synth_render_(int32_t *out, uint32_t n)
         else
             own |= 1u << k;
     }
-    if (!C1_ON() || !mask || !C1_RUN(c1_voices, mask | n << 8)) {
+    if (!C1_ON() || !mask || !c1_free() || !C1_RUN(c1_voices, mask | n << 8)) {
         own |= mask;
         mask = 0;
     }
@@ -1201,6 +1234,14 @@ static void synth_render_(int32_t *out, uint32_t n)
             dl[i] += c1_dl[i];
             dr[i] += c1_dr[i];
         }
+    }
+    if (pipe && !pp && sh_pn) {                         /* MULTI: the last block's SPACE on the second core now, while
+                                                         * this one does A's resonators and B (A's knobs: sys is A's) */
+        sh_snap();
+        sh_jn = sh_pn;
+        sh_job = (uint8_t)C1_RUN(c1_space, sh_pn);
+        if (!sh_job)
+            c1_space(sh_pn);
     }
     for (k = 0; k < NVOICE; k++)                        /* each resonator where the newest voice feeding it is */
         if ((own | mask) >> k & 1u && voice[k].age >= rz_age[voice[k].rz % RZ_POLY]) {
@@ -1242,10 +1283,31 @@ static void synth_render_(int32_t *out, uint32_t n)
     }
     {
         int32_t l[CTL], r[CTL];
-        fx_shimmer(sum, l, r, n);                       /* (its tank fed the middle; its dry part panned here) */
-        for (i = 0; i < n; i++) {
-            l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
-            r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
+        if (pipe) {                                     /* MULTI, two cores: the space of the block before (its job
+                                                         * collected), this one's waiting for the next (~0.7 ms later) */
+            if (sh_job) {
+                if (C1_WAIT())
+                    c1_space(sh_jn);
+                sh_job = 0;
+            }
+            if (sh_pn && sh_pn == n) {
+                memcpy(l, sh_ol, n * sizeof l[0]);
+                memcpy(r, sh_or, n * sizeof r[0]);
+            } else {
+                memset(l, 0, n * sizeof l[0]);          /* (the first block in MULTI: nothing waiting yet) */
+                memset(r, 0, n * sizeof r[0]);
+            }
+            memcpy(sh_pin, sum, n * sizeof sum[0]);
+            memcpy(sh_pdl, dl, n * sizeof dl[0]);
+            memcpy(sh_pdr, dr, n * sizeof dr[0]);
+            sh_pn = n;
+        } else {
+            sh_snap();
+            fx_shimmer(sum, l, r, n);                   /* (its tank fed the middle; its dry part panned here) */
+            for (i = 0; i < n; i++) {
+                l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
+                r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
+            }
         }
         if (!synth_light)
             spk_bass(l, r, n);
