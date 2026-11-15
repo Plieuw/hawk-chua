@@ -1688,7 +1688,7 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
  * modulation, sweeping lo..hi, now at cur. From the tile's tables (knob_tables.h, anti-aliased) */
 static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur, uint16_t on, int32_t n)
 {
-    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0x3D9Fu, 80);
+    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0x3D9Fu, 80), ml = ux_mix(mc, 0xFFFFu, 60);
     int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, cu = cur * 2, x, y;
     uint32_t k = 0;
     for (y = 0; y < KN_W; y++)
@@ -1707,8 +1707,9 @@ static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, i
                                                   * (its depth, either way), where it is now lit */
                 if (u >= cu - 5 && u <= cu + 5)
                     cv_pblend(ox + x, oy + y, T_TEXT, KN_RING[k] + 1u);
-                else if (u >= (lu < vu ? lu : vu) && u <= (hu > vu ? hu : vu))
-                    cv_pblend(ox + x, oy + y, mc, KN_RING[k] + 1u);
+                else if (u >= (lu < vu ? lu : vu) && u <= (hu > vu ? hu : vu))   /* (under the value now lighter
+                                                                                   * than over it) */
+                    cv_pblend(ox + x, oy + y, u < cu ? ml : mc, KN_RING[k] + 1u);
             }
         }
     if (v >= 0) {                                /* the pointer (the knob itself see-through) */
