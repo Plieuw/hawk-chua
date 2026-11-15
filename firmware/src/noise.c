@@ -160,7 +160,14 @@ static inline uint32_t np_fm(uint32_t inc, int32_t mod, int32_t idx)
 /* a ratio from a knob: 2^(lo + (hi - lo) k / 32767) octaves, Q16 */
 static inline uint32_t np_ratio(int32_t k, int32_t lo_oct, int32_t hi_oct)
 {
-    return px_exp2(lo_oct * 65536 + (int32_t)(((int64_t)(hi_oct - lo_oct) * 65536 * k) / 32767));
+    /* (d k 65536 / 32767, d k < 2^18, k >= 0: in two 32-bit steps, exactly; a 64-bit division is a library call here,
+     * once a block a voice) */
+    int32_t dk = (hi_oct - lo_oct) * k;
+    uint32_t q;
+    if (dk < 0)
+        return px_exp2(lo_oct * 65536 + (int32_t)(((int64_t)dk * 65536) / 32767));
+    q = (uint32_t)dk / 32767u;
+    return px_exp2(lo_oct * 65536 + (int32_t)((q << 16) + (((uint32_t)dk - q * 32767u) << 16) / 32767u));
 }
 static inline int32_t np_clip(int32_t v) { return v > 32767 ? 32767 : v < -32767 ? -32767 : v; }
 

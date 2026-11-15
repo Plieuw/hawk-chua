@@ -455,8 +455,28 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             sh.len[k] = SH_LEN[k];
         sh.on = 1;
     }
-    {   /* per block: the lengths glide to SIZE's, the gains of the DECAY time, TONE, SHIMMER */
+    {   /* per block: the lengths glide to SIZE's, the gains of the DECAY time, TONE, SHIMMER (kept while the lengths
+         * have arrived and the knobs stay: a dozen 2^x and a 64-bit square root a block saved) */
+        static struct { uint32_t key, sp; uint8_t ok; int32_t g[SH_NLINE], damp, fa, fb; uint32_t rinc, etap[4]; } shc;
         uint32_t scale = 22938u + size * 330u;   /* 0.35 .. 1, Q16 */
+        uint32_t key = size | (sys.sh_decay & 127u) << 7 | (sys.sh_tone & 127u) << 14 | (sys.sh_shimmer & 127u) << 21;
+        int moved = 0;
+        for (k = 0; k < SH_NLINE; k++) {
+            uint32_t t = (uint32_t)(((uint64_t)SH_LEN[k] * scale) >> 16);
+            int32_t d = (int32_t)t - (int32_t)sh.len[k];
+            moved |= d != 0;
+            sh.len[k] = (uint32_t)((int32_t)sh.len[k] + (d > 16 ? 16 : d < -16 ? -16 : d));
+        }
+        if (shc.ok && !moved && shc.key == key && shc.sp == sp) {
+            for (k = 0; k < SH_NLINE; k++)
+                g[k] = shc.g[k];
+            damp = shc.damp;
+            fa = shc.fa;
+            fb_ = shc.fb;
+            rinc = shc.rinc;
+            for (k = 0; k < 4u; k++)
+                etap[k] = shc.etap[k];
+        } else {
         uint32_t rt = (uint32_t)(((uint64_t)17640u * px_exp2((int32_t)((sys.sh_decay & 127u) * 408220u / 127u))) >> 16);
         int32_t fc_oct = (int32_t)((sys.sh_tone & 127u) * 222822u / 127u);   /* 1.5 kHz x 2^(0 .. 3.4) */
         uint32_t fc = (uint32_t)(((uint64_t)1500u * px_exp2(fc_oct)) >> 16) * SH_DAMP16[sp] / 16u;
@@ -464,13 +484,8 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         rinc = (uint32_t)((((uint64_t)52429u * px_exp2((int32_t)(size * 205128u / 127u)) >> 16) * 97391u) >> 16);
         for (k = 0; k < 4u; k++)                 /* the early reflections' taps, samples */
             etap[k] = (uint32_t)SH_ER_MS[sp][k] * 441u / 10u;
-        for (k = 0; k < SH_NLINE; k++) {
-            uint32_t t = (uint32_t)(((uint64_t)SH_LEN[k] * scale) >> 16);
-            int32_t d = (int32_t)t - (int32_t)sh.len[k];
-            sh.len[k] = (uint32_t)((int32_t)sh.len[k] + (d > 16 ? 16 : d < -16 ? -16 : d));
-            /* gain 2^(-9.966 len / rt) (60 dB in rt samples) */
+        for (k = 0; k < SH_NLINE; k++)           /* gain 2^(-9.966 len / rt) (60 dB in rt samples) */
             g[k] = (int32_t)(px_exp2(-(int32_t)((653126u * sh.len[k]) / rt)) >> 1);   /* Q15 (< 2^32: 32-bit division) */
-        }
         /* the damping one-pole: a = 1 - exp(-2 pi fc / FS) = 1 - 2^(-2 pi fc / (FS ln 2)) */
         damp = 32768 - (int32_t)(px_exp2(-(int32_t)(((uint64_t)fc * 13794u) >> 10)) >> 1);
         {   /* the crossfade: c = 0 .. 0.3 of the amplitude; a = 1 - c, b = sqrt(1 - a^2) x 1.22 (the shifter's two
@@ -481,6 +496,18 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             a2 = (uint32_t)(((int64_t)fa * fa) >> 15);                   /* a^2, Q15 */
             fb_ = (int32_t)px_isqrt64((uint64_t)(32768u - a2) << 15);    /* Q15 */
             fb_ = (int32_t)(((int64_t)fb_ * 40132) >> 15);                /* x 1.22 */
+        }
+        shc.key = key;
+        shc.sp = sp;
+        shc.ok = 1;
+        for (k = 0; k < SH_NLINE; k++)
+            shc.g[k] = g[k];
+        shc.damp = damp;
+        shc.fa = fa;
+        shc.fb = fb_;
+        shc.rinc = rinc;
+        for (k = 0; k < 4u; k++)
+            shc.etap[k] = etap[k];
         }
         if (sp == SS_MOUTH)
             sh_mouth_set();
