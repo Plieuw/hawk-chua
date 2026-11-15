@@ -1968,9 +1968,13 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
     if (c < 4u && ui_kp_pg[c] == sys.page && ui_kp[c]) {
         kv = *ui_kp[c] & 127;
-        if (ui_mod(ui_kp[c], &base, &lo, &hi)) {  /* (modulated: the knob where it was set, the value moving) */
+        if (ui_mod(ui_kp[c], &base, &lo, &hi)) {  /* (modulated: the knob where the pot is, the value moving) */
             cur = kv;
             kv = base < 0 ? 0 : base > 127 ? 127 : base;
+            lo = lo < 0 ? 0 : lo > 127 ? 127 : lo;       /* (the range as the value can go: on the ring, and the */
+            hi = hi < 0 ? 0 : hi > 127 ? 127 : hi;       /* value now always inside it) */
+            lo = cur < lo ? cur : lo;
+            hi = cur > hi ? cur : hi;
         }
         if ((ci = knob_choice(ui_kp[c], kv)) >= 0) {   /* (a few choices: as steps) */
             ns = knob_choice(ui_kp[c], 127) + 1;
