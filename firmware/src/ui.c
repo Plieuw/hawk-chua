@@ -1749,6 +1749,9 @@ static int np_is_fm(const char *s)              /* a noise program's knob that i
 
 /* PSYCHEDELIC (UI STYLE): a value's colour by what it is: a number round the hues (0 red .. 127 violet, and on), a
  * word its own hue, OFF and - quiet; pale enough to read */
+static uint16_t us_pal[4];                       /* PSYCHEDELIC: the four knobs' value colours now (ui_cell), the
+                                                  * oscillator's and the FX's pictures drawn in them (us_hue) */
+static uint8_t us_pal_ok, us_pal_pg = 255;       /* (which of them there are; on which page) */
 static uint16_t ui_val_hue(const char *v)
 {
     uint32_t n = 0, h = 0, i, r, g, b, seg, f;
@@ -1972,9 +1975,21 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
         label += label[1] ? 2 : 1;               /* (the knob's number: its place shows it) */
     {
         int psy = sys.ui_style % US_COUNT == US_PSYCHE;
-        uint16_t vc = psy ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45) : ui_val_hue(value))
+        uint16_t vh = psy ? ui_val_hue(value) : 0;
+        uint16_t vc = psy ? (hot[0] == '1' ? ux_mix(vh, 0xFFFFu, 45) : vh)
                           : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT;   /* (PSYCHEDELIC: the value's own
                                                                                       * colour; just turned: paler) */
+        if (us_pal_pg != sys.page) {             /* (another page: its own colours) */
+            us_pal_pg = sys.page;
+            us_pal_ok = 0;
+        }
+        if (psy && c < 4u) {                     /* (the pictures in the knobs' colours: not a dash's or OFF's grey) */
+            if (vh != T_MID && (label[0] || value[0])) {
+                us_pal[c] = vh;
+                us_pal_ok |= (uint8_t)(1u << c);
+            } else
+                us_pal_ok &= (uint8_t)~(1u << c);
+        }
         cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
         if (label[0] || value[0])                /* (PSYCHEDELIC: the ring in the value's colour, as the arc round the
                                                   * eye when it is turned) */

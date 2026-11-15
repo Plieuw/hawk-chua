@@ -30,6 +30,18 @@ static const uint16_t US_PAL[US_COUNT][5] = {
 /* a hue (0..255 round the circle) at full saturation, its value v (0..255), as RGB565 */
 static uint16_t us_hue(uint32_t h, uint32_t v)
 {
+    if (us_pal_ok && sys.ui_style % US_COUNT == US_PSYCHE && (sys.page == 0u || sys.page == 2u || sys.page == 3u || sys.page == 20u) &&
+        us_pal_pg == sys.page) {                 /* the oscillator's and the FX's pictures: round the knobs' colours */
+        uint16_t c[4];
+        uint32_t n = 0, k, pos, i, f;
+        for (k = 0; k < 4u; k++)
+            if (us_pal_ok >> k & 1u)
+                c[n++] = us_pal[k];
+        pos = (h & 255u) * n;
+        i = pos >> 8;
+        f = pos & 255u;
+        return ux_mix(0, ux_mix(c[i], c[(i + 1u) % n], (int32_t)(f * 100u / 256u)), (int32_t)(v * 100u / 255u));
+    }
     uint32_t s = (h & 255u) * 6u, seg = s >> 8, f = s & 255u, r, g, b, q = v * (255u - f) / 255u, t = v * f / 255u;
     switch (seg) {
     case 0: r = v; g = t; b = 0; break;
