@@ -127,7 +127,6 @@ static void frames(uint32_t n)                  /* n UI frames, 40 ms of audio e
 {
     while (n--) {
         run_ms(40);
-        ui_input();                              /* (as main.c: the knobs' parameters named for their cells) */
         ui_draw();
         if (cv_w == 240u && cv_h == PLOT_H) {    /* (the plot drawn last: the panel must show it all) */
             uint32_t i;
@@ -271,22 +270,6 @@ int main(int argc, char **argv)
             }
             ok &= n0 >= 3u && near;
             synth_kill();
-            enc_steps[panel.enc[EN_SELECT]] = 1; ui_input();   /* ANALORD: further off (each voice up to ~25 cents) */
-            ok &= sys.analog == 2u;
-            {
-                uint32_t far = 0, inr = 1;
-                for (k2 = 0; k2 < NVOICE; k2++) synth_note_on(60u + 4u * k2, 100);
-                for (k2 = 0; k2 < NVOICE; k2++) {
-                    uint32_t e = note_inc(voice[k2].note), d = voice[k2].inc0 > e ? voice[k2].inc0 - e : e - voice[k2].inc0;
-                    far += d > e / 400u;                 /* (> ~4 cents) */
-                    inr &= d < e / 60u && voice[k2].an_t > 140u && voice[k2].an_t < 360u;   /* (< ~29 cents) */
-                }
-                ok &= far >= 2u && inr;
-                if (!(far >= 2u && inr)) printf("ANALORD: %u voices far, in range %u\n", far, inr);
-            }
-            synth_kill();
-            enc_steps[panel.enc[EN_SELECT]] = -1; ui_input();
-            ok &= sys.analog == 1u;
             enc_steps[panel.enc[EN_SELECT]] = -1; ui_input();
             synth_note_on(60, 100);
             ok &= !sys.analog && voice[0].inc0 == note_inc(voice[0].note) && voice[0].an_t == 256u;
@@ -487,7 +470,7 @@ int main(int argc, char **argv)
     frames(10);
     bad |= shot(dir, "e_env_held");
     preset_load(1);
-    sys.release = REL_MAX;
+    sys.release = 100;
     enc_steps[panel.enc[EN_K2]] = 30;    /* (DECAY turned: its cell lit) */
     ui_input();
     synth_note_on(60, 100);
@@ -774,15 +757,6 @@ int main(int argc, char **argv)
     frames(2);
     bad |= shot(dir, "m_feg");
     sys.feg_has = 0; sys.feg_on = 0; feg.pos = 255;
-    {   /* the FX page with FREE EG moving DAMPING (from 40 to 96 now): its knob's outer ring */
-        uint8_t d0 = sys.fx_damp, pg0 = sys.page;
-        sys.page = 2; fegs[0].playing = 1; fegs[0].target = 10; fegs[0].base = 40; sys.fx_damp = 96;
-        ui_force = 1;
-        frames(2);
-        bad |= shot(dir, "f_fx_mod");
-        fegs[0].playing = 0; sys.fx_damp = d0; sys.page = pg0;
-        ui_force = 1;
-    }
     edges = btn_bit(B_HOME);
     ui_input();
 
@@ -828,7 +802,7 @@ int main(int argc, char **argv)
     ui_input();
 
     sys.octave = 2;                      /* the widest values: a knob just turned, a message */
-    sys.release = REL_MAX;
+    sys.release = 127;
     sys.cpu_q8 = 255;
     enc_steps[panel.enc[EN_K2]] = 127;
     ui_input();
@@ -842,7 +816,7 @@ int main(int argc, char **argv)
         uint8_t sh = sys.shape;
         sys.octave = 0; sys.shape = 0; sys.release = 0;
         settings_boot();
-        if (sys.octave != 2 || sys.shape != sh || sys.release != REL_MAX) {
+        if (sys.octave != 2 || sys.shape != sh || sys.release != 127) {
             printf("settings round trip FAIL\n");
             bad = 1;
         }
@@ -902,7 +876,7 @@ int main(int argc, char **argv)
         sys.page = 5; page_preset(1); page_preset(1); ok &= sys.menv_height == MENV_PRE[1].height;
         sys.page = 10; page_preset(-1); ok &= sys.basis == SCL_PRE[NPAGE_PRE(SCL_PRE) - 1].basis;
         sys.page = 8; page_preset(1); ok &= !sys.feg_on;
-        page_preset(1); ok &= sys.feg_on && sys.feg_has && sys.feg_target == 9u && feg.curve[32] > feg.curve[96];   /* (WOBBLE 1/8 on FX BRIGHTNESS) */
+        page_preset(1); ok &= sys.feg_on && sys.feg_has && sys.feg_target == 3u && feg.curve[32] > feg.curve[96];
         {   /* FREE EG 2: the same list, its own place in it (left: from the end, HIT SCREAM, around SCREAM's value) */
             uint8_t sc = sys.scream;
             feg_edit_to(1);
@@ -911,7 +885,7 @@ int main(int argc, char **argv)
                   feg.curve[0] == (uint8_t)(sc + 90u > 127u ? 127u : sc + 90u) && feg.curve[3] == sc && fegs[0].curve[32] > fegs[0].curve[96];
             sys.feg_on = 0;
             feg_edit_to(0);
-            ok &= sys.feg_on && sys.feg_target == 9u;
+            ok &= sys.feg_on && sys.feg_target == 3u;
         }
         sys.feg_on = 0; sys.page = pg;
         if (!ok) { printf("page presets FAIL\n"); bad = 1; }

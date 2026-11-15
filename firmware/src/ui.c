@@ -138,7 +138,7 @@ typedef struct {
  * at the lips (the chiff) settling to a steady breath, brass blooming as the lips tighten, a bow swelling, a sax
  * growling late in a long note, a choir's vowel opening, a pad's shimmer rising */
 enum { EG_NONE, EG_OVERTONE, EG_CHIFF, EG_BLOOM, EG_SWELL, EG_REEDSWELL, EG_GROWL, EG_VOWEL, EG_SHIMRISE, EG_OPEN, EG_TALK,
-       EG_TINE, EG_CLICK, EG_PERC, EG_PICK, EG_TONE, EG_STRIKE, EG_PUNCH, EG_SLAP, EG_OPENS, EG_OPENN, EG_COUNT };
+       EG_TINE, EG_CLICK, EG_PERC, EG_PICK, EG_TONE, EG_STRIKE, EG_PUNCH, EG_SLAP, EG_COUNT };
 typedef struct { uint8_t target, n; int8_t p[5][2]; } pre_eg_t;   /* FREE EG's target; points: (point, offset) */
 static const pre_eg_t PRE_EG[EG_COUNT] = {
     {0, 0, {{0, 0}}},
@@ -150,7 +150,7 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
     {27, 4, {{0, 0}, {16, 0}, {44, 45}, {90, 30}}},              /* GROWL: SCREAM late in the note */
     {11, 3, {{0, -40}, {24, 0}, {70, 30}}},                      /* VOWEL: U .. A .. E (FX POSITION) */
     {15, 2, {{0, -40}, {80, 30}}},                               /* SHIMRISE: SHIMMER rising */
-    {9, 2, {{0, -40}, {60, 40}}},                                /* OPEN: the FX's BRIGHTNESS opening */
+    {3, 2, {{0, -40}, {60, 40}}},                                /* OPEN: RING opening the gate's resonance */
     {15, 4, {{0, -50}, {10, 10}, {40, 40}, {90, 0}}},             /* TALK: MOUTH's vowel (SHIMMER): U, opening to A .. E, back */
     /* the attack transients (a point ~46 ms; the noise programs glide their X, Y and LEVEL back, ~46 ms, so each
      * a short burst decaying into the sound): */
@@ -162,8 +162,6 @@ static const pre_eg_t PRE_EG[EG_COUNT] = {
     {5, 2, {{0, 50}, {1, 0}}},                                   /* STRIKE: the mallet, the stick (NOISE Y: FOLD, FM) */
     {0, 3, {{0, -40}, {1, -10}, {3, 0}}},                        /* PUNCH: the synth bass's thump (CHAOS: the cycle) */
     {0, 3, {{0, 30}, {1, 8}, {3, 0}}},                           /* SLAP: the thumb's pop (CHAOS) */
-    {1, 2, {{0, -30}, {60, 30}}},                                /* OPENS: the circuit's SHAPE opening (no FX) */
-    {5, 2, {{0, -30}, {60, 30}}},                                /* OPENN: a noise program's Y opening (no FX) */
 };
 #define NZ(a, b) (1 + (a) * 10 + (b))            /* noise program A0 = NZ(0, 0) .. C9 = NZ(2, 9) */
 #define NOFX 0, 0, 0, 0, 0, 0
@@ -314,7 +312,7 @@ static const preset_t PRESETS[] = {
     {"METALLIC PAD", NZK, 90, 100, 110, 104, 40, NOFX, 127, 113, 80, 58, SI_OCT5, 90, NZ(1, 5), 30, 20, .eg = EG_SHIMRISE, .mfx = MFP_METAL_BELL},
     {"HALO PAD", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 40, 60, 48, 20, 90, 127, 115, 90, 58, SI_OCT, 90,
      NZ(1, 0), 6, 20, .eg = EG_VOWEL, .mfx = MFP_SLOW_SWELL},
-    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 98, 40, 45, SI_OCT, 80, .eg = EG_OPENS, .mfx = MFP_SLOW_WOBBLE},
+    {"SWEEP PAD", 85, 76, 64, 100, 104, 115, 104, 60, NOFX, 110, 98, 40, 45, SI_OCT, 80, .eg = EG_OPEN, .mfx = MFP_SLOW_WOBBLE},
     /* SYNTH EFFECTS 97-104 */
     {"RAIN", NZK, 0, 70, 60, 80, 30, NOFX, 110, 98, 100, 62, SI_OCT, 100, NZ(0, 7), 90, 50},
     {"SOUNDTRACK", 85, 100, 127, 110, 110, 120, 115, 60, NOFX, 127, 115, 60, 65, SI_OCT, 70},
@@ -418,7 +416,7 @@ static const preset_t PRESETS[] = {
      40, 30, .sh_space = SS_CATHEDRAL, .eg = EG_SWELL, .mfx = MFP_STRING_VIB},
     {"LEGATO STRINGS", NZK, 90, 100, 120, 100, 20, RZ_BOW, 105, 70, 98, 70, 110, AIR, NZ(1, 0), 40, 30,
      .eg = EG_SWELL, .mfx = MFP_STRING_VIB},
-    {"RESO STRINGS", NZK, 60, 90, 110, 90, 70, NOFX, AIR, NZ(1, 0), 20, 100, .eg = EG_OPENN},
+    {"RESO STRINGS", NZK, 60, 90, 110, 90, 70, NOFX, AIR, NZ(1, 0), 20, 100, .eg = EG_OPEN},
     {"SOLINA", NZK, 60, 90, 115, 90, 20, RZ_SYMP, 60, 60, 80, 40, 60, AIR, NZ(1, 0), 10, 60, .mfx = MFP_TAPE_WARBLE},
     {"CHORUS AAHS", NZK, 90, 100, 115, 104, 20, RZ_VOICE, 40, 70, 48, 50, 110, 120, 110, 20, 45, SI_OCT, 70,
      NZ(1, 0), 8, 40, .sh_space = SS_CATHEDRAL, .eg = EG_VOWEL},
@@ -436,7 +434,7 @@ static const preset_t PRESETS[] = {
      .eg = EG_BLOOM, .oct = -1},
     {"BRIGHT BRASS", CYC, 24, 76, 112, 60, 30, RZ_BRASS, 100, 120, 63, 0, 127, ROOM, NOOSC, 20, .eg = EG_BLOOM},
     {"JUMP BRASS", NZK, 24, 66, 90, 56, 90, RZ_BRASS, 110, 127, 63, 0, 90, ROOM, NZ(1, 0), 4, 60, .menv_len = 62, .menv_skew = 0, .menv_height = 160, .menv_bend = 96},
-    {"ANALOG BRASS", 85, 76, 0, 40, 80, 100, 70, 70, NOFX, ROOM, .eg = EG_OPENS},
+    {"ANALOG BRASS", 85, 76, 0, 40, 80, 100, 70, 70, NOFX, ROOM, .eg = EG_OPEN},
     /* REED 65-72 */
     {"SOFT SOPRANO", NZK, 30, 80, 115, 64, 20, RZ_REED, 80, 70, 83, 30, 127, HALL, NZ(1, 6), 126, 63,
      .eg = EG_REEDSWELL, .mfx = MFP_BREATH_VIB},
@@ -478,7 +476,7 @@ static const preset_t PRESETS[] = {
     {"ICE PAD", 6, 100, 64, 90, 100, 110, 104, 30, RZ_MODAL, 110, 127, 92, 30, 60, 110, 98, 100, 62, SI_2OCT, 110,
      .eg = EG_SHIMRISE},
     {"SINE PAD", CYC, 96, 100, 115, 104, 10, NOFX, AIR, .eg = EG_SHIMRISE},
-    {"POLY KING", NZK, 30, 90, 90, 84, 70, NOFX, AIR, NZ(1, 0), 12, 60, .eg = EG_OPENN},
+    {"POLY KING", NZK, 30, 90, 90, 84, 70, NOFX, AIR, NZ(1, 0), 12, 60, .eg = EG_OPEN},
     {"ITOPIA", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 30, 90, 48, 90, 90, 127, 115, 100, 58, SI_OCT5, 90,
      NZ(1, 0), 8, 30, .sh_space = SS_CATHEDRAL, .eg = EG_VOWEL},
     {"GLASS BOW", CYC, 96, 100, 115, 104, 20, RZ_BOW, 70, 110, 98, 20, 110, 127, 113, 90, 58, SI_OCT, 100,
@@ -486,7 +484,7 @@ static const preset_t PRESETS[] = {
     {"TINE PAD", NZK, 90, 100, 110, 104, 30, RZ_MODAL, 60, 110, 88, 20, 80, AIR, NZ(1, 3), 8, 40, .eg = EG_SHIMRISE},
     {"VOICE HALO", NZK, 96, 100, 115, 104, 30, RZ_VOICE, 90, 60, 52, 50, 90, 127, 115, 90, 58, SI_FIFTH, 90,
      NZ(1, 0), 6, 20, .sh_space = SS_MOSQUE, .eg = EG_VOWEL, .mfx = MFP_SLOW_SWELL},
-    {"POLAR SWEEP", 85, 100, 64, 100, 104, 115, 104, 80, NOFX, 120, 108, 60, 52, SI_OCT, 90, .eg = EG_OPENS},
+    {"POLAR SWEEP", 85, 100, 64, 100, 104, 115, 104, 80, NOFX, 120, 108, 60, 52, SI_OCT, 90, .eg = EG_OPEN},
     /* SYNTH EFFECTS 97-104 */
     {"STORM", NZK, 20, 90, 80, 96, 30, NOFX, 127, 115, 60, 62, SI_OCT, 70, NZ(0, 7), 110, 30},
     {"DARK SCORE", 85, 60, 127, 110, 110, 120, 115, 50, NOFX, 127, 120, 40, 65, SI_FIFTH, 50,
@@ -518,7 +516,7 @@ static const preset_t PRESETS[] = {
     /* SOUND EFFECTS 121-128 */
     {"STRING SLAP", NZK, 0, 34, 0, 36, 60, RZ_STRING, 40, 100, 30, 20, 60, GTRB, NZ(0, 6), 40, 40, 30, 0, 68, .sh_space = SS_GUITAR},
     {"FLUTE KEY CLK", 85, 76, 0, 0, 30, 0, 30, 20, RZ_FLUTE, 30, 60, 30, 127, 90, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 120, 0, .eg = EG_STRIKE},
-    {"WIND", NZK, 110, 110, 100, 115, 40, NOFX, HALL, NZ(1, 6), 110, 40, .eg = EG_OPENN},
+    {"WIND", NZK, 110, 110, 100, 115, 40, NOFX, HALL, NZ(1, 6), 110, 40, .eg = EG_OPEN},
     {"TWO BIRDS", 6, 64, 64, 0, 90, 0, 60, 30, RZ_SYRINX, 60, 90, 58, 110, 127, 100, 78, 30, 26, SI_OCT, 100},
     {"DIAL TONE", CYC, 0, 64, 127, 40, 0, NOFX, NOSH},
     {"ENGINE", NZK, 20, 80, 120, 80, 40, NOFX, NOSH, NZ(0, 9), 60, 20, .oct = -1},
@@ -570,7 +568,7 @@ static const preset_t PRESETS[] = {
     {"CHUA PAD", 54, 90, 64, 96, 100, 115, 104, 80, 3, 94, 80, 54, 60, 0, 110, 100, 60, 45, 0, 90, 0, 8, 40, 80, 10, 0, 0, 0, 64, 64, .eg = EG_SHIMRISE},   /* (yours: saved on the FM-1) */
     {"DARK PAD", 85, 40, 0, 96, 100, 115, 104, 50, RZ_MODAL, 0, 0, 0, 0, 0, 127, 115, 30, 50, SI_OCT, 50, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
     {"BRIGHT PAD", 85, 76, 0, 96, 100, 115, 104, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 12, 10, 80, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
-    {"SWEEP PAD 2", 85, 76, 0, 96, 100, 115, 104, 60, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 11, 10, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPENS},
+    {"SWEEP PAD 2", 85, 76, 0, 96, 100, 115, 104, 60, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 11, 10, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"SHIMMER PAD", 6, 64, 64, 96, 100, 115, 104, 20, RZ_MODAL, 0, 0, 0, 0, 0, 120, 110, 100, 60, SI_OCT, 100, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
     {"FIFTH PAD", 85, 76, 0, 96, 100, 115, 104, 30, 3, 94, 80, 54, 60, 0, 110, 100, 80, 50, 1, 90, 11, 6, 30, 80, 10, 0, 0, 0, 64, 64, .eg = EG_SHIMRISE},   /* (yours: saved on the FM-1) */
     {"BOWED SYN PAD", 6, 64, 64, 96, 100, 115, 104, 20, RZ_BOW, 90, 70, 98, 100, 100, 110, 100, 60, 45, SI_OCT, 90, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SWELL},
@@ -606,14 +604,14 @@ static const preset_t PRESETS[] = {
     {"FM PLUCK", 85, 76, 0, 0, 62, 40, 50, 58, 0, 104, 120, 82, 16, 0, 85, 99, 67, 59, 1, 70, 16, 4, 80, 80, 10, 0, 0, 5, 64, 64, .oct = 1},   /* (yours: saved on the FM-1) */
     {"SITAR SYN", 85, 76, 0, 0, 50, 0, 50, 10, 1, 16, 80, 78, 70, 90, 64, 55, SH_DFILT, 28, 0, 20, 12, 0, 63, 80, 10, 0, 0, SS_PINGPONG, 127, 64, .eg = EG_PICK},   /* (yours: saved on the FM-1) */
     {"DRUM PLUCK", 85, 76, 0, 0, 42, 0, 42, 0, RZ_DRUM, 10, 80, 70, 40, 110, 64, 55, SH_DFILT, 28, 0, 20, 3, 126, 0, 0, 0, 0, 0, SS_PINGPONG, 127, 0},
-    {"GLASS PLUCK", 96, 76, 127, 0, 38, 0, 50, 30, 0, 84, 127, 90, 40, 50, 64, 55, SH_DFILT, 28, 0, 20, 31, 52, 14, 80, 10, 0, 0, SS_PINGPONG, 64, 64, .oct = 1, .mfx = MFP_FIFTH_BELL},   /* (yours: saved on the FM-1) */
+    {"GLASS PLUCK", 96, 76, 127, 0, 38, 0, 50, 30, 0, 84, 127, 90, 40, 80, 64, 55, SH_DFILT, 28, 0, 20, 31, 52, 14, 80, 10, 0, 0, SS_PINGPONG, 64, 64, .oct = 1, .mfx = MFP_FIFTH_BELL},   /* (yours: saved on the FM-1) */
     {"PING", 6, 64, 64, 0, 36, 0, 40, 61, 0, 84, 127, 90, 40, 0, 64, 55, SH_DFILT, 28, 0, 20, 0, 52, 14, 80, 10, 0, 0, SS_PINGPONG, 64, 64, .oct = 3},   /* (yours: saved on the FM-1) */
     {"ECHO PLUCK", 85, 76, 0, 0, 62, 40, 60, 60, RZ_MODAL, 0, 0, 0, 0, 0, 64, 60, SH_DFILT, 30, 1, 20, 11, 4, 10, 0, 0, 0, 0, SS_PINGPONG},
     {"SYN BRASS 3", 85, 76, 0, 30, 80, 110, 64, 70, 0, 84, 127, 90, 40, 0, 58, 36, 0, 11, 0, 70, 11, 6, 40, 62, 0, 160, 0, 0, 64, 96, .eg = EG_BLOOM},   /* (yours: saved on the FM-1) */
     {"POLY BRASS", 85, 76, 0, 20, 80, 100, 70, 60, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 10, 60, 62, 0, 160, 0, SS_HALL, 0, 96},
     {"CHUA BRASS", 38, 80, 64, 30, 80, 110, 64, 70, RZ_BRASS, 90, 100, 68, 0, 80, 85, 72, 0, 30, SI_OCT, 70, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
     {"BRASS STAB", 85, 76, 0, 24, 60, 60, 56, 70, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 11, 6, 20, 62, 0, 160, 0, SS_HALL, 0, 96},
-    {"FAT BRASS", 85, 60, 0, 30, 80, 110, 64, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPENS},
+    {"FAT BRASS", 85, 60, 0, 30, 80, 110, 64, 60, RZ_MODAL, 0, 0, 0, 0, 0, 0, 0, 0, 0, SI_OCT, 0, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"SOFT HORNS", 6, 64, 64, 40, 84, 112, 76, 20, RZ_BRASS, 30, 60, 83, 0, 110, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM, .oct = -1},
     {"SYN STRINGS 3", 85, 76, 0, 60, 90, 110, 90, 30, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 11, 30, 80, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"SOLINA 2", 85, 76, 0, 50, 90, 115, 90, 49, 1, 60, 60, 80, 40, 50, 110, 100, 60, 45, 0, 90, 11, 22, 5, 80, 10, 0, 0, 0, 42, 64, .mfx = MFP_TAPE_WARBLE},   /* (yours: saved on the FM-1) */
@@ -674,7 +672,7 @@ static const preset_t PRESETS[] = {
     {"BIG BANG", 70, 64, 0, 20, 100, 115, 100, 30, RZ_MODAL, 0, 0, 0, 0, 0, 127, 118, 60, 55, SI_OCT, 90, NZ(3, 0), 85, 0, .sh_space = SS_CATHEDRAL},
     {"EXPANDING BELL", 40, 64, 127, 0, 90, 0, 96, 20, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, NZ(3, 0), 0, 0},
     {"HEAT DEATH", 127, 64, 40, 60, 110, 120, 110, 30, RZ_MODAL, 0, 0, 0, 0, 0, 127, 120, 30, 55, SI_OCT, 60, NZ(3, 0), 127, 110, .sh_space = SS_MOSQUE},
-    {"PRIMORDIAL SOUP", 100, 64, 20, 40, 100, 115, 100, 50, RZ_MODAL, 0, 0, 0, 0, 0, AIR, NZ(3, 0), 30, 70, .eg = EG_OPENN},
+    {"PRIMORDIAL SOUP", 100, 64, 20, 40, 100, 115, 100, 50, RZ_MODAL, 0, 0, 0, 0, 0, AIR, NZ(3, 0), 30, 70, .eg = EG_OPEN},
     {"RADIO STATIC", 85, 76, 0, 24, 80, 100, 80, 40, RZ_MODAL, 0, 0, 0, 0, 0, 85, 72, 0, 30, SI_OCT, 70, 1, 100, 90, 0, 0, 0, 0, SS_HALL, 0, 0},
     {"FLANGE WALK", 85, 76, 0, 20, 90, 110, 90, 49, 8, 120, 45, 93, 74, 0, 115, 96, 0, 40, 0, 80, 2, 9, 78, 80, 10, 0, 0, 3, 64, 64, .oct = 1},   /* (yours: saved on the FM-1) */
     {"RING SQUARES", 85, 76, 0, 0, 60, 60, 70, 58, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 3, 20, 120, 0, 0, 0, 0, SS_CATHEDRAL, 0, 0},
@@ -725,7 +723,7 @@ static const preset_t PRESETS[] = {
     {"SAW BLADE", 85, 76, 0, 0, 75, 0, 95, 20, RZ_STRING, 43, 103, 90, 51, 110, 110, 100, 60, 45, SI_OCT, 90, 3, 126, 40, 0, 0, 0, 0, SS_TEMPLE, 127, 0},
     {"VOWEL MORPH", 85, 76, 0, 40, 90, 110, 90, 40, RZ_VOICE, 64, 80, 48, 60, 110, 110, 100, 60, 45, SI_OCT, 90, 11, 10, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_VOWEL},
     {"SHIM RISER", 6, 64, 64, 40, 90, 110, 90, 40, RZ_MODAL, 100, 127, 90, 40, 60, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
-    {"RING OPENER", 85, 76, 0, 40, 90, 110, 90, 40, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 12, 6, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPENS},
+    {"RING OPENER", 85, 76, 0, 40, 90, 110, 90, 40, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 12, 6, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"JET SWEEP", 54, 90, 64, 40, 90, 110, 90, 40, RZ_FLUTE, 40, 90, 78, 40, 110, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OVERTONE},
     {"LIP BLOOM", 85, 76, 0, 40, 90, 110, 90, 40, RZ_BRASS, 90, 95, 68, 0, 100, 110, 100, 60, 45, SI_OCT, 90, 11, 10, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
     {"BOW SWELL", 6, 64, 64, 40, 90, 110, 90, 40, RZ_BOW, 110, 80, 93, 64, 110, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SWELL},
@@ -733,7 +731,7 @@ static const preset_t PRESETS[] = {
     {"CHIFF MACHINE", 54, 90, 64, 40, 90, 110, 90, 40, RZ_FLUTE, 40, 100, 88, 90, 100, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_CHIFF},
     {"TALKING SAW", 85, 76, 0, 24, 70, 60, 70, 40, RZ_VOICE, 64, 80, 48, 60, 110, 64, 20, 64, 100, 0, 60, 11, 10, 40, 0, 0, 0, 0, SS_MOUTH, 0, 0, .eg = EG_VOWEL},
     {"RISING SPACE", 6, 64, 64, 0, 70, 60, 70, 40, RZ_MODAL, 100, 127, 90, 40, 60, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SHIMRISE},
-    {"OPENING DOOR", 85, 76, 0, 24, 70, 60, 70, 40, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 12, 6, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPENS},
+    {"OPENING DOOR", 85, 76, 0, 24, 70, 60, 70, 40, RZ_MODAL, 0, 0, 0, 0, 0, 110, 100, 60, 45, SI_OCT, 90, 12, 6, 60, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OPEN},
     {"BREATH ENGINE", 54, 90, 64, 0, 70, 60, 70, 40, RZ_FLUTE, 40, 90, 78, 40, 110, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_OVERTONE},
     {"BRASS BLOOM PAD", 85, 76, 0, 0, 70, 60, 70, 40, RZ_BRASS, 90, 95, 68, 0, 100, 110, 100, 60, 45, SI_OCT, 90, 11, 10, 40, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_BLOOM},
     {"SWELL DRONE", 6, 64, 64, 0, 70, 60, 70, 40, RZ_BOW, 110, 80, 93, 64, 110, 115, 96, 0, 40, SI_OCT, 80, 0, 0, 0, 0, 0, 0, 0, SS_HALL, 0, 0, .eg = EG_SWELL},
@@ -1016,7 +1014,7 @@ static void preset_apply(uint32_t i)
     sys.attack = p->attack;
     sys.decay = p->decay;
     sys.sustain = p->sustain;
-    sys.release = rel_cap(p->release);
+    sys.release = p->release;
     sys.ring = p->ring;
     if (p->fx_mix) {                             /* (a preset without FX leaves the resonator's knobs, MIX off) */
         sys.fx_model = p->fx_model;
@@ -1232,7 +1230,7 @@ static int preset_edited_(void)
                pr_mfx_of(v) != pr_mfx_bits();
     }
     return sys.chaos != p->chaos || sys.shape != p->shape || sys.output != p->output || sys.attack != p->attack ||
-           sys.decay != p->decay || sys.sustain != p->sustain || sys.release != rel_cap(p->release) || sys.ring != p->ring ||
+           sys.decay != p->decay || sys.sustain != p->sustain || sys.release != p->release || sys.ring != p->ring ||
            sys.fx_mix != p->fx_mix || (p->fx_mix && (sys.fx_model != p->fx_model || sys.fx_struct != p->fx_struct ||
            sys.fx_bright != p->fx_bright || sys.fx_damp != p->fx_damp || sys.fx_pos != p->fx_pos)) ||
            sys.sh_mix != p->sh_mix || (p->sh_mix && (sys.sh_size != p->sh_size || sys.sh_decay != p->sh_decay ||
@@ -1341,7 +1339,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.shape = (uint8_t)(s.shape & 127u);
         sys.output = (uint8_t)(s.output & 127u);
         sys.attack = (uint8_t)(s.attack & 127u);
-        sys.release = rel_cap(s.release);
+        sys.release = (uint8_t)(s.release & 127u);
         sys.decay = (uint8_t)(s.decay & 127u);
         sys.sustain = (uint8_t)(s.sustain & 127u);
         sys.ring = (uint8_t)(s.ring & 127u);
@@ -1421,7 +1419,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         sys.k_root = (uint8_t)(s.snd >= 9u ? s.k_root % 13u : 0u);
         sys.arp_slen = (uint8_t)(s.snd >= 12u && s.arp_slen <= 8u ? s.arp_slen : 0u);   /* (12: the VELOCITY SEQ's) */
         sys.k_inv = (uint8_t)(s.snd >= 11u && s.k_inv);
-        sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT && s.menv_target != 4u ? s.menv_target : 0u);   /* (RING: off) */
+        sys.menv_target = (uint8_t)(s.snd >= 16u && s.menv_target <= FEG_NT ? s.menv_target : 0u);
         sys.clk_int = (uint8_t)(s.snd < 23u || s.clk_int);   /* (23: EXTERNAL strict now: INTERNAL, once) */
         sys.autoplay = (uint8_t)(s.snd < 24u || s.autoplay);   /* (on after this install, once; then as saved) */
         if (s.snd >= 25u) {
@@ -1432,7 +1430,7 @@ static void settings_boot(void)    /* power-on, before the audio */
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
         sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
-        sys.analog = (uint8_t)(s.snd >= 29u ? (s.analog > 2u ? 2u : s.analog) : 0u);
+        sys.analog = (uint8_t)(s.snd >= 29u && s.analog);
         part_mono[0] = (uint8_t)(s.snd >= 27u && (s.mono & 1u));
         part_mono[1] = (uint8_t)(s.snd >= 27u && (s.mono & 2u));
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
@@ -1708,116 +1706,29 @@ static uint16_t ui_val_hue(const char *v)
     return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
 }
 
-/* the knobs' cells: four in a row, each a knob drawn (its value on the inner track, a modulation's sweep on the
- * outer ring: FREE EG, the mod wheel, MOD ENV, KARMA's envelope moving it, from where it was set to where it is now),
- * its label and value under it */
-#include "knob_tables.h"
-static volatile uint8_t *ui_kp[4];               /* the parameter each cell's knob turns (knob(), on its page) */
-static uint8_t ui_kp_pg[4] = {255, 255, 255, 255};
-static int ui_mod_base(const volatile uint8_t *p, int32_t *base)   /* p moved by a modulation: 1, *base where it was */
-{
-    uint32_t k;
-    for (k = 0; k < 2u; k++)
-        if (fegs[k].playing && feg_field(fegs[k].target) == p) {
-            *base = fegs[k].base;
-            return 1;
-        }
-    if (mwd.on && feg_field(mwd.target) == p) {
-        *base = mwd.base;
-        return 1;
-    }
-    if (menv_p.moved && menv_p.target && feg_field(menv_p.target - 1u) == p) {
-        *base = (int32_t)*p - menv_p.moved;
-        return 1;
-    }
-    if (kar.env_on && k_env_field(kar.env_tgt) == p) {
-        *base = kar.env_base;
-        return 1;
-    }
-    return 0;
-}
-/* the knob at (ox, oy) of the canvas: v 0..127 (-1: a choice of its own, no value shown), lo < hi: the modulation's
- * sweep (0..127). From the tile's tables (knob_tables.h): its body lit from the upper left, the track, the ring */
-static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi)
-{
-    uint16_t pal[16], on = T_THEME, off = ux_mix(T_BG, T_MID, 35), mc = ux_mix(T_THEME, 0x3D9Fu, 80);
-    int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, x, y;
-    uint32_t k = 0;
-    for (x = 0; x < 16; x++)
-        pal[x] = ux_mix(T_BG, T_TEXT, 6 + x * 3);
-    for (y = 0; y < KN_W; y++)
-        for (x = 0; x < KN_W; x++, k++) {
-            int32_t u = KN_ANG[k];
-            if (u != 255) {
-                if (KN_RING[k] && lo < hi && u >= lu && u <= hu)
-                    cv_pblend(ox + x, oy + y, mc, KN_RING[k] + 1u);
-                if (KN_TRACK[k])
-                    cv_pblend(ox + x, oy + y, u <= vu ? on : off, KN_TRACK[k] + 1u);
-            }
-            if (KN_BODY[k])
-                cv_pblend(ox + x, oy + y, pal[KN_SHADE[k] >> 4], KN_BODY[k] + 1u);
-        }
-    if (v >= 0) {
-        const int16_t *q = KN_PTR[v & 127];
-        cv_aline(ox * 16 + q[0], oy * 16 + q[1], ox * 16 + q[2], oy * 16 + q[3], T_TEXT);
-        cv_aline(ox * 16 + q[0] + 8, oy * 16 + q[1], ox * 16 + q[2] + 8, oy * 16 + q[3], T_TEXT);
-    }
-}
-static void ui_fit(char *d, uint32_t n, const char *s, int32_t w)   /* s, cut with an ellipsis to w pixels (AF_S) */
-{
-    uint32_t l;
-    str_cpy(d, s, n);
-    l = str_len(d);
-    while (l > 1u && text_w(&AF_S, d) > w) {
-        d[l - 2u] = ELLIPSIS;
-        d[--l] = 0;
-    }
-}
+/* a knob's cell: its label small, its value under it */
 static uint16_t ui_hot_col;                      /* (the turned knob's value colour: PSYCHEDELIC lights up what it moves
                                                   * in it, ui_style.c) */
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
-    static char kshown[4][4];
+    static const uint8_t X[4] = {8, 124, 8, 124}, Y[4] = {152, 152, 186, 186};
     uint32_t c = i - T_C1;
     char hot[2] = {(char)('0' + (ui_hot == c && fm1_ms - ui_hot_ms < 1000u)), 0};
-    char v[24], ks[4], lb[24], vb[24];
-    int32_t kv = -1, lo = 0, hi = 0, base;
-    int changed;
+    char v[24];
     str_cpy(v, value, sizeof v);
     if (hot[0] == '1') {
         ui_hot_col = ux_mix(ui_val_hue(value), 0xFFFFu, 45);   /* (as its value shows it, just turned: one colour) */
     }
     ui_cat(v, sizeof v, hot);                               /* (the highlight is part of what is shown) */
-    if (c < 4u && ui_kp_pg[c] == sys.page && ui_kp[c]) {
-        kv = *ui_kp[c] & 127;
-        if (ui_mod_base(ui_kp[c], &base)) {
-            base = base < 0 ? 0 : base > 127 ? 127 : base;
-            lo = base < kv ? base : kv;
-            hi = base < kv ? kv : base;
-        }
-    }
-    ks[0] = (char)(kv + 2);
-    ks[1] = (char)(lo + 1);
-    ks[2] = (char)(hi + 1);
-    ks[3] = 0;
-    changed = ui_changed(i, label, v);
-    if (!changed && !ui_force && !memcmp(kshown[c & 3u], ks, 4))
+    if (!ui_changed(i, label, v))
         return;
-    memcpy(kshown[c & 3u], ks, 4);
-    if (label[0] >= '1' && label[0] <= '4' && (label[1] == ' ' || !label[1]))
-        label += label[1] ? 2 : 1;               /* (the knob's number: its place shows it) */
-    cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
-    if (label[0] || value[0])
-        ui_knob(10, 0, kv, lo, hi);
-    ui_fit(lb, sizeof lb, label, 58);
-    ui_fit(vb, sizeof vb, value, 58);
-    cv_text((60 - text_w(&AF_S, lb)) / 2, KN_W, &AF_S, lb, T_MID);
-    cv_text((60 - text_w(&AF_S, vb)) / 2, KN_W + AF_S.h, &AF_S, vb,
-            sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
-                                                                  : ui_val_hue(value))
-            : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);   /* (PSYCHEDELIC: the value's own colour; just
-                                                                             * turned: paler) */
-    cv_blit(c * 60u, 150);
+    cv_begin(112, AF_S.h + AF_M.h, T_BG);
+    cv_text(0, 0, &AF_S, label, T_MID);
+    cv_text(0, AF_S.h, &AF_M, value, sys.ui_style % US_COUNT == US_PSYCHE ? (hot[0] == '1' ? ux_mix(ui_val_hue(value), 0xFFFFu, 45)
+                                                                                         : ui_val_hue(value))
+                                   : hot[0] == '1' ? T_ACCENT : ui_val_c ? ui_val_c : T_TEXT);   /* (PSYCHEDELIC: the value's
+                                                  * own colour; just turned: paler) */
+    cv_blit(X[c], Y[c]);
     lcd_sync();
 }
 
@@ -2600,11 +2511,8 @@ static void draw_style(void)
     cv_text(8, 58, &AF_S, US_WHAT[st], T_TEXT);
     cv_text(9, 99, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_BG);
     cv_text(8, 98, &AF_S, sys.tune432 ? "TUNING A = 432 HZ (ALGORITHM)" : "TUNING A = 440 HZ (ALGORITHM)", T_TEXT);
-    {
-        const char *an = sys.analog == 2u ? "SOUND ANALORD (SELECT)" : sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)";
-        cv_text(9, 113, &AF_S, an, T_BG);
-        cv_text(8, 112, &AF_S, an, sys.analog ? T_THEME : T_TEXT);
-    }
+    cv_text(9, 113, &AF_S, sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)", T_BG);
+    cv_text(8, 112, &AF_S, sys.analog ? "SOUND ANALOG (SELECT)" : "SOUND INITIAL (SELECT)", sys.analog ? T_THEME : T_TEXT);
     cv_blit(0, PLOT_Y);
 }
 static void draw_midi(void)
@@ -2806,6 +2714,7 @@ static uint32_t menv_targets(uint8_t *t, const char **nm)
     } else {
         MT(4, NP_X[alg]); MT(5, NP_Y[alg]); MT(6, "NOISE LEVEL");
     }
+    MT(3, "RING");
     MT(8, K1[md]); MT(9, "FX BRIGHTNESS");
     MT(10, md == RZ_BAGPIPE ? "DRONES" : md == RZ_ACCORD ? "CHAMBER" : "FX DAMPING");
     {   /* (the POSITION knob's name, as fx_pos_text's) */
@@ -3293,7 +3202,7 @@ static void ui_draw(void)
         str_cpy(b, v, sizeof b);
         ui_cat(b, sizeof b, " %");
         ui_cell(T_C3, "3 SUSTAIN", b);
-        env_time(b, sizeof b, rel_cap(sys.release));
+        env_time(b, sizeof b, sys.release);
         ui_cell(T_C4, "4 RELEASE", b);
     }
 
@@ -3751,10 +3660,6 @@ static int knob_step(volatile uint8_t *p, int32_t s)
 static void knob(volatile uint8_t *p, uint32_t role, uint32_t cell)
 {
     int32_t s = ui_enc(role);
-    if (cell < 4u) {                             /* (the cell's knob drawn from it) */
-        ui_kp[cell] = p;
-        ui_kp_pg[cell] = sys.page;
-    }
     if (!s)
         return;
     if (!knob_step(p, s))
@@ -3832,9 +3737,10 @@ enum { FS_SINE, FS_TRI, FS_UP, FS_DOWN, FS_SQUARE, FS_SH, FS_SWELL, FS_LATE, FS_
 typedef struct { const char *name; uint8_t shape, lo, hi, len, target; } feg_pre_t;
 static const feg_pre_t FEG_PRE[] = {
     {"OFF", 0, 0, 0, 0, 0},
-    {"WOBBLE 1/8", FS_DOWN, 20, 127, 2, 9},        /* (2 STEPS, FX BRIGHTNESS) */
-    {"SQUARE TRILL", FS_SQUARE, 30, 90, 1, 0},     /* (CHAOS: two orbits in turn) */
-    {"BAR RISE", FS_UP, 20, 120, 9, 9},            /* (1 BAR, FX BRIGHTNESS) */
+    {"RING SWEEP", FS_SINE, 30, 120, 15, 3},       /* (LENGTH: 15 LFO 0.25 HZ; TARGET 3 RING) */
+    {"WOBBLE 1/8", FS_DOWN, 20, 127, 2, 3},        /* (2 STEPS) */
+    {"SQUARE TRILL", FS_SQUARE, 30, 120, 1, 3},
+    {"BAR RISE", FS_UP, 20, 120, 9, 3},            /* (1 BAR) */
     {"AUTO PAN", FS_TRI, 0, 127, 16, 18},          /* (0.5 HZ, BASIS) */
     {"ORBIT DRIFT", FS_SINE, 0, 90, 14, 19},       /* (0.1 HZ, ORBIT) */
     {"S&H CHAOS", FS_SH, 40, 100, 9, 0},           /* (CHAOS) */
@@ -3845,10 +3751,14 @@ static const feg_pre_t FEG_PRE[] = {
     {"SCREAM RISE", FS_UP, 0, 127, 9, 27},         /* (SCREAM) */
     {"TALK", FS_SINE, 0, 127, 17, 15},             /* (1 HZ, SHIMMER: MOUTH's vowel) */
     {"YOI YOI", FS_TRI, 10, 120, 2, 15},           /* (2 STEPS, the vowel) */
-    /* MOD FX's VIBRATO (its rate, slew, rectify: the MOD FX page's) */
+    /* MOD FX's VIBRATO and RING MOD (their rate, ratio, slew, rectify: the MOD FX page's) */
     {"DELAYED VIB", FS_LATE, 0, 70, 0, 28},        /* (NOTE, VIBRATO: in after a moment, as a player's) */
     {"VIB SWELL BAR", FS_UP, 0, 90, 9, 28},        /* (1 BAR) */
     {"VIB WAVES", FS_SINE, 0, 80, 15, 28},         /* (0.25 HZ) */
+    {"RING BLOOM", FS_SWELL, 0, 110, 0, 29},       /* (NOTE, RING MOD opening) */
+    {"RING GATE 1/8", FS_SQUARE, 0, 120, 2, 29},   /* (2 STEPS) */
+    {"RING DRIFT", FS_SINE, 0, 100, 16, 29},       /* (0.5 HZ) */
+    {"RING S&H", FS_SH, 0, 120, 10, 29},           /* (2 BARS) */
     /* at audio rate (AM, FM: the note's level or pitch moved by the drawing, x the note) */
     {"AM X1/2 GROWL", FS_SINE, 20, 127, 23, 0},    /* (AM X1/2) */
     {"AM X2 RING", FS_SQUARE, 0, 127, 25, 0},
@@ -3860,6 +3770,7 @@ static const feg_pre_t FEG_PRE[] = {
     {"HIT NOISE Y", FS_HIT, 0, 45, 0, 5},          /* (the exciter struck harder: pick, mallet) */
     {"HIT LEVEL", FS_HIT, 0, 30, 0, 6},            /* (NOISE LEVEL: a click) */
     {"HIT BRIGHT", FS_HIT, 0, 50, 0, 9},           /* (FX BRIGHTNESS) */
+    {"HIT RING MOD", FS_HIT, 0, 110, 0, 29},       /* (a clang of RING MOD on the attack) */
     {"HIT SCREAM", FS_HIT, 0, 90, 0, 27},          /* (the waveguides' breath: a bark) */
 };
 #define NPAGE_PRE(t) ((int32_t)(sizeof t / sizeof t[0]))
@@ -3874,7 +3785,7 @@ static void page_preset(int32_t s)
         const env_pre_t *e;
         pe = (uint8_t)(pe == 0xFFu ? (s > 0 ? 0 : NPAGE_PRE(ENV_PRE) - 1) : (pe + NPAGE_PRE(ENV_PRE) * 8 + s) % NPAGE_PRE(ENV_PRE));
         e = &ENV_PRE[pe];
-        sys.attack = e->a; sys.decay = e->d; sys.sustain = e->s; sys.release = rel_cap(e->r);
+        sys.attack = e->a; sys.decay = e->d; sys.sustain = e->s; sys.release = e->r;
         str_cpy(t, "ENV: ", sizeof t);
         nm = e->name;
     } else if (sys.page == 5u) {
@@ -3957,7 +3868,7 @@ static const arp_preset_t ARP_PRE[] = {
     {"CLASSIC UP", 1, 7, 70, 0, 0, 0},           {"TRANCE 16THS", 1, 7, 45, 0, 1, 0},
     {"ACID BASS", 26, 7, 60, 10, 8, 1},          {"HOUSE STABS", 19, 7, 35, 15, 3, 10},
     {"TECHNO DRIVE", 15, 7, 50, 0, 9, 0},        {"SWING UPDOWN", 7, 7, 65, 55, 13, 4},
-    {"ROLLED CHORD", 45, 9, 90, 0, 4, 12},           {"TRIPLET DREAM", 8, 6, 80, 0, 2, 14},
+    {"HARP RUN", 45, 9, 90, 0, 4, 12},           {"TRIPLET DREAM", 8, 6, 80, 0, 2, 14},
     {"RANDOM SPARKLE", 14, 7, 30, 0, 23, 13},    {"WALKING BASS", 35, 4, 75, 40, 0, 5},
     {"REGGAE SKANK", 43, 7, 40, 20, 13, 10},     {"STRUMMER", 37, 7, 85, 10, 5, 0},
     {"CLAVE", 40, 7, 55, 25, 17, 6},             {"WALTZ", 41, 4, 70, 0, 7, 14},
@@ -4374,7 +4285,7 @@ static void ui_input(void)
     } else if (sys.page == 0u && sys.osc) {
         knob(&sys.np_x, EN_K1, 0);
         knob(&sys.np_y, EN_K2, 1);
-        if (NP_OWN_KNOBS(sys.osc)) {             /* BIG BANG: BANG, EXPAND; PIANO: DECAY, STIFF (on the circuit's
+        if (sys.osc > NP_BIGBANG) {              /* BIG BANG: BANG, EXPAND; PIANO: DECAY, STIFF (on the circuit's
                                                   * CHAOS and OUTPUT) */
             knob(&sys.chaos, EN_K3, 2);
             knob(&sys.output, EN_K4, 3);
@@ -4408,7 +4319,6 @@ static void ui_input(void)
         knob(&sys.decay, EN_K2, 1);
         knob(&sys.sustain, EN_K3, 2);
         knob(&sys.release, EN_K4, 3);
-        sys.release = rel_cap(sys.release);      /* (~127 ms at most) */
     }
     if (sys.page == 14u) {                       /* BANK: part B (MULTI) too: KNOB 2 off / OMNI / its channel, 3 the part
                                                   * edited, 4 MONO / POLY (as HOME held + OP1, OP2, MONO, POLY) */
@@ -4456,9 +4366,9 @@ static void ui_input(void)
     } else if (s && sys.page == 9u) {           /* KARMA: LATCH (right on, left off) */
         sys.k_latch = (uint8_t)(s > 0);
         ui_say(sys.k_latch ? "LATCH ON" : "LATCH OFF");
-    } else if (s && sys.page == 19u) {          /* UI STYLE: the sound INITIAL (exact), ANALOG, ANALORD (a lot more) */
-        sys.analog = (uint8_t)clamp((int32_t)sys.analog + (s > 0 ? 1 : -1), 0, 2);
-        ui_say(sys.analog == 2u ? "ANALORD: EVERY VOICE AND NOTE WAY OFF" : sys.analog ? "ANALOG: EVERY VOICE A LITTLE OFF" : "INITIAL: EXACT");
+    } else if (s && sys.page == 19u) {          /* UI STYLE: the sound INITIAL (left: exact) or ANALOG (right) */
+        sys.analog = (uint8_t)(s > 0);
+        ui_say(sys.analog ? "ANALOG: EVERY VOICE A LITTLE OFF" : "INITIAL: EXACT");
         ui_force = 1;
     } else if (s && sys.page == 8u) {           /* FREE EG: PLAY (right on, left off) */
         sys.feg_on = (uint8_t)(s > 0);

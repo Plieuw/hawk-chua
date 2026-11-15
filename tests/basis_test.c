@@ -43,13 +43,11 @@ static int c1_mode;
 static void (*c1_fn)(uint32_t);
 static uint32_t c1_arg;
 static pthread_t c1_thread;
-static int c1_done;
-static void *c1_thread_main(void *p) { (void)p; c1_fn(c1_arg); __atomic_store_n(&c1_done, 1, __ATOMIC_RELEASE); return 0; }
+static void *c1_thread_main(void *p) { (void)p; c1_fn(c1_arg); return 0; }
 static int c1_run(void (*fn)(uint32_t), uint32_t arg)
 {
     c1_fn = fn;
     c1_arg = arg;
-    __atomic_store_n(&c1_done, 0, __ATOMIC_RELAXED);
     if (c1_mode == 1)
         fn(arg);
     else if (c1_mode == 2)
@@ -65,7 +63,6 @@ static int c1_wait(void)
 #define C1_ON() (c1_mode != 0)
 #define C1_RUN(fn, arg) c1_run(fn, arg)
 #define C1_WAIT() c1_wait()
-#define C1_IDLE() (c1_mode != 2 || __atomic_load_n(&c1_done, __ATOMIC_ACQUIRE))
 #include "../firmware/src/synth.c"
 #include "../firmware/src/keys.c"
 
@@ -478,57 +475,6 @@ int main(int argc, char **argv)
         sys.orbit = 0;
         printf("   (blocks with voices on the second core: %u of 2000)\n", blocks);
         check("second core (at once, a thread, one that gives up): the same output bit for bit", same && blocks > 1000u);
-    }
-    /* MULTI on two cores: the SPACE on the second core a block behind (synth_render_): the same output as on one,
-     * one block later, whichever way the second core answers */
-    {
-        static int32_t ref[2 * CTL * 1200];
-        static uint8_t sys0[sizeof sys], pb0[sizeof part_b];
-        int mode, same = 1, loud = 0;
-        uint32_t k;
-        memcpy(sys0, &sys, sizeof sys);
-        memcpy(pb0, part_b, sizeof part_b);
-        for (k = 0; k < PART_N_SYS; k++)
-            part_b[k] = *PART_SYS[k];
-        part_b[20] = 14;                         /* (B: SINE FM CLUST) */
-        for (mode = 0; mode < 4; mode++) {
-            uint32_t b, j;
-            synth_kill(); keys_all_off();
-            memset(voice, 0, sizeof voice);
-            ghost.x = C1 / 10; ghost.y = ghost.z = 0;
-            rng_state = 0x1234567u;
-            voice_clock = 0;
-            memset(rz, 0, sizeof rz); rz_clock = rz_view_r = 0;
-            memset(rz_epan, 0, sizeof rz_epan); memset(rz_age, 0, sizeof rz_age);
-            rz_gm[0] = rz_gm[1] = -1;
-            sh_reset(); sh_gd = 32768; sh_gw = 0; sh_pn = 0; sh_job = 0;
-            memset(&spk, 0, sizeof spk);
-            c1_mode = mode;
-            sys.osc = 0; sys.chaos = 85; sys.sustain = 120; sys.attack = 0; sys.release = 30;
-            sys.fx_model = RZ_MODAL; sys.fx_mix = 90; sys.fx_damp = 100; sys.fx_struct = 70;
-            sys.sh_space = SS_HALL; sys.sh_mix = 60; sys.sh_size = 80; sys.sh_decay = 90; sys.sh_shimmer = 30;
-            sys.midi_rx = 1; sys.multi = 1; sys.ch_b = 2; voice_rr = 0;
-            for (b = 0; b < 1200u; b++) {
-                if (b == 10u) { midi_in(0x90, 60, 100); midi_in(0x90, 64, 100); midi_in(0x91, 48, 100); }
-                if (b == 400u) { midi_in(0x80, 64, 0); midi_in(0x91, 55, 100); }
-                if (b == 700u) { midi_in(0x80, 60, 0); midi_in(0x81, 48, 0); midi_in(0x81, 55, 0); }
-                keys_block();
-                synth_render(buf, CTL);
-                for (j = 0; j < 2u * CTL; j++) {
-                    if (mode == 0)
-                        ref[b * 2u * CTL + j] = buf[j];
-                    else if (b)
-                        same &= ref[(b - 1u) * 2u * CTL + j] == buf[j];
-                    loud |= abs(buf[j]) > 1000;
-                }
-            }
-        }
-        c1_mode = 0;
-        keys_all_off(); synth_kill();
-        memcpy(&sys, sys0, sizeof sys);
-        memcpy(part_b, pb0, sizeof part_b);
-        sh_reset(); sh_pn = 0;
-        check("MULTI, two cores: the SPACE on the second (a block later), the same output", same && loud);
     }
 
     /* the noise programs (noise.c): each sounds, at about the circuit's level at X = Y = 64, and stays bounded and
@@ -1265,7 +1211,7 @@ int main(int argc, char **argv)
         for (b2 = 0, t = 0; b2 < FS / CTL; b2++) {
             for (i = 0; i < CTL; i++, t++)
                 xin[i] = t < 64u ? 20000 : 0;
-            sh_snap(); fx_shimmer(xin, ol, orr, CTL);
+            fx_shimmer(xin, ol, orr, CTL);
             for (i = 0; i < CTL; i++) {
                 uint32_t tt = b2 * CTL + i, w = tt < FS / 8u ? 9u : (tt - FS / 8u) / (FS / 4u);   /* 125..375 375..625 .. */
                 if (w < 4u) { el[w] += (double)ol[i] * ol[i]; er[w] += (double)orr[i] * orr[i]; }
@@ -1282,7 +1228,7 @@ int main(int argc, char **argv)
             for (b2 = 0, t = 0; b2 < 3u * FS / CTL; b2++) {
                 for (i = 0; i < CTL; i++, t++)
                     xin[i] = (int32_t)((t * 2654435761u) >> 17) - 16384;   /* (noise, loud) */
-                sh_snap(); fx_shimmer(xin, ol, orr, CTL);
+                fx_shimmer(xin, ol, orr, CTL);
                 for (i = 0; i < CTL; i++) {
                     int32_t a2 = ol[i] < 0 ? -ol[i] : ol[i];
                     pk = a2 > pk ? a2 : pk;
@@ -1563,7 +1509,7 @@ int main(int argc, char **argv)
             for (q = 0; q < 2000u; q++) {        /* (the level over 12 blocks: a few periods of the tone) */
                 for (b = 0; b < CTL; b++)
                     inb[b] = (int32_t)(12000 * sin(2 * M_PI * 2000.0 * (q * CTL + b) / FS));
-                sh_snap(); fx_shimmer(inb, lo, ro, CTL);
+                fx_shimmer(inb, lo, ro, CTL);
                 for (i = 0; i < CTL; i++) { e += (double)lo[i] * lo[i]; el += (double)(lo[i] - ro[i]) * (lo[i] - ro[i]); }
                 if (q % 12u == 11u) {
                     if (q > 200u) {
@@ -1693,9 +1639,8 @@ int main(int argc, char **argv)
      * gate ends each note; turning it off lets the held notes sound as they are */
     {
         uint32_t okk = 1, w0, j, b, ons;
-        okk &= ARP_NTYPE == 58u && !strcmp(arp_type_name(15), "TECHNO-A") && !strcmp(arp_type_name(29), "BASSLINE D") &&
-               !strcmp(arp_type_name(32), "ROOT FIFTH") && !strcmp(arp_type_name(47), "BOUND BALL") &&
-               !strcmp(arp_type_name(57), "TOP PULSE");   /* (the AN1x's 30 + 2, the MC-303's 16, 10 basic ones) */
+        okk &= ARP_NTYPE == 48u && !strcmp(arp_type_name(15), "TECHNO-A") && !strcmp(arp_type_name(29), "BASSLINE D") &&
+               !strcmp(arp_type_name(32), "GLISSANDO") && !strcmp(arp_type_name(47), "BOUND BALL");   /* (the AN1x's 30 + 2, the MC-303's 16) */
         static const uint8_t UP2[6] = {60, 64, 67, 72, 76, 79};
         synth_kill(); keys_all_off(); run_ms(50);
         sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100; sys.release = 20;
@@ -1801,9 +1746,9 @@ int main(int argc, char **argv)
                 }
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "DA HOUSE"))   /* the bass, then the right hand */
                     okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 2u) & 31u] == 64u;
-                if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "ROOT FIFTH"))  /* the root, a rest, the third held */
-                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 0u &&
-                           arp_view.note[(w0 + 2u) & 31u] == 67u;
+                if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "GLISSANDO"))  /* semitones up from the lowest */
+                    okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 61u &&
+                           arp_view.note[(w0 + 2u) & 31u] == 62u;
                 if (!strcmp(ARP_STEPS[t3 - AT_BASIC].name, "3 FINGER"))   /* the thumb low, the melody on top */
                     okk &= arp_view.note[w0 & 31u] == 60u && arp_view.note[(w0 + 1u) & 31u] == 67u;
             }
@@ -1930,7 +1875,7 @@ int main(int argc, char **argv)
         sys.k_logic = 0;                         /* (one or the other: the handover below) */
         sys.arp_on = 0; sys.osc = 0; sys.fx_mix = 0; sys.sh_mix = 0; sys.attack = 0; sys.sustain = 100;
         sys.release = 20; sys.arp_bpm = 120; sys.arp_swing = 0; sys.feg_on = 0; sys.feg_has = 0;
-        KOK(KGE_N == 54u);
+        KOK(KGE_N == 46u);
         for (g = 0; g < KGE_N; g++) {                        /* every GE's strings as long as its rhythm */
             uint32_t L = str_len(KGE[g].rhy);
             if ((KGE[g].vel && str_len(KGE[g].vel) != L) || (KGE[g].clu && str_len(KGE[g].clu) != L) ||
@@ -1980,18 +1925,18 @@ int main(int argc, char **argv)
         w0 = kar_view.w;
         run_ms(1000);
         KOK(kar_view.w == w0 && !kar.running && sounding() == 0);
-        /* an envelope: TECHNO STAB moves the FX's BRIGHTNESS over the phrase, gives it back */
-        sys.k_ge = 5; sys.fx_bright = 50; ring0 = 50;
+        /* an envelope: TECHNO STAB moves RING over the phrase, gives it back */
+        sys.k_ge = 5; sys.ring = 50; ring0 = 50;
         midi_in(0x90, 60, 100); midi_in(0x90, 63, 100); midi_in(0x90, 67, 100);
         q = 0;
         for (b = 0; b < 40u; b++) {
             run_ms(50);
-            q |= sys.fx_bright != ring0;
+            q |= sys.ring != ring0;
         }
         KOK(q && kar.env_on);
         midi_in(0x80, 60, 0); midi_in(0x80, 63, 0); midi_in(0x80, 67, 0);
         run_ms(20);
-        KOK(sys.fx_bright == ring0 && !kar.env_on);
+        KOK(sys.ring == ring0 && !kar.env_on);
         /* LATCH: let go, it goes on; a new chord replaces the old */
         sys.k_ge = 0; sys.k_latch = 1;
         midi_in(0x90, 60, 100); midi_in(0x90, 64, 100);
@@ -2669,7 +2614,7 @@ int main(int argc, char **argv)
             synth_kill(); memset(voice, 0, sizeof voice); rng_state = 0x1234567u; voice_clock = 0;   /* (the same
                                                   * voices whatever ran before) */
             sys.sh_mix = 0; sys.fx_mix = 0; sys.osc = 0; sys.sh_space = 0;
-            sh_snap(); fx_shimmer(buf, buf, buf, 0);          /* (clear) */
+            fx_shimmer(buf, buf, buf, 0);          /* (clear) */
             sys.chaos = 6; sys.output = 64; sys.sustain = 0; sys.decay = 70; sys.release = 60; sys.ring = 30;
             sys.sh_mix = 127; sys.sh_size = 110; sys.sh_decay = 110; sys.sh_shimmer = 127; sys.sh_interval = SI_2OCT;
             sys.sh_tone = 100;
@@ -2824,11 +2769,10 @@ int main(int argc, char **argv)
         mf_reset(&mfp[0], 0);
         check("MOD FX: every mode bounded and audible", okk);
     }
-    {   /* the mod wheel on VIBRATO: MOD FX on with it (the page OFF), off with the wheel down; RING MOD (saved
-         * before: no longer a target) taken as VIBRATO */
+    {   /* the mod wheel on VIBRATO, RING MOD: MOD FX on with that one (the page OFF), off with the wheel down */
         uint8_t t0 = sys.mw_target, d0 = sys.mw_depth, m0 = sys.mfx_mode;
         int okk = 1;
-        static const uint8_t WM[2] = {MF_VIBRATO, MF_VIBRATO};
+        static const uint8_t WM[2] = {MF_VIBRATO, MF_RING};
         uint32_t k2;
         sys.mfx_mode = MF_OFF; sys.mw_depth = 127;
         for (k2 = 0; k2 < 2u; k2++) {
@@ -2841,7 +2785,7 @@ int main(int argc, char **argv)
             okk &= !mf.on && !sys.mw_vib && !sys.mw_ringm;
         }
         sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
-        check("mod wheel on VIBRATO: MOD FX with it (RING MOD as VIBRATO)", okk);
+        check("mod wheel on VIBRATO, RING MOD: MOD FX with it", okk);
     }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};

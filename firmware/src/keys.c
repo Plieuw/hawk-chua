@@ -237,7 +237,7 @@ static void midi_cc(uint32_t cc, uint32_t v)
         break;
     case 73:                                     /* (BIG BANG: BANG, EXPAND on CHAOS's and OUTPUT's; PIANO: DECAY,
                                                   * STIFF) */
-        if (NP_OWN_KNOBS(sys.osc))
+        if (sys.osc > NP_BIGBANG)
             sys.chaos = (uint8_t)v;
         else if (sys.osc)
             sys.np_level = (uint8_t)v;
@@ -245,7 +245,7 @@ static void midi_cc(uint32_t cc, uint32_t v)
             sys.output = (uint8_t)v;
         break;
     case 74:
-        if (NP_OWN_KNOBS(sys.osc))
+        if (sys.osc > NP_BIGBANG)
             sys.output = (uint8_t)v;
         else
             sys.ring = (uint8_t)v;
@@ -373,7 +373,7 @@ static void menv_undo(void)
 }
 static void menv_param(void)
 {
-    uint32_t len, a, ia, id, t = sys.menv_target == 4u ? 0u : sys.menv_target;   /* (RING, saved before: none) */
+    uint32_t len, a, ia, id, t = sys.menv_target;
     int32_t want, h;
     volatile uint8_t *f;
     if (t != menv_p.target) {                    /* (another parameter: the last one given back) */

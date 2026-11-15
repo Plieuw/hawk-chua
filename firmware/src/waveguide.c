@@ -413,15 +413,6 @@ typedef struct {
     int32_t ox, oy, iav, oav, ag, yh[3];
 } wg_brass_t;
 
-/* n / 127, truncated as C does, |n| < 2^37 (here < 2^35), without a 64-bit division (a library call on this core, every sample):
- * the high and low halves in turn, 32 bits each, each a multiply */
-static inline int32_t wg_div127(int64_t n)
-{
-    uint64_t a = n < 0 ? (uint64_t)-n : (uint64_t)n;
-    uint32_t hi = (uint32_t)(a >> 16), q1 = hi / 127u, q0 = ((hi - q1 * 127u) << 16 | ((uint32_t)a & 65535u)) / 127u;
-    int32_t q = (int32_t)((q1 << 16) + q0);
-    return n < 0 ? -q : q;
-}
 static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t n, uint32_t f0, int32_t lip,
                          int32_t mute, int32_t bright, int32_t damp)
 {
@@ -462,9 +453,8 @@ static void wg_brass_run(wg_brass_t *B, const int32_t *in, int32_t *y, uint32_t 
             hi = o - B->mlo - px_m(8192, B->mbd, 15);
             B->mbd = px_clamp(B->mbd + px_m(mf, hi, 15), -16 * PX_ONE, 16 * PX_ONE);
             B->mlo = px_clamp(B->mlo, -16 * PX_ONE, 16 * PX_ONE);
-            if (mute)                            /* (MUTE 0: the open bell as it is) */
-                o = px_clamp(wg_div127((int64_t)o * (127 - mute) + (int64_t)B->mbd * mute * 2), -32 * PX_ONE,
-                             32 * PX_ONE);
+            o = px_clamp((int32_t)(((int64_t)o * (127 - mute) + (int64_t)B->mbd * mute * 2) / 127), -32 * PX_ONE,
+                         32 * PX_ONE);
         }
         t = o - B->ox + px_m(B->oy, 32440, 15);
         B->ox = o;

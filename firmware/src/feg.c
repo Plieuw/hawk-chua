@@ -79,27 +79,19 @@ static volatile uint8_t *feg_field(uint32_t t)
 }
 /* the ones FREE EG and the mod wheel offer: not SHIMMER SIZE (its lines' lengths and the delay's TIME jump a block at
  * a time: clicks) nor SHIMMER TONE (hardly heard moving); one of them (saved before) taken as its neighbour */
-/* nor RING, RING MOD (no longer a modulation target anywhere: FREE EG, the mod wheel, MOD ENV, KARMA's envelopes;
- * one saved on them: OUTPUT, VIBRATO) */
-#define FEG_T_OUT(t) ((t) == 13u || (t) == 17u || (t) == 3u || (t) == 29u)
-#define FEG_T_HIDE(t) FEG_T_OUT(t)
+#define FEG_T_OUT(t) ((t) == 13u || (t) == 17u)
 static uint32_t feg_t_ok(uint32_t t)
 {
     t %= FEG_NT;
-    return t == 13u ? 14u : t == 17u ? 16u : t == 3u ? 2u : t == 29u ? 28u : t;
+    return t == 13u ? 14u : t == 17u ? 16u : t;
 }
 static uint8_t feg_t_step(uint32_t t, int32_t s)   /* (the TARGET knob: s steps on, the left-out skipped) */
 {
     int32_t v = (int32_t)feg_t_ok(t), d = s > 0 ? 1 : -1;
-    for (; s; s -= d) {
-        int32_t w = v;
+    for (; s; s -= d)
         do
-            w += d;
-        while (w >= 0 && w < FEG_NT && FEG_T_HIDE((uint32_t)w));
-        if (w < 0 || w >= FEG_NT)                /* (no more that way) */
-            break;
-        v = w;
-    }
+            v = clamp(v + d, 0, FEG_NT - 1);
+        while (FEG_T_OUT((uint32_t)v) && v > 0 && v < FEG_NT - 1);
     return (uint8_t)v;
 }
 /* what a move may set it to: FX MIX and SHIMMER MIX never 0 (0 is off: the resonators', the reverb's memory cleared,

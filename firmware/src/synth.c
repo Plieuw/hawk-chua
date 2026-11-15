@@ -187,10 +187,8 @@ static void chua_params_q(int32_t chq, int32_t shq, int32_t oq)
 /* ANALOG (sys.analog, GLO's UI STYLE page, SELECT): every value a little off, as in an analog synth, where no two
  * voice cards are alike. Each voice its own small offsets (its pitch a few cents, its envelope's times a few percent,
  * its gate's cutoff, its level, its place, a noise program's X and Y), and at each note a little more at random; each
- * part's circuit (CHAOS, SHAPE, OUTPUT) and each resonator (its tuning, BRIGHTNESS, DAMPING) its own. ANALORD (2): the
- * same, all of it a lot more (x AN_MORE: ~ +-12 cents a voice), and each note's pitch more at random (~ +-10 cents).
- * INITIAL: none (the sound exactly as set) */
-#define AN_MORE ((int32_t)sys.analog >= 2 ? 4 : 1)
+ * part's circuit (CHAOS, SHAPE, OUTPUT) and each resonator (its tuning, BRIGHTNESS, DAMPING) its own. INITIAL: none
+ * (the sound exactly as set) */
 static const int16_t AN_CENT[NVOICE] = {95, -114, 38, -57};   /* the pitch, Q16 (~38 a cent): +2.5 -3 +1 -1.5 cents */
 static const uint16_t AN_TIME[NVOICE] = {271, 243, 264, 238}; /* the envelope's speed, Q8: +6 -5 +3 -7 % */
 static const int8_t AN_CUT[NVOICE] = {3, -2, 1, -4};         /* the gate's cutoff (of 255 steps) */
@@ -213,9 +211,9 @@ static void chua_params_part(uint32_t part, int snap)   /* the knobs smoothed (s
     int32_t *v = ksm[part & 1u].v;
     int32_t c = ksm_glide(&v[0], sys.chaos, snap), s = ksm_glide(&v[1], sys.shape, snap), o = ksm_glide(&v[2], sys.output, snap);
     if (sys.analog) {                            /* (ANALOG: each part's circuit a little off) */
-        c = clamp(c + AN_CIRC[part & 1u][0] * AN_MORE, 0, 127 << 8);
-        s = clamp(s + AN_CIRC[part & 1u][1] * AN_MORE, 0, 127 << 8);
-        o = clamp(o + AN_CIRC[part & 1u][2] * AN_MORE, 0, 127 << 8);
+        c = clamp(c + AN_CIRC[part & 1u][0], 0, 127 << 8);
+        s = clamp(s + AN_CIRC[part & 1u][1], 0, 127 << 8);
+        o = clamp(o + AN_CIRC[part & 1u][2], 0, 127 << 8);
     }
     chua_params_q(c, s, o);
 }
@@ -295,9 +293,8 @@ typedef struct {
     int8_t an_c;                 /* ANALOG: its gate's cutoff, steps of the table (0: as set) */
 } voice_t;
 static voice_t voice[NVOICE];
-#define NP_COUNT 33                              /* the noise programs (noise.c, included below; the last: BIG BANG,
-                                                  * PIANO, FILTER NOISE) */
-#define NP_OWN_KNOBS(osc) ((osc) == 31u || (osc) == 32u)   /* (BIG BANG, PIANO: knobs 3 and 4 on CHAOS, OUTPUT) */
+#define NP_COUNT 32                              /* the noise programs (noise.c, included below; the last: BIG BANG,
+                                                  * PIANO) */
 static void np_start(uint32_t k, uint32_t seed);
 static uint32_t rz_assign(uint32_t note, uint32_t vel);
 /* BASIS: each of the four voices has its own place (left, right, half left, half right), always the same, and the
@@ -406,10 +403,6 @@ static uint32_t env_cap;
 #ifndef ENV_A_MIN
 #define ENV_A_MIN 14u                            /* (ENV_FRAMES[14]: 66 frames, 1.5 ms) */
 #endif
-/* RELEASE at most ~127 ms (ENV_FRAMES[71]: 5592 frames; 72 would be ~137 ms): the knob stops there, a preset's or a
- * saved longer one is taken as it (a pad's tail is the reverb's, not the gate's) */
-#define REL_MAX 71u
-static inline uint8_t rel_cap(uint32_t v) { v &= 127u; return (uint8_t)(v > REL_MAX ? REL_MAX : v); }
 static void env_params_r(int32_t rq)             /* rq: RING, Q8 */
 {
     uint32_t a = sys.attack & 127u;
@@ -427,7 +420,7 @@ static void env_params_r(int32_t rq)             /* rq: RING, Q8 */
     eg.att = ENV_MAX / ENV_FRAMES[a];
     eg.dec = ENV_COEF[sys.decay & 127u];
     eg.sus = (uint32_t)(sys.sustain & 127u) * (ENV_MAX / 127u);
-    eg.rel = ENV_COEF[rel_cap(sys.release)];
+    eg.rel = ENV_COEF[sys.release & 127u];
     {   /* (between the table's steps: RING smoothed) */
         uint32_t i = (uint32_t)rq >> 8, f = (uint32_t)rq & 255u, j = i < 127u ? i + 1u : i;
         eg.k = (int32_t)LPG_K[i] + (int32_t)(((int64_t)((int32_t)LPG_K[j] - (int32_t)LPG_K[i]) * (int32_t)f) >> 8);
@@ -542,14 +535,13 @@ steal:
     v->an_c = 0;
     if (sys.analog) {                               /* ANALOG: this voice's own offsets, and a little more at random */
         uint32_t r = rng(), k = (uint32_t)(v - voice) % NVOICE, a;
-        int32_t m = AN_MORE, c = m > 1 ? AN_CENT[k] * m + (int32_t)(r & 767u) - 384   /* (ANALORD: +- ~10 cents more) */
-                                       : AN_CENT[k] + (int32_t)(r & 127u) - 64;      /* (+- ~1.7 cents more) */
+        int32_t c = AN_CENT[k] + (int32_t)(r & 127u) - 64;   /* (+- ~1.7 cents more) */
         v->inc0 = (uint32_t)(((uint64_t)v->inc0 * (uint32_t)(65536 + c)) >> 16);
-        v->an_t = (uint16_t)(256 + ((int32_t)AN_TIME[k] - 256 + (int32_t)((r >> 10) & 15u) - 8) * m);
-        v->an_c = (int8_t)(AN_CUT[k] * m);
-        a = ((uint32_t)v->amp * (uint32_t)(256 + ((int32_t)AN_AMP[k] - 256 + (int32_t)((r >> 14) & 7u) - 4) * m)) >> 8;
+        v->an_t = (uint16_t)(AN_TIME[k] + ((r >> 7) & 15u) - 8u);
+        v->an_c = AN_CUT[k];
+        a = ((uint32_t)v->amp * (AN_AMP[k] + ((r >> 11) & 7u) - 4u)) >> 8;
         v->amp = (uint16_t)(a > 32767u ? 32767u : a);
-        v->pan = (int16_t)clamp((int32_t)v->pan + AN_PAN[k] * (m > 1 ? 2 : 1), -32767, 32767);
+        v->pan = (int16_t)clamp((int32_t)v->pan + AN_PAN[k], -32767, 32767);
     }
     v->inc = (uint32_t)(((uint64_t)v->inc0 * synth_bend[syn_part & 1u]) >> 16);
     {   /* velocity on the sound (the EDIT page): a soft note's gate opens less (darker), its FM shallower */
@@ -731,8 +723,7 @@ static int32_t soft_clip(int32_t x)              /* Q15 in +-1.5 -> +-1: x - 4/2
     int64_t c;
     x = clamp(x, -49151, 49151);
     c = ((int64_t)x * x >> 15) * x >> 15;
-    return x - (int32_t)c * 4 / 27;              /* (|c| < 2^17: the division in 32 bits, as a multiply; a 64-bit
-                                                  * signed one is a library call on this core, every sample) */
+    return x - (int32_t)(c * 4 / 27);
 }
 
 /* the substeps of a voice: h = its time per sample (Q24) split into n of at most CHUA_HMAX */
@@ -756,26 +747,6 @@ static uint32_t voice_h(const voice_t *v, int32_t *hs)
 #define C1_RUN(fn, arg) 0                        /* hand it fn(arg): 1 = taken */
 #define C1_WAIT() 0                              /* wait for it: 0 = done */
 #endif
-#ifndef C1_IDLE
-#define C1_IDLE() 1                              /* its job done (no waiting) */
-#endif
-/* MULTI: the SPACE on the second core, a block behind (synth_render_): its job running, the block it works on (in:
- * the sum, the dry's pans; out: the space's), the n of the block waiting for it (0: none). Before another job: c1_free */
-static uint8_t sh_job;
-static uint32_t sh_pn, sh_jn;
-static int32_t sh_pin[CTL], sh_pdl[CTL], sh_pdr[CTL], sh_ol[CTL], sh_or[CTL];
-static void c1_space(uint32_t n);
-static int c1_free(void)                         /* the second core free for a job: 1 (its space job, done, collected) */
-{
-    if (!sh_job)
-        return 1;
-    if (!C1_IDLE())
-        return 0;
-    if (C1_WAIT())                               /* (it stopped answering: the space here) */
-        c1_space(sh_jn);
-    sh_job = 0;
-    return 1;
-}
 /* FREE EG at audio rate (feg.c, LENGTH AM / FM): its loop read at x 1/2 .. 4 the note, every sample, on the voice's
  * level (AM) or its pitch (FM) */
 static struct { uint8_t on, depth, fm, mid; uint32_t r16; const uint8_t *curve; } feg_am;   /* mid: the loop's mean */
@@ -1013,9 +984,7 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
                 v->apy[k][1] = y1;
             }
             for (i = 0; i < n; i++) {
-                int32_t h = (t[i] - u[i]) / 2, s;
-                h = h > 16000000 ? 16000000 : h < -16000000 ? -16000000 : h;   /* (x 127 within 32 bits) */
-                s = h * orbit / 127 / 2;                /* the side, at most half the voice */
+                int32_t s = (t[i] - u[i]) / 2 * orbit / 127 / 2;   /* the side, at most half the voice */
                 dl[i] -= s;                             /* (L = dry - dl, R = dry - dr) */
                 dr[i] += s;
             }
@@ -1037,15 +1006,6 @@ static void voice_mix(voice_t *v, uint32_t n, int32_t (*bus)[CTL], int32_t *dl, 
     } else {
         for (i = 0; i < n; i++)
             b[i] += t[i];
-    }
-}
-static void c1_space(uint32_t n)                 /* the waiting block through the SPACE (its knobs: sh_snap'd) */
-{
-    uint32_t i;
-    fx_shimmer(sh_pin, sh_ol, sh_or, n);
-    for (i = 0; i < n; i++) {
-        sh_ol[i] -= (int32_t)(((int64_t)sh_pdl[i] * sh_dry) >> 15);
-        sh_or[i] -= (int32_t)(((int64_t)sh_pdr[i] * sh_dry) >> 15);
     }
 }
 static uint32_t c1_restarts, c1_blocks;          /* (diagnostics) */
@@ -1119,7 +1079,7 @@ static void synth_render_(int32_t *out, uint32_t n)
     uint32_t i, k, busy = 0, newest = 0, mask = 0, own = 0;
     int32_t m = (int32_t)sys.master_q12, sum[CTL], dl[CTL], dr[CTL], basis = (int32_t)(sys.basis & 127u);
     voice_t *tv = 0;
-    int inner, ml, mr, pipe = sys.multi && C1_ON();     /* (pipe: MULTI with the SPACE on the second core) */
+    int inner, ml, mr;
     {   /* MAIN VOLUME x EXPRESSION (CC 7, 11; squared, as on a GM synth: 100 x 127 = the level as it was), PAN (CC 10) */
         uint32_t ve = (uint32_t)(mcc.vol > 100u ? 100u : mcc.vol) * mcc.expr;     /* 0 .. 12700 */
         uint32_t p = mcc.pan & 127u;
@@ -1178,8 +1138,6 @@ static void synth_render_(int32_t *out, uint32_t n)
     {
     int32_t psum[CTL], pdl[CTL], pdr[CTL];
     uint32_t pp, np2 = sys.multi ? 2u : 1u;
-    if (!pipe)
-        sh_pn = 0;                                      /* (out of MULTI: the waiting block let go) */
     if (sys.multi) {
         memset(psum, 0, sizeof psum);
         memset(pdl, 0, sizeof pdl);
@@ -1216,7 +1174,7 @@ static void synth_render_(int32_t *out, uint32_t n)
         else
             own |= 1u << k;
     }
-    if (!C1_ON() || !mask || !c1_free() || !C1_RUN(c1_voices, mask | n << 8)) {
+    if (!C1_ON() || !mask || !C1_RUN(c1_voices, mask | n << 8)) {
         own |= mask;
         mask = 0;
     }
@@ -1234,14 +1192,6 @@ static void synth_render_(int32_t *out, uint32_t n)
             dl[i] += c1_dl[i];
             dr[i] += c1_dr[i];
         }
-    }
-    if (pipe && !pp && sh_pn) {                         /* MULTI: the last block's SPACE on the second core now, while
-                                                         * this one does A's resonators and B (A's knobs: sys is A's) */
-        sh_snap();
-        sh_jn = sh_pn;
-        sh_job = (uint8_t)C1_RUN(c1_space, sh_pn);
-        if (!sh_job)
-            c1_space(sh_pn);
     }
     for (k = 0; k < NVOICE; k++)                        /* each resonator where the newest voice feeding it is */
         if ((own | mask) >> k & 1u && voice[k].age >= rz_age[voice[k].rz % RZ_POLY]) {
@@ -1283,31 +1233,10 @@ static void synth_render_(int32_t *out, uint32_t n)
     }
     {
         int32_t l[CTL], r[CTL];
-        if (pipe) {                                     /* MULTI, two cores: the space of the block before (its job
-                                                         * collected), this one's waiting for the next (~0.7 ms later) */
-            if (sh_job) {
-                if (C1_WAIT())
-                    c1_space(sh_jn);
-                sh_job = 0;
-            }
-            if (sh_pn && sh_pn == n) {
-                memcpy(l, sh_ol, n * sizeof l[0]);
-                memcpy(r, sh_or, n * sizeof r[0]);
-            } else {
-                memset(l, 0, n * sizeof l[0]);          /* (the first block in MULTI: nothing waiting yet) */
-                memset(r, 0, n * sizeof r[0]);
-            }
-            memcpy(sh_pin, sum, n * sizeof sum[0]);
-            memcpy(sh_pdl, dl, n * sizeof dl[0]);
-            memcpy(sh_pdr, dr, n * sizeof dr[0]);
-            sh_pn = n;
-        } else {
-            sh_snap();
-            fx_shimmer(sum, l, r, n);                   /* (its tank fed the middle; its dry part panned here) */
-            for (i = 0; i < n; i++) {
-                l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
-                r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
-            }
+        fx_shimmer(sum, l, r, n);                       /* (its tank fed the middle; its dry part panned here) */
+        for (i = 0; i < n; i++) {
+            l[i] -= (int32_t)(((int64_t)dl[i] * sh_dry) >> 15);
+            r[i] -= (int32_t)(((int64_t)dr[i] * sh_dry) >> 15);
         }
         if (!synth_light)
             spk_bass(l, r, n);

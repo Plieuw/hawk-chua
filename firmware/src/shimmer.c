@@ -51,10 +51,6 @@ enum { SS_HALL, SS_TEMPLE, SS_CATHEDRAL, SS_MOSQUE, SS_PIANO, SS_GUITAR, SS_VIOL
 #define SS_DELAY SS_PINGPONG                     /* (the delays: PING PONG .. BOUNCE) */
 #define SS_IS_DELAY(sp) ((sp) >= SS_DELAY && (sp) <= SS_BOUNCE)
 #define SS_BODY SS_PIANO                         /* (from here: an instrument's body) */
-/* each space's wet level (Q12): measured against the dry (SPACE MIX 127, short notes and their tails, 6 presets'
- * oscillators, SIZE 32 and 96), every space within ~2 dB of the others: the bodies were 6 .. 12 dB under the halls,
- * the delays over */
-static const uint16_t SH_WLVL[SS_COUNT] = {4096, 4868, 4868, 4339, 10289, 10898, 7715, 9713, 14533, 7284, 8173, 4096, 4596, 4096, 3072, 2303, 3072};
 static const char *const SH_SPACE_NAME[SS_COUNT] = {"HALL", "TEMPLE", "CATHEDRAL", "MOSQUE", "PIANO BODY",
                                                     "GUITAR BODY", "VIOLIN BODY", "CELLO BODY", "HARP BODY",
                                                     "ACCORDION", "BAGPIPE", "PIPE ORGAN", "LESLIE", "PING PONG",
@@ -147,19 +143,6 @@ static inline int32_t sh_dread(uint32_t i) { return i < sh_cpos ? sh.dl[i] : 0; 
 /* for the screen (ui.c): the wet level per block, a ring the main loop reads */
 #define SH_ENV 64u
 static struct { uint16_t env[SH_ENV]; volatile uint32_t w; } sh_view;
-/* the knobs the space works from, taken from sys when it starts a block (sh_snap): MULTI hands the space to the
- * second core while this one has part B's sound swapped into sys (synth.c) */
-static struct { uint8_t size, decay, shimmer, mix, interval, space, tone; } shp;
-static void sh_snap(void)
-{
-    shp.size = sys.sh_size;
-    shp.decay = sys.sh_decay;
-    shp.shimmer = sys.sh_shimmer;
-    shp.mix = sys.sh_mix;
-    shp.interval = sys.sh_interval;
-    shp.space = sys.sh_space;
-    shp.tone = sys.sh_tone;
-}
 
 static inline int16_t sh_sat(int32_t v) { return (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }
 
@@ -218,10 +201,10 @@ static const uint16_t SH_FG[4] = {32768, 16000, 6000, 3000};    /* their levels,
 static int32_t sh_mc[4][3];                      /* the formants now: a1, a2, b (Q28) */
 static void sh_mouth_set(void)                   /* (once a block) */
 {
-    uint32_t iv = shp.interval % SI_COUNT, nv = SH_MPATH[iv][0], k;
+    uint32_t iv = sys.sh_interval % SI_COUNT, nv = SH_MPATH[iv][0], k;
     const uint8_t *path = iv ? &SH_MPATH[iv][1] : SH_MPATH5;
-    uint32_t pos = (shp.shimmer & 127u) * (nv - 1u) * 256u / 127u, seg = pos >> 8, fr = pos & 255u;
-    uint32_t scale = 49152u + (shp.size & 127u) * 42598u / 127u;   /* Q16, 0.75 .. 1.4 */
+    uint32_t pos = (sys.sh_shimmer & 127u) * (nv - 1u) * 256u / 127u, seg = pos >> 8, fr = pos & 255u;
+    uint32_t scale = 49152u + (sys.sh_size & 127u) * 42598u / 127u;   /* Q16, 0.75 .. 1.4 */
     if (seg >= nv - 1u) { seg = nv - 2u; fr = 256u; }
     for (k = 0; k < 4u; k++) {
         uint32_t f0 = SH_VOWEL[path[seg]][k], f1 = SH_VOWEL[path[seg + 1u]][k];
@@ -313,8 +296,7 @@ static const char *sh_iv_name(uint32_t sp, uint32_t iv)   /* the INTERVAL's name
     return SS_IS_DELAY(sp) ? SH_DPAT[sp - SS_DELAY][iv % SI_COUNT].name : sp == SS_MOUTH ? SH_MPATH_NAME[iv % SI_COUNT] :
            SH_INTERVAL_NAME[iv % SI_COUNT];
 }
-static uint32_t sh_dtime_n(uint32_t size) { return (size & 127u) * SH_DTIMES / 128u; }
-static uint32_t sh_dtime(void) { return sh_dtime_n(sys.sh_size); }   /* (the screen's: the knob now) */
+static uint32_t sh_dtime(void) { return (sys.sh_size & 127u) * SH_DTIMES / 128u; }
 
 /* the dry and the wet level glide over a block from the last's to this one's (SPACE MIX moved by FREE EG, a knob:
  * no steps a block apart, no zipper); still: as they are */
@@ -325,7 +307,7 @@ static int32_t sh_gd = 32768, sh_gw;
     cw = (wet) - sw * gn
 static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint32_t sp, int32_t dry, int32_t wet)
 {
-    const sh_dpat_t *P = &SH_DPAT[sp - SS_DELAY][shp.interval % SI_COUNT];
+    const sh_dpat_t *P = &SH_DPAT[sp - SS_DELAY][sys.sh_interval % SI_COUNT];
     static uint32_t key = 0xFFFFFFFFu, fkey = 0xFFFFFFFFu, loop, tap[10];   /* (the taps: worked out again only when
                                                   * the tempo, the TIME or the pattern changed, not every block: no
                                                   * 64-bit divisions in the interrupt then; their filters when the
@@ -336,7 +318,7 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
                                                   * after a second; no clock (0): as they were) */
     static uint32_t off_n;
     uint32_t i, k, bpm = arp_bpm_now(), spt, peak = 0, kn;
-    int32_t fb = (int32_t)(shp.decay & 127u) * 245, q, fl, open = (shp.shimmer & 127u) >= 127u;
+    int32_t fb = (int32_t)(sys.sh_decay & 127u) * 245, q, fl, open = (sys.sh_shimmer & 127u) >= 127u;
     if (bpm) {
         uint32_t d = bpm > held ? bpm - held : held - bpm;
         off_n = d ? off_n + n : 0u;
@@ -346,11 +328,11 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
         }
     }
     bpm = held < 20u ? 20u : held > 300u ? 300u : held;
-    kn = bpm | sh_dtime_n(shp.size) << 9 | (sp - SS_DELAY) << 12 | (shp.interval % SI_COUNT) << 16;
+    kn = bpm | sh_dtime() << 9 | (sp - SS_DELAY) << 12 | (sys.sh_interval % SI_COUNT) << 16;
     if (kn != key) {
         key = kn;
         /* samples (11025 Hz) a tick, Q16: 60 / BPM s a quarter, clocks / 24 of it a step, a 24th of that a tick */
-        spt = (uint32_t)(((uint64_t)11025u * 60u * 65536u / bpm) * SH_DCLK[sh_dtime_n(shp.size)] / 576u);
+        spt = (uint32_t)(((uint64_t)11025u * 60u * 65536u / bpm) * SH_DCLK[sh_dtime()] / 576u);
         while ((uint32_t)(((uint64_t)P->loop * spt) >> 16) > SH_DLEN - 4u)   /* (too long for the line: halved) */
             spt >>= 1;
         loop = (uint32_t)(((uint64_t)P->loop * spt) >> 16);
@@ -359,18 +341,18 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
             tap[k] = tap[k] < 1u ? 1u : tap[k];
         }
     }
-    kn = (shp.shimmer & 127u) | (sp - SS_DELAY) << 8 | (shp.interval % SI_COUNT) << 16;
+    kn = (sys.sh_shimmer & 127u) | (sp - SS_DELAY) << 8 | (sys.sh_interval % SI_COUNT) << 16;
     if (kn != fkey) {                            /* (FREE EG on the FILTER: this, a block at a time) */
         fkey = kn;
         for (k = 0; k < P->n; k++) {   /* its filter: 150 Hz x 2^(FILTER 0 .. 4.1 oct + its offset), f = 2 sin(pi fc / 11025), Q15 */
-            int32_t oc = (int32_t)(shp.shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
+            int32_t oc = (int32_t)(sys.sh_shimmer & 127u) * 268697 / 127 + P->tap[k].cut * 16384;   /* Q16 octaves */
             uint32_t fc = (uint32_t)(((uint64_t)150u * px_exp2(oc < 0 ? 0 : oc)) >> 16);
             fc = fc > 2600u ? 2600u : fc < 60u ? 60u : fc;
             ff[k] = px_sin((uint32_t)(((uint64_t)fc * 12466155u) >> 6)) >> 14;   /* (fc 2^32 / 22050: 2^38 / 22050 =
                                                                                   * 12466154.5, no division; Q30 -> 2 x Q15) */
         }
     }
-    q = 32768 - (int32_t)(shp.tone & 127u) * 210;   /* 1 / Q: 1 .. ~0.19 */
+    q = 32768 - (int32_t)(sys.sh_tone & 127u) * 210;   /* 1 / Q: 1 .. ~0.19 */
     fl = (65536 - q) * 29 / 32;                  /* (the filter stays stable while f < 2 - 1 / Q: its f at most 0.9 of
                                                   * that; FILTER near the top with little TONE screamed) */
     SH_GLIDE(dry, wet);
@@ -435,9 +417,9 @@ static void fx_delay(const int32_t *in, int32_t *l, int32_t *r, uint32_t n, uint
 static int32_t sh_dry = 32768;                   /* this block's dry level, Q15 (synth.c pans the dry with it) */
 static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
 {
-    uint32_t i, k, size = shp.size & 127u, iv = shp.interval % SI_COUNT, sp = shp.space % SS_COUNT;
+    uint32_t i, k, size = sys.sh_size & 127u, iv = sys.sh_interval % SI_COUNT, sp = sys.sh_space % SS_COUNT;
     uint32_t etap[4], rinc;
-    int32_t mix = shp.mix > 127u ? 127 : (int32_t)shp.mix, g[SH_NLINE], damp, fa, fb_, dry, wet;
+    int32_t mix = sys.sh_mix > 127u ? 127 : (int32_t)sys.sh_mix, g[SH_NLINE], damp, fa, fb_, dry, wet;
     uint32_t inc = SH_INC[iv], peak = 0;
     sh_dry = 32768;
     if (!mix) {
@@ -458,7 +440,7 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
         }
     }
     if (SS_IS_DELAY(sp)) {                       /* a delay: in the tempo (above) */
-        int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = (mix > 64 ? 32768 : mix * 32768 / 64) * SH_WLVL[sp] >> 12;
+        int32_t dr = mix < 64 ? 32768 : (127 - mix) * 32768 / 63, wt = mix > 64 ? 32768 : mix * 32768 / 64;
         sh_dry = dr;
         sh.on = 1;
         fx_delay(in, l, r, n, sp, dr, wt);
@@ -469,64 +451,37 @@ static void fx_shimmer(const int32_t *in, int32_t *l, int32_t *r, uint32_t n)
             sh.len[k] = SH_LEN[k];
         sh.on = 1;
     }
-    {   /* per block: the lengths glide to SIZE's, the gains of the DECAY time, TONE, SHIMMER (kept while the lengths
-         * have arrived and the knobs stay: a dozen 2^x and a 64-bit square root a block saved) */
-        static struct { uint32_t key, sp; uint8_t ok; int32_t g[SH_NLINE], damp, fa, fb; uint32_t rinc, etap[4]; } shc;
+    {   /* per block: the lengths glide to SIZE's, the gains of the DECAY time, TONE, SHIMMER */
         uint32_t scale = 22938u + size * 330u;   /* 0.35 .. 1, Q16 */
-        uint32_t key = size | (shp.decay & 127u) << 7 | (shp.tone & 127u) << 14 | (shp.shimmer & 127u) << 21;
-        int moved = 0;
-        for (k = 0; k < SH_NLINE; k++) {
-            uint32_t t = (uint32_t)(((uint64_t)SH_LEN[k] * scale) >> 16);
-            int32_t d = (int32_t)t - (int32_t)sh.len[k];
-            moved |= d != 0;
-            sh.len[k] = (uint32_t)((int32_t)sh.len[k] + (d > 16 ? 16 : d < -16 ? -16 : d));
-        }
-        if (shc.ok && !moved && shc.key == key && shc.sp == sp) {
-            for (k = 0; k < SH_NLINE; k++)
-                g[k] = shc.g[k];
-            damp = shc.damp;
-            fa = shc.fa;
-            fb_ = shc.fb;
-            rinc = shc.rinc;
-            for (k = 0; k < 4u; k++)
-                etap[k] = shc.etap[k];
-        } else {
-        uint32_t rt = (uint32_t)(((uint64_t)17640u * px_exp2((int32_t)((shp.decay & 127u) * 408220u / 127u))) >> 16);
-        int32_t fc_oct = (int32_t)((shp.tone & 127u) * 222822u / 127u);   /* 1.5 kHz x 2^(0 .. 3.4) */
+        uint32_t rt = (uint32_t)(((uint64_t)17640u * px_exp2((int32_t)((sys.sh_decay & 127u) * 408220u / 127u))) >> 16);
+        int32_t fc_oct = (int32_t)((sys.sh_tone & 127u) * 222822u / 127u);   /* 1.5 kHz x 2^(0 .. 3.4) */
         uint32_t fc = (uint32_t)(((uint64_t)1500u * px_exp2(fc_oct)) >> 16) * SH_DAMP16[sp] / 16u;
         /* LESLIE: the rotors' speed from SIZE, 0.8 Hz (chorale) .. 7 Hz (tremolo), a turn in Q32 per sample */
         rinc = (uint32_t)((((uint64_t)52429u * px_exp2((int32_t)(size * 205128u / 127u)) >> 16) * 97391u) >> 16);
         for (k = 0; k < 4u; k++)                 /* the early reflections' taps, samples */
             etap[k] = (uint32_t)SH_ER_MS[sp][k] * 441u / 10u;
-        for (k = 0; k < SH_NLINE; k++)           /* gain 2^(-9.966 len / rt) (60 dB in rt samples) */
+        for (k = 0; k < SH_NLINE; k++) {
+            uint32_t t = (uint32_t)(((uint64_t)SH_LEN[k] * scale) >> 16);
+            int32_t d = (int32_t)t - (int32_t)sh.len[k];
+            sh.len[k] = (uint32_t)((int32_t)sh.len[k] + (d > 16 ? 16 : d < -16 ? -16 : d));
+            /* gain 2^(-9.966 len / rt) (60 dB in rt samples) */
             g[k] = (int32_t)(px_exp2(-(int32_t)((653126u * sh.len[k]) / rt)) >> 1);   /* Q15 (< 2^32: 32-bit division) */
+        }
         /* the damping one-pole: a = 1 - exp(-2 pi fc / FS) = 1 - 2^(-2 pi fc / (FS ln 2)) */
         damp = 32768 - (int32_t)(px_exp2(-(int32_t)(((uint64_t)fc * 13794u) >> 10)) >> 1);
         {   /* the crossfade: c = 0 .. 0.3 of the amplitude; a = 1 - c, b = sqrt(1 - a^2) x 1.22 (the shifter's two
              * triangle-weighted taps keep ~2/3 of the energy of uncorrelated input) */
-            int32_t c = sp == SS_MOUTH ? 0 : (int32_t)(shp.shimmer & 127u) * 77;   /* Q15, 0 .. 0.3 (MOUTH: the vowel) */
+            int32_t c = sp == SS_MOUTH ? 0 : (int32_t)(sys.sh_shimmer & 127u) * 77;   /* Q15, 0 .. 0.3 (MOUTH: the vowel) */
             uint32_t a2;
             fa = 32768 - c;
             a2 = (uint32_t)(((int64_t)fa * fa) >> 15);                   /* a^2, Q15 */
             fb_ = (int32_t)px_isqrt64((uint64_t)(32768u - a2) << 15);    /* Q15 */
             fb_ = (int32_t)(((int64_t)fb_ * 40132) >> 15);                /* x 1.22 */
         }
-        shc.key = key;
-        shc.sp = sp;
-        shc.ok = 1;
-        for (k = 0; k < SH_NLINE; k++)
-            shc.g[k] = g[k];
-        shc.damp = damp;
-        shc.fa = fa;
-        shc.fb = fb_;
-        shc.rinc = rinc;
-        for (k = 0; k < 4u; k++)
-            shc.etap[k] = etap[k];
-        }
         if (sp == SS_MOUTH)
             sh_mouth_set();
         dry = mix < 64 ? 32768 : (127 - mix) * 32768 / 63;
-        wet = (mix > 64 ? 32768 : mix * 32768 / 64) * SH_WLVL[sp] >> 12;
+        wet = mix > 64 ? 32768 : mix * 32768 / 64;
         sh_dry = dry;
     }
     SH_GLIDE(dry, wet);
