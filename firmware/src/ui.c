@@ -4451,6 +4451,8 @@ static void ui_input(void)
         if ((s = ui_enc(EN_K4)) != 0) {
             sys.feg_target = (uint8_t)clamp((int32_t)sys.feg_target + s, 0, FEG_NT - 1);
             ui_hot = 3; ui_hot_ms = fm1_ms;
+            if (!feg.rec)                        /* (VALUE at once where the new target's knob stands) */
+                sys.feg_val = (uint8_t)(*knob_at(feg_field(sys.feg_target % FEG_NT)) & 127u);
         }
     } else if (sys.page == 18u) {               /* GROOVE */
         if ((s = ui_enc(EN_K1)) != 0) {
