@@ -1686,9 +1686,9 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
 }
 /* the knob at (ox, oy) of the canvas: v 0..127 its position (-1: a choice of its own, none shown); cur >= 0: a
  * modulation, sweeping lo..hi, now at cur. From the tile's tables (knob_tables.h, anti-aliased) */
-static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur, uint16_t on)
+static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur, uint16_t on, int32_t n)
 {
-    uint16_t off = ux_mix(T_BG, T_MID, 30), mc = ux_mix(T_THEME, 0x3D9Fu, 80), mt = ux_mix(T_BG, mc, 30);
+    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0x3D9Fu, 80), mt = ux_mix(T_BG, mc, 30);
     int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, cu = cur * 2, x, y;
     uint32_t k = 0;
     for (y = 0; y < KN_W; y++)
@@ -1696,8 +1696,13 @@ static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, i
             int32_t u = KN_ANG[k];
             if (u == 255)
                 continue;
-            if (KN_TRACK[k])                     /* the outer ring: the knob's position */
-                cv_pblend(ox + x, oy + y, u <= vu ? on : off, KN_TRACK[k] + 1u);
+            if (KN_TRACK[k] && n >= 2) {         /* a choice: a dot a step, the one chosen lit */
+                int32_t i = (u * (n - 1) + 127) / 254, su = i * 254 / (n - 1), hw = 254 / (n - 1) / 5;
+                hw = hw > 6 ? 6 : hw < 3 ? 3 : hw;       /* (a dot, not a dash) */
+                if (u >= su - hw && u <= su + hw)
+                    cv_pblend(ox + x, oy + y, i * 127 / (n - 1) == v ? on : dim, KN_TRACK[k] + 1u);
+            } else if (KN_TRACK[k] && u <= vu)   /* the outer ring: the knob's position (nothing past it) */
+                cv_pblend(ox + x, oy + y, on, KN_TRACK[k] + 1u);
             if (KN_RING[k] && cur >= 0)          /* the inner ring: the modulation's range, where it is now lit */
                 cv_pblend(ox + x, oy + y, u >= cu - 5 && u <= cu + 5 ? T_TEXT : u >= lu && u <= hu ? mc : mt,
                           KN_RING[k] + 1u);
@@ -1720,13 +1725,56 @@ static void ui_fit(char *d, uint32_t n, const char *s, int32_t w)   /* s, cut wi
 }
 static uint16_t ui_hot_col;                      /* (the turned knob's value colour: PSYCHEDELIC lights up what it moves
                                                   * in it, ui_style.c) */
+static int32_t knob_choice(volatile uint8_t *p, int32_t v);
+/* the cells whose knob is handled on its own (not knob()): *i its step of *n (n 0: *i a place 0..127); 0: no knob */
+static int ui_cstep(uint32_t c, int32_t *i, int32_t *n)
+{
+    int32_t a = -1, m = 0;
+    switch (sys.page) {
+    case 5u: if (c == 2u) { int32_t h = (int32_t)(sys.menv_height & 127u) * (sys.menv_height & 0x80u ? -1 : 1);
+                            a = (h + 127) / 2; } break;
+    case 6u: if (c == 0u && !arp_ext()) { a = ((int32_t)sys.arp_bpm - 40) * 127 / 210; }
+             else if (c == 1u) { a = sys.arp_div % ARP_NDIV; m = ARP_NDIV; } break;
+    case 7u: if (c == 0u) { a = sys.midi_rx; m = 17; } else if (c == 1u) { a = sys.midi_usb & 3u; m = 4; }
+             else if (c == 2u) { a = sys.ch_b; m = 17; } else { a = sys.midi_tx & 15u; m = 16; } break;
+    case 8u: if (c == 1u) { a = sys.feg_len % FEG_NLEN; m = FEG_NLEN; }
+             else if (c == 3u) { a = sys.feg_target % FEG_NT; m = FEG_NT; } break;
+    case 11u: if (c == 0u) { a = sys.mw_target % FEG_NT; m = FEG_NT; } else if (c == 2u) { a = sys.vel_to & 3u; m = 4; } break;
+    case 13u: if (c == 0u && !arp_ext()) { a = ((int32_t)sys.arp_bpm - 40) * 127 / 210; }
+              else if (c == 1u) { a = sys.tape_spd % TAPE_NSPD; m = TAPE_NSPD; }
+              else if (c == 2u) { a = sys.tape_len % 5u; m = 5; } break;
+    case 14u: if (c == 0u) { a = (int32_t)(sys.preset >> 7) % NBANKS; m = NBANKS; }
+              else if (c == 1u) { a = sys.multi ? sys.ch_b + 1 : 0; m = 18; }
+              else if (c == 2u) { a = sys.multi && part_edit; m = 2; }
+              else { a = !part_mono[sys.multi ? part_edit : 0u]; m = 2; } break;
+    case 15u: if (c == 0u) { a = sys.multi != 0; m = 2; } else if (c == 1u) { a = sys.ch_b; m = 17; }
+              else if (c == 2u) { a = (int32_t)(part_preset(1) >> 7) % NBANKS; m = NBANKS; }
+              else { a = (int32_t)(part_preset(1) & 127u); } break;
+    case 16u: if (c == 1u) { a = sys.lvl_match != 0; m = 2; } else if (c == 2u) { a = sys.bend_range; m = 13; } break;
+    case 17u: if (c == 0u) { a = sys.k_logic % 7u; m = 7; } else if (c == 1u) { a = sys.k_lq % LQ_N; m = (int32_t)LQ_N; }
+              else if (c == 2u) { a = sys.k_root % 13u; m = 13; } else { a = sys.k_inv != 0; m = 2; } break;
+    case 18u: if (c == 0u) { a = (int32_t)arp_vlen() - 1; m = 8; } else if (c == 2u) { a = (int32_t)arp_glen() - 1; m = 8; }
+              else if (c == 3u) { a = sys.arp_gp % ARP_NGP; m = (int32_t)ARP_NGP; } break;
+    case 19u: if (c == 0u) { a = sys.ui_style % US_COUNT; m = US_COUNT; } break;
+    default: break;
+    }
+    if (a < 0)
+        return 0;
+    if (m > 12) {                                /* (many: a place on the ring) */
+        a = a * 127 / (m - 1);
+        m = 0;
+    }
+    *i = a;
+    *n = m;
+    return 1;
+}
 static void ui_cell(uint32_t i, const char *label, const char *value)
 {
     static char kshown[4][5];
     uint32_t c = i - T_C1;
     char hot[2] = {(char)('0' + (ui_hot == c && fm1_ms - ui_hot_ms < 1000u)), 0};
     char v[24], ks[5], lb[24], vb[24];
-    int32_t kv = -1, lo = 0, hi = 0, cur = -1, base;
+    int32_t kv = -1, lo = 0, hi = 0, cur = -1, base, ns = 0, ci;
     int changed;
     str_cpy(v, value, sizeof v);
     if (hot[0] == '1') {
@@ -1739,7 +1787,17 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
             cur = kv;
             kv = base < 0 ? 0 : base > 127 ? 127 : base;
         }
+        if ((ci = knob_choice(ui_kp[c], kv)) >= 0) {   /* (a few choices: as steps) */
+            ns = knob_choice(ui_kp[c], 127) + 1;
+            kv = ns >= 2 ? ci * 127 / (ns - 1) : kv;
+        }
+    } else if (c < 4u && ui_cstep(c, &ci, &ns)) {   /* (a knob of its own: its place, or its steps) */
+        kv = ns >= 2 ? ci * 127 / (ns - 1) : ci;
+        if (ns > 12)
+            ns = 0;
     }
+    if (ns > 12 || cur >= 0)                     /* (many: a range; modulated: as a range) */
+        ns = 0;
     ks[0] = (char)(kv + 2);
     ks[1] = (char)(lo + 1);
     ks[2] = (char)(hi + 1);
@@ -1759,7 +1817,7 @@ static void ui_cell(uint32_t i, const char *label, const char *value)
         cv_begin(60, KN_W + 2u * AF_S.h, T_BG);
         if (label[0] || value[0])                /* (PSYCHEDELIC: the ring in the value's colour, as the arc round the
                                                   * eye when it is turned) */
-            ui_knob(10, 0, kv, lo, hi, cur, psy ? vc : T_THEME);
+            ui_knob(10, 0, kv, lo, hi, cur, psy ? vc : T_THEME, ns);
         ui_fit(lb, sizeof lb, label, 58);
         ui_fit(vb, sizeof vb, value, 58);
         cv_text((60 - text_w(&AF_S, lb)) / 2, KN_W, &AF_S, lb, T_MID);
@@ -2902,7 +2960,7 @@ static void ui_draw(void)
         ui_val_c = 0;
     } else if (sys.page == 11u) {
         ui_val_c = FEG_FM(sys.mw_target) ? T_FM : 0;
-        ui_cell(T_C1, "1 WHEEL", FEG_T_NAME[sys.mw_target % FEG_NT]);
+        ui_cell(T_C1, "1 WHEEL", FEG_T_SHORT[sys.mw_target % FEG_NT]);
         ui_val_c = 0;
         fmt_int(v, sys.mw_depth);
         ui_cell(T_C2, "2 DEPTH", v);
@@ -2948,7 +3006,7 @@ static void ui_draw(void)
         fmt_int(v, sys.feg_depth);
         ui_cell(T_C3, "3 DEPTH", v);
         ui_val_c = FEG_FM(sys.feg_target) ? T_FM : 0;   /* (an FM target: green) */
-        ui_cell(T_C4, "4 TARGET", FEG_T_NAME[sys.feg_target % FEG_NT]);
+        ui_cell(T_C4, "4 TARGET", FEG_T_SHORT[sys.feg_target % FEG_NT]);
         ui_val_c = 0;
     } else if (sys.page == 18u) {                /* GROOVE: the VELOCITY SEQ, the GATE SEQ */
         fmt_int(v, (int32_t)arp_vlen());

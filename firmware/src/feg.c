@@ -43,6 +43,12 @@ static const char *const FEG_T_NAME[FEG_NT] = {
     "FX BRIGHTNESS", "FX DAMPING", "FX POSITION", "FX MIX", "SHIMMER SIZE", "SHIMMER DECAY", "SHIMMER", "SHIMMER MIX", "SHIMMER TONE", "BASIS", "ORBIT", "ARP GATE", "ARP SWING", "ENV DECAY",
     "KARMA K1", "KARMA K2", "KARMA K3", "KARMA K4", "SCREAM", "VIBRATO", "RING MOD",
 };
+static const char *const FEG_T_SHORT[FEG_NT] = {  /* (the same, short: a knob's cell) */
+    "CHAOS", "SHAPE", "OUTPUT", "RING", "NOISE X", "NOISE Y", "N LEVEL", "MENV HT", "FX STRUC",
+    "FX BRIGHT", "FX DAMP", "FX POS", "FX MIX", "SH SIZE", "SH DECAY", "SHIMMER", "SH MIX", "SH TONE", "BASIS",
+    "ORBIT", "ARP GATE", "SWING", "ENV DEC", "KARMA K1", "KARMA K2", "KARMA K3", "KARMA K4", "SCREAM", "VIBRATO",
+    "RING MOD",
+};
 static volatile uint8_t *feg_field(uint32_t t)
 {
     switch (t % FEG_NT) {
