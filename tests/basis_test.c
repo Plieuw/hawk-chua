@@ -2222,6 +2222,34 @@ int main(int argc, char **argv)
         check("KARMA under turned knobs: every GE, oscillator, FM, FX model at random, 15 s", okk);
     }
 
+    {   /* ANALOG (GLO SOUND, KNOB 4): 0 every voice exact; up, each voice a little off (pitch, speed, gate, level),
+         * ANALORD the most; the sound still in range */
+        int okk = 1;
+        uint32_t i0, i1, i2;
+        synth_kill();
+        sys.analog = 0;
+        synth_note_on(60, 100);
+        i0 = voice_of(60)->inc0;
+        okk &= i0 == note_inc(60) && voice_of(60)->an_t == 0u && voice_of(60)->an_c == 0;
+        synth_kill();
+        sys.analog = 32;
+        synth_note_on(60, 100);
+        i1 = voice_of(60)->inc0;
+        okk &= i1 != i0 && voice[0].an_t != 0u && i1 > i0 - i0 / 400u && i1 < i0 + i0 / 400u;   /* (within ~4 cents) */
+        synth_kill();
+        sys.analog = 127;
+        synth_note_on(60, 100);
+        i2 = voice_of(60)->inc0;
+        okk &= i2 > i0 - i0 / 60u && i2 < i0 + i0 / 60u;  /* (ANALORD: within ~30 cents) */
+        run_ms(200);
+        for (i0 = 0; i0 < 2u * CTL; i0++)
+            okk &= buf[i0] <= 8388607 && buf[i0] >= -8388608;
+        synth_kill();
+        sys.analog = 0;
+        if (!okk) printf("   (ANALOG: inc %u %u %u)\n", i0, i1, i2);
+        check("ANALOG: exact at 0, each voice a little off above, ANALORD the most", okk);
+    }
+
     /* the ADSR: attack time, the decay settling on the sustain level, the release into the tail and off */
     {
         voice_t v;

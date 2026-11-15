@@ -185,6 +185,11 @@ static void rz_run(uint32_t r, uint32_t n)
     int32_t damp = (int32_t)(sys.fx_damp & 127u) * 516, pos = (int32_t)(sys.fx_pos & 127u);
     int32_t in[CTL], ax[CTL], *y = rz_out[r], pk_in = 0, pk = 0;
     uint32_t f0 = (uint32_t)(((uint64_t)note_inc(note) * synth_bend[sys.multi && r >= RZ_POLY / 2u]) >> 16);   /* (bent) */
+    if (sys.analog) {                            /* (ANALOG: this resonator a little off: its tuning, its tone) */
+        f0 = (uint32_t)(((uint64_t)f0 * (uint32_t)(65536 + an_of(AN_RZ[r & 3u][0]))) >> 16);
+        brit = clamp(brit + an_of(AN_RZ[r & 3u][1]), 0, 65532);
+        damp = clamp(damp + an_of(AN_RZ[r & 3u][2]), 0, 65532);
+    }
     if (R->held != md + 1u)
         rz_reset(R, md);
     {   /* aftertouch, once a keyboard has sent it, is more breath (the VL1's PRESSURE): the voices into the model

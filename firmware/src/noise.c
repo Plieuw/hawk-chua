@@ -452,6 +452,10 @@ static void np_render(uint32_t k, uint32_t alg, uint32_t inc, int32_t *out, uint
     int32_t x = (int32_t)(sys.np_x & 127u) * 258, y = (int32_t)(sys.np_y & 127u) * 258;   /* Q15 0 .. 32766 */
     int32_t g0, g1;                              /* the level: from, to (this block) */
     uint32_t i, j;
+    if (sys.analog) {                            /* (ANALOG: this voice's X and Y a little off) */
+        x = clamp(x + an_of(AN_NX[k & 3u]), 0, 32766);
+        y = clamp(y + an_of(AN_NY[k & 3u]), 0, 32766);
+    }
     {   /* the knobs glide (no zipper noise as they turn: synth.c, ksm_glide); a new note, or a change made in silence,
          * takes them at once */
         int32_t gt = (int32_t)NP_GAIN[alg % NP_COUNT] * (alg >= NP_BIGBANG ? 64 : (int32_t)(sys.np_level & 127u)) / 64;

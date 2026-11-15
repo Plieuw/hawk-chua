@@ -1371,6 +1371,7 @@ typedef struct {
     uint8_t mfx[5];                              /* (25: MOD FX: mode, rate, slew, rectify, mix; before: off) */
     uint8_t tune432;                             /* (26: saved; before: A 440) */
     uint8_t mono;                                /* (27: saved, bit 0 A MONO, bit 1 B; before: POLY) */
+    uint8_t analog;                              /* (30: saved; before: INITIAL) */
 } settings_t;
 
 #define BOOT_PRESET 299u                        /* after an install: bank 3 (SYNTH), FIFTH PAD; then the last chosen */
@@ -1506,6 +1507,7 @@ static void settings_boot(void)    /* power-on, before the audio */
             sys.mfx_mix = (uint8_t)(s.mfx[4] & 127u);
         }
         sys.tune432 = (uint8_t)(s.snd >= 26u && s.tune432);
+        sys.analog = (uint8_t)(s.snd >= 30u ? s.analog & 127u : 0u);
         part_mono[0] = (uint8_t)(s.snd >= 27u && (s.mono & 1u));
         part_mono[1] = (uint8_t)(s.snd >= 27u && (s.mono & 2u));
         if (s.snd >= 17u) {                      /* (20: kept; before: PSYCHEDELIC, once, after this install) */
@@ -1568,10 +1570,11 @@ static void settings_fill_now(settings_t *sp)
     s.magic = SET_MAGIC;
     s.menv3 = 1;
     s.tape4 = 1;
-    s.snd = 29;
+    s.snd = 30;
     s.autoplay = sys.autoplay;
     s.mfx[0] = sys.mfx_mode; s.mfx[1] = sys.mfx_rate; s.mfx[2] = sys.mfx_slew; s.mfx[3] = sys.mfx_rect; s.mfx[4] = sys.mfx_mix;
     s.tune432 = sys.tune432;
+    s.analog = sys.analog;
     s.mono = (uint8_t)(part_mono[0] | part_mono[1] << 1);
     s.clk_int = sys.clk_int;
     s.k_inv = sys.k_inv;
@@ -2769,6 +2772,8 @@ static void draw_sound(void)
     char a[40], v[8];
     cv_begin(240, PLOT_H, T_BG);
     cv_text(8, 6, &AF_M, "SOUND", T_ACCENT);
+    cv_text(100, 10, &AF_S, !(sys.analog & 127u) ? "INITIAL: EXACT" : (sys.analog & 127u) < 48u ? "ANALOG: A LITTLE OFF" :
+                            (sys.analog & 127u) < 127u ? "ANALOG: WELL OFF" : "ANALORD", sys.analog & 127u ? T_THEME : T_DIM);
     str_cpy(a, "SPEAKER BASS ", sizeof a);
     fmt_int(v, (int32_t)(sys.spk_bass & 127u));
     ui_cat(a, sizeof a, sys.spk_bass & 127u ? v : "OFF");
@@ -3184,7 +3189,7 @@ static void ui_draw(void)
         ui_cell(T_C2, "2 QUANT", logic_q_name(sys.k_lq));
         ui_cell(T_C3, "3 ROOT", sys.k_root ? NOTE_NAME[(sys.k_root - 1u) % 12u] : "AUTO");
         ui_cell(T_C4, "4 INVERSE", sys.k_inv ? "ON" : "OFF");
-    } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH, BEND RANGE */
+    } else if (sys.page == 16u) {                /* SOUND: SPEAKER BASS, LEVEL MATCH, BEND RANGE, ANALOG */
         fmt_int(v, (int32_t)(sys.spk_bass & 127u));
         ui_cell(T_C1, "1 BASS", sys.spk_bass & 127u ? v : "OFF");
         ui_cell(T_C2, "2 LEVELS", sys.lvl_match ? "ON" : "OFF");
@@ -3193,7 +3198,8 @@ static void ui_draw(void)
         if (sys.bend_range)
             ui_cat(b, sizeof b, v);
         ui_cell(T_C3, "3 BEND", b);
-        ui_cell(T_C4, "4", "");
+        fmt_int(v, (int32_t)(sys.analog & 127u));
+        ui_cell(T_C4, "4 ANALOG", !(sys.analog & 127u) ? "INITIAL" : (sys.analog & 127u) == 127u ? "ANALORD" : v);
     } else if (sys.page == 19u) {                /* UI STYLE: the look, its motion, its backdrop */
         ui_cell(T_C1, "1 STYLE", sys.ui_style % US_COUNT == US_PSYCHE ? "PSYCHE" : US_NAME[sys.ui_style % US_COUNT]);
         fmt_int(v, (int32_t)(sys.ui_motion & 127u));
@@ -4460,6 +4466,7 @@ static void ui_input(void)
             sys.bend_range = (uint8_t)clamp((int32_t)sys.bend_range + s, 0, 12);
             ui_hot = 2; ui_hot_ms = fm1_ms;
         }
+        knob(&sys.analog, EN_K4, 3);             /* ANALOG: INITIAL (exact) .. ANALORD */
     } else if (sys.page == 15u) {               /* MULTI */
         if ((s = ui_enc(EN_K1)) != 0) {
             sys.multi = (uint8_t)(s > 0);
