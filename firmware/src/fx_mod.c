@@ -5,7 +5,9 @@
  * oscillator's knobs set (CHAOS, SHAPE: its alpha and beta), run at the RATE. After the Chua modulation core of the
  * feature/chua-mod-fx branch (ring, tremolo, the rectifier), with a vibrato added.
  *
- *   mfx_mode   0 OFF, 1 VIBRATO, 2 RING, 3 TREMOLO (ALGORITHM)
+ *   mfx_mode   1 VIBRATO, 2 RING, 3 TREMOLO, 4 SHIFT +/- (ALGORITHM; 0 OFF: of before, MIX 0 now): SHIFT moves the
+ *              spectrum up and down at once by RING's carrier (the note x the RATIO): up on the left, down on the
+ *              right, their middle (a ring mod) into the resonators
  *   mfx_rate   KNOB 1: VIBRATO, TREMOLO a note value of the tempo (the BPM or MIDI clock: 4 BARS .. 1/32, dotted and
  *              triplets: a cycle of the circuit each); RING the RATIO to the note (key follow: each resonator's bus
  *              its own circuit at its note x 1/4 .. 8, whole-number ratios, so the sidebands stay harmonic)
@@ -14,8 +16,9 @@
  *   mfx_rect   KNOB 3: the modulator ORIGINAL, FULL-WAVE, HALF + or HALF - (rectified: an octave, sharper)
  *   mfx_mix    KNOB 4: dry .. wet
  */
-enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_COUNT };
-static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO"};
+enum { MF_OFF, MF_VIBRATO, MF_RING, MF_TREMOLO, MF_SHIFT, MF_COUNT };
+static const char *const MF_NAME[MF_COUNT] = {"OFF", "VIBRATO", "RING MOD", "TREMOLO", "SHIFT +/-"};
+#define MF_KEYED(m) ((m) == MF_RING || (m) == MF_SHIFT)   /* (RING, SHIFT: the carrier at the note x the RATIO) */
 static const char *const MF_RECT[4] = {"ORIGINAL", "FULL", "HALF +", "HALF -"};
 
 #define MF_VLEN 512u                             /* the vibrato's line (a power of two: ~11.6 ms; at most ~334 used) */
@@ -27,8 +30,14 @@ static const char *const MF_RATIO_NAME[MF_NRATIO] = {"1/4", "1/3", "1/2", "2/3",
                                                       "5/2", "3", "4", "5", "6", "8"};
 static const uint32_t MF_RATIO[MF_NRATIO] = {16384, 21845, 32768, 43691, 49152, 65536, 87381, 98304, 109227, 131072,
                                              163840, 196608, 262144, 327680, 393216, 524288};   /* Q16 */
+typedef struct {                                 /* a Hilbert pair's state (SHIFT): two chains of four all-passes */
+    int32_t hx[8][2], hy[8][2], hd;
+} mf_hil_t;
 typedef struct {
     int16_t vl[MF_VLEN];
+    mf_hil_t hs, hc;                             /* SHIFT: the sound's analytic pair, the carrier's */
+    int32_t sic1, sic2;                          /* (SHIFT: the side's gate, as the voice's: synth.c lpg_side) */
+    int32_t sd[CTL];                             /* (SHIFT: the side made this block: voice_mix L -, R +) */
     uint32_t ph;                                 /* RING: its carrier's phase (Q32: a cycle of the part's table) */
     int32_t sl, dc;                              /* (its slew, its rectifier's DC) */
     uint8_t act;                                 /* blocks it goes on after its input stopped (its tail) */
@@ -168,11 +177,11 @@ static int mf_gen(uint32_t n, uint32_t pp)
     M->rect = rect;
     M->sk = slew ? (int32_t)(0xFFFFFFFFu / px_exp2((int32_t)(slew * 851968u / 127u))) : 65536;   /* (Q16: 13 octaves down) */
     M->n = n = n > CTL ? CTL : n;
-    if (mode != MF_RING) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
+    if (!MF_KEYED(mode)) {                       /* VIBRATO, TREMOLO: one slow circuit for all, at the tempo's note value */
         uint32_t bpm = arp_bpm_now();            /* inc (Q32 a sample) = BPM / 60 x cycles a quarter / 44100 x 2^32 */
         ns = mf_steps((uint32_t)(((uint64_t)(bpm ? bpm : 120u) * MF_DIV_CPQ[mf_div()] * 1623u) >> 16), &hs, &ahs, &bhs);
     }
-    if (mode == MF_RING) {                       /* RING: the reference circuit, its cycles into the tables */
+    if (MF_KEYED(mode)) {                        /* RING, SHIFT: the reference circuit, its cycles into the tables */
         ns = mf_steps(MF_TINC, &hs, &ahs, &bhs);
         for (i = 0; i < n; i++) {
             uint32_t j;
@@ -218,6 +227,33 @@ static int mf_gen(uint32_t n, uint32_t pp)
     return 1;
 }
 
+/* SHIFT's Hilbert pairs (Olli Niemitalo's: ~40 Hz .. 20 kHz 90 degrees apart): a^2 in Q30; out = a (in + out[n-2]) -
+ * in[n-2]; path 1's output a sample later */
+static const int32_t MF_HA[2][4] = {
+    {514752760, 940832443, 1048613677, 1071056671},   /* 0.6923878^2 .. 0.9987488452737^2 */
+    {173686865, 787083823, 1015061512, 1063647745},   /* 0.4021921162426^2 .. 0.9952884791278^2 */
+};
+static inline int32_t mf_ap(int32_t (*x)[2], int32_t (*y)[2], const int32_t *a, int32_t in)
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++) {
+        int32_t o = (int32_t)(((int64_t)a[k] * (in + y[k][1])) >> 30) - x[k][1];
+        x[k][1] = x[k][0];
+        x[k][0] = in;
+        y[k][1] = y[k][0];
+        y[k][0] = o;
+        in = o;
+    }
+    return in;
+}
+static inline void mf_hilbert(mf_hil_t *H, int32_t v, int32_t *re, int32_t *im)
+{
+    int32_t a = mf_ap(H->hx, H->hy, MF_HA[0], v), b = mf_ap(H->hx + 4, H->hy + 4, MF_HA[1], v);
+    *re = H->hd;
+    H->hd = a;
+    *im = b;
+}
+
 /* a channel (ch: a voice, its oscillator before the gate) moved, in place: VIBRATO, TREMOLO by the block's modulator,
  * RING by its own circuit at inc (its note's, Q32 a sample) x the RATIO; view: the voice the screen traces (both cores
  * render voices: only that one writes the MOD page's trace) */
@@ -240,7 +276,31 @@ static void mf_apply(const mf_t *M, uint32_t ch, int32_t *w, uint32_t n, uint32_
         return;
     }
     /* (a loop a mode: nothing decided per sample) */
-    if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
+    if (mode == MF_SHIFT) {                      /* SHIFT +/-: the sound's spectrum moved up by the carrier (the part's
+                                                  * newest circuit cycle at the note x the ratio) and down by it at once:
+                                                  * the middle (their sum, a ring mod) on, the side (up - down) into
+                                                  * C->sd: up on the left, down on the right */
+        uint32_t rect = M->rect, L = M->tlen[M->tcur], f = (uint32_t)(((uint64_t)inc * MF_RATIO[M->ratio % MF_NRATIO]) >> 16);
+        const int16_t *t = M->tab[M->tcur];
+        int32_t sk = M->sk;
+        for (i = 0; i < n; i++) {
+            int32_t x = w[i], m = 0, xr, xi, mr, mi, mid, side;
+            if (L) {
+                uint32_t pos = (uint32_t)(((uint64_t)C->ph * L) >> 16), i0 = pos >> 16, i1 = i0 + 1u >= L ? 0u : i0 + 1u;
+                m = t[i0] + (((t[i1] - t[i0]) * (int32_t)(pos >> 1 & 32767u)) >> 15);
+            }
+            C->ph += f;
+            m = mf_post(m, rect, &C->dc, 10u, &C->sl, sk);
+            if (view && (i & 1u))
+                mf_view.mm[mf_view.mw++ & 255u] = (int16_t)m;
+            mf_hilbert(&C->hs, x, &xr, &xi);
+            mf_hilbert(&C->hc, m * 2, &mr, &mi);
+            mid = (int32_t)(((int64_t)xr * mr) >> 15);           /* ((up + down) / 2) */
+            side = (int32_t)(-((int64_t)xi * mi) >> 15);         /* ((up - down) / 2) */
+            w[i] = x + (int32_t)(((int64_t)(mid - x) * mix) >> 15);
+            C->sd[i] = (int32_t)(((int64_t)side * mix) >> 15);
+        }
+    } else if (mode == MF_RING) {                       /* x times the carrier (x 2: its swing about full): the part's newest
                                                   * cycle of the circuit read at the note x the ratio */
         uint32_t rect = M->rect, L = M->tlen[M->tcur], f = (uint32_t)(((uint64_t)inc * MF_RATIO[M->ratio % MF_NRATIO]) >> 16);
         const int16_t *t = M->tab[M->tcur];

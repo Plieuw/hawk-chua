@@ -2842,6 +2842,34 @@ int main(int argc, char **argv)
         sys.mw_target = t0; sys.mw_depth = d0; sys.mfx_mode = m0;
         check("mod wheel on VIBRATO, RING MOD: MOD FX with it", okk);
     }
+    {   /* MOD FX SHIFT +/-: the spectrum up on the left, down on the right: the two sides differ (RING: one middle) */
+        uint8_t k0[6] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix, sys.mfx_rate, sys.basis, sys.orbit};
+        double side[2] = {0, 0}, mid[2] = {0, 0};
+        uint32_t q, b2, j;
+        int okk = 1;
+        for (q = 0; q < 2u; q++) {
+            synth_kill(); run_ms(20);
+            sys.mfx_mode = q ? MF_SHIFT : MF_RING; sys.mfx_mix = 127; sys.fx_mix = 0; sys.mfx_rate = 70;
+            sys.basis = 0; sys.orbit = 0;
+            synth_note_on(57, 110);
+            run_ms(60);
+            for (b2 = 0; b2 < 40u; b2++) {
+                block();
+                for (j = 0; j < CTL; j++) {
+                    double l = buf[2u * j], r = buf[2u * j + 1u];
+                    side[q] += (l - r) * (l - r);
+                    mid[q] += (l + r) * (l + r);
+                    okk &= buf[2u * j] <= 8388607 && buf[2u * j] >= -8388608;
+                }
+            }
+            synth_note_off(57);
+        }
+        synth_kill(); run_ms(20);
+        printf("   (SHIFT: side / mid %.3f; RING %.3f)\n", side[1] / (mid[1] + 1), side[0] / (mid[0] + 1));
+        okk &= mid[1] > 0 && side[1] > mid[1] * 0.05 && side[0] < mid[0] * 0.01;
+        sys.mfx_mode = k0[0]; sys.mfx_mix = k0[1]; sys.fx_mix = k0[2]; sys.mfx_rate = k0[3]; sys.basis = k0[4]; sys.orbit = k0[5];
+        check("MOD FX SHIFT +/-: up on the left, down on the right (RING: the middle alone)", okk);
+    }
     {   /* MOD FX before the resonators: with FX MIX 0 the voices' buses are still moved (osc -> MOD FX -> resonators) */
         uint8_t k0[3] = {sys.mfx_mode, sys.mfx_mix, sys.fx_mix};
         uint32_t x0, k2, act = 0;

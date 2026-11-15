@@ -150,7 +150,7 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
             if (upre_has(i) && upre_v(i)[PR_N] != 0xFFu) {
                 wv[0] = (uint8_t)(upre_v(i)[PR_N] + 1u);
                 wv[1] = upre_v(i)[PR_N + 1u];
-                wv[2] = (uint8_t)(upre_v(i)[PR_N + 2u] + 1u);
+                wv[2] = (uint8_t)((upre_v(i)[PR_N + 2u] & 127u) + 1u);
                 wv[3] = upre_v(i)[PR_N + 3u];
             }
             for (k = 0; k < 4u; k++)

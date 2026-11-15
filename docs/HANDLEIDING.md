@@ -399,14 +399,16 @@ dooft met de noot uit, zonder klik), wat de resonatoren laten klinken is al bewo
 signaal ook (het werkt ook met FX MIX op 0; de panning beweegt mee). Het circuit heeft de klank die CHAOS en SHAPE op HOME
 instellen: geen sinus-LFO maar de chaos zelf. ALGORITHM kiest:
 VIBRATO (de toonhoogte zwiept: een korte lijn, ~4 ms ± 3,6 ms), RING MOD (vermenigvuldigd met het circuit, dat de noot volgt: key follow), TREMOLO
-(het volume); uit is MIX op 0 (KNOB 4). KNOB 1 SYNC bij VIBRATO en TREMOLO (een notenwaarde van het tempo, de BPM of de MIDI clock: 4 BARS, 2 BARS,
-1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8., 1/8, 1/8T, 1/16., 1/16, 1/16T, 1/32: één cyclus van het circuit), bij RING MOD de RATIO (de draaggolf is
+(het volume) of SHIFT +/- (een frequency shifter die het hele spectrum tegelijk omhoog en omlaag schuift met de draaggolf
+van RING MOD, de noot × de RATIO: omhoog links, omlaag rechts, het midden, een ring mod, in de resonators; breed en
+metaalachtig, met RATIO 1 een zwevende unisono); uit is MIX op 0 (KNOB 4). KNOB 1 SYNC bij VIBRATO en TREMOLO (een notenwaarde van het tempo, de BPM of de MIDI clock: 4 BARS, 2 BARS,
+1 BAR, 1/2, 1/2T, 1/4, 1/4T, 1/8., 1/8, 1/8T, 1/16., 1/16, 1/16T, 1/32: één cyclus van het circuit), bij RING MOD en SHIFT de RATIO (de draaggolf is
 het circuit zelf: elke cyclus ervan wordt een golfvorm die elke noot speelt op de noot × 1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3,
 3/2, 5/3, 2, 5/2, 3, 4, 5, 6 of 8, zodat de zijbanden harmonisch blijven; met CHAOS laag cyclisch en zuiver, hoger
 ruwer; licht voor de CPU, ook met twee parts),
-PRESETS 25 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
+PRESETS 30 voorinstellingen (SLOW WOBBLE, TAPE WARBLE, SEASICK, CHAOS VIBRATO, TRIPLET SHIMMY, OCTAVE RING, FIFTH BELL,
 SUB RING, METAL BELL, ROBOT VOICE, GONG, DIRTY RING, HELICOPTER, PULSE GATE, SLOW SWELL, TRIPLET CHOP, EP TREMOLO, VIBES
-MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
+MOTOR, ORGAN VIBRATO, STRING VIBRATO, BREATH VIBRATO, LEAD VIBRATO, BELL RING, CHAOS RING, SLOW PULSE, en voor SHIFT: SPLIT UNISON, SPLIT OCTAVE, SPLIT FIFTH, SPLIT SUB, SPLIT BELL), KNOB 2 SLEW (het circuit vertraagd op audiosnelheid: OFF, dan steeds ronder tot een hoek van ~0,9 Hz; de sprongen
 glijden),
 KNOB 3 RECTIFY (ORIGINAL, FULL: een octaaf hoger en scherper, HALF + of HALF −), KNOB 4 MIX (hoeveel: de diepte zelf staat
 vol, ~4 ms bij VIBRATO). Het mod wheel (MIDI CC 1) kan ze ook zelf spelen: kies op de EDIT-pagina als
