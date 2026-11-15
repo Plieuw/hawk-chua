@@ -135,6 +135,8 @@ typedef struct {
     uint8_t eg;                                  /* a FREE EG contour each note plays (PRE_EG; .eg = EG_..., 0: none) */
     int8_t oct;                                  /* the sound's octave: its instrument's register (.oct = -1 ...) */
     uint8_t mfx;                                 /* its MOD FX (.mfx = MFP_..., 0: off) */
+    uint8_t mw, mwd, vel, vamt;                  /* the MOD WHEEL's target + 1 and DEPTH, VELOCITY's choice + 1 and
+                                                  * AMOUNT (0, left out: its GM family's, preset_eff) */
 } preset_t;
 /* the presets' FREE EG contours: each note moves a parameter around the preset's value (the offsets, at points of
  * ~46 ms: FREE EG's NOTE length), as a player would: a flute's overtones coming in as the jet shortens, a burst of air
@@ -779,6 +781,100 @@ static const preset_t PRESETS[] = {
     {"WOOD KNOCK", 85, 76, 0, 0, 35, 0, 35, 40, RZ_MODAL, 30, 70, 37, 20, 110, 0, 0, 0, 0, SI_OCT, 0, 5, 63, 0, 0, 0, 0, 0, SS_HALL, 127, 0, .oct = -1},
 };
 #define NPRESETS (sizeof PRESETS / sizeof PRESETS[0])
+
+/* a preset as it plays now (preset_eff): the table's values brought up to date, the same for loading, comparing and
+ * the remote, so a preset is never 'edited' by being loaded:
+ *   - the MOD WHEEL and VELOCITY of its GM family (the program's eighth: pianos, chromatic percussion, organs ...)
+ *     unless it names its own: what a player of that instrument reaches for (a pianist's touch on brightness and
+ *     length, a guitar's pluck, an organ none; the wheel a string's or a lead's vibrato, a sax's growl on the
+ *     waveguides, a pad's shimmer, the effects' chaos), each fitted to the sound: no SWEEP without a MOD ENV, no DECAY
+ *     where the sustain holds, no FX target without the FX, the noise programs' X for CHAOS
+ *   - the low pass gate since DECAY ends at 1 s and RELEASE at ~21 ms: a sound that rang longer holds a little of its
+ *     level (SUSTAIN), its resonator rings longer (DAMPING) and, if it had no space at all, it gets a small room, so
+ *     the tail it had stays (in the resonator and the room, not the gate) */
+typedef struct { uint8_t mwt, mwd, vel, vamt; } preset_wv_t;
+static const preset_wv_t FAM_WV[16] = {
+    {28, 50, 7, 90},   /* PIANO: wheel vibrato; PIANO (brighter and longer hard) */
+    {28, 60, 8, 80},   /* CHROMATIC PERCUSSION: the vibraphone's motor; PLUCK */
+    {28, 90, 0, 0},    /* ORGAN: the rotor's vibrato; no velocity, as an organ */
+    {28, 50, 8, 90},   /* GUITAR: string vibrato; PLUCK */
+    {9, 70, 7, 80},    /* BASS: the FX's brightness (or RING); PIANO */
+    {28, 70, 10, 70},  /* STRINGS: vibrato; ORGAN (bright and held by the bow's weight) */
+    {16, 70, 1, 60},   /* ENSEMBLE: the shimmer's mix; BRIGHT */
+    {27, 60, 3, 90},   /* BRASS: SCREAM (the lips' rasp, on the waveguides; else vibrato); BRIGHT + SWEEP */
+    {27, 70, 1, 80},   /* REED: the growl; BRIGHT */
+    {28, 60, 1, 70},   /* PIPE: vibrato; BRIGHT */
+    {28, 80, 3, 60},   /* SYNTH LEAD: vibrato; BRIGHT + SWEEP */
+    {15, 80, 1, 40},   /* SYNTH PAD: SHIMMER; BRIGHT, a little */
+    {0, 80, 1, 50},    /* SYNTH EFFECTS: CHAOS (a noise program's X); BRIGHT */
+    {28, 50, 8, 80},   /* ETHNIC: vibrato; PLUCK */
+    {3, 70, 7, 90},    /* PERCUSSIVE: the gate's RING; PIANO */
+    {0, 90, 1, 40},    /* SOUND EFFECTS: CHAOS; BRIGHT */
+};
+/* ... and the instruments that are not as their family: (program, wheel target + 1, velocity + 1; 0 the family's) */
+static const uint8_t PROG_WV[][3] = {
+    {6, 0, 1},       /* HARPSICHORD: no touch, as the real one */
+    {45, 0, 9},      /* PIZZICATO: plucked */
+    {46, 0, 9},      /* HARP: plucked */
+    {47, 4, 8},      /* TIMPANI: the gate's RING; PIANO */
+    {55, 4, 8},      /* ORCHESTRA HIT: RING; PIANO */
+    {104, 0, 9}, {105, 0, 9}, {106, 0, 9}, {107, 0, 9}, {108, 0, 9},   /* SITAR .. KALIMBA: plucked */
+    {109, 0, 2}, {110, 0, 2}, {111, 0, 2},   /* BAGPIPE, FIDDLE, SHANAI: BRIGHT */
+};
+static uint32_t vel_fit(uint32_t v, uint32_t drop)   /* VELOCITY's choice without some of its parts */
+{
+    uint32_t m = VEL_TO_MASK[v % VEL_TO_N] & ~drop, k;
+    for (k = 0; k < VEL_TO_N; k++)
+        if (VEL_TO_MASK[k] == m)
+            return k;
+    return m & 1u;                               /* (BRIGHT, or OFF) */
+}
+static void preset_eff(uint32_t i, preset_t *q, preset_wv_t *w)
+{
+    const preset_t *p = &PRESETS[i % NPRESETS];
+    const preset_wv_t *f = &FAM_WV[(i & 127u) >> 3];
+    uint32_t d = p->decay & 127u, rl = p->release & 127u, t, v, k, pt = 0, pv = 0;
+    for (k = 0; k < sizeof PROG_WV / sizeof PROG_WV[0]; k++)
+        if (PROG_WV[k][0] == (i & 127u)) {
+            pt = PROG_WV[k][1];
+            pv = PROG_WV[k][2];
+        }
+    *q = *p;
+    if (d > 97u && q->sustain < 100u) {          /* (rang past 1 s: some of it held) */
+        uint32_t sh = (d - 97u) * 3u;
+        q->sustain = (uint8_t)(q->sustain > sh ? q->sustain : sh > 80u ? 80u : sh);
+    }
+    if (rl > 48u) {                              /* (a release past ~21 ms: the tail to the resonator and a room) */
+        if (q->fx_mix) {
+            uint32_t dm = q->fx_damp + (rl - 48u) / 2u;
+            q->fx_damp = (uint8_t)(dm > 110u ? (q->fx_damp > 110u ? q->fx_damp : 110u) : dm);
+        }
+        if (!q->sh_mix && (i & 127u) >> 3 != 4u) {   /* (no space: a small room, as much as the tail was long;
+                                                       * not under a bass) */
+            uint32_t m = (rl - 48u) / 2u + 10u;
+            q->sh_mix = (uint8_t)(m > 40u ? 40u : m);
+            q->sh_size = 85; q->sh_decay = 60; q->sh_shimmer = 0; q->sh_interval = SI_OCT; q->sh_tone = 70;
+            q->sh_space = SS_HALL;               /* (the plain tank, as ROOM: SHIMMER 0) */
+        }
+    }
+    t = p->mw ? p->mw - 1u : pt ? pt - 1u : f->mwt;
+    if (t == 0u && p->osc)                       /* (CHAOS on a noise program: its X) */
+        t = 4u;
+    if (t == 9u && !p->fx_mix && (i & 127u) >> 3 == 4u)   /* (a bass without the FX: the gate's RING) */
+        t = 3u;
+    if (t >= 8u && t <= 12u && !p->fx_mix)       /* (the FX's, without the FX: vibrato) */
+        t = 28u;
+    if (t == 27u && !(p->fx_mix && p->fx_model >= RZ_VOICE))   /* (SCREAM: the waveguides' alone) */
+        t = 28u;
+    if ((t == 15u || t == 16u) && !q->sh_mix)    /* (the shimmer's, without it: vibrato) */
+        t = 28u;
+    w->mwt = (uint8_t)t;
+    w->mwd = p->mwd ? p->mwd : f->mwd;
+    v = p->vel ? p->vel - 1u : pv ? pv - 1u : f->vel;
+    v = vel_fit(v, (p->osc && p->menv_height ? 0u : VT_SWEEP) | (q->sustain >= 120u ? VT_DECAY : 0u));
+    w->vel = (uint8_t)v;
+    w->vamt = p->vamt ? p->vamt : f->vamt;
+}
 #define NBANKS 4u                                /* four banks of 128 (bank select; HOME held + PRESETS) */
 typedef char presets_are_512[NPRESETS == 128u * NBANKS ? 1 : -1];   /* (one for each MIDI program, per bank) */
 
@@ -859,7 +955,10 @@ static uint8_t fx_pre, sh_pre;                   /* the last chosen of each (not
  * objects of 64: a bit each saying which are overwritten, then the 30 values of each); PRESETS and program change
  * load it instead of the built-in one; the remote's PRESETS sends all 128 as C (remote.c), for ui.c's table */
 #define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
-typedef struct { uint8_t has[8]; uint8_t v[64][PR_N]; } upre_t;
+#define PR_ROW (PR_N + 4u)                       /* + the MOD WHEEL's target and DEPTH, VELOCITY's choice and AMOUNT
+                                                  * (0xFF: saved before they were: left as they are) */
+typedef struct { uint8_t has[8]; uint8_t v[64][PR_ROW]; } upre_t;
+#define UPRE_OLD (8u + 64u * PR_N)               /* (an object saved before: 30 values a preset) */
 /* value 27: the SPACE (bits 0, 1 and 5, 6) with the sound's octave (bits 2 .. 4, two's complement) */
 #define PR_SPACE(b) ((((uint32_t)(b) & 3u) | ((uint32_t)(b) >> 3 & 28u)) % SS_COUNT)   /* (bits 0-1, 5-7) */
 #define PR_PACK27(sp, oct) ((uint8_t)(((uint32_t)(sp) & 3u) | ((uint32_t)(oct) & 7u) << 2 | ((uint32_t)(sp) & 28u) << 3))
@@ -909,7 +1008,17 @@ static void pr_mfx_set(uint32_t b)               /* MOD FX from the 25 bits */
 static upre_t *upre_obj(uint32_t h)              /* object h (64 presets) in upre_buf */
 {
     if (upre_cur != h) {
-        if (st_load(OBJ_USER0 + h, &upre_buf, sizeof upre_buf) != (int)sizeof upre_buf)
+        int n = st_load(OBJ_USER0 + h, &upre_buf, sizeof upre_buf);
+        if (n == (int)UPRE_OLD) {                /* (the old rows spread out, from the last; their wheel unknown) */
+            uint8_t *b = (uint8_t *)&upre_buf;
+            uint32_t j = 64u, k;
+            while (j--) {
+                for (k = PR_N; k--;)
+                    b[8u + j * PR_ROW + k] = b[8u + j * PR_N + k];
+                for (k = PR_N; k < PR_ROW; k++)
+                    b[8u + j * PR_ROW + k] = 0xFF;
+            }
+        } else if (n != (int)sizeof upre_buf)
             memset(&upre_buf, 0, sizeof upre_buf);
         upre_cur = (uint8_t)h;
     }
@@ -948,6 +1057,10 @@ static int upre_save(uint32_t i)                 /* the sound now over preset i:
         for (k = 0; k < 25u; k++)                /* (+ MOD FX, in the free bits) */
             u->v[j][k] = (uint8_t)((u->v[j][k] & 127u) | (b >> k & 1u) << 7);
     }
+    u->v[j][PR_N] = (uint8_t)(sys.mw_target % FEG_NT);       /* (+ the wheel and the velocity) */
+    u->v[j][PR_N + 1u] = (uint8_t)(sys.mw_depth & 127u);
+    u->v[j][PR_N + 2u] = (uint8_t)(sys.vel_to % VEL_TO_N);
+    u->v[j][PR_N + 3u] = (uint8_t)(sys.vel_amt & 127u);
     u->has[j >> 3] |= (uint8_t)(1u << (j & 7u));
     upre_bits[(i % NPRESETS) >> 3] = u->has[j >> 3];
     return st_save(OBJ_USER0 + h, u, sizeof *u);
@@ -976,7 +1089,10 @@ static void duck_begin(void)
 static void duck_end(void) { duck_req = 0; duck_low = 0; }
 static void preset_apply(uint32_t i)
 {
-    const preset_t *p = &PRESETS[i % NPRESETS];
+    preset_t qq;
+    preset_wv_t w;
+    const preset_t *p = &qq;
+    preset_eff(i, &qq, &w);
     if (upre_has(i)) {                           /* (overwritten by SAVE: every value as it was saved) */
         const uint8_t *v = upre_v(i);
         uint32_t k;
@@ -993,6 +1109,12 @@ static void preset_apply(uint32_t i)
         }
         sys.sh_space = (uint8_t)PR_SPACE(v[27]);
         sys.osc = (uint8_t)(sys.osc % (NP_COUNT + 1u));
+        if (v[PR_N] != 0xFFu) {                  /* (its wheel and velocity, if saved with them) */
+            sys.mw_target = (uint8_t)(v[PR_N] % FEG_NT);
+            sys.mw_depth = (uint8_t)(v[PR_N + 1u] & 127u);
+            sys.vel_to = (uint8_t)(v[PR_N + 2u] % VEL_TO_N);
+            sys.vel_amt = (uint8_t)(v[PR_N + 3u] & 127u);
+        }
         return;
     }
     mwd.on = 0;                                         /* (the mod wheel takes the new value as its base) */
@@ -1039,6 +1161,10 @@ static void preset_apply(uint32_t i)
     sys.scream = p->scream;
     sys.transpose = (int8_t)(p->oct < -3 ? -3 : p->oct > 3 ? 3 : p->oct);
     mfx_set(p->mfx);                             /* its MOD FX (none: off) */
+    sys.mw_target = w.mwt;                       /* its wheel and velocity */
+    sys.mw_depth = w.mwd;
+    sys.vel_to = w.vel;
+    sys.vel_amt = w.vamt;
 }
 static uint8_t eg_from_preset;                   /* FREE EG holds a preset's contour (not a recording) */
 static void preset_eg(uint32_t e, uint8_t was_on)  /* after the values: the preset's contour, or none */
@@ -1174,13 +1300,19 @@ static int preset_edited(void)
 }
 static int preset_edited_(void)
 {
-    const preset_t *p = &PRESETS[sys.preset % NPRESETS];
+    preset_t qq;
+    preset_wv_t w;
+    const preset_t *p = &qq;
+    preset_eff(sys.preset, &qq, &w);
     if (upre_has(sys.preset)) {
         const uint8_t *v = upre_v(sys.preset);
         uint32_t k;
         for (k = 0; k < PR_N; k++)
             if (k != 27u && (*PR_SYS[k] & (k == PR_MH ? 255u : 127u)) != pr_v(v, k))
                 return 1;
+        if (v[PR_N] != 0xFFu && (sys.mw_target != v[PR_N] % FEG_NT || sys.mw_depth != (v[PR_N + 1u] & 127u) ||
+                                 sys.vel_to != v[PR_N + 2u] % VEL_TO_N || sys.vel_amt != (v[PR_N + 3u] & 127u)))
+            return 1;
         return (uint32_t)sys.sh_space != PR_SPACE(v[27]) || ((uint32_t)sys.transpose & 7u) != (v[27] >> 2 & 7u) ||
                pr_mfx_of(v) != pr_mfx_bits();
     }
@@ -1195,7 +1327,8 @@ static int preset_edited_(void)
            sys.np_level != (p->np_level ? p->np_level : 64u) ||
            sys.menv_height != p->menv_height || (p->menv_height && (sys.menv_len != p->menv_len ||
            sys.menv_skew != p->menv_skew || sys.menv_bend != (p->menv_bend ? p->menv_bend : 64u))))) || sys.scream != p->scream ||
-           sys.transpose != p->oct || mfx_edited(p->mfx);
+           sys.transpose != p->oct || mfx_edited(p->mfx) ||
+           sys.mw_target != w.mwt || sys.mw_depth != w.mwd || sys.vel_to != w.vel || sys.vel_amt != w.vamt;
 }
 
 /* ------------------------------------------------------------ settings --- */

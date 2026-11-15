@@ -96,7 +96,7 @@ static void rm_state(void)
 }
 static void rm_presets(void)                     /* PRESETS: each preset as a line of ui.c's table */
 {
-    static char t[200] __attribute__((section(".pool")));
+    static char t[256] __attribute__((section(".pool")));
     char v[8];
     uint32_t i, k;
     for (i = 0; i < NPRESETS; i++) {
@@ -106,6 +106,8 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
             for (k = 0; k < PR_N; k++)
                 a[k] = pr_v(upre_v(i), k);
             a[27] = (uint8_t)PR_SPACE(a[27]);            /* (the SPACE alone: the octave is written below) */
+            a[4] = (uint8_t)((a[4] * 1000u + 651u) / 1303u);   /* (DECAY, RELEASE: back to the table's scale) */
+            a[6] = (uint8_t)((a[6] * 48u + 63u) / 127u);
         }
         else {
             const uint8_t b[PR_N] = {p->chaos, p->shape, p->output, p->attack, p->decay, p->sustain, p->release,
@@ -141,6 +143,22 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
                 fmt_int(v, o);
                 ui_cat(t, sizeof t, v);
             }
+        }
+        {   /* the wheel and the velocity: a saved one's, or the table's own */
+            uint8_t wv[4] = {p->mw, p->mwd, p->vel, p->vamt};
+            static const char *const WN[4] = {", .mw = ", ", .mwd = ", ", .vel = ", ", .vamt = "};
+            if (upre_has(i) && upre_v(i)[PR_N] != 0xFFu) {
+                wv[0] = (uint8_t)(upre_v(i)[PR_N] + 1u);
+                wv[1] = upre_v(i)[PR_N + 1u];
+                wv[2] = (uint8_t)(upre_v(i)[PR_N + 2u] + 1u);
+                wv[3] = upre_v(i)[PR_N + 3u];
+            }
+            for (k = 0; k < 4u; k++)
+                if (wv[k]) {
+                    ui_cat(t, sizeof t, WN[k]);
+                    fmt_int(v, wv[k]);
+                    ui_cat(t, sizeof t, v);
+                }
         }
         if (!upre_has(i) && p->mfx) {            /* (its MOD FX: MFX_PRE's index + 1) */
             ui_cat(t, sizeof t, ", .mfx = ");

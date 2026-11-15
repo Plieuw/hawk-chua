@@ -68,8 +68,9 @@ static uint8_t flash_ok = 1;
 enum { OBJ_SETTINGS, OBJ_USER0, OBJ_COUNT = OBJ_USER0 + 8 };
 static uint8_t flash_store[OBJ_COUNT][3840];
 static int saved[OBJ_COUNT];
-static int st_load(uint32_t obj, void *dst, uint32_t max) { if (obj >= OBJ_COUNT || !saved[obj]) return -1; memcpy(dst, flash_store[obj], max); return (int)max; }
-static int st_save(uint32_t obj, const void *src, uint32_t len) { if (obj >= OBJ_COUNT || len > 3840u) return -1; memcpy(flash_store[obj], src, len); saved[obj] = 1; return 0; }
+static uint32_t saved_len[OBJ_COUNT];            /* (as storage.c: a load gives what was saved, its length) */
+static int st_load(uint32_t obj, void *dst, uint32_t max) { if (obj >= OBJ_COUNT || !saved[obj] || saved_len[obj] > max) return -1; memcpy(dst, flash_store[obj], saved_len[obj]); return (int)saved_len[obj]; }
+static int st_save(uint32_t obj, const void *src, uint32_t len) { if (obj >= OBJ_COUNT || len > 3840u) return -1; memcpy(flash_store[obj], src, len); saved[obj] = 1; saved_len[obj] = len; return 0; }
 static uint32_t irq_save(void) { return 0; }
 static void irq_restore(uint32_t f) { (void)f; }
 static uint32_t fl_jedec(void) { return 0xB36014u; }   /* (the newer units' chip: saving as on the first) */
@@ -235,6 +236,35 @@ int main(int argc, char **argv)
         ok &= lines == NPRESETS && strstr((char *)rm_log, "SAVED") && strstr((char *)rm_log, "{\"GRAND PIANO\", ");
         rm_cmd(CLR, sizeof CLR);
         ok &= !upre_has(5);
+        {   /* the wheel and the velocity: a preset sets its own (GRAND PIANO: vibrato, BRIGHT); SAVE keeps them with
+             * the sound; a saved object of before (30 values a preset) read as it was, its wheel left alone */
+            uint8_t old[UPRE_OLD];
+            preset_load(0);
+            ok &= sys.mw_target == 28u && sys.vel_to == 1u && !preset_edited();
+            sys.vel_to = 8; sys.mw_target = 27;
+            ok &= preset_edited();
+            edges = btn_bit(B_SAVE);
+            ui_input();
+            preset_load(1);
+            ok &= sys.vel_to != 8u;
+            preset_load(0);
+            ok &= sys.vel_to == 8u && sys.mw_target == 27u && !preset_edited();
+            rm_cmd(CLR, sizeof CLR);
+            memset(old, 0, sizeof old);
+            old[0] = 1;                                  /* (preset 0 saved, as the old form) */
+            for (k = 0; k < PR_N; k++)
+                old[8u + k] = (uint8_t)(*PR_SYS[k] & 127u);
+            old[8u + 3u * PR_N] = 99;                    /* (another row's first value) */
+            st_save(OBJ_USER0, old, sizeof old);
+            memset(upre_bits, 0, sizeof upre_bits); upre_cur = 0xFF;
+            upre_boot();
+            ok &= upre_has(0) && upre_v(0)[PR_N] == 0xFFu && upre_v(3)[0] == 99u;
+            sys.vel_to = 5;
+            preset_load(0);
+            ok &= sys.vel_to == 5u && !preset_edited();  /* (its velocity left as it was) */
+            rm_cmd(CLR, sizeof CLR);
+            if (!ok) printf("preset wheel / velocity FAIL (vel %u wheel %u)\n", sys.vel_to, sys.mw_target);
+        }
         {   /* a preset's FREE EG contour: FLUTE's jet moves with each note; the edited mark and SAVE see its base; a
              * preset without one turns it off */
             uint32_t b2;
