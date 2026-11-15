@@ -1688,7 +1688,7 @@ static int ui_mod(const volatile uint8_t *p, int32_t *base, int32_t *lo, int32_t
  * modulation, sweeping lo..hi, now at cur. From the tile's tables (knob_tables.h, anti-aliased) */
 static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, int32_t cur, uint16_t on, int32_t n)
 {
-    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0x3D9Fu, 80), mt = ux_mix(T_BG, mc, 30);
+    uint16_t dim = ux_mix(T_BG, on, 45), mc = ux_mix(T_THEME, 0x3D9Fu, 80);
     int32_t vu = v < 0 ? -1 : v * 2, lu = lo * 2, hu = hi * 2, cu = cur * 2, x, y;
     uint32_t k = 0;
     for (y = 0; y < KN_W; y++)
@@ -1703,9 +1703,11 @@ static void ui_knob(int32_t ox, int32_t oy, int32_t v, int32_t lo, int32_t hi, i
                     cv_pblend(ox + x, oy + y, i * 127 / (n - 1) == v ? on : dim, KN_TRACK[k] + 1u);
             } else if (KN_TRACK[k] && u <= vu)   /* the outer ring: the knob's position (nothing past it) */
                 cv_pblend(ox + x, oy + y, on, KN_TRACK[k] + 1u);
-            if (KN_RING[k] && cur >= 0)          /* the inner ring: the modulation's range, where it is now lit */
-                cv_pblend(ox + x, oy + y, u >= cu - 5 && u <= cu + 5 ? T_TEXT : u >= lu && u <= hu ? mc : mt,
-                          KN_RING[k] + 1u);
+            if (KN_TRACK[k] && cur >= 0 && u >= lu && u <= hu)   /* the modulation's depth: its range over the ring,
+                                                                    * half see-through */
+                cv_pblend(ox + x, oy + y, mc, (KN_TRACK[k] + 1u) * 5u / 8u);
+            if (KN_RING[k] && cur >= 0 && u >= cu - 5 && u <= cu + 5)   /* inside it: where it is now */
+                cv_pblend(ox + x, oy + y, T_TEXT, KN_RING[k] + 1u);
         }
     if (v >= 0) {                                /* the pointer (the knob itself see-through) */
         const int16_t *q = KN_PTR[v & 127];
