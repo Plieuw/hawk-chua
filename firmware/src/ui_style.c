@@ -441,7 +441,7 @@ static void us_psyche(uint32_t h)
         det = 128;
     for (j = 0; j < US_NP; j++) {                /* (the figure's radius, twice: its wave up and down) */
         uint32_t th = (j - j % hold) * step;     /* (a crusher: held in steps round the circle) */
-        uint32_t p = th * (uint32_t)folds + (1u << 30) + (uint32_t)(us_sin(th * 2u, fm) * 16777216);   /* (FM: the
+        uint32_t p = th * (uint32_t)folds + (1u << 30) + (uint32_t)us_sin(th * 2u, fm) * 16777216u;   /* (FM: the
                                                   * angle swung, up to a turn) */
         if (hm == UV_FM)                         /* (FM turned: the lines ripple a moment) */
             p += (uint32_t)(us_sin(th * 3u + (fm1_ms << 22), hl) * 4194304);

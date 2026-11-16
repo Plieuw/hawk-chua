@@ -1,0 +1,70 @@
+# HAWK CHUA on M-VAVE FM1 Open (open/): build the firmware with the JieLi Linux toolchain and keep the package.
+name: fm1-open
+
+on:
+  push:
+    branches: [fm1-open, "open/**"]
+    paths: ["open/**", "firmware/src/**", ".github/workflows/open.yml"]
+  workflow_dispatch:
+    inputs:
+      opt:
+        description: "extra optimisation flag for hc_open.c (e.g. -Os); empty: -O2"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: open-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: debian:bookworm-slim
+    steps:
+      - name: Packages
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            git ca-certificates curl xz-utils python3 python3-pil python3-fonttools gcc libc6-dev >/dev/null
+
+      - uses: actions/checkout@v4
+
+      - name: Cache the JieLi toolchain
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /opt/jieli
+          key: jieli-toolchain-open-v1
+
+      - name: JieLi toolchain
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sh tools/get_toolchain.sh /opt/jieli
+          test -x /opt/jieli/toolchain/pi32v2/bin/clang
+
+      - name: Host tests
+        run: sh open/tests/run_tests.sh
+
+      - name: Build
+        shell: bash
+        env:
+          HC_BUILD: open-${{ github.run_number }}
+          HC_OPT: ${{ github.event.inputs.opt }}
+        run: |
+          set -o pipefail
+          python3 open/tools/build_open.py open /opt/jieli/toolchain --out open/build/hawk-chua-open.fwsc 2>&1 | tee open/build-log.txt
+
+      - name: Package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawk-chua-open-${{ github.run_number }}
+          path: |
+            open/build/hawk-chua-open.fwsc
+            open/build-log.txt
+            open/build/dx7/sdk.map
+            open/build/host/*.png
+            open/build/host/*.wav

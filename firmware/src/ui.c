@@ -1400,8 +1400,9 @@ static int settings_save(void);
 static void settings_boot(void)    /* power-on, before the audio */
 {
     settings_t s;
-    uint32_t f = irq_save();
     sys.tape_len = 3;                            /* (the tape's LENGTH: 2 bars, unless saved) */
+#if !HC_OPEN                                     /* (FM1 Open: the SDK's user flash, hc_store.c st_boot) */
+    uint32_t f = irq_save();
     flash_ok = fl_id_ok(FL_FAR(fl_jedec_ram)());   /* (either chip) */
     if (fl_emulated()) {                         /* (a browser's emulated FM-1: lighter, so it plays in time there; a
                                                   * real FM-1 never: see fl_emulated) */
@@ -1410,6 +1411,7 @@ static void settings_boot(void)    /* power-on, before the audio */
         synth_light = 1;
     }
     irq_restore(f);
+#endif
     if (!flash_ok) {
         preset_load(BOOT_PRESET);
         part_b_load(BOOT_PRESET);
