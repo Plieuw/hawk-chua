@@ -308,6 +308,10 @@ def main():
     objs.append(build / "obj" / "build_identity.obj")
     linker = (sdk / "config" / "linker.ld.in").read_text().replace("@SBC_DECODER@", "sbc_decoder\n") \
         .replace("@ACL_TX_EXTRA@", " + 1024").replace("@ACL_RX_EXTRA@", " + 4096")
+    # HAWK CHUA: the shared sources' big buffers (section ".pool": the Felucca build's pool) with the zeroed data
+    linker = linker.replace("        *(.bss .bss.*)\n", "        *(.bss .bss.*)\n        *(.pool .pool.*)\n", 1)
+    if "*(.pool .pool.*)" not in linker:
+        raise SystemExit("linker: no place for .pool")
     (build / "generated" / "linker").write_text(linker)
     link = []
     if lto:
