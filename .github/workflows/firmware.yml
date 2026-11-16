@@ -119,14 +119,16 @@ jobs:
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: python3 web/make_site.py build/hawk-chua.fwsc "${{ steps.ver.outputs.label }}" site
 
-      - name: HAWK CHUA on FM1 Open (open/; its installer at /open/, the version open/VERSION says)
-        shell: bash
+      - name: HAWK CHUA on FM1 Open (withdrawn while beta 1 is looked into; the page says so)
         run: |
-          set -o pipefail
-          export HC_BUILD="$(tr -cd 'A-Za-z0-9.-' < open/VERSION)"
-          sh open/tests/run_tests.sh
-          python3 open/tools/build_open.py open "$JIELI_TOOLCHAIN" --out open/build/hawk-chua-open.fwsc 2>&1 | tail -n 12
-          python3 open/tools/make_site_open.py open/build/hawk-chua-open.fwsc open/build/hawk-chua-data.bin "$HC_BUILD" site/open
+          mkdir -p site/open/webapp/installer
+          for f in site/open/index.html site/open/webapp/installer/index.html; do
+            printf '%s\n' '<!doctype html><meta charset="utf-8"><title>HAWK CHUA (FM1 Open)</title>' \
+              '<body style="font:16px/1.6 sans-serif;max-width:520px;margin:48px auto;padding:0 16px">' \
+              '<h1>HAWK CHUA (FM1 Open)</h1><p>Beta 1 is withdrawn: it can stop the FM-1 from starting. Do not install it.</p>' \
+              '<p>An FM-1 that no longer starts after it: <a href="https://github.com/Plieuw/hawk-chua/tree/main/open/rescue">the rescue</a>.</p>' \
+              '<p><a href="../../">HAWK CHUA (Felucca)</a></p>' > "$f"
+          done
 
       - name: Firmware file
         uses: actions/upload-artifact@v4
