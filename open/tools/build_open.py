@@ -295,7 +295,7 @@ def main():
             opt += ["-fno-lto", "-fno-pic"]
         opt += ["-fwrapv", "-fno-fast-math", "-ffp-contract=off"]
         if rel == "app/hc_open.c":                 # HAWK CHUA: small (the flash), or HC_OPT
-            opt.append(os.environ.get("HC_OPT") or "-Os")
+            opt.append(os.environ.get("HC_OPT") or "-Oz")
         print(f"compile {rel}")
         run([clang, *opt, "-c", src, "-o", out])
         if rel == "app/hc_open.c":                 # the UI out of the firmware, into HAWK CHUA's data (.hc_ovl)
@@ -434,15 +434,6 @@ def main():
     data_out.parent.mkdir(parents=True, exist_ok=True)
     data_out.write_bytes(data)
     print(f"data {data_out}: {len(data)} B (the UI {len(ovl)} B at {OVL_VMA:#x}); user flash room {USER_BYTES - 18 * 4096} B")
-    # (where the SDK maps the user flash: fm1_flash_map, for the record)
-    objdump = next((p for p in (binp / "llvm-objdump", tc / "common" / "bin" / "llvm-objdump", binp / "objdump") if p.exists()), None)
-    if objdump:
-        for fn in ("fm1_flash_map", "fm1_flash_size"):
-            at = syms.get(fn)
-            if at:
-                r = subprocess.run([str(objdump), "-d", f"--start-address={at:#x}", f"--stop-address={at + 160:#x}", str(elf)],
-                                   capture_output=True, text=True)
-                print(f"-- {fn}:\n" + "\n".join(r.stdout.splitlines()[-40:]) + r.stderr[-300:])
     pkg, layout = package(bytes(image), sdk / "tools" / "pack", product)
     dest = a.out or build / "generated" / "FM1_OFFICIAL_OPEN.fwsc"
     dest.parent.mkdir(parents=True, exist_ok=True)

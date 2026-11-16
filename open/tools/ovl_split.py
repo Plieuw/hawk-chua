@@ -146,6 +146,11 @@ def main():
     if "--list" in sys.argv:
         for i in sorted(ovl, key=lambda i: -e.sh[i]["size"])[:40]:
             print(f"  {e.sh[i]['size']:7d} {e.cstr(e.stroff + e.sh[i]['name'])}")
+        kept = [(e.sh[i]["size"], e.sh[i]["n"]) for i in range(len(e.sh))
+                if i not in ovl and e.sh[i]["type"] == 1 and e.sh[i]["flags"] & 2 and not e.sh[i]["flags"] & 1]
+        print(f"kept in the firmware: {sum(k[0] for k in kept)} B (code and consts); the largest:")
+        for sz, n in sorted(kept, reverse=True)[:40]:
+            print(f"  {sz:7d} {n}")
     Path(obj).write_bytes(e.d)
 
 
