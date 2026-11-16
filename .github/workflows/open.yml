@@ -1,4 +1,6 @@
-# HAWK CHUA on M-VAVE FM1 Open (open/): build the firmware with the JieLi Linux toolchain and keep the package.
+# HAWK CHUA on M-VAVE FM1 Open (open/): build the firmware and the data with the JieLi Linux toolchain and keep them.
+# A beta: Run workflow with a beta number N: the build says BETA<N> on its screen, and a GitHub pre-release
+# open-beta<N> gets the .fwsc (step 1), the data (step 2) and the licences. (The installer page: firmware.yml, /open/.)
 name: fm1-open
 
 on:
@@ -7,8 +9,12 @@ on:
     paths: ["open/**", "firmware/src/**", ".github/workflows/open.yml"]
   workflow_dispatch:
     inputs:
+      beta:
+        description: "make a beta pre-release of this commit: its number N (tag open-beta<N>); empty: just build"
+        required: false
+        default: ""
       opt:
-        description: "extra optimisation flag for hc_open.c (e.g. -Os); empty: -O2"
+        description: "the optimisation flag for hc_open.c (e.g. -Os); empty: -Oz"
         required: false
         default: ""
 
@@ -48,17 +54,48 @@ jobs:
       - name: Host tests
         run: sh open/tests/run_tests.sh
 
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          b="${{ github.event.inputs.beta }}"
+          if [ -n "$b" ]; then
+            [[ "$b" =~ ^[0-9]+$ ]] || { echo "::error::beta must be a number"; exit 1; }
+            echo "label=BETA$b" >> "$GITHUB_OUTPUT"; echo "name=beta$b" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=OPEN-${{ github.run_number }}" >> "$GITHUB_OUTPUT"; echo "name=open-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build
         shell: bash
         env:
-          HC_BUILD: open-${{ github.run_number }}
+          HC_BUILD: ${{ steps.ver.outputs.label }}
           HC_OPT: ${{ github.event.inputs.opt }}
         run: |
           set -o pipefail
           python3 open/tools/build_open.py open /opt/jieli/toolchain --out open/build/hawk-chua-open.fwsc 2>&1 | tee open/build-log.txt
 
       - name: "Installer site (open/build/site, /open/ on the HAWK CHUA site)"
-        run: python3 open/tools/make_site_open.py open/build/hawk-chua-open.fwsc open/build/hawk-chua-data.bin open-${{ github.run_number }} open/build/site
+        run: python3 open/tools/make_site_open.py open/build/hawk-chua-open.fwsc open/build/hawk-chua-data.bin ${{ steps.ver.outputs.name }} open/build/site
+
+      - name: Release files
+        if: github.event.inputs.beta != ''
+        run: |
+          set -e
+          d=open/build/release; n=${{ steps.ver.outputs.name }}
+          mkdir -p $d
+          cp open/build/hawk-chua-open.fwsc $d/hawk-chua-open-$n.fwsc
+          cp open/build/hawk-chua-data.bin $d/hawk-chua-data-$n.bin
+          cp open/LICENSE.md $d/LICENSE-FM1-OPEN.md; cp open/THIRD_PARTY.md open/LICENSING.md $d/; cp LICENSE $d/LICENSE-GPL-3.0.txt
+          cp LICENSES/Apache-2.0.txt LICENSES/MIT-Rings.txt LICENSES/MIT-DaisySP.txt LICENSES/OFL-InterTight.txt $d/
+          (cd $d && sha256sum hawk-chua-open-$n.fwsc hawk-chua-data-$n.bin > SHA256SUMS)
+
+      - name: Release artifact
+        if: github.event.inputs.beta != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: open/build/release/
 
       - name: Package
         if: always()
@@ -72,3 +109,23 @@ jobs:
             open/build-log.txt
             open/build/host/*.png
             open/build/host/*.wav
+
+  release:
+    needs: build
+    if: github.event.inputs.beta != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: release
+      - name: GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N="${{ github.event.inputs.beta }}"
+          gh release create "open-beta$N" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "HAWK CHUA on FM1 Open, beta $N" \
+            --notes "HAWK CHUA on M-VAVE's official open firmware (FM1 Open), with Bluetooth LE MIDI. **Beta: not yet tested on an FM-1.** Two steps: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/open/ in Chrome or Edge, install the firmware (step 1), then HAWK CHUA's data (step 2). Or by hand: hawk-chua-open-beta$N.fwsc with M-VAVE's FM1 Workbench, then step 2 on the page (the data belongs to exactly this firmware). Without step 2 the FM-1 is silent and asks for it. What differs from the Felucca build: open/README.md. Licences: LICENSING.md."
