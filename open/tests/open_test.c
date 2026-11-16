@@ -2,6 +2,7 @@
 /* HAWK CHUA on FM1 Open without the hardware: open/app/hc_open.c (the sound, the UI and the layer on the SDK) against
  * a stand-in for the FM1 SDK: a 240 x 240 framebuffer for the screen, RAM for the user flash, a scripted panel.
  *
+ *   boot guard    after two failed starts of a build, SAFE MODE (only the SDK; silent); PLAY tries again; 20 s up: good
  *   data          step 2: without HAWK CHUA's data a plain screen and silence; an upload for another build or damaged
  *                 refused; a good one starts the UI and the sound
  *   boot          the splash, then the home page; the keys silent under the splash
@@ -247,8 +248,28 @@ int main(int argc, char **argv)
     hc_test_build_id = test_build_id;
     hc_ovl_test_vma = 0x2079000u;
     hc_ovl_test_size = sizeof image - 4096u;
+    /* ---- the boot guard: two failed starts of this build before: SAFE MODE (only the SDK; silent); PLAY: start */
+    {
+        struct hc_boot b;
+        flash_ok = 1;
+        memset(&b, 0, sizeof b);
+        memcpy(b.build, test_build_id, sizeof b.build);
+        b.fails = 2;
+        st_boot();
+        check("boot guard: a record of two failed starts", st_save(OBJ_BOOT, &b, sizeof b) == 0);
+    }
     groove_screen_init();
     audio(20);
+    check("boot guard: after two failed starts, SAFE MODE, silent, its screen", hc_safe && peak == 0 && lit() > 1000u);
+    shot(dir, "00-safe-mode");
+    press(B_PLAY);
+    check("boot guard: PLAY starts HAWK CHUA (the try counts as a start)", !hc_safe && hc_boot_rec.fails == 1u);
+    audio(20u * 1000u / 3u + 10u);               /* (20 s) */
+    {
+        struct hc_boot b;
+        check("boot guard: 20 s up, the start was good (the count back to 0)",
+              st_load(OBJ_BOOT, &b, sizeof b) == (int)sizeof b && b.fails == 0u && hc_boot_ok);
+    }
     check("Bluetooth: MIDI and audio switched on", bt_features == (FM1_BT_AUDIO | FM1_BT_MIDI) && hc_bt_pending == 0);
     check("data: none at first, the plain screen", !hc_ui_on && hc_data_state == HC_DATA_NONE && lit() > 1000u);
     shot(dir, "00-plain");

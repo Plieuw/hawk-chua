@@ -336,10 +336,6 @@ def main():
         hc_ovl_end = .;
     }}
 """, 1)
-    # (the tape: in the D-cache ways the SDK frees as RAM, cache_ram: zeroed by tape_init)
-    linker = linker.replace("        *(.memp_memory_x)\n", "        *(.memp_memory_x)\n        *(.hc_cache_ram)\n", 1)
-    if "*(.hc_cache_ram)" not in linker:
-        raise SystemExit("linker: no place for .hc_cache_ram")
     (build / "generated" / "linker").write_text(linker)
     link = []
     if lto:
@@ -389,10 +385,12 @@ def main():
         m = re.match(r"^([0-9a-fA-F]+)\s+(?:([0-9a-fA-F]+)\s+)?([A-Za-z])\s+(\S+)", line)
         if m:
             syms[m.group(4)] = int(m.group(1), 16)
-    # the audio ISR in internal SRAM (as Build.ps1 Test-Firmware): the interrupt and the SDK's output path
+    # the audio ISR in internal SRAM (as Build.ps1 Test-Firmware): the interrupt, the SDK's output path and HAWK CHUA's
+    # way in (hc_render: silence, or the sound in the data only while the data is in place); none may be absent
     need = ["fm1_audio_irq", "fm1_audio_copy", "fm1_output_mix", "fm1_usb_audio_read", "fm1_bluetooth_audio_read",
-            "fm1_usb_audio_write", "fm1_input_tick", "fm1_panel_irq", "fm1_panel_scan", "fm1_panel_leds"]
-    bad = [n for n in need if n in syms and not 0x01C00000 <= syms[n] < 0x01C80000]
+            "fm1_usb_audio_write", "fm1_panel_scan", "fm1_panel_leds", "hc_render", "hc_output_level",
+            "hc_ovl_entry_audio"]
+    bad = [n for n in need if not 0x01C00000 <= syms.get(n, 0) < 0x01C80000]
     if bad:
         raise SystemExit(f"audio code or data outside internal SRAM: {bad}")
     print("checks: audio ISR code and data in internal SRAM: " + ", ".join(n for n in need if n in syms))

@@ -34,10 +34,8 @@ static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ?
 #define FELUCCA_OTA 0            /* updates: the SDK's */
 #define FELUCCA_FLASH 1
 #ifndef TAPE_N
-#define TAPE_N 12288u            /* tape.c: cells a track, 1.1 s at 11 kHz (the Felucca build: 7.2 s), 24 KB in all, in */
-#endif                           /* the D-cache's RAM ways (the SDK's main RAM is full) */
-#ifndef TAPE_SECTION
-#define TAPE_SECTION ".hc_cache_ram"
+#define TAPE_N 256u              /* tape.c: the tape is off in this build (a token 256 cells: the SDK's RAM holds no
+                                  * more; beta 1 kept it in the D-cache's RAM ways, which no app of M-VAVE's uses) */
 #endif
 #define HC_OPEN 1                /* (the shared sources: the FM1 Open build) */
 #ifndef HC_VERSION

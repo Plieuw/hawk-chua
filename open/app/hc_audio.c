@@ -7,7 +7,7 @@
 extern volatile uint16_t hc_load_q8;             /* app/board/audio.c: the interrupt's share of a block */
 static int32_t hc_block[2u * HALF_FRAMES] __attribute__((aligned(4)));
 
-unsigned hc_output_level(void) { return 127u; }  /* (MASTER is applied in synth.c: sys.master_q12) */
+FM1_AUDIO_CODE unsigned hc_output_level(void) { return 127u; }  /* (MASTER is applied in synth.c: sys.master_q12) */
 
 /* the sound, in HAWK CHUA's data (hc_data.c): called only through hc_ovl_entry_audio, and only while the data is in
  * place (hc_ovl_audio); per sub-block of CTL frames the keys and MIDI in, then the synth */
@@ -21,17 +21,21 @@ static void hc_render_ovl(int32_t *out)
     for (b = 0; b < 2u * HALF_FRAMES; b++)
         out[b] = hc_block[b] * (1 << OUT_SHIFT);
 }
-static void (*volatile hc_ovl_entry_audio)(int32_t *) __attribute__((section(".data.hc_ovl_entry"))) = hc_render_ovl;
+/* (in internal RAM, as everything the audio interrupt runs: hc_render, this pointer, the flags; the sound itself runs
+ * from the data, in the flash, only while the data is in place: an SDK flash write mutes the interrupt before it gets
+ * here, app/board/audio.c) */
+void (*volatile hc_ovl_entry_audio)(int32_t *) __attribute__((section(".data.hc_ovl_entry"))) = hc_render_ovl;
 static volatile uint8_t hc_ovl_audio;            /* the control task: 1 the data is in place, the sound may run */
 static volatile uint32_t hc_audio_blocks;        /* blocks rendered or skipped (the control task waits on it) */
+static volatile uint16_t hc_cool_hot[2];         /* (LIGHT's counters) */
 
-int hc_render(int32_t *out)
+FM1_AUDIO_CODE int hc_render(int32_t *out)
 {
-    static uint16_t hot, cool;
     uint32_t b, load = hc_load_q8;
-    if (!hc_ovl_audio) {                         /* (no data, or it is being written: silence) */
+    if (!hc_ovl_audio) {                         /* (no data, being written, safe mode: silence; no library call) */
+        volatile int32_t *o = out;
         for (b = 0; b < 2u * HALF_FRAMES; b++)
-            out[b] = 0;
+            o[b] = 0;
         hc_audio_blocks++;
         return 0;
     }
@@ -40,16 +44,16 @@ int hc_render(int32_t *out)
     /* the load (the screen's CPU) and LIGHT: over ~95 % a step lighter (synth.c), 10 s under 50 %: back */
     sys.cpu_q8 = load;
     if (load > 243u) {
-        cool = 0;
-        if (++hot >= 3u) {
-            hot = 0;
+        hc_cool_hot[0] = 0;
+        if (++hc_cool_hot[1] >= 3u) {
+            hc_cool_hot[1] = 0;
             if (synth_light < 3u)
                 synth_light++;
         }
     } else {
-        hot = 0;
-        if (synth_light > synth_light_min && load < 128u && ++cool >= 3450u) {
-            cool = 0;
+        hc_cool_hot[1] = 0;
+        if (synth_light > synth_light_min && load < 128u && ++hc_cool_hot[0] >= 3450u) {   /* (~10 s) */
+            hc_cool_hot[0] = 0;
             synth_light--;
         }
     }

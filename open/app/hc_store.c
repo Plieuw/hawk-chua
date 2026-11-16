@@ -5,7 +5,7 @@
  * user partition, A and B. A save goes into the copy that is not the newest: erase, the payload, then its record
  * (magic, object, sequence, length, CRC-32) last, so a save cut off by the power leaves the other copy as it was.
  * A load takes the valid copy with the newer sequence. The start of the partition is HAWK CHUA's data (hc_data.c). */
-enum { OBJ_SETTINGS, OBJ_USER0, OBJ_COUNT = OBJ_USER0 + 8 };
+enum { OBJ_SETTINGS, OBJ_USER0, OBJ_BOOT = OBJ_USER0 + 8, OBJ_COUNT };   /* (OBJ_BOOT: hc_sdk.c's boot guard) */
 #define ST_SECTOR FM1_FLASH_SECTOR_BYTES
 #define ST_REC 16u                               /* the record, at the start of the sector */
 #define ST_PAYLOAD_MAX (ST_SECTOR - ST_REC)

@@ -140,6 +140,60 @@ static void hc_plain(uint32_t now)
     draw_text_box(0, 110, 240, &AF_S, b, hc_data_state == HC_DATA_LOADING ? T_THEME : T_ACCENT, 1);
 }
 
+/* The boot guard. A start that does not run 20 s (it crashed or hung, and the FM-1 started again) counts as failed, in
+ * the user flash (OBJ_BOOT, with the build it belongs to). After two failed starts in a row of this build the next
+ * starts in SAFE MODE: none of HAWK CHUA runs, only the SDK (USB, MIDI, its update path: the install page and M-VAVE's
+ * Workbench reach it) and a screen that says so, silent. PLAY there: try again. So no build of this firmware can keep
+ * the FM-1 from being updated, whatever its sound or UI does (beta 1 did: it crashed at every start). */
+struct hc_boot { uint8_t build[8]; uint32_t fails; };
+static struct hc_boot hc_boot_rec;
+static uint8_t hc_safe, hc_boot_ok;
+static uint32_t hc_start_ms;
+static void hc_boot_guard(void)
+{
+    if (st_load(OBJ_BOOT, &hc_boot_rec, sizeof hc_boot_rec) != (int)sizeof hc_boot_rec ||
+        memcmp(hc_boot_rec.build, HC_BUILD_ID, sizeof hc_boot_rec.build)) {
+        memset(&hc_boot_rec, 0, sizeof hc_boot_rec);
+        memcpy(hc_boot_rec.build, HC_BUILD_ID, sizeof hc_boot_rec.build);
+    }
+    if (hc_boot_rec.fails >= 2u) {
+        hc_safe = 1;
+        return;
+    }
+    hc_boot_rec.fails++;                         /* (this start counts as failed until it has run 20 s) */
+    (void)st_save(OBJ_BOOT, &hc_boot_rec, sizeof hc_boot_rec);
+}
+static void hc_boot_good(uint32_t now)           /* 20 s up: this start was good */
+{
+    if (hc_safe || hc_boot_ok || now - hc_start_ms < 20000u)
+        return;
+    hc_boot_ok = 1;
+    hc_boot_rec.fails = 0;
+    (void)st_save(OBJ_BOOT, &hc_boot_rec, sizeof hc_boot_rec);
+}
+static void hc_safe_screen(void)
+{
+    lcd_fill(0, 0, 240, 240, T_BG);
+    draw_text_box(0, 40, 240, &AF_M, "HAWK CHUA: SAFE MODE", T_ACCENT, 1);
+    draw_text_box(0, 64, 240, &AF_S, "FM1 OPEN  " HC_VERSION, T_MID, 1);
+    draw_text_box(0, 104, 240, &AF_S, "IT DID NOT START, TWICE.", T_TEXT, 1);
+    draw_text_box(0, 124, 240, &AF_S, "INSTALL AGAIN, OR ANOTHER FIRMWARE,", T_TEXT, 1);
+    draw_text_box(0, 144, 240, &AF_S, "FROM THE INSTALL PAGE OR THE WORKBENCH.", T_TEXT, 1);
+    draw_text_box(0, 190, 240, &AF_S, "PLAY: TRY TO START AGAIN", T_DIM, 1);
+}
+
+static void hc_start(void)                       /* HAWK CHUA's start (not in SAFE MODE) */
+{
+    keys_init();
+    tape_init();
+    hc_panel_read();
+    master_acc = -1;
+    master_poll();
+    hc_data_boot();
+    if (hc_data_ok())
+        hc_ui_start();
+}
+
 void groove_screen_init(void)
 {
     uint32_t k;
@@ -149,14 +203,12 @@ void groove_screen_init(void)
     fm1_screen_init();
     palette_set(0);
     st_boot();
-    keys_init();
-    tape_init();
-    hc_panel_read();
-    master_acc = -1;
-    master_poll();
-    hc_data_boot();
-    if (hc_data_ok())
-        hc_ui_start();
+    hc_start_ms = fm1_ms;
+    hc_boot_guard();
+    if (hc_safe)
+        hc_safe_screen();
+    else
+        hc_start();
 }
 
 /* Bluetooth: MIDI (BLE, the FM-1 as a peripheral: a phone or computer connects) and audio on, as FM1 Open's own app
@@ -176,6 +228,19 @@ static void hc_bluetooth(void)
 void groove_screen_control(void)
 {
     uint32_t now = fm1_ms;
+    if (hc_safe) {                               /* SAFE MODE: the SDK alone; PLAY tries HAWK CHUA again */
+        hc_panel_read();
+        if (fm1_input_edges(0) & btn_bit(B_PLAY)) {
+            hc_safe = 0;
+            hc_boot_rec.fails = 1;               /* (this try counts, as a start does) */
+            (void)st_save(OBJ_BOOT, &hc_boot_rec, sizeof hc_boot_rec);
+            hc_start_ms = now;
+            hc_plain_key = 0xFFFFFFFFu;
+            hc_start();
+        }
+        return;
+    }
+    hc_boot_good(now);
     hc_bluetooth();
     hc_panel_read();
     hc_midi_poll();
