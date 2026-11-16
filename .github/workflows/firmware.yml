@@ -127,6 +127,7 @@ jobs:
           sh open/tests/run_tests.sh
           python3 open/tools/build_open.py open "$JIELI_TOOLCHAIN" --out open/build/hawk-chua-open.fwsc 2>&1 | tail -n 12
           python3 open/tools/make_site_open.py open/build/hawk-chua-open.fwsc open/build/hawk-chua-data.bin "$HC_BUILD" site/open
+          mkdir -p site/open/rescue && cp open/rescue/index.html site/open/rescue/index.html
 
       - name: Firmware file
         uses: actions/upload-artifact@v4

@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     FM-1 rescue helper: while an FM-1 restarts over and over, send it the FM1 SDK's own update SysEx
+     (F0 22 24 35 7D F7, fm1_midi_input_sysex) the moment its MIDI port appears, so it goes to update mode, where
+     open/rescue/fm1_open_rescue.sh (in a terminal) catches it. -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM-1 rescue helper</title>
+<style>
+  body { margin: 0; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 40px 16px; }
+  button { font: inherit; background: #000; color: #fff; border: 0; padding: 8px 20px; cursor: pointer; }
+  pre { font-size: 12px; white-space: pre-wrap; color: #555; max-height: 50vh; overflow: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>FM-1 rescue helper</h1>
+  <p>Voor een FM-1 die steeds opnieuw opstart. Deze pagina stuurt de FM-1 het update-commando van M-VAVE's eigen
+     systeem, zodra hij heel even als MIDI-apparaat verschijnt. Hij gaat dan naar de update-modus, waar het
+     herstelscript in de Terminal hem vangt.</p>
+  <ol>
+    <li>Start eerst het herstelscript in de Terminal (tot het "waiting" zegt).</li>
+    <li>Druk hier op <b>Start</b> en sta MIDI toe.</li>
+    <li>Sluit de FM-1 aan en zet hem aan. Laat beide lopen tot de Terminal "found it" zegt.</li>
+  </ol>
+  <p><button id="go">Start</button> <span id="st"></span></p>
+  <pre id="log"></pre>
+</main>
+<script>
+const UPDATE = [0xF0, 0x22, 0x24, 0x35, 0x7D, 0xF7];
+const PORTS = /fm.?1|hawk|felucca|orkest|usb.?midi|composite|sinco/i;
+const log = (s) => { const l = document.getElementById("log"); l.textContent = new Date().toLocaleTimeString() + "  " + s + "\n" + l.textContent; };
+let sent = 0;
+function hit(out) {
+  if (out.state === "disconnected" || !PORTS.test(out.name || "")) return;
+  try { out.send(UPDATE); sent++; document.getElementById("st").textContent = `${sent} verstuurd`; } catch (e) {}
+}
+document.getElementById("go").addEventListener("click", async () => {
+  let midi;
+  try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
+  catch (e) { log("MIDI (SysEx) niet toegestaan: sta het toe in de site-instellingen en probeer opnieuw"); return; }
+  log("bezig: wacht op de FM-1 ...");
+  midi.onstatechange = (e) => {
+    const p = e.port;
+    log(`${p.type} ${p.name}: ${p.state}`);
+    if (p.type === "output" && p.state === "connected") hit(p);
+  };
+  setInterval(() => { for (const o of midi.outputs.values()) hit(o); }, 40);
+});
+</script>
+</body>
+</html>
