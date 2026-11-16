@@ -329,8 +329,30 @@ def main():
              sdk / "lib" / "libc.a", sdk / "lib" / "libcompiler_rt.a", "--end-group", "--gc-sections",
              "-Tgenerated/linker", "-M=sdk.map", "--undefined=connectivity_wl82_bluetooth_start",
              "--undefined=audio_app_bluetooth_open", "--undefined=bt_get_local_name", "--undefined=bt_get_mac_addr"]
+    # sizes: the app's (hc_open.c's) symbols, by section, the largest
+    sized = []
+    for line in run([nm, "--print-size", "--size-sort", build / "obj" / next(o.name for o in objs if "hc_open" in o.name)]).splitlines():
+        m = re.match(r"^([0-9a-fA-F]+)\s+([0-9a-fA-F]+)\s+([A-Za-z])\s+(\S+)", line)
+        if m:
+            sized.append((int(m.group(2), 16), m.group(3), m.group(4)))
+    tot = {}
+    for sz, t, n in sized:
+        tot[t.lower()] = tot.get(t.lower(), 0) + sz
+    print("hc_open.c symbols by type (t code, r const, d data, b bss): " + ", ".join(f"{k} {v}" for k, v in sorted(tot.items())))
+    for t in "trdb":
+        big = sorted(((sz, n) for sz, tt, n in sized if tt.lower() == t), reverse=True)[:15]
+        print(f"  largest {t}: " + ", ".join(f"{n} {sz}" for sz, n in big))
     print("link")
-    run([ld, *link], cwd=build)
+    r = subprocess.run([str(c) for c in [ld, *link]], cwd=build, capture_output=True, text=True)
+    mp = build / "sdk.map"
+    if mp.exists():                              # the output sections' sizes (also when the link fails)
+        for line in mp.read_text(errors="replace").splitlines():
+            m = re.match(r"^(\.[A-Za-z0-9_.]+)\s+0x([0-9a-fA-F]+)\s+0x([0-9a-fA-F]+)", line)
+            if m and int(m.group(3), 16) > 2048:
+                print(f"section {m.group(1)} at {m.group(2)}: {int(m.group(3), 16)} B")
+    if r.returncode:
+        sys.stderr.write(r.stdout[-6000:] + r.stderr[-6000:])
+        raise SystemExit("failed: ld")
     elf = build / "sdk.elf"
 
     # checks (as Build.ps1 Test-Firmware): the audio callbacks in internal SRAM, the entry
@@ -349,19 +371,6 @@ def main():
     # HAWK CHUA's render: where it lies (internal SRAM, or the flash: then only while no flash write runs)
     where = lambda n: "SRAM" if 0x01C00000 <= syms.get(n, 0) < 0x01C80000 else "flash" if 0x02000000 <= syms.get(n, 0) < 0x03000000 else "absent"
     print("render: " + ", ".join(f"{n} {where(n)}" for n in ("hc_render", "synth_render_", "keys_block_", "render_voice", "rz_run")))
-    # sizes: the app's (hc_open.c's) symbols, by section, the largest
-    sized = []
-    for line in run([nm, "--print-size", "--size-sort", build / "obj" / next(o.name for o in objs if "hc_open" in o.name)]).splitlines():
-        m = re.match(r"^([0-9a-fA-F]+)\s+([0-9a-fA-F]+)\s+([A-Za-z])\s+(\S+)", line)
-        if m:
-            sized.append((int(m.group(2), 16), m.group(3), m.group(4)))
-    tot = {}
-    for sz, t, n in sized:
-        tot[t.lower()] = tot.get(t.lower(), 0) + sz
-    print("hc_open.c symbols by type (t code, r const, d data, b bss): " + ", ".join(f"{k} {v}" for k, v in sorted(tot.items())))
-    for t in "trdb":
-        big = sorted(((sz, n) for sz, tt, n in sized if tt.lower() == t), reverse=True)[:15]
-        print(f"  largest {t}: " + ", ".join(f"{n} {sz}" for sz, n in big))
     # the runtime heap (as Build.ps1: at least 48 KB; the SDK's own work, the update among it, allocates from it)
     mm = re.search(r"0x([0-9a-fA-F]+)[^\r\n]*_MALLOC_SIZE[ ]*=", (build / "sdk.map").read_text(errors="replace"))
     if not mm:

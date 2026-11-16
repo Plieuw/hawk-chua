@@ -33,6 +33,9 @@ static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ?
 #define FELUCCA_UART 0           /* TRS MIDI: the SDK's */
 #define FELUCCA_OTA 0            /* updates: the SDK's */
 #define FELUCCA_FLASH 1
+#ifndef TAPE_N
+#define TAPE_N 26624u            /* tape.c: cells a track, 2.4 s at 11 kHz (the Felucca build: 7.2 s; the SDK's RAM) */
+#endif
 #define HC_OPEN 1                /* (the shared sources: the FM1 Open build) */
 #ifndef HC_VERSION
 #define HC_VERSION "OPEN"        /* shown on the screen (tools/build_open.py: HC_BUILD) */

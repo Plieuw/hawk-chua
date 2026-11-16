@@ -18,7 +18,9 @@
  * track (an erase head before the record head); the track being recorded is heard live, not from the tape. */
 
 #define TAPE_NT 4u
+#ifndef TAPE_N
 #define TAPE_N 80000u                            /* cells per track: 7.2 s at 11 kHz (two a byte: the pool's room) */
+#endif
 #define TAPE_DIV 4u                              /* the tape's rate: FS / 4 */
 #define TAPE_KB 256u                             /* cells a block: each block's coder state kept (a seek, a junction) */
 #define TAPE_NK ((TAPE_N + TAPE_KB - 1u) / TAPE_KB)
