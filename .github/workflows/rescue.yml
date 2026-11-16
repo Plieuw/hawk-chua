@@ -79,6 +79,7 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           gh release delete open-beta1 --repo "$GITHUB_REPOSITORY" --cleanup-tag -y 2>/dev/null || true   # (withdrawn)
+          gh release delete open-beta2 --repo "$GITHUB_REPOSITORY" --cleanup-tag -y 2>/dev/null || true   # (withdrawn)
           gh release delete fm1-open-rescue --repo "$GITHUB_REPOSITORY" --cleanup-tag -y 2>/dev/null || true
           gh release create fm1-open-rescue rescue/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "FM1 Open rescue: working FM1 Open firmware to put back" \
