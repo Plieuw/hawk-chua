@@ -1,5 +1,6 @@
-# The FM1 Open rescue (open/rescue): a working FM1 Open firmware for fm1_open_rescue.sh to put back, Orkest V14 built
-# from github.com/Plieuw/orkest (v14/), as the pre-release fm1-open-rescue.
+# The FM1 Open rescue (open/rescue): working FM1 Open firmware to put back (fm1_open_rescue.sh, or the FM-1 Transporter),
+# as the pre-release fm1-open-rescue: M-VAVE's own FM1 Open (their release's .fwsc when they publish one, and built
+# here from github.com/m-vave/fm1_open, unchanged), and Orkest V14 (github.com/Plieuw/orkest v14/).
 name: fm1-open-rescue
 
 on:
@@ -28,6 +29,12 @@ jobs:
           repository: Plieuw/orkest
           path: orkest
 
+      - uses: actions/checkout@v4
+        with:
+          repository: m-vave/fm1_open
+          path: mvave
+          lfs: false
+
       - name: Cache the JieLi toolchain
         id: cache
         uses: actions/cache@v4
@@ -44,7 +51,27 @@ jobs:
           set -e
           mkdir -p rescue
           python3 orkest/v14/tools/build_open.py orkest/v14 /opt/jieli/toolchain --out rescue/orkest-v14.fwsc
-          (cd rescue && sha256sum orkest-v14.fwsc > SHA256SUMS && cat SHA256SUMS)
+
+      - name: M-VAVE's FM1 Open, built from their source (unchanged)
+        run: |
+          set -e
+          git -C mvave log -1 --format='m-vave/fm1_open %h %ci %s' | tee rescue/mvave-source.txt
+          python3 open/rescue/build_mvave.py mvave /opt/jieli/toolchain --out rescue/mvave-fm1-open-v14.fwsc
+
+      - name: M-VAVE's FM1 Open, their own published package (if there is one)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p mv && cd mv
+          if gh release download --repo m-vave/fm1_open --pattern '*.fwsc' 2>/dev/null; then
+            for f in *.fwsc; do cp "$f" "../rescue/mvave-official-$f"; done
+            gh release view --repo m-vave/fm1_open --json tagName,publishedAt,assets | tee ../rescue/mvave-official.txt
+          else
+            echo "(no published .fwsc)"
+          fi
+
+      - name: Checksums
+        run: (cd rescue && sha256sum *.fwsc > SHA256SUMS && cat SHA256SUMS)
 
       - name: Pre-release
         env:
@@ -54,5 +81,5 @@ jobs:
           gh release delete open-beta1 --repo "$GITHUB_REPOSITORY" --cleanup-tag -y 2>/dev/null || true   # (withdrawn)
           gh release delete fm1-open-rescue --repo "$GITHUB_REPOSITORY" --cleanup-tag -y 2>/dev/null || true
           gh release create fm1-open-rescue rescue/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "FM1 Open rescue (a working firmware for open/rescue/fm1_open_rescue.sh)" \
-            --notes "Orkest V14 (github.com/Plieuw/orkest, v14/: M-VAVE FM1 Open with Orkest; GPL-3.0 with the FM1 SDK linking exception), built from orkest@$(git -C orkest rev-parse --short HEAD). fm1_open_rescue.sh puts it back on an FM-1 whose FM1 Open firmware crashes at start-up; from it, the Orkest page or M-VAVE's FM1 Workbench installs anything else."
+            --title "FM1 Open rescue: working FM1 Open firmware to put back" \
+            --notes "mvave-fm1-open-v14.fwsc: M-VAVE's own FM1 Open V14, built unchanged from github.com/m-vave/fm1_open (mvave-source.txt) on Linux (open/rescue/build_mvave.py); mvave-official-*.fwsc (if present): M-VAVE's own published package. orkest-v14.fwsc: Orkest V14 (github.com/Plieuw/orkest, v14/: M-VAVE FM1 Open with Orkest; GPL-3.0 with the FM1 SDK linking exception), built from orkest@$(git -C orkest rev-parse --short HEAD). fm1_open_rescue.sh puts it back on an FM-1 whose FM1 Open firmware crashes at start-up; from it, the Orkest page or M-VAVE's FM1 Workbench installs anything else."
