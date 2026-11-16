@@ -24,7 +24,10 @@
 #define TAPE_DIV 4u                              /* the tape's rate: FS / 4 */
 #define TAPE_KB 256u                             /* cells a block: each block's coder state kept (a seek, a junction) */
 #define TAPE_NK ((TAPE_N + TAPE_KB - 1u) / TAPE_KB)
-static uint8_t tape_buf[TAPE_NT][TAPE_N / 2u] __attribute__((section(".pool")));   /* (0: silence) */
+#ifndef TAPE_SECTION
+#define TAPE_SECTION ".pool"
+#endif
+static uint8_t tape_buf[TAPE_NT][TAPE_N / 2u] __attribute__((section(TAPE_SECTION)));   /* (0: silence; tape_init) */
 static int16_t tape_kp[TAPE_NT][TAPE_NK];        /* each block's start: the predictor */
 static uint8_t tape_ki[TAPE_NT][TAPE_NK];        /* and the step's index */
 typedef struct { int32_t p, i; } ima_t;

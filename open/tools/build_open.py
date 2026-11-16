@@ -312,6 +312,10 @@ def main():
     linker = linker.replace("        *(.bss .bss.*)\n", "        *(.bss .bss.*)\n        *(.pool .pool.*)\n", 1)
     if "*(.pool .pool.*)" not in linker:
         raise SystemExit("linker: no place for .pool")
+    # (the tape: in the D-cache ways the SDK frees as RAM, cache_ram: zeroed by tape_init)
+    linker = linker.replace("        *(.memp_memory_x)\n", "        *(.memp_memory_x)\n        *(.hc_cache_ram)\n", 1)
+    if "*(.hc_cache_ram)" not in linker:
+        raise SystemExit("linker: no place for .hc_cache_ram")
     (build / "generated" / "linker").write_text(linker)
     link = []
     if lto:
