@@ -159,9 +159,24 @@ void groove_screen_init(void)
         hc_ui_start();
 }
 
+/* Bluetooth: MIDI (BLE, the FM-1 as a peripheral: a phone or computer connects) and audio on, as FM1 Open's own app
+ * switches them on from its settings; the SDK takes it once its stack is ready (-2 busy: again next round) */
+static uint8_t hc_bt_pending = 1;
+static void hc_bluetooth(void)
+{
+    if (hc_bt_pending == 1 && fm1_bluetooth_configure(FM1_BT_AUDIO | FM1_BT_MIDI) == 0)
+        hc_bt_pending = 2;
+    if (hc_bt_pending == 2) {
+        int r = fm1_ble_set_role(FM1_BLE_PERIPHERAL);
+        if (r != -2 && r != -3)
+            hc_bt_pending = 0;
+    }
+}
+
 void groove_screen_control(void)
 {
     uint32_t now = fm1_ms;
+    hc_bluetooth();
     hc_panel_read();
     hc_midi_poll();
     hc_data_poll();

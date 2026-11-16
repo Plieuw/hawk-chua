@@ -80,6 +80,9 @@ int fm1_midi_send_port(unsigned port, const uint8_t *m, size_t n)
     return 0;
 }
 unsigned fm1_midi_input_source(void) { return FM1_MIDI_USB; }
+static unsigned bt_features;
+int fm1_bluetooth_configure(unsigned f) { bt_features = f; return 0; }
+int fm1_ble_set_role(enum fm1_ble_role r) { (void)r; return 0; }
 #define FLASH_SIZE 536576u
 static uint8_t flash[FLASH_SIZE];
 static int flash_fail_after = -1;                /* (a write cut off: this many more writes go through) */
@@ -246,6 +249,7 @@ int main(int argc, char **argv)
     hc_ovl_test_size = sizeof image - 4096u;
     groove_screen_init();
     audio(20);
+    check("Bluetooth: MIDI and audio switched on", bt_features == (FM1_BT_AUDIO | FM1_BT_MIDI) && hc_bt_pending == 0);
     check("data: none at first, the plain screen", !hc_ui_on && hc_data_state == HC_DATA_NONE && lit() > 1000u);
     shot(dir, "00-plain");
     scan.notes = 1u;
