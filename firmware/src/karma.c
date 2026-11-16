@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* KARMA (the SEQ button): a phrase generator after Korg's KARMA (Kay Algorithmic Realtime Music Architecture, Stephen
  * Kay; its Basic Guide): the notes you hold are not played but feed a Generated Effect (GE) that makes a phrase of
  * them, in time, and keeps making it while you hold them (or LATCH). This firmware's own engine and GEs: the

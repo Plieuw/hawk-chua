@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* The arpeggiator (ARP), in the audio ISR with the keys (keys.c): the notes held (keys and MIDI in) are not played
  * but collected; at each step the pattern picks which of them sounds, in which octave, how loud and how long.
  *

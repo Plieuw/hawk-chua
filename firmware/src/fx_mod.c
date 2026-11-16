@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * MOD FX (FX pressed once: the first FX page): the oscillators moved by a Chua circuit of its own, before the resonators
  * (osc -> MOD FX -> LPG -> resonators -> shimmer: each voice's oscillator before its gate, so the dry too, and
  * what the resonators ring), the circuit the

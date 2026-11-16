@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* CHUA: a synth whose oscillator is Chua's circuit, the simplest electronic circuit that is chaotic.
  *
  * The circuit: two capacitors (C1, C2), an inductor (L), a resistor (R) and one nonlinear element, the Chua diode

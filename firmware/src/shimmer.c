@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* SHIMMER: a stereo reverb with a pitch shifter in its feedback loop. Every trip round the loop part of the tail is
  * shifted down by the INTERVAL and fed back in, so the tail sinks: an octave, then another, and with SHIMMER high and a
  * long DECAY it keeps falling and building, a deepening undertow, until the high-pass (~40 Hz) takes the bottom.

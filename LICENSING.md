@@ -18,6 +18,14 @@ Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the 
 If you distribute this firmware, or firmware derived from it (a `.fwsc` package, a device with it inside), you must
 also give your recipients its complete corresponding source under the same licence.
 
+## The linking exception on HAWK CHUA's own sound and UI
+
+HAWK CHUA's own files that the FM1 Open build (`open/`) shares with this one carry the GPL-3.0 linking exception
+(`SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception`): `firmware/src/{synth,keys,noise,feg,karma,arp,
+resonator,waveguide,shimmer,tape,fx_mod,ui,ui_style,fx_art}.c`, `sys.h`, `fx_icons.h`, `preset_gain.h`. It lets them be
+linked with M-VAVE's binary FM1 SDK (`open/LICENSING.md`). In this build, linked with Felucca's files (GPL-3.0-only,
+no exception), the firmware as a whole stays GPL-3.0-only.
+
 ## Third-party material
 
 | What | Licence | Where |

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* The FX waveguides: more models for resonator.c, beside Rings' (the same page, the same polyphony: one per
  * note, fed by the voices that play it). Digital waveguides: travelling waves in delay lines, scattered where the
  * tube changes, reflected at its ends. This firmware's own fixed-point code (after the textbook models: Kelly and

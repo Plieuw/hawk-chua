@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* The FX resonators: Mutable Instruments Rings' resonator models, fed by the synth's voices the way Rings' IN jack
  * feeds its resonators (with IN patched Rings' own exciter is off: here too, the oscillators are the only excitation).
  * The DSP is Felucca's fixed-point port of Rings and DaisySP (Emilie Gillet, Electrosmith; MIT): phys_dsp.c,

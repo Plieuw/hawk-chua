@@ -57,6 +57,9 @@ jobs:
           set -o pipefail
           python3 open/tools/build_open.py open /opt/jieli/toolchain --out open/build/hawk-chua-open.fwsc 2>&1 | tee open/build-log.txt
 
+      - name: Installer site (open/build/site: /open/ on the HAWK CHUA site)
+        run: python3 open/tools/make_site_open.py open/build/hawk-chua-open.fwsc open/build/hawk-chua-data.bin open-${{ github.run_number }} open/build/site
+
       - name: Package
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,7 +67,8 @@ jobs:
           name: hawk-chua-open-${{ github.run_number }}
           path: |
             open/build/hawk-chua-open.fwsc
+            open/build/hawk-chua-data.bin
+            open/build/site
             open/build-log.txt
-            open/build/dx7/sdk.map
             open/build/host/*.png
             open/build/host/*.wav

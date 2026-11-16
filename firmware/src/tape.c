@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* TAPE: a four-track reel-to-reel recorder (the REC button's page). A loop of tape with four tracks side by side, at
  * a quarter of the rate (11 kHz, 4-bit IMA ADPCM: 7.2 s a track in the room 8-bit took for 3.6), recorded from the synth's own output, played under
  * it. The tape runs at the tempo it was recorded at: turn the BPM (or the MIDI clock changes it) and it runs faster

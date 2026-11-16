@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* NOISE: thirty noise oscillators after the programs of Befaco's Noise Plethora (its manual describes each one; these
  * are this firmware's own fixed-point versions of those descriptions, written for a keyboard: the note sets the main
  * frequency, X and Y the program's two controls). Each voice runs its own copy, through the same ADSR and low pass

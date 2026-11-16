@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* LEVEL MATCH: each built-in preset's gain to -22 LU (Q12), written by tests/level_match.sh: do not edit */
 static const uint16_t PRESET_GAIN[512] = {
     4530, 5729, 6470, 6993, 5019, 5533, 2691, 5015, 64917, 51286, 64686, 10990, 25922, 26191, 22091, 16021,

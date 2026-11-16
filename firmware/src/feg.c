@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* FREE EG (the REC button; after the AN1x's Free EG): a knob's movement recorded and played back onto a parameter.
  *
  *   FREE EG page  KNOB 1 the knob you record (VALUE), KNOB 2 LENGTH: NOTE (each note starts it again, it plays once:

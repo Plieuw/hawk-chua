@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* UI STYLE (GLO's fourth page, KNOB 1): the screen's look. INITIAL is HAWK CHUA's own (the AMBER palette, an
  * oscilloscope's). PSYCHEDELIC draws, under the big canvas of every page (gfx.c cv_backdrop) and instead of the
  * oscillator's picture, a tunnel in vectors with an eye at its end, both played by the sound's settings:

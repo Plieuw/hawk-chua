@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* The keyboard and MIDI in, once per audio block (audio ISR: lowest latency, no locking needed).
  *
  * Keys: the 27 note keys (fm1_in.notes, debounced by the TIMER5 scan in hal/fm1_input.h) play the synth at the

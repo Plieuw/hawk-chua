@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* The FX page's pictures (ui.c): each model as a plate from an acoustics book drawn in 3D vector style: thin
  * antialiased wire frames in perspective, turning slowly, the parts behind dashed and dim; a measured quantity
  * shown in the moving drawing itself, centred; a pictogram of the model with its name top left. In the theme's orange, moving

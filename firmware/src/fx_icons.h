@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* the FX page's pictograms (fx_art.c): 24 px line drawings in half pixels (generated from a sketch; see art_icon) */
 static const int8_t ICON_HUMAN[] = {
     1, 9, 16, 6, 28, 4, 34, 12, 34, 20, 36, 24, 34, 26, 33, 32, 28, 36, 24, 36, 1, 4, 16, 6, 12, 16, 14,

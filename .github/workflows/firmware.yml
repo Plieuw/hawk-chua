@@ -119,6 +119,16 @@ jobs:
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: python3 web/make_site.py build/hawk-chua.fwsc "${{ steps.ver.outputs.label }}" site
 
+      - name: HAWK CHUA on FM1 Open (open/; its installer at /open/)
+        shell: bash
+        env:
+          HC_BUILD: ${{ steps.ver.outputs.label }}
+        run: |
+          set -o pipefail
+          sh open/tests/run_tests.sh
+          python3 open/tools/build_open.py open "$JIELI_TOOLCHAIN" --out open/build/hawk-chua-open.fwsc 2>&1 | tail -n 12
+          python3 open/tools/make_site_open.py open/build/hawk-chua-open.fwsc open/build/hawk-chua-data.bin "${{ steps.ver.outputs.label }}" site/open
+
       - name: Firmware file
         uses: actions/upload-artifact@v4
         with:
