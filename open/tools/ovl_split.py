@@ -24,7 +24,7 @@ from pathlib import Path
 MOVE = [(".text.", ".hcot."), (".rodata.", ".hcorod."), (".data.rel.ro.local.", ".hcod_rel_ro_local."),
         (".data.rel.ro.", ".hcod_rel_ro.")]
 UI_FILES = ("ui.c", "ui_style.c", "fx_art.c")
-ENTRY = ("hc_ui_boot", "hc_ui_round")           # (hc_sdk.c: the overlay's ways in, through hc_ovl_entry only)
+ENTRY = ("hc_ui_boot", "hc_ui_round", "hc_render_ovl")   # (hc_sdk.c, hc_audio.c: the ways in, hc_ovl_entry only)
 
 
 def ui_names(src):

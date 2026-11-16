@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* HAWK CHUA's data in the user flash (step 2 of the install; control task).
  *
- * The firmware holds the sound, the platform layer and a plain screen; the UI (ui.c, ui_style.c, fx_art.c: its code,
- * the presets, its tables) is linked to run from the user flash (tools/ovl_split.py, build_open.py: .hc_ovl), where
- * this data puts it. The image (tools/build_open.py: hawk-chua-data.bin): a header sector, then .hc_ovl as linked.
+ * The firmware holds the platform layer, the store and a plain screen; the sound and the UI (synth.c and all it
+ * includes, keys.c, ui.c, ui_style.c, fx_art.c: their code, the presets, their tables) are linked to run from the user
+ * flash (tools/ovl_split.py, build_open.py: .hc_ovl), where this data puts them. The image (tools/build_open.py: hawk-chua-data.bin): a header sector, then .hc_ovl as linked.
  * It is used only when its header is whole, its commit word written, its CRC matches, it was built with this firmware
- * (the build id) and the SDK maps it where it was linked to run. Until then the firmware plays, with a plain screen
- * that asks for step 2. The store (hc_store.c) keeps the end of the partition; an upload never reaches it.
+ * (the build id) and the SDK maps it where it was linked to run. Until then the firmware is silent, with a plain
+ * screen that asks for step 2. The store (hc_store.c) keeps the end of the partition; an upload never reaches it.
  *
  * Upload, SysEx (manufacturer 7D, non-commercial), one message at a time, each answered (as Orkest's bank):
  *   F0 7D 48 43 10 F7                                  INFO  -> 11 state, total(5), room(5), version...
@@ -78,7 +78,11 @@ static int hc_data_check(int committed)          /* HC_DATA_* of the image in th
         return HC_DATA_CRC;
     return HC_DATA_OK;
 }
-static void hc_data_boot(void) { hc_data_state = (uint8_t)hc_data_check(1); }
+static void hc_data_boot(void)
+{
+    hc_data_state = (uint8_t)hc_data_check(1);
+    hc_ovl_audio = hc_data_state == HC_DATA_OK;  /* (hc_audio.c: the sound may run) */
+}
 static int hc_data_ok(void) { return hc_data_state == HC_DATA_OK; }
 
 /* ------------------------------------------------------------ upload --- */
@@ -177,6 +181,7 @@ static void handle(const uint8_t *m, uint32_t n)
             nak(cmd, 2, hc_data_room());
             break;
         }
+        hc_audio_off();                          /* (the sound's code is in it too) */
         hc_data_state = HC_DATA_LOADING;
         up_total = total;
         up_next = up_erased = 0;

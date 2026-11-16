@@ -2,6 +2,8 @@
 /* HAWK CHUA on FM1 Open without the hardware: open/app/hc_open.c (the sound, the UI and the layer on the SDK) against
  * a stand-in for the FM1 SDK: a 240 x 240 framebuffer for the screen, RAM for the user flash, a scripted panel.
  *
+ *   data          step 2: without HAWK CHUA's data a plain screen and silence; an upload for another build or damaged
+ *                 refused; a good one starts the UI and the sound
  *   boot          the splash, then the home page; the keys silent under the splash
  *   sound         keys and MIDI in (USB, TRS, Bluetooth) play; every block in range; MIDI out reaches USB and BLE
  *   pages         every button's page drawn (PNGs), nothing drawn off the screen
@@ -250,7 +252,7 @@ int main(int argc, char **argv)
     audio(60);
     scan.notes = 0;
     audio(20);
-    check("data: without it the keys play", peak > 20000);
+    check("data: without it, silence (the sound's code is in it)", peak == 0);
     peak = 0;
     make_image(1);
     check("data: an image for another build is refused", !upload(sizeof image) && hc_data_state == HC_DATA_OLD && !hc_ui_on);
@@ -258,7 +260,8 @@ int main(int argc, char **argv)
     image[5000] ^= 1;                            /* (corrupted after its CRC was taken) */
     check("data: a damaged image is refused", !upload(sizeof image) && hc_data_state == HC_DATA_CRC && !hc_ui_on);
     make_image(0);
-    check("data: the image uploads, checks out, the UI starts", upload(sizeof image) && hc_data_ok() && hc_ui_on);
+    check("data: the image uploads, checks out, the UI and the sound start", upload(sizeof image) && hc_data_ok() && hc_ui_on &&
+          hc_ovl_audio);
     {
         struct hc_data_header h;
         memcpy(&h, flash, sizeof h);

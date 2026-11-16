@@ -105,7 +105,7 @@ static void hc_ui_start(void)
     hc_ui_on = 1;
 }
 
-/* without the data: a plain screen, the state of step 2, an upload's progress; the keys play the sound as it is */
+/* without the data: a plain screen, the state of step 2, an upload's progress (the sound is silent) */
 static void hc_plain(uint32_t now)
 {
     static uint32_t t;

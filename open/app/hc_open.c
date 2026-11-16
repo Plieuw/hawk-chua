@@ -8,7 +8,7 @@
  *   hc_gfx.c    canvas, text        hc_store.c  the settings and presets in the user flash
  *   hc_midi.c   MIDI in / out       hc_sdk.c    the hooks the SDK calls (control task, MIDI, the instrument)
  *   hc_audio.c  the render the audio interrupt (app/board/audio.c) calls
- *   hc_data.c   HAWK CHUA's data in the user flash: the UI runs from there (step 2 of the install) */
+ *   hc_data.c   HAWK CHUA's data in the user flash: the sound and the UI run from there (step 2 of the install) */
 #include "hc_core.h"
 #include <stddef.h>
 #include "fm1_device.h"
