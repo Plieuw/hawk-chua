@@ -62,9 +62,9 @@ const $ = (id) => document.getElementById(id);
 const TEXT = {
   nl: {
     intro: "Sluit de FM-1 aan via USB. (Werkt in Chrome of Edge.)",
-    what: "HAWK CHUA op M-VAVE's officiële open firmware (FM1 Open): dezelfde chaotische synth (Chua-circuit, noise, resonatoren, waveguides, shimmer, ARP, KARMA, tape, 512 presets) met Bluetooth-MIDI, USB-MIDI en de officiële update-weg. De klanken van de originele firmware (DX7, 808, 303, sequencer) zijn er niet meer in. De tape is hier korter (1,1 s per spoor).",
+    what: "HAWK CHUA op M-VAVE's officiële open firmware (FM1 Open): dezelfde chaotische synth (Chua-circuit, noise, resonatoren, waveguides, shimmer, ARP, KARMA, tape, 512 presets) met Bluetooth-MIDI, USB-MIDI en de officiële update-weg. De klanken van de originele firmware (DX7, 808, 303, sequencer) zijn er niet meer in. De tape zit niet in deze versie.",
     warn: "Haal de USB-kabel er niet uit tijdens het schrijven.",
-    beta: "Experimentele firmware, nog niet op een FM-1 getest. Gebruik op eigen risico: de makers zijn niet aansprakelijk als je FM-1 beschadigd raakt of niet goed werkt. Mislukt een installatie en start de FM-1 niet meer, dan is herstel mogelijk met FM-1-transporter.",
+    beta: "Beta 2. Beta 1 liet een FM-1 niet meer opstarten; beta 2 heeft daarom een vangnet: start hij twee keer niet, dan start hij de derde keer in SAFE MODE, waarin de installatiepagina en M-VAVE's Workbench hem weer bereiken. Experimentele firmware, nog niet op een FM-1 getest. Gebruik op eigen risico: de makers zijn niet aansprakelijk als je FM-1 beschadigd raakt of niet goed werkt. Mislukt een installatie en start de FM-1 niet meer, dan is herstel mogelijk met FM-1-transporter.",
     step1: "1. Firmware", step1text: "Installeert HAWK CHUA (FM1 Open). Draait de FM-1 nu HAWK CHUA op Felucca (of een andere Felucca-firmware), dan zet de installer eerst de officiële V15 terug en installeert daarna deze firmware (twee keer schrijven, een paar minuten). Daarna is hij stil met op het scherm INSTALL STEP 2, tot stap 2 klaar is.",
     install: "Firmware installeren",
     step2: "2. HAWK CHUA-data", step2text: "Schrijft de klank, het scherm en de presets (ongeveer 200 KB) in het geheugen van de FM-1; zo past alles op FM1 Open. Duurt ongeveer een halve minuut. Na elke nieuwe firmware opnieuw doen: de data hoort bij precies die firmware. Je opgeslagen presets en instellingen blijven staan.",
@@ -99,9 +99,9 @@ const TEXT = {
   },
   en: {
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
-    what: "HAWK CHUA on M-VAVE's official open firmware (FM1 Open): the same chaotic synth (Chua's circuit, noise, resonators, waveguides, shimmer, ARP, KARMA, tape, 512 presets) with Bluetooth MIDI, USB MIDI and the official update path. The original firmware's sounds (DX7, 808, 303, sequencer) are not in it. The tape is shorter here (1.1 s a track).",
+    what: "HAWK CHUA on M-VAVE's official open firmware (FM1 Open): the same chaotic synth (Chua's circuit, noise, resonators, waveguides, shimmer, ARP, KARMA, tape, 512 presets) with Bluetooth MIDI, USB MIDI and the official update path. The original firmware's sounds (DX7, 808, 303, sequencer) are not in it. The tape is not in this version.",
     warn: "Do not unplug the USB cable while writing.",
-    beta: "Experimental firmware, not yet tested on an FM-1. Use at your own risk: the authors accept no responsibility if your FM-1 is damaged or misbehaves. If an install fails and the FM-1 no longer starts, FM-1-transporter can recover it.",
+    beta: "Beta 2. Beta 1 left an FM-1 unable to start; beta 2 therefore has a safety net: if it fails to start twice, the third start is SAFE MODE, where the install page and M-VAVE's Workbench reach it again. Experimental firmware, not yet tested on an FM-1. Use at your own risk: the authors accept no responsibility if your FM-1 is damaged or misbehaves. If an install fails and the FM-1 no longer starts, FM-1-transporter can recover it.",
     step1: "1. Firmware", step1text: "Installs HAWK CHUA (FM1 Open). If the FM-1 runs HAWK CHUA on Felucca (or another Felucca firmware), the installer first puts back official V15, then installs this firmware (two writes, a few minutes). It is then silent, the screen showing INSTALL STEP 2, until step 2 is done.",
     install: "Install firmware",
     step2: "2. HAWK CHUA data", step2text: "Writes the sound, the screens and the presets (about 200 KB) into the FM-1's memory: that is how it all fits on FM1 Open. Takes about half a minute. Repeat it after every new firmware: the data belongs to exactly that firmware. Your saved presets and settings stay.",
