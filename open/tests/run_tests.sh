@@ -13,6 +13,16 @@ cc -std=gnu11 -O1 -g -w -DFM1_HOST_TEST $INC -o "$OUT/open_test" tests/open_test
 echo "== the same under ASan / UBSan"
 cc -std=gnu11 -O1 -g -w -fsanitize=address,undefined -fno-sanitize-recover=all -DFM1_HOST_TEST $INC \
     -o "$OUT/open_test_san" tests/open_test.c -lm
-"$OUT/open_test_san" "$OUT" > "$OUT/san.log" 2>&1 || { tail -30 "$OUT/san.log"; exit 1; }
+# (as tests/run_tests.sh: the sanitizers' memory layout breaks under the high address randomisation of newer kernels
+# with Debian 12's libasan, a hang or a crash at start-up: randomisation off where allowed, a few tries, 120 s each)
+NORAND=""
+setarch "$(uname -m)" -R true >/dev/null 2>&1 && NORAND="setarch $(uname -m) -R"
+ok=0
+for t in 1 2 3; do
+    if timeout 120 $NORAND "$OUT/open_test_san" "$OUT" > "$OUT/san.log" 2>&1; then ok=1; break; fi
+    if grep -q " ok$\| FAIL$" "$OUT/san.log" && ! grep -q "DEADLYSIGNAL" "$OUT/san.log"; then break; fi
+    echo "(the sanitizer run did not get going: again, $t of 3)"
+done
+[ $ok = 1 ] || { tail -30 "$OUT/san.log"; exit 1; }
 tail -1 "$OUT/san.log"
 python3 tests/rgb_png.py "$OUT"
