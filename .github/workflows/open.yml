@@ -1,6 +1,6 @@
 # HAWK CHUA on M-VAVE FM1 Open (open/): build the firmware and the data with the JieLi Linux toolchain and keep them.
-# A beta: Run workflow with a beta number N: the build says BETA<N> on its screen, and a GitHub pre-release
-# open-beta<N> gets the .fwsc (step 1), the data (step 2) and the licences. (The installer page: firmware.yml, /open/.)
+# A beta: open/VERSION says BETA<N> (the installer page on main builds that: firmware.yml, /open/), then Run workflow
+# with the beta number N: a GitHub pre-release open-beta<N> gets the same .fwsc (step 1), data (step 2) and licences.
 name: fm1-open
 
 on:
@@ -61,6 +61,7 @@ jobs:
           b="${{ github.event.inputs.beta }}"
           if [ -n "$b" ]; then
             [[ "$b" =~ ^[0-9]+$ ]] || { echo "::error::beta must be a number"; exit 1; }
+            [ "$(tr -cd 'A-Za-z0-9.-' < open/VERSION)" = "BETA$b" ] || { echo "::error::open/VERSION must say BETA$b (the installer page builds that)"; exit 1; }
             echo "label=BETA$b" >> "$GITHUB_OUTPUT"; echo "name=beta$b" >> "$GITHUB_OUTPUT"
           else
             echo "label=OPEN-${{ github.run_number }}" >> "$GITHUB_OUTPUT"; echo "name=open-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
@@ -128,4 +129,4 @@ jobs:
           N="${{ github.event.inputs.beta }}"
           gh release create "open-beta$N" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "HAWK CHUA on FM1 Open, beta $N" \
-            --notes "HAWK CHUA on M-VAVE's official open firmware (FM1 Open), with Bluetooth LE MIDI. **Beta: not yet tested on an FM-1.** Two steps: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/open/ in Chrome or Edge, install the firmware (step 1), then HAWK CHUA's data (step 2). Or by hand: hawk-chua-open-beta$N.fwsc with M-VAVE's FM1 Workbench, then step 2 on the page (the data belongs to exactly this firmware). Without step 2 the FM-1 is silent and asks for it. What differs from the Felucca build: open/README.md. Licences: LICENSING.md."
+            --notes "HAWK CHUA on M-VAVE's official open firmware (FM1 Open), with Bluetooth LE MIDI. **Beta: not yet tested on an FM-1.** Two steps: open https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/open/ in Chrome or Edge, install the firmware (step 1), then HAWK CHUA's data (step 2). The page installs exactly these two files (the data belongs to exactly this firmware: the FM-1 refuses another build's). Without step 2 the FM-1 is silent and asks for it. What differs from the Felucca build: open/README.md. Licences: LICENSING.md."

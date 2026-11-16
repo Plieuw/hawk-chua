@@ -303,7 +303,8 @@ def main():
                        "--list"]).rstrip())
         objs.append(out)
     ident = [  # the build identity, as Build.ps1 (profile, manifest hash, every app file)
-        "dx7", sha(sdk / "manifest.json")] + [f"{p.relative_to(root).as_posix()}:{sha(p)}" for p in sorted((root / "app").rglob("*")) if p.is_file()] \
+        "dx7", sha(sdk / "manifest.json"), "HC_BUILD=" + os.environ.get("HC_BUILD", ""),
+        "HC_OPT=" + os.environ.get("HC_OPT", "")] + [f"{p.relative_to(root).as_posix()}:{sha(p)}" for p in sorted((root / "app").rglob("*")) if p.is_file()] \
         + [f"firmware/src/{p.name}:{sha(p)}" for p in sorted((root.parent / "firmware" / "src").glob("*")) if p.is_file()]
     bid = hashlib.sha256("\n".join(ident).encode()).hexdigest()
     (build / "generated" / "build_identity.c").write_text(
