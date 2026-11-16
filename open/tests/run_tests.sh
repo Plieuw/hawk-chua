@@ -6,6 +6,7 @@ set -e
 cd "$(dirname "$0")/.."
 OUT=build/host
 mkdir -p "$OUT"
+rm -f "$OUT"/*.rgb "$OUT"/*.png
 INC="-Iapp -Iapp/board -Iapp/synth -Isdk/include -Isdk/config -I../firmware/src"
 cc -std=gnu11 -O1 -g -w -DFM1_HOST_TEST $INC -o "$OUT/open_test" tests/open_test.c -lm
 "$OUT/open_test" "$OUT"

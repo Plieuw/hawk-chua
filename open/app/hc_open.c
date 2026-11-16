@@ -7,8 +7,10 @@
  *   hc_core.h   sizes, sys          hc_panel.h  buttons, encoders, LEDs (on app/board/panel.c's scan)
  *   hc_gfx.c    canvas, text        hc_store.c  the settings and presets in the user flash
  *   hc_midi.c   MIDI in / out       hc_sdk.c    the hooks the SDK calls (control task, MIDI, the instrument)
- *   hc_audio.c  the render the audio interrupt (app/board/audio.c) calls */
+ *   hc_audio.c  the render the audio interrupt (app/board/audio.c) calls
+ *   hc_data.c   HAWK CHUA's data in the user flash: the UI runs from there (step 2 of the install) */
 #include "hc_core.h"
+#include <stddef.h>
 #include "fm1_device.h"
 #include "hc_libc.h"
 /* the control task's short holds against the audio interrupt (ui.c: FREE EG's, the presets' hand-over) */
@@ -26,4 +28,5 @@ static inline void irq_restore(uint32_t f) { fm1_device_irq_restore(f); }
 /* -------------------------------------------------------- store, UI --- */
 #include "hc_store.c"
 #include "ui.c"
+#include "hc_data.c"
 #include "hc_sdk.c"

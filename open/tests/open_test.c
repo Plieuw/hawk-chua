@@ -64,12 +64,26 @@ int fm1_device_usb_connected(void) { return 1; }
 static int recovered;
 void fm1_device_recovery(void) { recovered++; }
 static unsigned sent[3];
+static uint8_t last_reply[80];
+static size_t last_reply_n;
 unsigned fm1_midi_ready_ports(void) { return 7u; }
-int fm1_midi_send_port(unsigned port, const uint8_t *m, size_t n) { (void)m; (void)n; if (port < 3u) sent[port]++; return 0; }
+int fm1_midi_send_port(unsigned port, const uint8_t *m, size_t n)
+{
+    if (port < 3u)
+        sent[port]++;
+    if (n >= 5u && m[0] == 0xF0 && n <= sizeof last_reply) {
+        memcpy(last_reply, m, n);
+        last_reply_n = n;
+    }
+    return 0;
+}
+unsigned fm1_midi_input_source(void) { return FM1_MIDI_USB; }
 #define FLASH_SIZE 536576u
 static uint8_t flash[FLASH_SIZE];
 static int flash_fail_after = -1;                /* (a write cut off: this many more writes go through) */
 uint32_t fm1_flash_size(void) { return FLASH_SIZE; }
+const uint8_t *fm1_flash_map(uint32_t o, size_t n) { return o + n <= FLASH_SIZE ? flash + o : NULL; }
+int fm1_flash_invalidate(uint32_t o, size_t n) { (void)o; (void)n; return 0; }
 int fm1_flash_read(uint32_t o, void *d, size_t n) { if (o + n > FLASH_SIZE) return -1; memcpy(d, flash + o, n); return 0; }
 int fm1_flash_erase(uint32_t o) { if (o % 4096u || o >= FLASH_SIZE) return -1; memset(flash + o, 0xFF, 4096); return 0; }
 int fm1_flash_write(uint32_t o, const void *d, size_t n)
@@ -142,6 +156,69 @@ static void midi(unsigned src, uint8_t a, uint8_t b, uint8_t c)
     uint8_t m[3] = {a, b, c};
     fm1_app_midi_received(src, m, midi_len(a));
 }
+/* step 2: an image as tools/build_open.py makes it, uploaded as the install page does (hc_data.c's protocol) */
+static const unsigned char test_build_id[32] = "HAWK CHUA HOST TEST BUILD ID 123";
+static uint8_t image[4096 + 9000];
+static uint32_t make_image(int other_build)
+{
+    struct hc_data_header h;
+    uint32_t i;
+    memset(image, 0xFF, sizeof image);
+    for (i = 4096; i < sizeof image; i++)
+        image[i] = (uint8_t)(i * 31u >> 3);
+    memset(&h, 0, sizeof h);
+    h.magic = HC_DATA_MAGIC; h.version = 1; h.header_bytes = sizeof h; h.total = sizeof image;
+    h.size = sizeof image - 4096u; h.vma = 0x2079000u; h.commit = 0xFFFFFFFFu;
+    h.crc = st_crc32(image + 4096, h.size);
+    memcpy(h.build_id, test_build_id, 32);
+    if (other_build)
+        h.build_id[0] ^= 1;
+    memcpy(image, &h, sizeof h);
+    return sizeof image;
+}
+static int upload_msg(const uint8_t *body, uint32_t n)   /* a message, the control task's round: 1 if acknowledged */
+{
+    uint8_t m[1100];
+    m[0] = 0xF0; m[1] = 0x7D; m[2] = 0x48; m[3] = 0x43;
+    memcpy(m + 4, body, n);
+    m[4 + n] = 0xF7;
+    last_reply_n = 0;
+    fm1_app_sysex(m, n + 5u);
+    audio(1);
+    return last_reply_n > 5u && last_reply[4] == 0x7E;
+}
+static int upload(uint32_t total)
+{
+    uint8_t b[1100];
+    uint32_t off = 0, k;
+    b[0] = 0x20;
+    put7(b + 1, total, 5);
+    if (!upload_msg(b, 6))
+        return 0;
+    while (off < total) {
+        uint32_t cnt = total - off > 512u ? 512u : total - off, n = 0, i, sum = 0;
+        b[n++] = 0x21;
+        n += put7(b + n, off, 5);
+        n += put7(b + n, cnt, 2);
+        for (i = 0; i < cnt; i += 7u) {
+            uint8_t top = 0;
+            for (k = 0; k < 7u && i + k < cnt; k++)
+                top |= (uint8_t)((image[off + i + k] >> 7) << k);
+            b[n++] = top;
+            for (k = 0; k < 7u; k++) {
+                b[n++] = i + k < cnt ? (uint8_t)(image[off + i + k] & 0x7Fu) : 0;
+                if (i + k < cnt)
+                    sum ^= image[off + i + k];
+            }
+        }
+        b[n++] = (uint8_t)(sum & 0x7Fu);
+        if (!upload_msg(b, n))
+            return 0;
+        off += cnt;
+    }
+    b[0] = 0x22;
+    return upload_msg(b, 1);
+}
 static uint32_t lit(void)                        /* pixels that are not the ground */
 {
     uint32_t i, n = 0;
@@ -161,17 +238,44 @@ int main(int argc, char **argv)
     if (wav)
         fseek(wav, 44, SEEK_SET);
 
-    /* ---- boot */
+    /* ---- step 2: without HAWK CHUA's data a plain screen, the keys play; uploaded, the UI starts */
+    hc_test_build_id = test_build_id;
+    hc_ovl_test_vma = 0x2079000u;
+    hc_ovl_test_size = sizeof image - 4096u;
     groove_screen_init();
+    audio(20);
+    check("data: none at first, the plain screen", !hc_ui_on && hc_data_state == HC_DATA_NONE && lit() > 1000u);
+    shot(dir, "00-plain");
+    scan.notes = 1u;
+    audio(60);
+    scan.notes = 0;
+    audio(20);
+    check("data: without it the keys play", peak > 20000);
+    peak = 0;
+    make_image(1);
+    check("data: an image for another build is refused", !upload(sizeof image) && hc_data_state == HC_DATA_OLD && !hc_ui_on);
+    make_image(0);
+    image[5000] ^= 1;                            /* (corrupted after its CRC was taken) */
+    check("data: a damaged image is refused", !upload(sizeof image) && hc_data_state == HC_DATA_CRC && !hc_ui_on);
+    make_image(0);
+    check("data: the image uploads, checks out, the UI starts", upload(sizeof image) && hc_data_ok() && hc_ui_on);
+    {
+        struct hc_data_header h;
+        memcpy(&h, flash, sizeof h);
+        check("data: committed, and kept out of the store", h.commit == HC_DATA_COMMIT && hc_data_room() >= sizeof image);
+    }
+
+    /* ---- boot */
     scan.notes = 1u;                             /* a key held under the splash: silent */
+    peak = 0;
     audio(40);
     check("boot: the splash drawn", lit() > 2000u);
-    shot(dir, "00-splash");
-    check("boot: a key under the splash stays silent", peak == 0);
+    shot(dir, "01-splash");
+    check("boot: a key under the splash stays silent", peak < 2000);
     scan.notes = 0;
     audio(600);                                  /* (past the splash, PSYCHEDELIC's too) */
     check("boot: the home page drawn", lit() > 2000u && !hc_splash);
-    shot(dir, "01-home");
+    shot(dir, "02-home");
 
     /* ---- sound */
     peak = 0;
@@ -222,7 +326,7 @@ int main(int argc, char **argv)
             press(B[i]);
             enc[3] = 5;                          /* (KNOB 1 turned on each page) */
             audio(40);
-            snprintf(nm, sizeof nm, "%02u-%s-page%u", 2u + i, B_NAME[B[i]], (unsigned)sys.page);
+            snprintf(nm, sizeof nm, "%02u-%s-page%u", 3u + i, B_NAME[B[i]], (unsigned)sys.page);
             shot(dir, nm);
             ok &= lit() > 1000u;
         }
@@ -247,8 +351,7 @@ int main(int argc, char **argv)
         flash_fail_after = -1;
         check("store: the copy before it loads", st_load(OBJ_USER0 + 3, b, sizeof b) == 100 && !memcmp(a, b, 100));
         check("store: the settings save (SAVE)", settings_save() == 0);
-        check("store: not in the data area (the first half of the partition untouched)",
-               ({ int clean = 1; for (i = 0; i < FLASH_SIZE / 2u; i++) clean &= flash[i] == 0xFF; clean; }));
+        check("store: not in the data area (the image as uploaded)", !memcmp(flash + 4096, image + 4096, sizeof image - 4096u));
     }
 
     if (wav) {                                   /* the WAV header */

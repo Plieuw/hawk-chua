@@ -17,10 +17,15 @@ import os
 import re
 import struct
 import subprocess
+import zlib
 import sys
 from pathlib import Path
 
 USER_BYTES, UPDATE_FAMILY = 536576, 7
+# where the SDK maps the user partition's byte HC_DATA_HEAD (4096): the flash at 0x7C000 (FLASH_LIMIT - USER_SIZE)
+# with the app's 0x4000 at 0x2000000 (hc_data.c refuses the data and shows the real address if not)
+OVL_VMA = int(os.environ.get("HC_OVL_VMA", "0x2079000"), 16)
+DATA_HEAD = 4096
 
 
 def run(cmd, cwd=None):
@@ -289,10 +294,13 @@ def main():
         if rel == "app/board/panel.c":
             opt += ["-fno-lto", "-fno-pic"]
         opt += ["-fwrapv", "-fno-fast-math", "-ffp-contract=off"]
-        if rel == "app/hc_open.c" and os.environ.get("HC_OPT"):
-            opt.append(os.environ["HC_OPT"])     # (-Os / -Oz: smaller, for the measurements)
+        if rel == "app/hc_open.c":                 # HAWK CHUA: small (the flash), or HC_OPT
+            opt.append(os.environ.get("HC_OPT") or "-Os")
         print(f"compile {rel}")
         run([clang, *opt, "-c", src, "-o", out])
+        if rel == "app/hc_open.c":                 # the UI out of the firmware, into HAWK CHUA's data (.hc_ovl)
+            print(run([sys.executable, Path(__file__).parent / "ovl_split.py", out, root.parent / "firmware" / "src",
+                       "--list"]).rstrip())
         objs.append(out)
     ident = [  # the build identity, as Build.ps1 (profile, manifest hash, every app file)
         "dx7", sha(sdk / "manifest.json")] + [f"{p.relative_to(root).as_posix()}:{sha(p)}" for p in sorted((root / "app").rglob("*")) if p.is_file()] \
@@ -312,6 +320,21 @@ def main():
     linker = linker.replace("        *(.bss .bss.*)\n", "        *(.bss .bss.*)\n        *(.pool .pool.*)\n", 1)
     if "*(.pool .pool.*)" not in linker:
         raise SystemExit("linker: no place for .pool")
+    # the UI, in HAWK CHUA's data: run from the user flash where the SDK maps it (hc_data.c checks that)
+    end = "        text_rodata_end = .;\n    } > rom\n"
+    if end not in linker:
+        raise SystemExit("linker: no place for .hc_ovl")
+    linker = linker.replace(end, end + f"""    .hc_ovl {OVL_VMA:#x} : AT({OVL_VMA:#x})
+    {{
+        hc_ovl_start = .;
+        *(.hcot.*)
+        *(.hcorod.*)
+        *(.hcod_rel_ro_local.*)
+        *(.hcod_rel_ro.*)
+        . = ALIGN(4);
+        hc_ovl_end = .;
+    }}
+""", 1)
     # (the tape: in the D-cache ways the SDK frees as RAM, cache_ram: zeroed by tape_init)
     linker = linker.replace("        *(.memp_memory_x)\n", "        *(.memp_memory_x)\n        *(.hc_cache_ram)\n", 1)
     if "*(.hc_cache_ram)" not in linker:
@@ -396,6 +419,30 @@ def main():
         run([objcopy, "-O", "binary", "-j", f".{sec}", elf, out])
         image += out.read_bytes()
         out.unlink()
+    # HAWK CHUA's data: a header sector, then .hc_ovl as linked (hc_data.c)
+    ovl_bin = build / "generated" / "hc_ovl.bin"
+    run([objcopy, "-O", "binary", "-j", ".hc_ovl", elf, ovl_bin])
+    ovl = ovl_bin.read_bytes()
+    want = syms.get("hc_ovl_end", 0) - syms.get("hc_ovl_start", 0)
+    if syms.get("hc_ovl_start") != OVL_VMA or len(ovl) != want or not ovl:
+        raise SystemExit(f"the overlay: {len(ovl)} B at {syms.get('hc_ovl_start', 0):#x}, the link says {want} B at {OVL_VMA:#x}")
+    total = DATA_HEAD + len(ovl)
+    head = struct.pack("<IHHIIIII32s4s", 0x41444348, 1, 64, total, zlib.crc32(ovl) & 0xFFFFFFFF, 0xFFFFFFFF, OVL_VMA,
+                       len(ovl), bytes.fromhex(bid), b"HAWK")
+    data = head + b"\xff" * (DATA_HEAD - len(head)) + ovl
+    data_out = (a.out.parent if a.out else build / "generated") / "hawk-chua-data.bin"
+    data_out.parent.mkdir(parents=True, exist_ok=True)
+    data_out.write_bytes(data)
+    print(f"data {data_out}: {len(data)} B (the UI {len(ovl)} B at {OVL_VMA:#x}); user flash room {USER_BYTES - 18 * 4096} B")
+    # (where the SDK maps the user flash: fm1_flash_map, for the record)
+    objdump = next((p for p in (binp / "llvm-objdump", tc / "common" / "bin" / "llvm-objdump", binp / "objdump") if p.exists()), None)
+    if objdump:
+        for fn in ("fm1_flash_map", "fm1_flash_size"):
+            at = syms.get(fn)
+            if at:
+                r = subprocess.run([str(objdump), "-d", f"--start-address={at:#x}", f"--stop-address={at + 160:#x}", str(elf)],
+                                   capture_output=True, text=True)
+                print(f"-- {fn}:\n" + "\n".join(r.stdout.splitlines()[-40:]) + r.stderr[-300:])
     pkg, layout = package(bytes(image), sdk / "tools" / "pack", product)
     dest = a.out or build / "generated" / "FM1_OFFICIAL_OPEN.fwsc"
     dest.parent.mkdir(parents=True, exist_ok=True)
