@@ -263,7 +263,31 @@ int main(int argc, char **argv)
             preset_load(0);
             ok &= sys.vel_to == 5u && !preset_edited();  /* (its velocity left as it was) */
             rm_cmd(CLR, sizeof CLR);
-            if (!ok) printf("preset wheel / velocity FAIL (vel %u wheel %u)\n", sys.vel_to, sys.mw_target);
+            {   /* a saved preset's own name: on the screen's title, kept by SAVE, gone with it; a 34-value object of
+                 * before read as it was */
+                uint8_t old2[UPRE_OLD2];
+                preset_load(3);
+                edges = btn_bit(B_SAVE);
+                ui_input();
+                ok &= upre_has(3) && !strcmp(preset_name(3), PRESETS[3].name);
+                ok &= upre_name(3, "my bell") == 0 && !strcmp(preset_name(3), "MY BELL");
+                sys.chaos = 11;
+                edges = btn_bit(B_SAVE);
+                ui_input();
+                ok &= !strcmp(preset_name(3), "MY BELL");      /* (SAVE again: the name stays) */
+                ok &= upre_del(3) == 0 && !upre_has(3) && !strcmp(preset_name(3), PRESETS[3].name);
+                memset(old2, 0, sizeof old2);
+                old2[0] = 1;
+                old2[8u + PR_N] = 28; old2[8u + PR_N + 2u] = 5;
+                old2[8u + (PR_N + 4u) + 0] = 77;          /* (row 1's first value) */
+                st_save(OBJ_USER0, old2, sizeof old2);
+                memset(upre_bits, 0, sizeof upre_bits); upre_cur = 0xFF; upre_ncur = 0xFF;
+                upre_boot();
+                ok &= upre_has(0) && upre_v(0)[PR_N] == 28u && upre_v(0)[PR_N + 2u] == 5u && upre_v(1)[0] == 77u &&
+                      !strcmp(preset_name(0), PRESETS[0].name);
+                rm_cmd(CLR, sizeof CLR);
+            }
+            if (!ok) printf("preset wheel / velocity / names FAIL (vel %u wheel %u)\n", sys.vel_to, sys.mw_target);
         }
         {   /* a preset's FREE EG contour: FLUTE's jet moves with each note; the edited mark and SAVE see its base; a
              * preset without one turns it off */

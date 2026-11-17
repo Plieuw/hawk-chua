@@ -1,0 +1,368 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HAWK CHUA Presets</title>
+<meta name="description" content="The HAWK CHUA preset editor: browse, play, edit, rename, save and back up the 512 presets, with the firmware itself running in the browser.">
+<style>
+:root { --bg: #121110; --case: #1d1b19; --case2: #262320; --line: #3a352f; --fg: #ece6dc; --mid: #a39b8f; --dim: #6d665c;
+  --or: #f5a623; --or2: #ffcf73; --pk: #ff5ec4; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 14px; }
+a { color: var(--or); }
+header { max-width: 1280px; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+h1 { color: var(--or); font-size: 20px; margin: 0; letter-spacing: .08em; }
+header p { margin: 0; color: var(--mid); }
+header nav { margin-left: auto; display: flex; gap: 14px; }
+main { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 300px 300px 1fr; gap: 14px; align-items: start; }
+.panel { background: linear-gradient(#24211e, var(--case)); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+h2 { font-size: 12px; letter-spacing: .12em; color: var(--mid); margin: 0 0 8px; font-weight: 600; }
+button, input, select { font: inherit; color: var(--fg); }
+button { background: #2a2622; border: 1px solid var(--line); border-radius: 7px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--or); }
+button.on { background: var(--or); color: #111; border-color: var(--or); font-weight: 600; }
+button.warn:hover { border-color: #e5484d; color: #ff8a8d; }
+input[type=text], input[type=search], select { background: #161412; border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; width: 100%; }
+input[type=text]:focus, input[type=search]:focus { outline: none; border-color: var(--or); }
+.banks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+#list { height: 560px; overflow-y: auto; margin-top: 8px; border-top: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 34px 1fr 16px; gap: 6px; padding: 5px 6px; border-radius: 6px; cursor: pointer; align-items: center; }
+.row:hover { background: #2a2622; }
+.row.cur { background: #3a2a10; outline: 1px solid var(--or); }
+.row .n { color: var(--dim); font: 12px ui-monospace, monospace; }
+.row .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .03em; }
+.row.user .nm { color: var(--or2); }
+.row .dot { width: 8px; height: 8px; border-radius: 50%; }
+.row.user .dot { background: var(--or); box-shadow: 0 0 6px var(--or); }
+.screen { width: 100%; aspect-ratio: 1; border-radius: 6px; background: #000; border: 6px solid #0c0b0a; box-shadow: 0 0 0 1px var(--line); }
+#lcd { width: 100%; height: 100%; display: block; }
+.play { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.keys { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; margin-top: 10px; height: 64px; }
+.keys div { background: #e9e4da; border-radius: 0 0 4px 4px; cursor: pointer; }
+.keys div.bk { background: #2a2724; height: 60%; }
+.keys div.down { background: var(--or); }
+.hint { color: var(--dim); font-size: 12px; margin-top: 8px; }
+.ed .namebar { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.ed .slot { color: var(--mid); font: 12px ui-monospace, monospace; margin: 6px 0 10px; }
+.ed .slot b { color: var(--or); }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+.tabs button { border-radius: 7px 7px 0 0; border-bottom: 0; }
+.par { display: grid; grid-template-columns: 120px 1fr 150px; gap: 10px; align-items: center; padding: 6px 2px; border-bottom: 1px solid #2a2622; }
+.par label { color: var(--mid); font-size: 12px; letter-spacing: .06em; }
+.par .val { font: 13px ui-monospace, monospace; color: var(--or2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+input[type=range] { width: 100%; accent-color: var(--or); }
+.io { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); align-items: center; }
+#msg { color: var(--or); min-height: 20px; margin-top: 8px; }
+.badge { font-size: 11px; color: #111; background: var(--pk); border-radius: 5px; padding: 1px 6px; margin-left: 6px; }
+dialog { background: var(--case); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; }
+dialog::backdrop { background: #000a; }
+#start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000b; z-index: 10; }
+#start button { font: 600 18px system-ui; color: #111; background: var(--or); border: 0; border-radius: 12px; padding: 16px 28px; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr 1fr; } .ed { grid-column: 1 / -1; } }
+@media (max-width: 700px) { main { grid-template-columns: 1fr; } #list { height: 320px; } .par { grid-template-columns: 90px 1fr 100px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>HAWK CHUA PRESETS</h1>
+  <p>Browse, play, edit, rename and save the 512 presets: the firmware itself plays them here.</p>
+  <nav><a href="./">Play</a><a href="../installer/">Install on an FM-1</a><a href="https://github.com/Plieuw/hawk-chua">Source</a></nav>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>PRESETS</h2>
+    <div class="banks" id="banks"></div>
+    <input type="search" id="find" placeholder="Find a preset (all banks)">
+    <div id="list"></div>
+  </section>
+
+  <section class="panel">
+    <h2>LISTEN</h2>
+    <div class="screen"><canvas id="lcd" width="240" height="240"></canvas></div>
+    <div class="keys" id="keys"></div>
+    <div class="play">
+      <button id="oct-">OCT −</button><button id="oct+">OCT +</button>
+      <label style="display:flex;gap:6px;align-items:center;color:var(--mid)">Volume <input type="range" id="vol" min="0" max="100" value="70" style="width:110px"></label>
+    </div>
+    <p class="hint">Computer keys <b>A W S E D F …</b> play (from F), or a MIDI keyboard (Chrome, Edge).</p>
+  </section>
+
+  <section class="panel ed">
+    <h2>THE PRESET <span id="edited"></span></h2>
+    <div class="namebar">
+      <input type="text" id="name" maxlength="16" placeholder="NAME" spellcheck="false">
+      <button id="rename" title="Give the saved preset this name">Rename</button>
+    </div>
+    <div class="slot" id="slot"></div>
+    <div class="acts">
+      <button id="save" class="on" title="Keep the sound now in this slot">Save</button>
+      <button id="saveas" title="Keep the sound now in another slot">Save to…</button>
+      <button id="reload" title="Back to the slot as saved">Undo changes</button>
+      <button id="factory" class="warn" title="Forget the saved preset: the built-in one back">Factory</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="pars"></div>
+    <div class="io">
+      <button id="export" title="All your saved presets as one file">Export saved presets</button>
+      <button id="import" title="Saved presets from a file">Import…</button>
+      <input type="file" id="file" accept=".json,application/json" hidden>
+      <button id="wipe" class="warn" title="All saved presets gone: the 512 built-in ones back">Reset all</button>
+    </div>
+    <div id="msg"></div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2>SAVE TO</h2>
+    <p style="display:flex;gap:8px;align-items:center">Bank <select id="dbank"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+      Number <input type="text" id="dnum" style="width:70px" value="1"></p>
+    <p id="dwhat" style="color:var(--mid)"></p>
+    <p style="display:flex;gap:8px;justify-content:flex-end"><button value="no">Cancel</button><button value="ok" class="on">Save</button></p>
+  </form>
+</dialog>
+
+<div id="start"><button id="go">▶ Start sound</button></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const worker = new Worker("emu-worker.js");
+const send = m => worker.postMessage(m);
+let seq = 0;
+const waiting = new Map();
+function rpc(fn, args = [], o = {}) {
+  return new Promise(res => { const id = ++seq; waiting.set(id, res); send({ t: "call", id, fn, args, ...o }); });
+}
+const say = t => { $("msg").textContent = t; clearTimeout(say.t); say.t = setTimeout(() => { $("msg").textContent = ""; }, 4000); };
+
+/* ---- the screen ---- */
+const lcd = $("lcd").getContext("2d"), img = lcd.createImageData(240, 240);
+function draw(fb) {
+  const d = img.data;
+  for (let i = 0; i < fb.length; i++) {
+    const c = fb[i];
+    d[4 * i] = (c >> 11) << 3 | c >> 13; d[4 * i + 1] = (c >> 5 & 63) << 2 | (c >> 9 & 3); d[4 * i + 2] = (c & 31) << 3 | (c >> 2 & 7); d[4 * i + 3] = 255;
+  }
+  lcd.putImageData(img, 0, 0);
+}
+
+/* ---- the flash: localStorage, shared with the player (./) ---- */
+const SKEY = "hawkchua.obj.";
+function stores() {
+  const s = {};
+  try { for (let o = 0; o < 9; o++) { const v = localStorage.getItem(SKEY + o); if (v) s[o] = Uint8Array.from(atob(v), c => c.charCodeAt(0)); } } catch (_) {}
+  return s;
+}
+function keep(obj, data) {
+  try { let b = ""; for (const x of data) b += String.fromCharCode(x); localStorage.setItem(SKEY + obj, btoa(b)); } catch (_) {}
+}
+const q12 = v => { const k = Math.round(v * 1023 / 100); return (k * k) >> 8; };
+worker.onmessage = m => {
+  const d = m.data;
+  if (d.t === "fb") draw(d.fb);
+  else if (d.t === "store") keep(d.obj, d.data);
+  else if (d.t === "ret") { const r = waiting.get(d.id); waiting.delete(d.id); if (r) r(d.v); }
+  else if (d.t === "ready") boot();
+};
+send({ t: "init", wasm: new URL("emu.wasm", location.href).href, stores: stores(), master: q12(70) });
+$("vol").oninput = () => send({ t: "master", q12: q12(Number($("vol").value)) });
+
+/* ---- the sound ---- */
+$("go").onclick = async () => {
+  $("start").remove();
+  try {
+    const ctx = new AudioContext({ sampleRate: 44100, latencyHint: "interactive" });
+    await ctx.audioWorklet.addModule("emu-worklet.js");
+    const node = new AudioWorkletNode(ctx, "chua-out", { numberOfInputs: 0, outputChannelCount: [2] });
+    node.connect(ctx.destination);
+    const ch = new MessageChannel();
+    node.port.postMessage({ port: ch.port2 }, [ch.port2]);
+    worker.postMessage({ t: "audio", port: ch.port1 }, [ch.port1]);
+    send({ t: "lead", frames: 3072 });
+  } catch (err) { say("No audio: " + err.message); }
+  if (navigator.requestMIDIAccess) navigator.requestMIDIAccess().then(a => {
+    const wire = () => a.inputs.forEach(i => { i.onmidimessage = ev => { const [st, d1 = 0, d2 = 0] = ev.data; if (st < 0xF0 || st >= 0xF8) send({ t: "midi", st, d1, d2 }); }; });
+    wire(); a.onstatechange = wire;
+  }).catch(() => {});
+};
+
+/* ---- the keys: 0 = F3 (the FM-1's), 13 on screen from F, the computer's from A ---- */
+const CODES = ["KeyA","KeyW","KeyS","KeyE","KeyD","KeyR","KeyF","KeyG","KeyY","KeyH","KeyU","KeyJ","KeyK","KeyO","KeyL","KeyP","Semicolon","BracketLeft","Quote","BracketRight","Backslash"];
+const BLACK = [1, 3, 5, 8, 10];                  // (from F: F# G# A# C# D#)
+const kEls = [];
+for (let k = 0; k < 13; k++) {
+  const el = document.createElement("div");
+  if (BLACK.includes(k % 12)) el.className = "bk";
+  const on = () => { el.classList.add("down"); send({ t: "key", k, down: 1 }); }, off = () => { if (el.classList.contains("down")) { el.classList.remove("down"); send({ t: "key", k, down: 0 }); } };
+  el.onpointerdown = e => { el.setPointerCapture(e.pointerId); on(); };
+  el.onpointerup = el.onpointercancel = off;
+  kEls.push(el); $("keys").appendChild(el);
+}
+addEventListener("keydown", ev => {
+  if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey || /INPUT|SELECT/.test(ev.target.tagName)) return;
+  const k = CODES.indexOf(ev.code);
+  if (k >= 0) { send({ t: "key", k, down: 1 }); kEls[k]?.classList.add("down"); ev.preventDefault(); }
+});
+addEventListener("keyup", ev => {
+  const k = CODES.indexOf(ev.code);
+  if (k >= 0) { send({ t: "key", k, down: 0 }); kEls[k]?.classList.remove("down"); }
+});
+$("oct-").onclick = () => { send({ t: "btn", b: 12, down: 1 }); setTimeout(() => send({ t: "btn", b: 12, down: 0 }), 60); };
+$("oct+").onclick = () => { send({ t: "btn", b: 13, down: 1 }); setTimeout(() => send({ t: "btn", b: 13, down: 0 }), 60); };
+
+/* ---- the presets ---- */
+let presets = [], cur = 0, bank = 0, tab = "SOUND", pars = [];
+const num = i => String(i % 128 + 1).padStart(3, "0");
+const slotName = i => "BANK " + (Math.floor(i / 128) + 1) + " · " + num(i);
+for (let b = 0; b < 4; b++) {
+  const el = document.createElement("button");
+  el.textContent = "BANK " + (b + 1);
+  el.onclick = () => { bank = b; $("find").value = ""; showList(); };
+  $("banks").appendChild(el);
+}
+async function refreshList() {
+  const r = await rpc("list");
+  presets = r.list; cur = r.cur;
+  showList();
+}
+function showList() {
+  [...$("banks").children].forEach((el, b) => el.classList.toggle("on", b === bank && !$("find").value));
+  const q = $("find").value.trim().toUpperCase(), L = $("list");
+  L.textContent = "";
+  presets.forEach(([nm, user, fac], i) => {
+    if (q ? !(nm.includes(q) || fac.includes(q)) : Math.floor(i / 128) !== bank) return;
+    const row = document.createElement("div");
+    row.className = "row" + (user ? " user" : "") + (i === cur ? " cur" : "");
+    row.innerHTML = `<span class="n">${q ? (Math.floor(i / 128) + 1) + "·" : ""}${num(i)}</span><span class="nm"></span><span class="dot"></span>`;
+    row.querySelector(".nm").textContent = nm;
+    row.title = user ? (nm !== fac ? "saved (built-in: " + fac + ")" : "saved") : "built-in";
+    row.onclick = () => choose(i);
+    L.appendChild(row);
+  });
+  L.querySelector(".cur")?.scrollIntoView({ block: "nearest" });
+}
+$("find").oninput = showList;
+async function choose(i) {
+  await rpc("emu_pr_load", [i]);
+  cur = i; bank = Math.floor(i / 128);
+  showList(); await showPreset();
+}
+async function showPreset() {
+  const [nm, user, fac] = presets[cur] || ["", 0, ""];
+  $("name").value = nm;
+  $("slot").innerHTML = `<b>${slotName(cur)}</b> · ${user ? "saved" + (nm !== fac ? " · built-in: " + fac : "") : "built-in"}`;
+  $("factory").disabled = !user;
+  $("rename").disabled = false;
+  await showPars();
+}
+async function showPars() {
+  const r = await rpc("pars");
+  pars = r.pars;
+  $("edited").innerHTML = r.edited ? '<span class="badge">EDITED</span>' : "";
+  const groups = [...new Set(pars.map(p => p.g))];
+  $("tabs").textContent = "";
+  for (const g of groups) {
+    const b = document.createElement("button"); b.textContent = g; b.className = g === tab ? "on" : "";
+    b.onclick = () => { tab = g; showPars(); };
+    $("tabs").appendChild(b);
+  }
+  const P = $("pars"); P.textContent = "";
+  pars.forEach((p, i) => {
+    if (p.g !== tab) return;
+    const row = document.createElement("div"); row.className = "par";
+    row.innerHTML = `<label></label><input type="range" min="${p.lo}" max="${p.hi}" value="${p.v}"><span class="val"></span>`;
+    row.querySelector("label").textContent = p.n;
+    row.querySelector(".val").textContent = p.txt;
+    const r = row.querySelector("input");
+    r.oninput = async () => {
+      await rpc("emu_par_set", [i, Number(r.value)]);
+      row.querySelector(".val").textContent = await rpc("emu_par_text", [i], { ret: "str" });
+      $("edited").innerHTML = (await rpc("emu_pr_edited")) ? '<span class="badge">EDITED</span>' : "";
+    };
+    P.appendChild(row);
+  });
+}
+
+async function saveTo(i) {
+  const e = await rpc("emu_pr_save", [i]);
+  if (e) { say("Not saved (the browser's storage?)"); return; }
+  const nm = $("name").value.trim().toUpperCase();
+  if (nm) await rpc("emu_pr_rename", [i], { str: nm });
+  cur = i; bank = Math.floor(i / 128);
+  await refreshList(); await showPreset();
+  say("Saved: " + slotName(i) + " " + presets[i][0]);
+}
+$("save").onclick = () => saveTo(cur);
+$("saveas").onclick = () => {
+  $("dbank").value = String(Math.floor(cur / 128) + 1); $("dnum").value = String(cur % 128 + 1);
+  const upd = () => { const i = (Number($("dbank").value) - 1) * 128 + Math.min(128, Math.max(1, Number($("dnum").value) || 1)) - 1; $("dwhat").textContent = "Replaces: " + (presets[i]?.[0] || ""); return i; };
+  $("dbank").onchange = $("dnum").oninput = upd; upd();
+  $("dlg").returnValue = "";
+  $("dlg").onclose = () => { if ($("dlg").returnValue === "ok") saveTo(upd()); };
+  $("dlg").showModal();
+};
+$("rename").onclick = async () => {
+  const nm = $("name").value.trim().toUpperCase();
+  if (!presets[cur][1]) { await saveTo(cur); return; }       // (a built-in one: saved first, with its name)
+  await rpc("emu_pr_rename", [cur], { str: nm });
+  await refreshList(); await showPreset();
+  say(nm ? "Renamed: " + nm : "The built-in name back");
+};
+$("name").onkeydown = e => { if (e.key === "Enter") $("rename").click(); };
+$("reload").onclick = () => choose(cur);
+$("factory").onclick = async () => {
+  if (!confirm("Forget the saved " + presets[cur][0] + "? The built-in " + presets[cur][2] + " comes back.")) return;
+  await rpc("emu_pr_del", [cur]); await rpc("emu_pr_load", [cur]);
+  await refreshList(); await showPreset(); say("The built-in preset is back.");
+};
+$("wipe").onclick = async () => {
+  if (!confirm("Forget ALL saved presets (in this browser)? The 512 built-in ones come back.")) return;
+  for (let i = 0; i < presets.length; i++) if (presets[i][1]) await rpc("emu_pr_del", [i]);
+  await rpc("emu_pr_load", [cur]); await refreshList(); await showPreset(); say("All saved presets gone.");
+};
+
+/* ---- export / import: the saved presets as a file (names and every value by name) ---- */
+$("export").onclick = async () => {
+  const keep = cur, out = [];
+  for (let i = 0; i < presets.length; i++) {
+    if (!presets[i][1]) continue;
+    await rpc("emu_pr_load", [i]);
+    const r = await rpc("pars"), values = {};
+    for (const p of r.pars) values[p.g + "/" + p.n] = p.v;
+    out.push({ bank: Math.floor(i / 128) + 1, number: i % 128 + 1, name: presets[i][0], builtin: presets[i][2], values });
+  }
+  await rpc("emu_pr_load", [keep]);
+  if (!out.length) { say("No saved presets yet: SAVE one first."); return; }
+  const blob = new Blob([JSON.stringify({ format: "hawk-chua-presets", version: 1, presets: out }, null, 1)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "hawk-chua-presets.json"; a.click();
+  say(out.length + " saved presets exported.");
+};
+$("import").onclick = () => $("file").click();
+$("file").onchange = async () => {
+  const f = $("file").files[0]; $("file").value = "";
+  if (!f) return;
+  let j; try { j = JSON.parse(await f.text()); } catch (_) { say("Not a presets file."); return; }
+  if (j.format !== "hawk-chua-presets" || !Array.isArray(j.presets)) { say("Not a HAWK CHUA presets file."); return; }
+  const idx = {}; (await rpc("pars")).pars.forEach((p, i) => { idx[p.g + "/" + p.n] = i; });
+  let n = 0;
+  for (const p of j.presets) {
+    const i = (Number(p.bank) - 1) * 128 + Number(p.number) - 1;
+    if (!(i >= 0 && i < presets.length)) continue;
+    await rpc("emu_pr_load", [i]);
+    for (const [k, v] of Object.entries(p.values || {})) if (k in idx) await rpc("emu_par_set", [idx[k], Number(v)]);
+    await rpc("emu_pr_save", [i]);
+    if (p.name) await rpc("emu_pr_rename", [i], { str: String(p.name).toUpperCase().slice(0, 16) });
+    n++;
+  }
+  await rpc("emu_pr_load", [cur]); await refreshList(); await showPreset();
+  say(n + " presets imported.");
+};
+
+async function boot() { await refreshList(); bank = Math.floor(cur / 128); showList(); await showPreset(); }
+</script>
+</body>
+</html>

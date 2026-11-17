@@ -119,7 +119,7 @@ static void rm_presets(void)                     /* PRESETS: each preset as a li
                 a[k] = b[k];
         }
         str_cpy(t, "    {\"", sizeof t);
-        ui_cat(t, sizeof t, p->name);
+        ui_cat(t, sizeof t, upre_has(i) ? preset_name(i) : p->name);
         ui_cat(t, sizeof t, "\"");
         for (k = 0; k < PR_N; k++) {
             fmt_int(v, a[k]);

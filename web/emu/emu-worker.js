@@ -92,4 +92,29 @@ onmessage = async m => {
   else if (d.t === "turn") e.emu_turn(d.r, d.s);
   else if (d.t === "midi") { if ((d.st & 0xF0) !== 0xB0 || !knobCC(d.d1, d.d2)) e.emu_midi(d.st, d.d1, d.d2); }
   else if (d.t === "master") e.emu_master(d.q12);
+  else if (d.t === "call") postMessage({ t: "ret", id: d.id, v: call(d) });   // the preset editor (web/presets.html)
 };
+
+// the preset editor's calls: a function of emu.wasm by name; a string in (emu_str), a string out (a pointer read)
+function cstr(p) { const b = new Uint8Array(e.memory.buffer, p, 64); let s = ""; for (const c of b) { if (!c) break; s += String.fromCharCode(c); } return s; }
+function call(d) {
+  if (d.fn === "list") {                       // every preset: its name, saved or not
+    const n = e.emu_pr_count(), out = [];
+    for (let i = 0; i < n; i++) out.push([cstr(e.emu_pr_name(i)), e.emu_pr_user(i), cstr(e.emu_pr_factory(i))]);
+    return { list: out, cur: e.emu_pr_cur(), edited: e.emu_pr_edited() };
+  }
+  if (d.fn === "pars") {                       // the sound's values, grouped, with the firmware's text
+    const n = e.emu_par_count(), out = [];
+    for (let i = 0; i < n; i++)
+      out.push({ g: cstr(e.emu_par_group(i)), n: cstr(e.emu_par_name(i)), lo: e.emu_par_lo(i), hi: e.emu_par_hi(i),
+                 v: e.emu_par_get(i), txt: cstr(e.emu_par_text(i)) });
+    return { pars: out, cur: e.emu_pr_cur(), edited: e.emu_pr_edited() };
+  }
+  if (d.str !== undefined) {
+    const b = new Uint8Array(e.memory.buffer, e.emu_str(), 64), s = String(d.str).slice(0, 63);
+    for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 127;
+    b[s.length] = 0;
+  }
+  const r = e[d.fn](...(d.args || []));
+  return d.ret === "str" ? cstr(r) : r;
+}

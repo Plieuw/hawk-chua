@@ -206,3 +206,123 @@ EXPORT(emu_midi) void emu_midi(uint32_t st, uint32_t d1, uint32_t d2)   /* a MID
 EXPORT(emu_now_ms) uint32_t emu_now_ms(void) { return fm1_ms; }
 EXPORT(emu_master) void emu_master(uint32_t q12) { sys.master_q12 = (uint16_t)(q12 > 4095u ? 4095u : q12); }
 EXPORT(emu_led_id) uint32_t emu_led_id(uint32_t label) { return label < NB ? panel.btn[label] : 255u; }
+
+/* ------------------------------------------------- the preset editor (web/presets.html) --- */
+/* The presets as the firmware keeps them: names, the saved ones, load, save, rename, delete; the sound's values,
+ * grouped as the editor shows them, with the firmware's own text for each (its names, its times). */
+static char ed_str[64];                          /* strings both ways */
+EXPORT(emu_str) char *emu_str(void) { return ed_str; }
+EXPORT(emu_pr_count) uint32_t emu_pr_count(void) { return NPRESETS; }
+EXPORT(emu_pr_name) char *emu_pr_name(uint32_t i) { str_cpy(ed_str, preset_name(i), sizeof ed_str); return ed_str; }
+EXPORT(emu_pr_factory) char *emu_pr_factory(uint32_t i) { str_cpy(ed_str, PRESETS[i % NPRESETS].name, sizeof ed_str); return ed_str; }
+EXPORT(emu_pr_user) uint32_t emu_pr_user(uint32_t i) { return (uint32_t)upre_has(i); }
+EXPORT(emu_pr_cur) uint32_t emu_pr_cur(void) { return sys.preset % NPRESETS; }
+EXPORT(emu_pr_edited) uint32_t emu_pr_edited(void) { return (uint32_t)preset_edited(); }
+EXPORT(emu_pr_load) void emu_pr_load(uint32_t i) { preset_load(i % NPRESETS); ui_force = 1; }
+EXPORT(emu_pr_save) int32_t emu_pr_save(uint32_t i)      /* the sound now over preset i (it is then the one playing) */
+{
+    int e = upre_save(i % NPRESETS);
+    sys.preset = (uint16_t)(i % NPRESETS);
+    ui_force = 1;
+    return e;
+}
+EXPORT(emu_pr_rename) int32_t emu_pr_rename(uint32_t i) { ui_force = 1; return upre_name(i % NPRESETS, ed_str); }
+EXPORT(emu_pr_del) int32_t emu_pr_del(uint32_t i) { ui_force = 1; return upre_del(i % NPRESETS); }
+
+enum { EK_NUM, EK_LIST, EK_TIME_A, EK_TIME_D, EK_TIME_R, EK_SIGNED, EK_OCT, EK_HEIGHT };
+typedef struct { const char *group, *name; volatile uint8_t *p; int16_t lo, hi; uint8_t kind; const char *const *list; } ed_par_t;
+static const ed_par_t ED_PAR[] = {
+    {"SOUND", "OSCILLATOR", &sys.osc, 0, NP_COUNT, EK_LIST, 0},
+    {"SOUND", "CHAOS", &sys.chaos, 0, 127, EK_NUM, 0},
+    {"SOUND", "SHAPE", &sys.shape, 0, 127, EK_NUM, 0},
+    {"SOUND", "OUTPUT", &sys.output, 0, 127, EK_NUM, 0},
+    {"SOUND", "NOISE X", &sys.np_x, 0, 127, EK_NUM, 0},
+    {"SOUND", "NOISE Y", &sys.np_y, 0, 127, EK_NUM, 0},
+    {"SOUND", "NOISE LEVEL", &sys.np_level, 0, 127, EK_NUM, 0},
+    {"SOUND", "OCTAVE", (volatile uint8_t *)&sys.transpose, -3, 3, EK_OCT, 0},
+    {"GATE", "ATTACK", &sys.attack, 0, 127, EK_TIME_A, 0},
+    {"GATE", "DECAY", &sys.decay, 0, 127, EK_TIME_D, 0},
+    {"GATE", "SUSTAIN", &sys.sustain, 0, 127, EK_NUM, 0},
+    {"GATE", "RELEASE", &sys.release, 0, 127, EK_TIME_R, 0},
+    {"GATE", "RING", &sys.ring, 0, 127, EK_NUM, 0},
+    {"FX", "MODEL", &sys.fx_model, 0, RZ_COUNT - 1, EK_LIST, RZ_NAME},
+    {"FX", "STRUCTURE", &sys.fx_struct, 0, 127, EK_NUM, 0},
+    {"FX", "BRIGHTNESS", &sys.fx_bright, 0, 127, EK_NUM, 0},
+    {"FX", "DAMPING", &sys.fx_damp, 0, 127, EK_NUM, 0},
+    {"FX", "POSITION", &sys.fx_pos, 0, 127, EK_NUM, 0},
+    {"FX", "SCREAM", &sys.scream, 0, 127, EK_NUM, 0},
+    {"FX", "MIX", &sys.fx_mix, 0, 127, EK_NUM, 0},
+    {"SPACE", "SPACE", &sys.sh_space, 0, SS_COUNT - 1, EK_LIST, SH_SPACE_NAME},
+    {"SPACE", "SIZE", &sys.sh_size, 0, 127, EK_NUM, 0},
+    {"SPACE", "DECAY", &sys.sh_decay, 0, 127, EK_NUM, 0},
+    {"SPACE", "SHIMMER", &sys.sh_shimmer, 0, 127, EK_NUM, 0},
+    {"SPACE", "INTERVAL", &sys.sh_interval, 0, SI_COUNT - 1, EK_LIST, SH_INTERVAL_NAME},
+    {"SPACE", "TONE", &sys.sh_tone, 0, 127, EK_NUM, 0},
+    {"SPACE", "MIX", &sys.sh_mix, 0, 127, EK_NUM, 0},
+    {"MOD ENV", "LENGTH", &sys.menv_len, 0, 127, EK_NUM, 0},
+    {"MOD ENV", "SKEW", &sys.menv_skew, 0, 127, EK_NUM, 0},
+    {"MOD ENV", "HEIGHT", &sys.menv_height, -127, 127, EK_HEIGHT, 0},
+    {"MOD ENV", "BEND", &sys.menv_bend, 0, 127, EK_NUM, 0},
+    {"MOD FX", "MODE", &sys.mfx_mode, 1, MF_COUNT - 1, EK_LIST, MF_NAME},
+    {"MOD FX", "SYNC / RATIO", &sys.mfx_rate, 0, 127, EK_NUM, 0},
+    {"MOD FX", "SLEW", &sys.mfx_slew, 0, 127, EK_NUM, 0},
+    {"MOD FX", "RECTIFY", &sys.mfx_rect, 0, 127, EK_NUM, 0},
+    {"MOD FX", "MIX", &sys.mfx_mix, 0, 127, EK_NUM, 0},
+    {"PLAY", "WHEEL TARGET", &sys.mw_target, 0, FEG_NT - 1, EK_LIST, FEG_T_NAME},
+    {"PLAY", "WHEEL DEPTH", &sys.mw_depth, 0, 127, EK_NUM, 0},
+    {"PLAY", "VELOCITY", &sys.vel_to, 0, VEL_TO_N - 1, EK_LIST, VEL_TO_NAME},
+    {"PLAY", "VEL AMOUNT", &sys.vel_amt, 0, 127, EK_NUM, 0},
+};
+#define ED_N (sizeof ED_PAR / sizeof ED_PAR[0])
+EXPORT(emu_par_count) uint32_t emu_par_count(void) { return ED_N; }
+EXPORT(emu_par_group) char *emu_par_group(uint32_t i) { str_cpy(ed_str, ED_PAR[i % ED_N].group, sizeof ed_str); return ed_str; }
+EXPORT(emu_par_name) char *emu_par_name(uint32_t i) { str_cpy(ed_str, ED_PAR[i % ED_N].name, sizeof ed_str); return ed_str; }
+EXPORT(emu_par_lo) int32_t emu_par_lo(uint32_t i) { return ED_PAR[i % ED_N].lo; }
+EXPORT(emu_par_hi) int32_t emu_par_hi(uint32_t i) { return ED_PAR[i % ED_N].hi; }
+EXPORT(emu_par_get) int32_t emu_par_get(uint32_t i)
+{
+    const ed_par_t *P = &ED_PAR[i % ED_N];
+    uint32_t v = *P->p;
+    if (P->kind == EK_OCT)
+        return (int8_t)v;
+    if (P->kind == EK_HEIGHT)
+        return (int32_t)(v & 127u) * (v & 0x80u ? -1 : 1);
+    return P->kind == EK_LIST ? (int32_t)v : (int32_t)(v & 127u);
+}
+EXPORT(emu_par_set) void emu_par_set(uint32_t i, int32_t v)
+{
+    const ed_par_t *P = &ED_PAR[i % ED_N];
+    v = clamp(v, P->lo, P->hi);
+    if (P->kind == EK_HEIGHT)
+        *P->p = (uint8_t)(v < 0 ? 0x80u | (uint32_t)-v : (uint32_t)v);
+    else
+        *P->p = (uint8_t)v;
+    ui_force = 1;
+}
+EXPORT(emu_par_text) char *emu_par_text(uint32_t i)   /* the value as the firmware shows it */
+{
+    const ed_par_t *P = &ED_PAR[i % ED_N];
+    int32_t v = emu_par_get(i);
+    char b[24];
+    switch (P->kind) {
+    case EK_LIST:
+        if (P->p == &sys.osc)
+            str_cpy(ed_str, v ? NP_NAME[(v - 1) % NP_COUNT] : "CHUA CIRCUIT", sizeof ed_str);
+        else
+            str_cpy(ed_str, P->list[v], sizeof ed_str);
+        break;
+    case EK_TIME_A: env_time(b, sizeof b, (uint32_t)v); str_cpy(ed_str, b, sizeof ed_str); break;
+    case EK_TIME_D: env_time_f(b, sizeof b, DEC_FRAMES[v & 127]); str_cpy(ed_str, b, sizeof ed_str); break;
+    case EK_TIME_R: env_time_f(b, sizeof b, REL_FRAMES[v & 127]); str_cpy(ed_str, b, sizeof ed_str); break;
+    case EK_OCT:
+    case EK_HEIGHT:
+        str_cpy(ed_str, v > 0 ? "+" : "", sizeof ed_str);
+        fmt_int(b, v);
+        ui_cat(ed_str, sizeof ed_str, b);
+        break;
+    default:
+        fmt_int(ed_str, v);
+        break;
+    }
+    return ed_str;
+}

@@ -564,6 +564,12 @@ het najaar van 2026, logo op de voorkant gedrukt) met een UC25HQ80; op beide wor
   touch of het toetsenbord (A W S E D …, Z/X = OCT), een MIDI-keyboard via Web MIDI (CC 20–26 = de draaiknoppen,
   CC 27 = volume), SAVE bewaart in de browser. Opzet naar Felucca's (inmiddels verwijderde) browserversie: elke
   knop/toets-wissel blijft 24 ms staan; hier draait de firmware in een Worker die de audio vooruit rendert.
+- **Preset-editor:** https://plieuw.github.io/hawk-chua/webapp/try/presets.html — alle 512 presets per bank of
+  gezocht, aanklikken = laden en spelen; elke waarde per tabblad (SOUND, GATE, FX, SPACE, MOD ENV, MOD FX, PLAY) met
+  de tekst zoals de firmware hem toont; opslaan in hetzelfde of een ander slot, een eigen naam (16 tekens, ook op het
+  scherm), terug naar de ingebouwde, alles exporteren en importeren als één bestand. Gedeeld met de browserversie.
+- **VIBE FM:** `vibe/` maakt van HAWK CHUA één `.wasm` voor de Playground op play.thefirmwarehub.com, VIBE FM VST en
+  de VIBE FM (`vibe/README.md`).
 - Het `.fwsc`-bestand zelf staat bij elke run onder *Actions → firmware → Artifacts*.
 - Een tag `v1.0` (één cijfer per deel) maakt een release-build en een GitHub Release met het bestand.
 - Eenmalig instellen: *Settings → Pages → Build and deployment → Source: GitHub Actions*.

@@ -966,10 +966,12 @@ static uint8_t fx_pre = 0xFF, sh_pre = 0xFF;     /* the last chosen of each (not
  * objects of 64: a bit each saying which are overwritten, then the 30 values of each); PRESETS and program change
  * load it instead of the built-in one; the remote's PRESETS sends all 128 as C (remote.c), for ui.c's table */
 #define PR_N 30                                  /* the values: preset_t's order, then SH SPACE, NOISE LEVEL, BEND */
-#define PR_ROW (PR_N + 4u)                       /* + the MOD WHEEL's target and DEPTH, VELOCITY's choice and AMOUNT
-                                                  * (0xFF: saved before they were: left as they are) */
+#define PR_NAME 16u                              /* a saved preset's own name (0 first: the built-in's) */
+#define PR_ROW (PR_N + 4u + PR_NAME)             /* + the MOD WHEEL's target and DEPTH, VELOCITY's choice and AMOUNT
+                                                  * (0xFF: saved before they were: left as they are), + its name */
 typedef struct { uint8_t has[8]; uint8_t v[64][PR_ROW]; } upre_t;
 #define UPRE_OLD (8u + 64u * PR_N)               /* (an object saved before: 30 values a preset) */
+#define UPRE_OLD2 (8u + 64u * (PR_N + 4u))       /* (... before the names: 34) */
 /* value 27: the SPACE (bits 0, 1 and 5, 6) with the sound's octave (bits 2 .. 4, two's complement) */
 #define PR_SPACE(b) ((((uint32_t)(b) & 3u) | ((uint32_t)(b) >> 3 & 28u)) % SS_COUNT)   /* (bits 0-1, 5-7) */
 #define PR_PACK27(sp, oct) ((uint8_t)(((uint32_t)(sp) & 3u) | ((uint32_t)(oct) & 7u) << 2 | ((uint32_t)(sp) & 28u) << 3))
@@ -1026,14 +1028,17 @@ static upre_t *upre_obj(uint32_t h)              /* object h (64 presets) in upr
 {
     if (upre_cur != h) {
         int n = st_load(OBJ_USER0 + h, &upre_buf, sizeof upre_buf);
-        if (n == (int)UPRE_OLD) {                /* (the old rows spread out, from the last; their wheel unknown) */
+        if (n == (int)UPRE_OLD || n == (int)UPRE_OLD2) {   /* (the old rows spread out, from the last; a 30's wheel
+                                                  * unknown, no names) */
             uint8_t *b = (uint8_t *)&upre_buf;
-            uint32_t j = 64u, k;
+            uint32_t j = 64u, k, w = n == (int)UPRE_OLD ? PR_N : PR_N + 4u;
             while (j--) {
-                for (k = PR_N; k--;)
-                    b[8u + j * PR_ROW + k] = b[8u + j * PR_N + k];
-                for (k = PR_N; k < PR_ROW; k++)
+                for (k = w; k--;)
+                    b[8u + j * PR_ROW + k] = b[8u + j * w + k];
+                for (k = w; k < PR_N + 4u; k++)
                     b[8u + j * PR_ROW + k] = 0xFF;
+                for (k = PR_N + 4u; k < PR_ROW; k++)
+                    b[8u + j * PR_ROW + k] = 0;
             }
         } else if (n != (int)sizeof upre_buf)
             memset(&upre_buf, 0, sizeof upre_buf);
@@ -1046,6 +1051,32 @@ static const uint8_t *upre_v(uint32_t i)        /* (valid until the next upre_ c
 {
     i %= NPRESETS;
     return upre_obj(i >> 6)->v[i & 63u];
+}
+static char upre_nm[PR_NAME + 1u];
+static upre_t upre_nbuf;                         /* (the names' own copy of an object: the screen reads it, never the
+                                                  * one loading and saving use) */
+static uint8_t upre_ncur = 0xFF;
+static const char *preset_name(uint32_t i)       /* a preset's name: a saved one's own, else the built-in's */
+{
+    i %= NPRESETS;
+    if (upre_has(i)) {
+        const uint8_t *v;
+        if (upre_ncur != (i >> 6)) {
+            if (st_load(OBJ_USER0 + (i >> 6), &upre_nbuf, sizeof upre_nbuf) != (int)sizeof upre_nbuf)
+                return PRESETS[i].name;          /* (an object of before: no names) */
+            upre_ncur = (uint8_t)(i >> 6);
+        }
+        v = upre_nbuf.v[i & 63u] + PR_N + 4u;
+        uint32_t k;
+        if (v[0] && v[0] != 0xFFu) {
+            for (k = 0; k < PR_NAME && v[k] >= 32u && v[k] < 127u; k++)
+                upre_nm[k] = (char)v[k];
+            upre_nm[k] = 0;
+            if (k)
+                return upre_nm;
+        }
+    }
+    return PRESETS[i].name;
 }
 static void upre_boot(void)                      /* (settings_boot: the flash there) */
 {
@@ -1080,6 +1111,36 @@ static int upre_save(uint32_t i)                 /* the sound now over preset i:
     u->v[j][PR_N + 3u] = (uint8_t)(sys.vel_amt & 127u);
     u->has[j >> 3] |= (uint8_t)(1u << (j & 7u));
     upre_bits[(i % NPRESETS) >> 3] = u->has[j >> 3];
+    upre_ncur = 0xFF;
+    return st_save(OBJ_USER0 + h, u, sizeof *u);
+}
+static int upre_name(uint32_t i, const char *nm)   /* a saved preset's own name (the editor; "" the built-in's) */
+{
+    uint32_t h = (i % NPRESETS) >> 6, j = i & 63u, k;
+    upre_t *u = upre_obj(h);
+    if (!upre_has(i))
+        return 1;
+    for (k = 0; k < PR_NAME; k++) {
+        char c = nm[k];
+        if (c >= 'a' && c <= 'z')
+            c = (char)(c - 32);                  /* (the screen's font: capitals) */
+        u->v[j][PR_N + 4u + k] = (uint8_t)(c >= 32 && c < 127 ? c : 0);
+        if (!nm[k])
+            break;
+    }
+    for (; k < PR_NAME; k++)
+        u->v[j][PR_N + 4u + k] = 0;
+    upre_ncur = 0xFF;
+    return st_save(OBJ_USER0 + h, u, sizeof *u);
+}
+static int upre_del(uint32_t i)                  /* a saved preset gone: the built-in back there (the editor) */
+{
+    uint32_t h = (i % NPRESETS) >> 6, j = i & 63u;
+    upre_t *u = upre_obj(h);
+    u->has[j >> 3] &= (uint8_t)~(1u << (j & 7u));
+    memset(u->v[j], 0, PR_ROW);
+    upre_bits[(i % NPRESETS) >> 3] = u->has[j >> 3];
+    upre_ncur = 0xFF;
     return st_save(OBJ_USER0 + h, u, sizeof *u);
 }
 static int upre_clear(void)                      /* the built-in presets back (the remote's RESET PRESETS) */
@@ -1091,6 +1152,7 @@ static int upre_clear(void)                      /* the built-in presets back (t
     for (h = 0; h < NPRESETS / 64u; h++)
         e |= st_save(OBJ_USER0 + h, &upre_buf, sizeof upre_buf);
     upre_cur = 0xFF;
+    upre_ncur = 0xFF;
     return e;
 }
 
@@ -2725,7 +2787,7 @@ static void draw_bank(void)
         ui_cat(a, sizeof a, " ");
         ui_cat(a, sizeof a, BANK_NAME[k]);
         cv_text(12, y, &AF_M, a, c);
-        cv_text(100, y + 3, &AF_S, PRESETS[(k * 128u + pg) % NPRESETS].name, k == cur ? T_TEXT : T_DIM);
+        cv_text(100, y + 3, &AF_S, preset_name((k * 128u + pg)), k == cur ? T_TEXT : T_DIM);
     }
     cv_blit(0, PLOT_Y);
 }
@@ -2747,7 +2809,7 @@ static void draw_multi(void)
         } else
             ui_cat(a, sizeof a, "OMNI");
         cv_text(8, y, &AF_S, a, T_MID);
-        cv_text(96, y, &AF_S, PRESETS[part_preset(p) % NPRESETS].name, c);
+        cv_text(96, y, &AF_S, preset_name(part_preset(p)), c);
     }
     cv_text(8, 124, &AF_S, sys.multi ? "2 VOICES EACH, ONE SHIMMER" : "ALL 4 VOICES: A", T_DIM);
     cv_blit(0, PLOT_Y);
@@ -3085,7 +3147,7 @@ static void ui_draw(void)
         lcd_fill(0, 0, 240, 240, T_BG);
     if (sys.page == 0u || sys.page == 14u || sys.page > 20u) {   /* HOME (and its BANK): the preset; elsewhere the page */
         str_cpy(a, sys.multi ? (part_edit ? "2 " : "1 ") : "", sizeof a);   /* (MULTI: the part the knobs edit) */
-        ui_cat(a, sizeof a, PRESETS[sys.preset % NPRESETS].name);
+        ui_cat(a, sizeof a, preset_name(sys.preset));
         if (preset_edited())
             ui_cat(a, sizeof a, " *");
         if (part_mono[sys.multi ? part_edit : 0u])
@@ -4226,14 +4288,14 @@ static void ui_input(void)
         keys_prog_req_b = 0;
         part_b_load(pg);
         str_cpy(t, "B: ", sizeof t);
-        ui_cat(t, sizeof t, PRESETS[part_preset(1) % NPRESETS].name);
+        ui_cat(t, sizeof t, preset_name(part_preset(1)));
         ui_say(t);
     }
     if (keys_prog_req) {                                /* MIDI program change: that preset */
         uint32_t pg = keys_prog_req - 1u;               /* (bank x 128 + program) */
         keys_prog_req = 0;
         preset_load(pg);
-        str_cpy(t, PRESETS[sys.preset % NPRESETS].name, sizeof t);
+        str_cpy(t, preset_name(sys.preset), sizeof t);
         ui_say(t);
     }
     {   /* TAPE: OCT- and OCT+ both down (in any order, however close) = BOUNCE, once a hold; the octave the first of
@@ -4650,7 +4712,7 @@ static void ui_input(void)
             fmt_int(v, (int32_t)bk + 1);
             ui_cat(t, sizeof t, v);
             ui_cat(t, sizeof t, ": ");
-            ui_cat(t, sizeof t, PRESETS[sys.preset % NPRESETS].name);
+            ui_cat(t, sizeof t, preset_name(sys.preset));
             ui_say(t);
         }
     }
@@ -4851,7 +4913,7 @@ static void ui_input(void)
         fmt_int(v, (int32_t)bk + 1);
         ui_cat(t, sizeof t, v);
         ui_cat(t, sizeof t, ": ");
-        ui_cat(t, sizeof t, PRESETS[sys.preset % NPRESETS].name);
+        ui_cat(t, sizeof t, preset_name(sys.preset));
         ui_say(t);
     } else if (s)                                       /* (through the bank playing) */
         preset_load((sys.preset & ~127u) + (uint32_t)(((int32_t)(sys.preset & 127u) + 128 * 8 + s) % 128));

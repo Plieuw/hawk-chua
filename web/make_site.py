@@ -76,7 +76,7 @@ def main(pkg, version, out):
     if wasm.exists():
         emu = out / "webapp" / "try"
         emu.mkdir(parents=True, exist_ok=True)
-        for f in ("index.html", "emu-worker.js", "emu-worklet.js"):
+        for f in ("index.html", "presets.html", "emu-worker.js", "emu-worklet.js"):
             shutil.copy(HERE / "emu" / f, emu / f)
         shutil.copy(wasm, emu / "emu.wasm")
     lic = HERE.parent / "LICENSES"                  # the package holds JieLi SDK files (Apache-2.0): their
