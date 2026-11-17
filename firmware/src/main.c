@@ -155,7 +155,9 @@ static void enter_uboot(const char *why)        /* intentional reset into update
     fm1_audio_stop();
     lcd_wake_now();
     lcd_fill(0, 0, 240, 240, T_BG);
-    draw_text_box(0, 110, 240, &AF_M, why, T_THEME, 1);
+    draw_text_box(0, 72, 240, &AF_M, "HAWK CHUA FIRMWARE", T_TEXT, 1);
+    draw_text_box(0, 104, 240, &AF_S, why, T_MID, 1);
+    draw_text_box(0, 140, 240, &AF_M, "KEEP USB CONNECTED", T_THEME, 1);
     fm1_delay_ms(20);
     usb_detach();
     fm1_delay_ms(30);

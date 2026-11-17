@@ -26,9 +26,11 @@ static void ota_show(uint32_t step, int32_t code)
     static const char *const STEP[] = {"", "PACKAGE", "CHECK HEAD", "LOADER", "CONFIRM", "RESTART"};
     char b[24];
     lcd_fill(0, 0, 240, 240, T_BG);
-    draw_text_box(0, 92, 240, &AF_M, "UPDATE", T_TEXT, 1);
+    draw_text_box(0, 72, 240, &AF_M, "HAWK CHUA FIRMWARE", T_TEXT, 1);
+    draw_text_box(0, 96, 240, &AF_S, "UPDATE", T_MID, 1);
     if (step < 9u) {
         draw_text_box(0, 124, 240, &AF_S, STEP[step < 6u ? step : 0], T_THEME, 1);
+        draw_text_box(0, 160, 240, &AF_M, "KEEP USB CONNECTED", T_THEME, 1);
         return;
     }
     if (code == 1)
