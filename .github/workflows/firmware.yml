@@ -41,7 +41,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends \
-            git ca-certificates curl xz-utils python3 python3-pil python3-fonttools gcc libc6-dev clang lld >/dev/null
+            git ca-certificates curl xz-utils python3 python3-pil python3-fonttools python3-pip gcc libc6-dev clang lld >/dev/null
 
       - uses: actions/checkout@v4
 
@@ -114,6 +114,18 @@ jobs:
       - name: Browser version (web/emu, the firmware as WebAssembly)
         run: FELUCCA_VERSION="${{ steps.ver.outputs.label }}" sh web/emu/build.sh
 
+      - name: "VIBE FM version (vibe/, for the Playground at play.thefirmwarehub.com, VIBE FM VST, the VIBE FM)"
+        run: |
+          git clone -q https://github.com/Vibe-FM-SDK/vibe-fm-sdk /opt/vibe-fm-sdk
+          git -C /opt/vibe-fm-sdk checkout -q 2ac2340
+          pip3 install -q --break-system-packages ziglang==0.13.0
+          FELUCCA_VERSION="${{ steps.ver.outputs.label }}" VIBE_SDK=/opt/vibe-fm-sdk ZIG="python3 -m ziglang" sh vibe/build.sh
+          if [ -n "${{ steps.ver.outputs.release }}" ]; then
+            cp build/vibe/hawkchua.zip "build/release-${{ steps.ver.outputs.release }}/hawk-chua-${{ steps.ver.outputs.release }}-vibe.zip"
+            cp build/vibe/hawkchua.wasm "build/release-${{ steps.ver.outputs.release }}/hawk-chua-${{ steps.ver.outputs.release }}-vibe.wasm"
+            (cd "build/release-${{ steps.ver.outputs.release }}" && sha256sum hawk-chua-*-vibe.* >> SHA256SUMS)
+          fi
+
       - name: Installer site
         env:
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
@@ -137,6 +149,14 @@ jobs:
         with:
           name: hawk-chua-${{ steps.ver.outputs.label }}
           path: build/hawk-chua.fwsc
+
+      - name: VIBE FM file
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawk-chua-vibe-${{ steps.ver.outputs.label }}
+          path: |
+            build/vibe/hawkchua.zip
+            build/vibe/hawkchua.wasm
 
       - name: Pages artifact
         if: github.event_name != 'pull_request'
